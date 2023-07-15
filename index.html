@@ -540,7 +540,8 @@
 			constructor( x=0, y=0 ) {
 				this.species = 'prototype';
 				// physical stuff
-				this.energy = 0;
+				this.max_energy = 100;
+				this.energy = this.max_energy;
 				this.x = x;
 				this.y = y;
 				// this.momentum_x = 0; // use momentum with the momentum_based code in Update()
@@ -637,15 +638,22 @@
 				// UI: toggle collision detection geometry UI
 				this.sensor_group.visible = world.ui.show_collision_detection;
 				
-				// movement / motor control 				
+				// energy generation
+				// TODO: metabolize food
 				this.energy += delta + Math.random() * delta;
-				this.energy = Math.min( this.energy, this.max_energy || 1.0 );
-				if ( this.energy >= this.energy_cost ) {
-					this.energy -= this.energy_cost;
-					const outputs = this.brain.activate( this.NeuroInputs() );
-					// activate all motors at once, even if it seems contradictory
-					for ( let i=0; i < outputs.length; i++ ) {
-						this.ActivateMotor( i, clamp(outputs[i],0,1) );
+				this.energy = Math.min( this.energy, this.max_energy || 100 );
+				
+				// movement / motor control 				
+				const brain_outputs = this.brain.activate( this.NeuroInputs() );
+				// estimate cost of moving to see if we can afford to move at all
+				let cost = 0
+				for ( let i=0; i < brain_outputs.length; i++ ) {
+					cost += this.ActivateMotor( i, clamp(brain_outputs[i],0,1), delta, true ); // estimate costs
+				}
+				// activate all motors at once, even if it seems contradictory
+				if ( this.energy >= cost ) {
+					for ( let i=0; i < brain_outputs.length; i++ ) {
+						this.ActivateMotor( i, clamp(Math.tanh(brain_outputs[i]),0,1), delta );
 					}
 				}
 				// update position with movement:
@@ -730,11 +738,29 @@
 				if ( this.angmo < -this.maxrot ) { this.angmo = -this.maxrot; }
 				if ( this.angmo > -0.05 && this.angmo < 0.05 ) { this.angmo = 0; }
 			}
-			ActivateMotor( i, amount=1 ) {
+			// use estimate=true if you want a cost value returned instead of the actual movement 
+			ActivateMotor( i, amount /* 0..1 */, delta, estimate = false ) {
 				let m = this.motors[i];
 				if ( m ) {
-					if ( m.min && amount < m.min ) { return; }
-					amount = clamp(amount,0,1);
+					// if ( m.t==0 ) { console.log(`ignore: ${m.name}, ${amount} < ${m.min_act}`); }
+					if ( m.t==0 && m.min_act && Math.abs(amount) < m.min_act ) { return 0; }
+					// if ( m.t==0 ) { console.log(`stroke: ${m.name}`); }
+					// if we decided to activate the stroke, record the power it was activated with
+					// instead of using a varying stroke each frame.
+					if ( m.t==0 ) { m.strokepow = amount; }
+					else { amount = m.strokepow; }
+					delta = Math.min( delta, m.stroketime - m.t ); // don't allow overtaxing
+					amount = clamp(amount,0,1) * delta; // power applied
+					m.t = clamp(m.t+delta, 0, m.stroketime); // increase stroke time
+					let cost = m.cost * delta; // cost of power
+					if ( estimate ) { return cost; }
+					this.energy -= cost;
+					//
+					// TODO: insert stroke power function
+					// amount = some_function(amount);
+					// For testing, assume constant power output
+					// amount = Math.sin(amount) / Math.PI;
+					amount = amount * 0.64; // magic number
 					if ( m.hasOwnProperty('linear') ) {
 						this.inertia += m.linear * amount;
 					}
@@ -745,6 +771,7 @@
 						let c = HexColorToRGBArray(this.path.stroke);
 						this.path.fill = `rgba(${c[0]},${c[1]},${c[2]},${clamp(amount,0,1)})`;
 					}
+					if ( m.t == m.stroketime ) { m.t = 0; } // reset stroke
 				}
 			}
 			Kill() {
@@ -757,6 +784,8 @@
 		class Boid extends ProtoBoid {
 			constructor( x=0, y=0 ) {
 				super(x,y);
+				this.max_energy = 100;
+				this.energy = this.max_energy;
 				this.species = 'Boid';
 				this.maxspeed = 600;
 				this.maxrot = 8;
@@ -789,10 +818,10 @@
 			}
 			MakeMotors() {
 				this.motors = [
-					{name:'Forward', linear:200, on:false, min:0.08, cost: 1 },
-					{name:'Backward', linear:-100, on:false, min:0.08, cost: 2 },
-					{name:'Rotate CW', angular:3, on:false, min:0.08, cost: 1.25 },
-					{name:'Rotate CCW', angular:-3, on:false, min:0.08, cost: 1.25 },
+					{name:'Forward', linear:3000, min_act:0.12, cost: 0.5, stroketime:1, t:0, strokefunc:null },
+					{name:'Backward', linear:-1000, min_act:0.35, cost: 2, stroketime:0.65, t:0, strokefunc:null },
+					{name:'Rotate CW', angular:30, min_act:0.55, cost: 0.25, stroketime:0.3, t:0, strokefunc:null },
+					{name:'Rotate CCW', angular:-30, min_act:0.55, cost: 0.25, stroketime:0.3, t:0, strokefunc:null },
 					// {name:'Color', color:1, min:0, cost: 0 },
 				];
 			}
