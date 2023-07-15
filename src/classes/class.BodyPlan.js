@@ -4,6 +4,8 @@ import * as utils from '../util/utils.js'
 export default class BodyPlan {
 
 	constructor( points ) {
+		this.length = 30; // default you can override
+		this.width = 20; // default you can override
 		this.points = points;
 		this.linewidth = 2;
 		this.stroke = "#AEA";
@@ -16,6 +18,8 @@ export default class BodyPlan {
 	
 	Copy() {
 		let bp = new BodyPlan( this.points.map( x => [ x[0], x[1] ] ) );
+		bp.length = this.length;
+		bp.width = this.width;		
 		bp.linewidth = this.linewidth;
 		bp.stroke = this.stroke;
 		bp.fill = this.fill;
@@ -127,7 +131,7 @@ export default class BodyPlan {
 		else {
 			this.JitterPoints();	
 		}
-		this.RescaleShape(30, 30); // TODO: EXTERNALIZE
+		this.RescaleShape(this.length, this.width); // TODO: EXTERNALIZE
 		this.UpdateGeometry();
 	}
 	
