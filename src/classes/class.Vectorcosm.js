@@ -61,6 +61,8 @@ export default class Vectorcosm {
 				time: 60,
 				min_score: 5,
 				max_mutation: 5,
+				// num_foods: 3,
+				// food_speed: 400,
 				end: {
 					// avg_score:400,
 					// avg_score_rounds: 10,
@@ -163,6 +165,9 @@ export default class Vectorcosm {
 		
 		// braingraph the leader
 		this.DrawBrainGraph();
+		
+		// track any object that has focus
+		if ( this.focus_object ) { this.TrackObject(this.focus_object); }
 										
 	}		
 
@@ -216,16 +221,22 @@ export default class Vectorcosm {
 		}
 	}
 	
-	ShiftFocusTarget() {
+	ShiftFocusTarget( up = true ) {
 		if ( !this.tank.boids.length ) { return; }
 		if ( !this.focus_object ) { 
-			TrackObject(this.tank.boids[0]);
+			this.TrackObject(this.tank.boids[0]);
 		}
 		else {
 			let i = this.tank.boids.indexOf( this.focus_object );
-			if ( ++i == this.tank.boids.length ) { i = 0; }
-			TrackObject( this.tank.boids[i] );
-			console.log('tracking ' + 1 );
+			if ( i == -1 ) { i == 0; }
+			else if ( !up || up <= 0 ) {
+				if ( --i < 0 ) { i = this.tank.boids.length-1; }
+			}
+			else {
+				if ( ++i == this.tank.boids.length ) { i = 0; }
+			}
+			console.log('tracking ' + i );
+			this.TrackObject( this.tank.boids[i] );
 		}
 	}
 

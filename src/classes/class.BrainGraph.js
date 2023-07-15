@@ -33,6 +33,11 @@ export default class BrainGraph {
 		}
 	}
 	Draw() {
+		// make sure the target hasn't changed
+		if ( this.brain != this.target.brain ) {
+			this.brain = this.target.brain;
+			this.onScreenSizeChange();
+		}
 		let x = window.vc.width / 2;
 		let y = window.vc.height / 2;
 		let r = Math.min( window.vc.width, window.vc.height ) / 2.2;

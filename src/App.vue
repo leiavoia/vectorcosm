@@ -31,6 +31,10 @@ body.addEventListener("keydown", function(event) {
 	if ( event.keyCode == 19 ) {  // `Pause` 
 		vc.TogglePause();
 	}
+	else if ( event.keyCode == 37 ) {  // `left arrow` 
+		event.preventDefault();
+		vc.ShiftFocusTarget(-1);
+	}
 	else if ( event.keyCode == 39 ) {  // `right arrow` 
 		event.preventDefault();
 		vc.ShiftFocusTarget();
