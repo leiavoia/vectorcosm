@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "chart.js": "^4.3.0",
+    "collisions": "^2.0.13",
     "delaunator": "^5.0.0",
     "neataptic": "^1.3.9",
     "two.js": "^0.8.10",

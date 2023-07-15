@@ -8,6 +8,7 @@ import Chart from 'chart.js/auto';
 // https://www.chartjs.org/docs/latest/getting-started/integration.html
 import * as utils from '../util/utils.js'
 import Tank from '../classes/class.Tank.js'
+import Rock from '../classes/class.Rock.js'
 import { AvoidEdgesSimulation, TurningSimulation, FoodChaseSimulation, BasicTravelSimulation } from '../classes/class.Simulation.js'
 import BrainGraph from '../classes/class.BrainGraph.js'
 import { BoidFactory } from '../classes/class.Boids.js'
@@ -64,6 +65,13 @@ export default class Vectorcosm {
 		this.tank = new Tank( this.width, this.height );
 		this.tank.MakeBackground();
 		
+		// add rocks
+		this.tank.obstacles.push(
+			new Rock( utils.RandomInt(0,1800), utils.RandomInt(0,1000), utils.RandomInt(150,400), utils.RandomInt(100,300) ),
+			new Rock( utils.RandomInt(0,1800), utils.RandomInt(0,1000), utils.RandomInt(150,400), utils.RandomInt(100,300) ),
+			new Rock( utils.RandomInt(0,1800), utils.RandomInt(0,1000), utils.RandomInt(150,400), utils.RandomInt(100,300) ),
+		);
+		
 		// default screen scaling based on user window
 		if ( this.two.width < 500 ) { this.SetViewScale(0.4); }
 		else if ( this.two.width < 1200 ) { this.SetViewScale(0.6); }
@@ -74,8 +82,8 @@ export default class Vectorcosm {
 		this.sim_queue = [
 			new FoodChaseSimulation(this.tank,{
 				name: 'food chaser',
-				num_boids: 70,
-				time: 60,
+				num_boids: 50,
+				time: 20,
 				min_score: 5,
 				max_mutation: 5,
 				// num_foods: 3,
@@ -164,13 +172,16 @@ export default class Vectorcosm {
 			this.simulation.Update(delta);
 		}			
 		
-		// not the best place for this, but works for now
+		// collision detection setup - not the best place for this, but works for now
 		this.tank.grid.Clear();
+		for ( let b of this.tank.boids ) { this.tank.grid.Add(b); }
+		for ( let o of this.tank.obstacles ) { this.tank.grid.Add(o); }
+		for ( let f of this.tank.foods ) { this.tank.grid.Add(f); }
 		
 		// update all boids
 		for ( let b of this.tank.boids ) {
+			b.bodyplan.geo.fill = '#AEA9';
 			b.Update(delta);
-			this.tank.grid.Add(b);
 		}
 		
 		// update food
@@ -180,11 +191,9 @@ export default class Vectorcosm {
 			if ( food.dead || !food.value ) {
 				this.tank.foods.splice(i,1);
 			}
-			else {
-				this.tank.grid.Add(food);
-			}
 		}
 		
+		// console.log(this.tank.grid);
 		// UI stats
 		// this.simulator.framenum = two.frameCount;
 		this.fps = Math.round(1/delta);

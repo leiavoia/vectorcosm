@@ -1,5 +1,7 @@
 import * as utils from '../util/utils.js'
 import { Boid } from '../classes/class.Boids.js'
+import Rock from '../classes/class.Rock.js'
+import {Circle, Polygon, Result} from 'collisions';
 
 export default class Sensor {
 	constructor( data, owner ) {
@@ -89,6 +91,31 @@ export default class Sensor {
 				this.val = n / (n+1);
 				break;
 			} 
+			case 'obstacles' : {
+				this.val = 0;
+				let sinAngle = Math.sin(this.owner.angle);
+				let cosAngle = Math.cos(this.owner.angle);				
+				// calc sensor x/y coords in world space
+				let sx = this.owner.x + ((this.x * cosAngle) - (this.y * sinAngle));
+				let sy = this.owner.y + ((this.x * sinAngle) + (this.y * cosAngle));
+				// find objects that are detected by this sensor
+				let candidates = this.owner.tank.grid.GetObjectsByBox( 
+					sx - this.r,
+					sy - this.r,
+					sx + this.r,
+					sy + this.r,
+					Rock
+				);
+				for ( let o of candidates ) {
+					const circle  = new Circle(sx, sy, this.r);
+					const polygon = new Polygon(o.x, o.y, o.collision.hull);
+					const result  = new Result();
+					if ( circle.collides(polygon, result) ) {
+						let v = result.overlap / ( this.r * 2 );
+						this.val = Math.max( v, this.val );
+					}
+				}
+			}
 		}
 		this.val = utils.clamp( this.val, 0, 1 );
 		return this.val;

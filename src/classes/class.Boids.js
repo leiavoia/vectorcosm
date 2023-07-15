@@ -1,7 +1,9 @@
 import neataptic from "neataptic";
 import BodyPlan from '../classes/class.BodyPlan.js'
 import Sensor from '../classes/class.Sensor.js'
+import Rock from '../classes/class.Rock.js'
 import * as utils from '../util/utils.js'
+import {Circle, Polygon, Result} from 'collisions';
 const { architect, Network } = neataptic;
 
 export function BoidFactory( type, x, y, tank ) {
@@ -25,6 +27,12 @@ export class ProtoBoid {
 		this.energy = this.max_energy;
 		this.x = x;
 		this.y = y;
+		// collision
+		this.collision = {
+			shape: 'circle',
+			fixed: false,
+			radius: 15 // TODO: update
+		};
 		// this.momentum_x = 0; // use momentum with the momentum_based code in Update()
 		// this.momentum_y = 0;
 		this.maxspeed = 600;
@@ -85,18 +93,6 @@ export class ProtoBoid {
 		
 		// sensor collision detection				
 		for ( let s of this.sensors ) { s.Sense(); }
-		
-		// COLLISION RESPONSE GOES HERE
-		// [!]HACK to make food work - eat the food you stupid llama
-		for ( let food of this.tank.foods ) { 
-			const dx = Math.abs(food.x - this.x);
-			const dy = Math.abs(food.y - this.y);
-			const d = Math.sqrt(dx*dx + dy*dy);
-			let r = Math.max( this.width, this.length );
-			if ( d <= r + food.r ) { 
-				food.Eat(delta*5);  
-				}
-		}
 		
 		// UI: toggle collision detection geometry UI
 		if ( this.sensor_group.visible != window.vc.show_collision_detection ) {
@@ -204,6 +200,47 @@ export class ProtoBoid {
 		if ( this.angmo > this.maxrot ) { this.angmo = this.maxrot; }
 		if ( this.angmo < -this.maxrot ) { this.angmo = -this.maxrot; }
 		if ( this.angmo > -0.05 && this.angmo < 0.05 ) { this.angmo = 0; }
+		
+		
+		// collision detection with obstacles
+		// things i might collide with:
+		let my_radius = Math.max(this.length, this.width) * 0.5;
+		let candidates = this.tank.grid.GetObjectsByBox( 
+			this.x - my_radius,
+			this.y - my_radius,
+			this.x + my_radius,
+			this.y + my_radius,
+			Rock
+		);
+		for ( let o of candidates ) {
+			// narrow phase collision detection
+			// debugger;
+			const circle  = new Circle(this.x, this.y, my_radius);
+			const polygon = new Polygon(o.x, o.y, o.collision.hull);
+			const result  = new Result();
+			let gotcha = circle.collides(polygon, result);
+			// response
+			if ( gotcha ) {
+				this.x -= result.overlap * result.overlap_x;
+				this.y -= result.overlap * result.overlap_y;
+				this.inertia *= 0.75; // what a drag
+				this.container.position.x = this.x;
+				this.container.position.y = this.y;
+				this.bodyplan.geo.fill = '#D11';
+			}
+		}
+		
+		// [!]HACK to make food work - eat the food you stupid llama
+		for ( let food of this.tank.foods ) { 
+			const dx = Math.abs(food.x - this.x);
+			const dy = Math.abs(food.y - this.y);
+			const d = Math.sqrt(dx*dx + dy*dy);
+			let r = Math.max( this.width, this.length );
+			if ( d <= r + food.r ) { 
+				food.Eat(delta*5);  
+				}
+		}
+		
 	}
 	// use estimate=true if you want a cost value returned instead of the actual movement 
 	ActivateMotor( i, amount /* -1..1 */, delta, estimate = false ) {
@@ -363,6 +400,21 @@ export class Boid extends ProtoBoid {
 		// this.sensors.push( new Sensor({detect:'world-x'}, this) );
 		// this.sensors.push( new Sensor({detect:'world-y'}, this) );
 		// this.sensors.push( new Sensor({detect:'chaos'}, this) );
+		// obstacle detection whiskers
+		this.sensors.push( new Sensor({
+			x: 50, 
+			y: -50, 
+			r: 80,
+			detect: 'obstacles',
+			name:"FL whisker",
+		}, this) );	
+		this.sensors.push( new Sensor({
+			x: 50, 
+			y: 50, 
+			r: 80,
+			detect: 'obstacles',
+			name:"FR whisker",
+		}, this) );	
 		super.MakeSensors();
 	}
 	Kill() {

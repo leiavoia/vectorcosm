@@ -14,6 +14,7 @@ export default class Tank {
 		this.boids = [];
 		this.foods = [];
 		this.threats = [];
+		this.obstacles = [];
 		this.grid = new SpaceGrid(w,h,200);
 	}
 	

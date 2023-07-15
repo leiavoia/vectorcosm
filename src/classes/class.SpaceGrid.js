@@ -16,9 +16,49 @@ export default class SpaceGrid {
 	}
 	
 	Add( o ) {
-		let cell = this.GetCellFromCoords( o.x, o.y );
-		this.cells[cell].push(o);
-		return cell;
+		// figure out a box
+		let x1, y1, x2, y2;
+		// dedicated collision geometry data
+		if ( 'collision' in o ) {
+			if ( 'aabb' in o.collision ) {
+				x1 = o.x + o.collision.aabb.x1;
+				x2 = o.x + o.collision.aabb.x2;
+				y1 = o.y + o.collision.aabb.y1;
+				y2 = o.y + o.collision.aabb.y2;
+			}
+			else if ( 'radius' in o.collision ) {
+				x1 = o.x - o.collision.radius;
+				x2 = o.x + o.collision.radius;
+				y1 = o.y - o.collision.radius;
+				y2 = o.y + o.collision.radius;
+			}
+		}
+		// sniff for height/width/length values
+		else {
+			if ( 'height' in o ) {
+				y1 = o.y - o.height*0.5;
+				y2 = o.y + o.height*0.5;
+			} 
+			if ( 'width' in o ) {
+				x1 = o.x - o.width*0.5;
+				x2 = o.x + o.width*0.5;
+			} 
+			else if ( 'length' in o ) {
+				x1 = o.x - o.length*0.5;
+				x2 = o.x + o.length*0.5;
+			}
+			// look for explicit x1/x2 data
+			if ( 'x1' in o ) { x1 = o.x + o.x1; } 
+			if ( 'y1' in o ) { y1 = o.y + o.y1; } 
+			if ( 'x2' in o ) { x2 = o.x + o.x2; } 
+			if ( 'y2' in o ) { y2 = o.y + o.y2; } 
+		}
+		// now do the actual insertion
+		let cells = this.GetCellsByBox( x1, y1, x2, y2 );
+		// console.log( x1, y1, x2, y2, cells );
+		for ( let cell of cells ) { cell.push(o); }
+		// console.log('adding objects to ' + cells.length, cells );
+		return cells;
 	}
 	
 	Remove( o ) {
@@ -42,7 +82,20 @@ export default class SpaceGrid {
 		return this.cells[cell];
 	}
 	
-	GetObjectsByBox( x1, y1, x2, y2 ) {
+	GetObjectsByBox( x1, y1, x2, y2, type ) {
+		let cells = this.GetCellsByBox( x1, y1, x2, y2 );
+		let objs = [];
+		for ( let cell of cells ) { 
+			for ( let o of cell ) {
+				if ( !type || o instanceof type ) {
+					objs.push(o);
+				}
+			}
+		}
+		return objs.unique();
+	}
+	
+	GetCellsByBox( x1, y1, x2, y2 ) {
 		let tl = this.GetCellFromCoords( x1, y1 );
 		let br = this.GetCellFromCoords( x2, y2 );
 		let row_start = Math.floor( tl / this.cells_x );
@@ -52,7 +105,10 @@ export default class SpaceGrid {
 		let objs = [];
 		for ( let j=row_start; j <= row_end; j++ ) {
 			for ( let i=offset_start; i <= offset_end; i++ ) {
-				objs.push( ... this.cells[ j * this.cells_x + i ]  ); 
+				let index = j * this.cells_x + i;
+				if ( index < this.cells.length ) { 
+					objs.push( this.cells[index] ); 
+				}
 			}
 		}
 		return objs;

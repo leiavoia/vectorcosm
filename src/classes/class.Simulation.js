@@ -304,6 +304,10 @@ export class FoodChaseSimulation extends Simulation {
 			let r = Math.max( b.width, b.length );
 			if ( d <= r + food.r ) { b.fitness_score += 5; }
 		}		
+		// punished for getting close to the edge
+		b.sensors.filter( s => s.detect=='obstacles' )
+		.forEach( s => b.fitness_score -= s.val * this.stats.delta );
+		// total score		
 		b.total_fitness_score += b.fitness_score * this.stats.delta * 18; // extra padding just makes numbers look good
 	}	
 	ScoreBoidPerRound(b) {
@@ -483,7 +487,7 @@ export class AvoidEdgesSimulation extends Simulation {
 	}	
 	ScoreBoidPerFrame(b) {
 		// punished for getting close to the edge
-		let s = b.sensors.find( s => s.detect=='edges' );
-		if ( s ) { b.total_fitness_score -= s.val; }
+		b.sensors.filter( s => s.detect=='obstacles' )
+		.forEach( s => b.total_fitness_score -= s.val );
 	}		
 }
