@@ -8,8 +8,8 @@ export default class Simulation {
 	constructor( tank, settings ) {
 		this.tank = tank || new Tank( this.tank.width, this.tank.height );
 		this.settings = {
-			max_mutation: 15, // up to
-			cullpct: 0.5, // 0..1
+			max_mutation: 5, // up to
+			cullpct: 0.4, // 0..1
 			min_score: 2,
 			// width: 0,
 			// height: 0,
@@ -25,7 +25,7 @@ export default class Simulation {
 				neataptic.methods.mutation.SUB_CONN,
 				neataptic.methods.mutation.MOD_WEIGHT,
 				neataptic.methods.mutation.MOD_BIAS,
-				// neataptic.methods.mutation.MOD_ACTIVATION,
+				neataptic.methods.mutation.MOD_ACTIVATION,
 				// neataptic.methods.mutation.ADD_GATE,
 				// neataptic.methods.mutation.SUB_GATE,
 				// neataptic.methods.mutation.ADD_SELF_CONN,
@@ -55,6 +55,8 @@ export default class Simulation {
 			framenum: 0
 		};
 		this.turbo = false;
+		this.onUpdate = null;
+		this.onComplete = null; // not implemented
 	}
 	
 	Setup() {
@@ -81,6 +83,7 @@ export default class Simulation {
 	
 	Update( delta ) {
 		this.stats.round.time += delta;
+		this.stats.framenum++;
 		
 		// keep the food coming
 		if ( this.tank.foods.length < this.settings.num_foods ) {
@@ -186,6 +189,25 @@ export default class Simulation {
 			// 	food.value = 100;
 			// }
 		}
-		// end simulation code ------/\--------------------------
+		
+		if ( typeof(this.onUpdate) === 'function' ) { this.onUpdate(this); }
+		
 	}	
+	
+	SetNumBoids(x) {
+		this.settings.num_boids = parseInt(x);
+		let diff = this.settings.num_boids - this.tank.boids.length;
+		if ( diff > 0 ) {
+			for ( let i=0; i < diff; i++ ) {
+				// const b = BoidFactory(world.use_species, Math.random()*world.width, Math.random()*world.height );
+				const b = BoidFactory(this.settings.species, this.tank.width*0.25, this.tank.height*0.25, this.tank );
+				b.angle = Math.random() * Math.PI * 2;
+				this.tank.boids.push(b);
+			}			
+		}
+		else if ( diff < 0 ) {		
+			this.tank.boids.splice(0,-diff).forEach( x => x.Kill() );
+		}
+	}
+	
 }

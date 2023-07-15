@@ -65,11 +65,14 @@ export class ProtoBoid {
 	MakeBrain( inputs, middles, outputs, connections ) {
 		// training_data.push( { input: sensors, output: [expect] } );
 		// const result = net.train(CreateTrainingData(10000), options);
+		// let conns = (middles + outputs + inputs) * (middles + outputs + inputs) * 0.1;
+		// let gates = (middles * Math.random() * 0.5 ).toFixed();
+		// let selfconnections =  (middles * Math.random() * 0.18 ).toFixed();
 		// this.brain = architect.Random(inputs, middles, outputs , {
-		// 	connections: (connections || ((middles * outputs * inputs)/2).toFixed() ),
-		// 	gates: (middles * Math.random() * 0.5 ).toFixed(),
-		// 	selfconnections: (middles * Math.random() * 0.18 ).toFixed()
-		// 	} );			
+		// 	connections: (connections || conns ),
+		// 	gates: gates,
+		// 	selfconnections: selfconnections
+		// 	}  );			
 		this.brain = architect.Perceptron(inputs, middles, outputs);			
 	}
 	NeuroInputs() { return []; }
@@ -322,7 +325,7 @@ export class Boid extends ProtoBoid {
 		this.MakeGeometry();
 		this.MakeMotors();
 		this.MakeSensors();
-		this.MakeBrain( this.sensors.length, 12, this.motors.length );
+		this.MakeBrain( this.sensors.length, 10, this.motors.length );
 	}
 	MakeGeometry() {
 		this.bodyplan = new BodyPlan([
