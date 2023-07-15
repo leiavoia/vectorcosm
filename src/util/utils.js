@@ -186,35 +186,6 @@ export function adjustColor(color, percent) {
 	return adjustedColor;
 }	
 
-// export function PickWeightedRandom(items, weights) {
-//     let i = 0;
-// 	for ( i = 1; i < weights.length; i++) {
-//         weights[i] += weights[i - 1];
-// 	}
-//     let random = Math.random() * weights[weights.length - 1];
-//     for ( i = 0; i < weights.length; i++) {
-//         if (weights[i] > random) { break; }
-// 	}
-//     return items[i];
-// }
-
-// function PickWeightedRandom(options /* { item, weight } */ ) {
-//     let i;
-
-//     let weights = [options[0].weight];
-
-//     for (i = 1; i < options.length; i++)
-//         weights[i] = options[i].weight + weights[i - 1];
-    
-//     let random = Math.random() * weights[weights.length - 1];
-    
-//     for (i = 0; i < weights.length; i++)
-//         if (weights[i] > random)
-//             break;
-    
-//     return options[i].option;
-// }
-
 export class RandomPicker {
 	// arr = weights, e.g.:
 	// [ ['foo',5], ['bar',9], ['joo',20] ]

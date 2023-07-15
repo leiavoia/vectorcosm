@@ -15,10 +15,12 @@ import SimulatorControls from './components/SimulatorControls.vue'
 // import Poison from './classes/class.Poison.js'
 import { onMounted, ref, reactive, markRaw, shallowRef, shallowReactive } from 'vue'
 
+let sim = shallowRef(null);
+
 let vc = new Vectorcosm; // the app, proper
 window.vc = vc; 
+window.vc.onSimulationChange = new_sim => { sim.value = new_sim; }
 
-let sim = shallowRef(null);
 
 // Handle key down events
 const body = document.querySelector("body");
@@ -53,6 +55,14 @@ body.addEventListener("keydown", function(event) {
 		event.preventDefault();
 		vc.LoadLeader();
 	}
+	else if ( event.which == 57 ) {  // `9` 
+		event.preventDefault();
+		vc.SavePopulation();
+	}
+	else if ( event.which == 48 ) {  // `0` 
+		event.preventDefault();
+		vc.LoadPopulation();
+	}
 	else if ( event.which == 35 ) {  // `END` 
 		event.preventDefault();
 		vc.ToggleSimulatorFF();
@@ -74,7 +84,6 @@ window.addEventListener("resize", function (event) {
 onMounted(() => {
 	vc.Init();
 	vc.Play();
-	sim.value = vc.simulation;
 }) 
 
 

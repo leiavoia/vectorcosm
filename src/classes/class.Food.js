@@ -32,7 +32,7 @@ export default class Food {
 		this.y = utils.clamp( this.y, margin, window.vc.height-margin );
 		// update the object in space
 		this.r = this.value * 0.25;
-		this.geo.radius = this.r;
+		this.geo.radius = Math.max(this.r,5);
 		this.geo.position.x = this.x;
 		this.geo.position.y = this.y;
 	}

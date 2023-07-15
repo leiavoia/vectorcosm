@@ -8,7 +8,7 @@ import Chart from 'chart.js/auto';
 // https://www.chartjs.org/docs/latest/getting-started/integration.html
 import * as utils from '../util/utils.js'
 import Tank from '../classes/class.Tank.js'
-import { FoodChaseSimulation } from '../classes/class.Simulation.js'
+import { AvoidEdgesSimulation, TurningSimulation, FoodChaseSimulation, BasicTravelSimulation } from '../classes/class.Simulation.js'
 import BrainGraph from '../classes/class.BrainGraph.js'
 import { BoidFactory } from '../classes/class.Boids.js'
 
@@ -54,15 +54,67 @@ export default class Vectorcosm {
 		// set up tank
 		this.tank = new Tank( this.width, this.height );
 		this.tank.MakeBackground();
+		this.sim_queue = [
+			new FoodChaseSimulation(this.tank,{
+				name: 'food chaser',
+				num_boids: 70,
+				time: 60,
+				min_score: 5,
+				max_mutation: 5,
+				end: {
+					// avg_score:400,
+					// avg_score_rounds: 10,
+					rounds:10000
+				},
+			}),	
+		];
 		
-		// set up the simulation
-		this.simulation = new FoodChaseSimulation(this.tank,{});
-		this.simulation.Setup();
+		
+		this.sim_queue.forEach( sim => { sim.onComplete  = _ => this.LoadNextSim() } );
+		
+		this.LoadNextSim();
+		
+		// this.LoadStartingPopulationFromFile('./local/population-dart-ironman-chaser-30-2023-06-14.json');
 		
 		// draw screen
 		this.two.update();
 	}
 
+	LoadStartingPopulationFromFile(file) {
+		return fetch( file, { headers: { 'Accept': 'application/json' } } )
+		.then(response => response.json())
+		.then(data => {
+			const n = this.simulation.settings.num_boids;
+			this.simulation.SetNumBoids(0); // clear tank of generic boids
+			for ( let j of data ) {
+				let brain = neataptic.Network.fromJSON(j);
+				const b = BoidFactory(this.simulation.settings.species, this.width*0.25, this.height*0.25, this.simulation.tank );
+				b.brain = brain;
+				b.angle = Math.random() * Math.PI * 2;		
+				this.simulation.tank.boids.push(b);	
+			}
+			this.simulation.SetNumBoids(n); // back to normal
+		});
+	}
+	
+	LoadNextSim() {
+		let boids = this.simulation ? this.simulation.tank.boids.splice(0,this.simulation.tank.boids.length) : [];
+		const was_turbo = this.simulation ? this.simulation.turbo : false; 
+		this.simulation = this.sim_queue.shift();
+		if ( this.simulation ) { 
+			console.log('next sim: ' + (this.simulation ? (this.simulation.settings.name||'unknown') : 'null') );
+			this.simulation.Sterilize(); 
+			this.simulation.tank.boids = boids;
+			this.simulation.Setup(); 
+			this.simulation.turbo = was_turbo;
+			// [!]HACK
+			if ( typeof(this.onSimulationChange) === 'function' ) {
+				this.onSimulationChange(this.simulation);
+			}
+		}
+		else { console.log("sim queue empty"); }
+	}
+	
 	Play() {
 		this.two.play();
 	}
@@ -222,6 +274,7 @@ export default class Vectorcosm {
 	}
 	
 	ToggleSimulatorFF() {
+		if ( !this.simulation ) { return false; }
 		this.simulation.turbo = !this.simulation.turbo;
 		if ( this.simulation.turbo ) { this.RunSimulator(); }
 	}
@@ -249,6 +302,33 @@ export default class Vectorcosm {
 			b.angle = Math.random() * Math.PI * 2;		
 			this.simulation.tank.boids.push(b);				
 			console.log("Spawned saved brain" );
+		}		
+	}
+	
+	SavePopulation() {
+		if ( this.simulation.tank.boids.length ) {
+			let jsons = [];
+			for ( const b of this.simulation.tank.boids ) {
+				jsons.push(b.brain.toJSON());
+			}
+			localStorage.setItem("population-brains", JSON.stringify(jsons));
+			console.log("Saved population");
+		}		
+	}
+			
+	LoadPopulation() {
+		let json = localStorage.getItem("population-brains");
+		if (json) {
+			json = JSON.parse(json);
+			for ( let j of json ) {
+				let brain = neataptic.Network.fromJSON(j);
+				// const b = BoidFactory(world.use_species, Math.random()*world.width, Math.random()*world.height );
+				const b = BoidFactory(this.simulation.settings.species, this.width*0.25, this.height*0.25, this.simulation.tank );
+				b.brain = brain;
+				b.angle = Math.random() * Math.PI * 2;		
+				this.simulation.tank.boids.push(b);	
+			}			
+			console.log("Spawned saved population" );
 		}		
 	}
 			

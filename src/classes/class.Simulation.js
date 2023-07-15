@@ -17,23 +17,27 @@ export default class Simulation {
 			num_boids: 40,
 			num_foods: 1,
 			time: 30, // in seconds
-			rounds: 5000,
+			// end: {
+			// 	rounds: 5,
+			// 	avg_score: 10,	
+			// 	avg_score_rounds: 5
+			// },
 			species: 'Boid',
 			mutation_options: [
-				[ neataptic.methods.mutation.ADD_NODE, 			5 ],
-				[ neataptic.methods.mutation.SUB_NODE, 			10 ],
-				[ neataptic.methods.mutation.ADD_CONN, 			30 ],
+				[ neataptic.methods.mutation.ADD_NODE, 			20 ],
+				[ neataptic.methods.mutation.SUB_NODE, 			21 ],
+				[ neataptic.methods.mutation.ADD_CONN, 			40 ],
 				[ neataptic.methods.mutation.SUB_CONN, 			40 ],
 				[ neataptic.methods.mutation.MOD_WEIGHT, 		1000 ],
 				[ neataptic.methods.mutation.MOD_BIAS, 			500 ],
 				[ neataptic.methods.mutation.MOD_ACTIVATION, 	20 ],
 				[ neataptic.methods.mutation.ADD_GATE, 			10 ],
-				[ neataptic.methods.mutation.SUB_GATE, 			15 ],
+				[ neataptic.methods.mutation.SUB_GATE, 			10 ],
 				[ neataptic.methods.mutation.ADD_SELF_CONN, 	10 ],
 				[ neataptic.methods.mutation.SUB_SELF_CONN, 	10 ],
 				[ neataptic.methods.mutation.ADD_BACK_CONN, 	10 ],
 				[ neataptic.methods.mutation.SUB_BACK_CONN, 	10 ],
-				[ neataptic.methods.mutation.SWAP_NODE, 		10 ],
+				[ neataptic.methods.mutation.SWAP_NODE, 		12 ],
 			],
 		};
 		if ( settings ) {
@@ -57,18 +61,23 @@ export default class Simulation {
 			delta: 0
 		};
 		this.turbo = false;
+		this.complete = false;
 		this.onUpdate = null;
 		this.onRound = null;
 		this.onComplete = null; // not implemented
 		this.mutationOptionPicker = new utils.RandomPicker( this.settings.mutation_options );
 	}
 	
-	Setup() {
+	Sterilize() {
 		// sterilize the tank
 		this.tank.boids.forEach( x => x.Kill() );
 		this.tank.boids.length = 0;
 		this.tank.foods.forEach( x => x.Kill() );
 		this.tank.foods.length = 0;
+	}
+	
+	Setup() {
+		// inherit me	
 	}
 	
 	Reset() {
@@ -79,7 +88,12 @@ export default class Simulation {
 		// inherit me
 	}
 	
+	ScoreBoidPerRound(b) {
+		// inherit me
+	}
+	
 	Update( delta ) {
+		if ( this.complete ) { return; }
 		// house keeping
 		this.stats.round.time += delta;
 		this.stats.delta = delta;
@@ -104,8 +118,16 @@ export default class Simulation {
 			avg /= this.tank.boids.length || 1;
 			this.stats.round.avg_score = avg;
 			this.stats.round.best_score = best;
-			this.stats.best_score = Math.max(this.stats.best_score, this.stats.round.best_score);
-			this.stats.best_avg_score = Math.max(this.stats.best_avg_score, this.stats.round.avg_score);
+			// if this is the first round, record the raw value instead of comparing
+			if ( this.stats.round.num===1 ) {
+				this.stats.best_score = this.stats.round.best_score;
+				this.stats.best_avg_score = this.stats.round.avg_score;
+			}
+			// otherwise pick the best of the bunch
+			else {
+				this.stats.best_score = Math.max(this.stats.best_score, this.stats.round.best_score);
+				this.stats.best_avg_score = Math.max(this.stats.best_avg_score, this.stats.round.avg_score);
+			}
 			this.stats.chartdata.averages.push(avg);
 			this.stats.chartdata.highscores.push(best);
 			
@@ -149,10 +171,25 @@ export default class Simulation {
 			}
 			this.Reset();
 			if ( typeof(this.onRound) === 'function' ) { this.onRound(this); }
+			// check if entire simulation is over
+			let end_sim = false;
+			if ( this.settings.end?.rounds && this.stats.round.num > this.settings.end.rounds ) {
+				end_sim = true;
+			}
+			else if ( this.settings.end?.avg_score && this.stats.round.avg_score > this.settings.end.avg_score ) {
+				// check if there is a minimum number of rounds we need to sustain this average
+				if ( !this.settings.end?.avg_score_rounds ) { this.settings.end.avg_score_rounds = 0; }
+				this.stats.end_avg_score_round = (this.stats.end_avg_score_round || 0) + 1;
+				if ( this.stats.end_avg_score_round >= this.settings.end.avg_score_rounds ) {
+					end_sim = true;
+				}
+			}
+			if ( end_sim ) {
+				this.complete = true;
+				if ( typeof(this.onComplete) === 'function' ) { this.onComplete(this); }
+			}
 		}
-					
 		if ( typeof(this.onUpdate) === 'function' ) { this.onUpdate(this); }
-		
 	}	
 	
 	SetNumBoids(x) {
@@ -174,20 +211,21 @@ export default class Simulation {
 
 export class FoodChaseSimulation extends Simulation {
 	Setup() {
-		super.Setup(); // sterilize
+		super.Setup();
 		// starting population
 		let spawn_x = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.width; 
 		let spawn_y = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.height; 	
-		for ( let i=0; i < this.settings.num_boids; i++ ) {
+		for ( let i=this.tank.boids.length; i < this.settings.num_boids; i++ ) {
 			const b = BoidFactory(this.species, spawn_x, spawn_y, this.tank );
 			// b.angle = 0;
 			this.tank.boids.push(b);
 		}
 		// make dinner
-		for ( let i=0; i < this.settings.num_foods; i++ ) {
+		for ( let i=this.tank.foods.length; i < this.settings.num_foods; i++ ) {
 			let food = new Food( this.tank.width - spawn_x, this.tank.height - spawn_y );
-			food.vx = Math.random() * 10 - 5;
-			food.vy = Math.random() * 100 - 50;
+			let food_speed = this.settings?.food_speed || 100;
+			food.vx = Math.random() * food_speed - (food_speed*0.5);
+			food.vy = Math.random() * food_speed - (food_speed*0.5);
 			this.tank.foods.push(food);
 		}
 	}
@@ -213,8 +251,9 @@ export class FoodChaseSimulation extends Simulation {
 		this.tank.foods.length = 0;
 		for ( let i=0; i < this.settings.num_foods; i++ ) {
 			let food = new Food( this.tank.width - spawn_x, this.tank.height - spawn_y );
-			food.vx = Math.random() * 10 - 5;
-			food.vy = Math.random() * 100 - 50;
+			let food_speed = this.settings?.food_speed || 100;
+			food.vx = Math.random() * food_speed - (food_speed*0.5);
+			food.vy = Math.random() * food_speed - (food_speed*0.5);
 			this.tank.foods.push(food);
 		}
 	}	
@@ -249,15 +288,21 @@ export class FoodChaseSimulation extends Simulation {
 				// outer awareness sensor is worth less.
 				if ( s.name=="awareness" ) { b.fitness_score -= s.val * 0.9; }
 			}
+			// punished for getting close to the edge
+			// doesn't work well with current sensor tech, but please revisit when
+			// collision detection implemented:
+			// else if ( s.detect=='edges' ) {
+			// 	b.fitness_score -= s.val * 2;
+			// }
 		}
 		b.fitness_score /= score_div;
 		// eat food, get win!
 		for ( let food of this.tank.foods ) { 
-			const dx = Math.abs(food.x - this.x);
-			const dy = Math.abs(food.y - this.y);
+			const dx = Math.abs(food.x - b.x);
+			const dy = Math.abs(food.y - b.y);
 			const d = Math.sqrt(dx*dx + dy*dy);
-			let r = Math.max( this.width, this.length );
-			if ( d <= r + food.r ) { this.fitness_score += 100; }
+			let r = Math.max( b.width, b.length );
+			if ( d <= r + food.r ) { b.fitness_score += 5; }
 		}		
 		b.total_fitness_score += b.fitness_score * this.stats.delta * 18; // extra padding just makes numbers look good
 	}	
@@ -274,10 +319,171 @@ export class FoodChaseSimulation extends Simulation {
 			let diff = this.settings.num_foods - this.tank.foods.length;
 			for ( let i=0; i < diff; i++ ) {
 				let food = new Food( this.tank.width * Math.random(), this.tank.height * Math.random() );
-				food.vx = Math.random() * 10 - 5;
-				food.vy = Math.random() * 100 - 50;
+				let food_speed = this.settings?.food_speed || 100;
+				food.vx = Math.random() * food_speed - (food_speed*0.5);
+				food.vy = Math.random() * food_speed - (food_speed*0.5);
 				this.tank.foods.push(food);
 			}	
 		}	 
 	}	
+}
+
+export class BasicTravelSimulation extends Simulation {
+	Setup() {
+		super.Setup();
+		this.Reset();
+	}
+	Reset() {
+		this.SetNumBoids( this.settings.num_boids ); // top up the population
+		// reset entire population
+		let spawn_x = 0.05 * this.tank.width; 
+		let spawn_y = 0.5 * this.tank.height; 	
+		for ( let b of this.tank.boids ) {
+			let angle_spread = this.settings?.angle_spread || 0;
+			let angle = 0 + (Math.random()*angle_spread*2 - angle_spread);
+			b.angle = angle;
+			b.x = spawn_x;
+			b.y = spawn_y;
+			b.angmo = 0;
+			b.inertia = 0;
+			b.energy = b.max_energy;
+			b.total_fitness_score = this.tank.width; // golf!
+			b.fitness_score = 0;
+			b.total_movement_cost = 0;
+		}
+		// check for deflection angle settings
+		let target_spread = this.settings?.target_spread || 0;
+		// respawn food
+		this.tank.foods.forEach( x => x.Kill() );
+		this.tank.foods.length = 0;
+		let food = new Food( 
+			this.tank.width * 0.7 + (Math.random()*target_spread*2 - target_spread), 
+			this.tank.height * 0.5 + (Math.random()*target_spread*2 - target_spread)
+		);
+		food.vx = 0;
+		food.vy = 0;
+		this.tank.foods.push(food);
+	}	
+	ScoreBoidPerFrame(b) {
+		// record minimum distance to food circle
+		const food = this.tank.foods[0];
+		if ( food ) { 
+			const dx = Math.abs(food.x - b.x);
+			const dy = Math.abs(food.y - b.y);
+			const d = Math.sqrt(dx*dx + dy*dy);
+			b.total_fitness_score = Math.min( d, b.total_fitness_score );
+		}
+	}	
+	ScoreBoidPerRound(b) {
+		b.total_fitness_score = -b.total_fitness_score || 0; // golf!
+	}	
+	Update(delta) {
+		super.Update(delta);
+		// keep the food coming
+		this.tank.foods[0].value = 80; // artificially inflate the food instead of respawning new ones.
+		if ( !this.tank.foods.length ) {
+			let target_spread = this.settings?.target_spread || 0;
+			let food = new Food( 
+				this.tank.width * 0.7 + (Math.random()*target_spread*2 - target_spread), 
+				this.tank.height * 0.5 + (Math.random()*target_spread*2 - target_spread)
+			);
+			food.vx = 0;
+			food.vy = 0;
+			this.tank.foods.push(food);	
+		}	 
+	}		
+}
+
+export class TurningSimulation extends Simulation {
+	Setup() {
+		super.Setup();
+		this.Reset();
+	}
+	Reset() {
+		this.SetNumBoids( this.settings.num_boids ); // top up the population
+		// reset entire population
+		let spawn_x = 0.5 * this.tank.width; 
+		let spawn_y = 0.5 * this.tank.height; 	
+		let angle = Math.random() * Math.PI * 2;
+		for ( let b of this.tank.boids ) {
+			b.angle = angle;
+			b.x = spawn_x;
+			b.y = spawn_y;
+			b.angmo = 0;
+			b.inertia = 0;
+			b.energy = b.max_energy;
+			b.total_fitness_score = 10000; // golf!
+			b.fitness_score = 0;
+			b.total_movement_cost = 0;
+		}
+		// respawn food
+		this.tank.foods.forEach( x => x.Kill() );
+		this.tank.foods.length = 0;
+		let r = 100 + Math.random() * 200;
+		angle = Math.random() * Math.PI * 2;
+		let dx = r * Math.cos(angle); 
+		let dy = r * Math.sin(angle);
+		let food = new Food( this.tank.width*0.5 + dx, this.tank.height*0.5 + dy );
+		food.vx = 0;
+		food.vy = 0;
+		this.tank.foods.push(food);
+	}	
+	ScoreBoidPerFrame(b) {
+		// record minimum distance to food circle
+		const food = this.tank.foods[0];
+		if ( food ) { 
+			const dx = Math.abs(food.x - b.x);
+			const dy = Math.abs(food.y - b.y);
+			const d = Math.sqrt(dx*dx + dy*dy);
+			b.total_fitness_score = Math.min( d, b.total_fitness_score );
+		}
+	}	
+	ScoreBoidPerRound(b) {
+		b.total_fitness_score = -b.total_fitness_score || 0; // golf!
+	}	
+	Update(delta) {
+		super.Update(delta);
+		// keep the food coming
+		this.tank.foods[0].value = 80; // artificially inflate the food instead of respawning new ones.
+		if ( !this.tank.foods.length ) {
+			let r = 100 + Math.random() * 200;
+			let angle = Math.random() * Math.PI * 2;
+			let dx = r * Math.cos(angle); 
+			let dy = r * Math.sin(angle);
+			let food = new Food( this.tank.width*0.5 + dx, this.tank.height*0.5 + dy );
+			food.vx = 0;
+			food.vy = 0;
+			this.tank.foods.push(food);
+		}	 
+	}		
+}
+
+export class AvoidEdgesSimulation extends Simulation {
+	Setup() {
+		super.Setup();
+		this.Reset();
+	}
+	Reset() {
+		this.SetNumBoids( this.settings.num_boids ); // top up the population
+		// reset entire population
+		let spawn_x = 0.5 * this.tank.width; 
+		let spawn_y = 0.5 * this.tank.height; 	
+		for ( let b of this.tank.boids ) {
+			b.angle = Math.random() * Math.PI * 2;
+			b.x = spawn_x;
+			b.y = spawn_y;
+			b.angmo = 0;
+			b.inertia = 0;
+			b.energy = b.max_energy;
+			b.total_fitness_score = 0;
+		}
+		// no food - just swimming
+		this.tank.foods.forEach( x => x.Kill() );
+		this.tank.foods.length = 0;
+	}	
+	ScoreBoidPerFrame(b) {
+		// punished for getting close to the edge
+		let s = b.sensors.find( s => s.detect=='edges' );
+		if ( s ) { b.total_fitness_score -= s.val; }
+	}		
 }

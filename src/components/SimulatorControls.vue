@@ -6,7 +6,7 @@
 	import * as utils from '../util/utils.js'
 	import Tank from '../classes/class.Tank.js'
 	import Simulation from '../classes/class.Simulation.js'
-	import { ref, reactive, markRaw, shallowRef, nextTick, triggerRef, onMounted } from 'vue'
+	import { ref, reactive, markRaw, shallowRef, nextTick, triggerRef, onMounted, watch } from 'vue'
 	import { BoidFactory } from '../classes/class.Boids.js'
 
 	// graphing and chart setup				
@@ -21,6 +21,9 @@
 	
 	let vars = { round:{} };
 	
+	// will be created by Chart.js after DOM loads
+	let simulatorChart = null;
+		
 	function copyPropsFromSim() {
 		// settings
 		vars.scale = window.vc.scale;
@@ -53,8 +56,6 @@
 		vars.fps = window.vc.fps;
 	}
 	
-	copyPropsFromSim();
-	
 	vars = reactive(vars);
 
 	function updateViscosity() {
@@ -81,18 +82,26 @@
 		window.vc.SetViewScale(vars.scale);
 	}
 	
-	props.sim.onUpdate = _ => {
-		copyStats();
-	}; 
+	const loadCallbacksOnSim = () => {
+		console.log(`updating callbacks on sim "${props.sim.settings.name||'unknown'}"`);
+		props.sim.onUpdate = _ => {
+			copyStats();
+		}; 
+		props.sim.onRound = _ => {
+			simulatorChart.data.labels.push(props.sim.stats.round.num);
+			simulatorChart.update();
+		};
+		copyPropsFromSim();
+		if ( simulatorChart ) { 
+			simulatorChart.destroy();
+			simulatorChart = MakeSimulatorChart('simulatorChart', props.sim.stats.chartdata.averages, props.sim.stats.chartdata.highscores);
+		}
+	};
 	
-	props.sim.onRound = _ => {
-		simulatorChart.data.labels.push(props.sim.stats.round.num);
-		simulatorChart.update();
-	}; 
-	
-	// will be created by Chart.js after DOM loads
-	let simulatorChart = null;
+	watch( props, loadCallbacksOnSim );
 
+	loadCallbacksOnSim();
+		 
 	onMounted(() => {
 		simulatorChart = MakeSimulatorChart('simulatorChart', props.sim.stats.chartdata.averages, props.sim.stats.chartdata.highscores);
 	});
