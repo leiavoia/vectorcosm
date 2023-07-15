@@ -80,12 +80,12 @@ export class ProtoBoid {
 		// let conns = (middles + outputs + inputs) * (middles + outputs + inputs) * 0.1;
 		// let gates = (middles * Math.random() * 0.5 ).toFixed();
 		// let selfconnections =  (middles * Math.random() * 0.18 ).toFixed();
-		this.brain = architect.Random(inputs, middles, outputs , {
-			connections: (connections || conns ),
-			// gates: gates,
-			// selfconnections: selfconnections
-			}  );			
-		// this.brain = architect.Perceptron(inputs, middles, outputs);			
+		// this.brain = architect.Random(inputs, middles, outputs , {
+		// 	connections: (connections || conns ),
+		// 	// gates: gates,
+		// 	// selfconnections: selfconnections
+		// 	}  );			
+		this.brain = architect.Perceptron(inputs, middles, outputs, {connections:connections});			
 	}
 	NeuroInputs() { return []; }
 	Update( delta ) {
@@ -319,7 +319,7 @@ export class Boid extends ProtoBoid {
 		this.MakeMotors();
 		this.MakeSensors();
 		let brain_complexity = 2; // 0 .. 5
-		let middle_nodes = 4;
+		let middle_nodes = 6;
 		let connections = brain_complexity * ( this.sensors.length + middle_nodes + this.motors.length );
 		this.MakeBrain( this.sensors.length, middle_nodes, this.motors.length, connections );
 	}

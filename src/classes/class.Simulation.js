@@ -1,5 +1,6 @@
 import Tank from '../classes/class.Tank.js'
 import Food from '../classes/class.Food.js'
+import Rock from '../classes/class.Rock.js'
 import * as utils from '../util/utils.js'
 import { BoidFactory } from '../classes/class.Boids.js'
 import neataptic from "neataptic";
@@ -24,20 +25,20 @@ export default class Simulation {
 			// },
 			species: 'Boid',
 			mutation_options: [
-				[ neataptic.methods.mutation.ADD_NODE, 			20 ],
+				[ neataptic.methods.mutation.ADD_NODE, 			16 ],
 				[ neataptic.methods.mutation.SUB_NODE, 			20 ],
-				[ neataptic.methods.mutation.ADD_CONN, 			40 ],
+				[ neataptic.methods.mutation.ADD_CONN, 			34 ],
 				[ neataptic.methods.mutation.SUB_CONN, 			40 ],
 				[ neataptic.methods.mutation.MOD_WEIGHT, 		1000 ],
 				[ neataptic.methods.mutation.MOD_BIAS, 			500 ],
-				[ neataptic.methods.mutation.MOD_ACTIVATION, 	20 ],
+				[ neataptic.methods.mutation.MOD_ACTIVATION, 	15 ],
 				[ neataptic.methods.mutation.ADD_GATE, 			10 ],
 				[ neataptic.methods.mutation.SUB_GATE, 			10 ],
 				[ neataptic.methods.mutation.ADD_SELF_CONN, 	10 ],
 				[ neataptic.methods.mutation.SUB_SELF_CONN, 	10 ],
 				[ neataptic.methods.mutation.ADD_BACK_CONN, 	10 ],
 				[ neataptic.methods.mutation.SUB_BACK_CONN, 	10 ],
-				[ neataptic.methods.mutation.SWAP_NODE, 		12 ],
+				[ neataptic.methods.mutation.SWAP_NODES, 		12 ],
 			],
 		};
 		if ( settings ) {
@@ -256,6 +257,21 @@ export class FoodChaseSimulation extends Simulation {
 			food.vy = Math.random() * food_speed - (food_speed*0.5);
 			this.tank.foods.push(food);
 		}
+		// randomize rocks
+		this.tank.obstacles.forEach( x => x.Kill() );
+		this.tank.obstacles.length = 0;	
+		let num_rocks = this.settings?.num_rocks || 1;
+		let margin = 200;
+		for ( let i =0; i < num_rocks; i++ ) {
+			this.tank.obstacles.push(
+				new Rock( 
+					utils.RandomInt(margin,this.tank.width-margin)-200, 
+					utils.RandomInt(margin,this.tank.height-margin)-150, 
+					utils.RandomInt(150,400), 
+					utils.RandomInt(100,300) 
+				)
+			);		
+		}			
 	}	
 	ScoreBoidPerFrame(b) {
 		// record energy used for later
@@ -288,11 +304,9 @@ export class FoodChaseSimulation extends Simulation {
 				// outer awareness sensor is worth less.
 				if ( s.name=="awareness" ) { b.fitness_score -= s.val * 0.9; }
 			}
-			// punished for getting close to the edge
-			// doesn't work well with current sensor tech, but please revisit when
-			// collision detection implemented:
-			// else if ( s.detect=='edges' ) {
-			// 	b.fitness_score -= s.val * 2;
+			// punished for getting close to obstacles
+			// else if ( s.detect=='obstacles' ) {
+			// 	b.fitness_score -= s.val * this.stats.delta * 25;
 			// }
 		}
 		b.fitness_score /= score_div;
@@ -304,9 +318,6 @@ export class FoodChaseSimulation extends Simulation {
 			let r = Math.max( b.width, b.length );
 			if ( d <= r + food.r ) { b.fitness_score += 5; }
 		}		
-		// punished for getting close to the edge
-		b.sensors.filter( s => s.detect=='obstacles' )
-		.forEach( s => b.fitness_score -= s.val * this.stats.delta );
 		// total score		
 		b.total_fitness_score += b.fitness_score * this.stats.delta * 18; // extra padding just makes numbers look good
 	}	
@@ -470,24 +481,130 @@ export class AvoidEdgesSimulation extends Simulation {
 	Reset() {
 		this.SetNumBoids( this.settings.num_boids ); // top up the population
 		// reset entire population
-		let spawn_x = 0.5 * this.tank.width; 
+		let spawn_x = 0.05 * this.tank.width; 
 		let spawn_y = 0.5 * this.tank.height; 	
 		for ( let b of this.tank.boids ) {
-			b.angle = Math.random() * Math.PI * 2;
+			let angle_spread = this.settings?.angle_spread || 0;
+			let angle = 0 + (Math.random()*angle_spread*2 - angle_spread);
+			b.angle = angle;
 			b.x = spawn_x;
 			b.y = spawn_y;
 			b.angmo = 0;
 			b.inertia = 0;
 			b.energy = b.max_energy;
-			b.total_fitness_score = 0;
+			b.total_fitness_score = this.tank.width; // golf!
+			b.fitness_score = 0;
+			b.total_movement_cost = 0;
 		}
-		// no food - just swimming
+		// check for deflection angle settings
+		let target_spread = this.settings?.target_spread || 0;
+		// respawn food
 		this.tank.foods.forEach( x => x.Kill() );
 		this.tank.foods.length = 0;
+		let food = new Food( 
+			this.tank.width * 0.7 + (Math.random()*target_spread*2 - target_spread), 
+			this.tank.height * 0.5 + (Math.random()*target_spread*2 - target_spread)
+		);
+		food.vx = 0;
+		food.vy = 0;
+		this.tank.foods.push(food);
+		// randomize rocks
+		this.tank.obstacles.forEach( x => x.Kill() );
+		this.tank.obstacles.length = 0;
+		
+		let size = 150;
+		let shift = Math.random() > 0.5 ? size : -size;
+		this.tank.obstacles.push(
+			new Rock( {
+				x: 0,
+				y: 0,
+				w: this.tank.width,
+				h: this.tank.height/2 - size,
+				complexity: 7,
+				force_corners:true
+			}),
+			new Rock( { 
+				x: 0,
+				y: this.tank.height / 2 + size,
+				hull: [
+					[ 0, 0 ],
+					[ this.tank.width, 0 ],
+					[ this.tank.width, this.tank.height/2 - size ],
+					[ 0, this.tank.height/2 - size, ]
+				],
+				complexity: 	7
+			})
+		);	
+			
+					
+		// if ( Math.random() > 0.5 ) {
+		// 	this.tank.obstacles.push(
+		// 		new Rock( 
+		// 			this.tank.width/2 - 50,
+		// 			0,
+		// 			100,
+		// 			this.tank.height/2 + 50,
+		// 			6
+		// 		)
+		// 	);		
+		// }
+		// else {
+		// 	this.tank.obstacles.push(
+		// 		new Rock( 
+		// 			this.tank.width/2 - 50,
+		// 			this.tank.height/2 - 50,
+		// 			100,
+		// 			this.tank.height/2 + 50,
+		// 			6
+		// 		)
+		// 	);		
+		// }
+					
+		// let num_rocks = this.settings?.num_rocks || 1;
+		// let margin = 200;
+		// for ( let i =0; i < num_rocks; i++ ) {
+		// 	this.tank.obstacles.push(
+		// 		new Rock( 
+		// 			utils.RandomInt(margin,this.tank.width-margin)-200, 
+		// 			utils.RandomInt(margin,this.tank.height-margin)-150, 
+		// 			utils.RandomInt(150,400), 
+		// 			utils.RandomInt(100,300) 
+		// 		)
+		// 	);		
+		// }
 	}	
 	ScoreBoidPerFrame(b) {
+		// record minimum distance to food circle
+		const food = this.tank.foods[0];
+		if ( food ) { 
+			const dx = Math.abs(food.x - b.x);
+			const dy = Math.abs(food.y - b.y);
+			const d = Math.sqrt(dx*dx + dy*dy);
+			b.total_fitness_score = Math.min( d, b.total_fitness_score );
+		}
 		// punished for getting close to the edge
 		b.sensors.filter( s => s.detect=='obstacles' )
-		.forEach( s => b.total_fitness_score -= s.val );
-	}		
+		.forEach( s => b.punishment = (b.punishment||0) + s.val );
+	}	
+	ScoreBoidPerRound(b) {
+		b.total_fitness_score = -b.total_fitness_score || 0; // golf!
+		b.total_fitness_score -= b.punishment;
+	}	
+	Update(delta) {
+		super.Update(delta);
+		// keep the food coming
+		this.tank.foods[0].value = 80; // artificially inflate the food instead of respawning new ones.
+		if ( !this.tank.foods.length ) {
+			let r = 100 + Math.random() * 200;
+			let angle = Math.random() * Math.PI * 2;
+			let dx = r * Math.cos(angle); 
+			let dy = r * Math.sin(angle);
+			let food = new Food( this.tank.width*0.5 + dx, this.tank.height*0.5 + dy );
+			food.vx = 0;
+			food.vy = 0;
+			this.tank.foods.push(food);
+		}	 
+	}	
 }
+		
+		

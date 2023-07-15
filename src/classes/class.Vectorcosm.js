@@ -66,11 +66,14 @@ export default class Vectorcosm {
 		this.tank.MakeBackground();
 		
 		// add rocks
-		this.tank.obstacles.push(
-			new Rock( utils.RandomInt(0,1800), utils.RandomInt(0,1000), utils.RandomInt(150,400), utils.RandomInt(100,300) ),
-			new Rock( utils.RandomInt(0,1800), utils.RandomInt(0,1000), utils.RandomInt(150,400), utils.RandomInt(100,300) ),
-			new Rock( utils.RandomInt(0,1800), utils.RandomInt(0,1000), utils.RandomInt(150,400), utils.RandomInt(100,300) ),
-		);
+		// this.tank.obstacles.push(
+		// 	// new Rock( utils.RandomInt(0,1800), utils.RandomInt(0,1000), utils.RandomInt(150,400), utils.RandomInt(100,300) ),
+		// 	// new Rock( utils.RandomInt(0,1800), utils.RandomInt(0,1000), utils.RandomInt(150,400), utils.RandomInt(100,300) ),
+		// 	// new Rock( utils.RandomInt(0,1800), utils.RandomInt(0,1000), utils.RandomInt(150,400), utils.RandomInt(100,300) ),
+		// 	new Rock( utils.RandomInt(0,1800), utils.RandomInt(0,1000), utils.RandomInt(150,400), utils.RandomInt(100,300) ),
+		// 	new Rock( utils.RandomInt(0,1800), utils.RandomInt(0,1000), utils.RandomInt(150,400), utils.RandomInt(100,300) ),
+		// 	new Rock( utils.RandomInt(0,1800), utils.RandomInt(0,1000), utils.RandomInt(150,400), utils.RandomInt(100,300) ),
+		// );
 		
 		// default screen scaling based on user window
 		if ( this.two.width < 500 ) { this.SetViewScale(0.4); }
@@ -80,20 +83,36 @@ export default class Vectorcosm {
 		
 		// set up simulations so we have something to watch
 		this.sim_queue = [
-			new FoodChaseSimulation(this.tank,{
-				name: 'food chaser',
+			new AvoidEdgesSimulation(this.tank,{
+				name: 'Dont hit rocks',
 				num_boids: 50,
-				time: 20,
-				min_score: 5,
-				max_mutation: 5,
-				// num_foods: 3,
-				// food_speed: 400,
+				time: 10,
+				// min_score: 5,
+				max_mutation: 6,
+				num_rocks: 1,
+				target_spread: 200,
+				food_speed: 100,
 				end: {
 					// avg_score:400,
 					// avg_score_rounds: 10,
 					rounds:10000
 				},
 			}),	
+			// new FoodChaseSimulation(this.tank,{
+			// 	name: 'Dont hit rocks',
+			// 	num_boids: 50,
+			// 	time: 30,
+			// 	// min_score: 5,
+			// 	max_mutation: 6,
+			// 	num_rocks: 4,
+			// 	target_spread: 200,
+			// 	food_speed: 100,
+			// 	end: {
+			// 		// avg_score:400,
+			// 		// avg_score_rounds: 10,
+			// 		rounds:10000
+			// 	},
+			// }),	
 		];
 		
 		
