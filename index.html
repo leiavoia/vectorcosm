@@ -1,0 +1,913 @@
+
+<!doctype html>
+<html>
+<head>
+	<title>Vectorcosm</title>
+	<style>
+		body {
+			margin: 0;
+			padding: 0;
+			font-family: "Lato";
+			font-weight: 300;
+			overflow: hidden;
+			background: #000 linear-gradient( to top, #000 0%, #000 50%, #048 80%, #06A 100% );
+			background-attachment: fixed;
+			background-size: cover
+		}
+
+		#draw-shapes {
+			width: 100vw;
+			height: 100vh;
+			/* margin: 2.5% auto; */
+			/* border: 1px solid #999; */
+		}
+		
+		#shape-container { 
+			/* border: 1px solid #999;  */
+			width: 100vw;
+			height: 100vh;
+		}
+		INPUT[type=range] { margin-right:0.5em; }
+		OUTPUT { color: #55EEFF; }
+		LABEL {
+			width: 4em;
+			display:inline-block;
+			text-align:left;
+		}
+	</style>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/two.js/0.8.10/two.min.js"></script>
+	<script src="https://wagenaartje.github.io/neataptic/cdn/1.4.7/neataptic.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.5.1/chart.min.js"></script>
+
+	<link rel="canonical" href="https://leiavoia.net/cogmind/dataminer/" />
+	<meta name="description" content="AI Aquarium for Digital Lifeforms" />
+	<meta name="keywords" content="AI,fish,aquarium" />
+	<meta name="author" content="leiavoia" />
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<!-- <link rel="icon" type="image/x-icon" href="img/favicon.ico" sizes="16x16" /> -->
+	<!-- dev version -->
+	<!-- <script src="https://unpkg.com/vue"></script> -->
+	<!-- prod version -->
+	<!-- <script src="https://unpkg.com/vue@2.6.14/dist/vue.min.js"></script> -->
+	
+	
+		
+			
+	<meta charset="UTF-8">
+</head>
+
+
+<body id="body">
+	<div class="shape-container">
+		<div id="draw-shapes"></div>
+	</div>
+	<div style="color:white; position: fixed; left:1em; top:1em; z-index: 10; font-size: 1.5em; line-height: 1.5em;">
+		
+		<label for="numboids_slider">Boids</label>
+		<input type="range" min="0" max="250" step="1" style="margin-bottom:-0.25em;" onChange="ChangeNumBoids()" id="numboids_slider" />
+		<output for="numboids_slider" id="numboids_slider_output"></output>
+		
+		<br/>
+		
+		<label for="mutation_slider">Mutation</label>
+		<input type="range" min="1" max="10" step="1" style="margin-bottom:-0.25em;" onChange="ChangeMutation()" id="mutation_slider" />
+		<output for="mutation_slider" id="mutation_slider_output"></output>
+		
+		<br/>
+		
+		<label for="culling_slider">Culling</label>
+		<input type="range" min="0.1" max="0.9" step="0.1" style="margin-bottom:-0.25em;" onChange="ChangeCulling()" id="culling_slider" />
+		<output for="culling_slider" id="culling_slider_output"></output>
+		
+		<br/>
+		
+		<label for="viscosity_slider">Viscosity</label>
+		<input type="range" min="0" max="1" step="0.01" style="margin-bottom:-0.25em;" onChange="ChangeViscosity()" id="viscosity_slider" />
+		<output for="viscosity_slider" id="viscosity_slider_output"></output>
+		
+		<br/>
+				
+		Round: <output id="round_output">0</output> | 
+		Best: <output id="best_score_output">0</output> | 
+		Average: <output id="avg_score_output">0</output>
+		
+		<br />
+		
+		High Score: <output id="total_score_output">0</output> | 
+		Best Average: <output id="best_avg_score_output">0</output>
+		
+		<br/>
+		
+		Frame: <output id="framenum_output">0</output> | 
+		FPS: <output id="fps_output">0</output>
+		
+		<br/>
+		
+		<canvas id="simulatorChart" style="width: 15em; height: 4em;"></canvas>
+		
+	</div>
+	
+	<script>
+		// set up Two.js
+		let elem = document.getElementById('draw-shapes');
+		let two = new Two({ fitted: true }).appendTo(elem);
+		two.bind('update', update);
+
+		// set up neataptic
+		const { architect, Network, methods, config } = neataptic;
+		const mutation_options =  [
+			methods.mutation.ADD_NODE,
+			methods.mutation.SUB_NODE,
+			methods.mutation.ADD_CONN,
+			methods.mutation.SUB_CONN,
+			methods.mutation.MOD_WEIGHT,
+			methods.mutation.MOD_BIAS,
+			methods.mutation.MOD_ACTIVATION,
+			methods.mutation.ADD_GATE,
+			methods.mutation.SUB_GATE,
+			methods.mutation.ADD_SELF_CONN,
+			methods.mutation.SUB_SELF_CONN,
+			methods.mutation.ADD_BACK_CONN,
+			methods.mutation.SUB_BACK_CONN
+		];
+						
+		// world settings
+		let world = {
+			use_species: 'Boid',
+			settings: { 
+				viscosity: 0.22, // 0..1
+				max_mutation: 5, // up to
+				cullpct: 0.8, // 0..1
+			},
+			ui: {
+				show_collision_detection: false
+			},
+			width: two.width,
+			height: two.height,
+			simulator: {
+				turbo: false,
+				turns: 1500,
+				rounds: 5000,
+				best_score: 0,
+				best_avg_score: 0,
+				best_brain: null,
+				round: {
+					num: 0,
+					best_score: 0,
+					avg_score: 0,
+				},
+				chartdata: {
+					averages: [],
+					highscores: []
+				}
+			}
+		};
+		
+
+		// graphing and chart setup				
+		Chart.defaults.color = '#FFF';
+		Chart.defaults.elements.line.backgroundColor = '#41A34F';
+		Chart.defaults.elements.line.borderColor = '#41A34F';
+		Chart.defaults.elements.bar.backgroundColor = '#41A34F';
+		Chart.defaults.elements.bar.borderColor = '#41A34F';
+		Chart.defaults.elements.point.radius = 0;
+		const chartdata = {
+			labels: [],
+			datasets: [
+				{
+					label: 'Average',
+					backgroundColor: '#3DAEE9',
+					borderColor: '#3DAEE9',
+					borderWidth: 1,
+					fill:true,
+					data: world.simulator.chartdata.averages,
+					order: 2,
+					tension: 0.2,
+				},
+				{
+					label: 'Best',
+					backgroundColor: '#55EEFF33',
+					borderColor: '#55EEFF33',
+					borderWidth: 1,
+					fill:true,
+					tension: 0.2,
+					data: world.simulator.chartdata.highscores,
+				},
+			]
+		};
+		const chartconfig = {
+			type: 'line',
+			data: chartdata,
+			options: {
+				responsive: false,
+				aspectRatio: 2.5,
+				interaction: {
+					intersect: false,
+				},					
+				plugins: {
+					legend: {
+						position: 'top',
+						display:false,
+					},
+					title: {
+						display: false,
+					}
+				},
+				scales: {
+					x: { display: false },
+					y: { display: false }
+				}				
+			}
+		};
+		let simulatorChart = new Chart( document.getElementById('simulatorChart'), chartconfig );
+
+
+
+		
+		class Food {
+			constructor(x=0,y=0) {
+				this.x = x;
+				this.y = y;
+				this.vx = Math.random() * 10 - 5;
+				this.vy = Math.random() * 100 - 50;
+				this.value = 100;
+				this.r = this.value;
+				this.geo = two.makeCircle(this.x,this.y,this.r);
+				this.geo.linewidth = 2;
+				this.geo.stroke = '#FA0';
+				this.geo.fill = 'transparent';
+				this.dead = false;			
+			}
+			Update(delta) {
+				const margin = 400;
+				if ( !delta ) { return; }
+				if ( delta > 1 ) { delta /= 1000; }
+				this.x += this.vx * delta;
+				this.y += this.vy * delta;
+				if ( this.x < margin ) { this.vx = -this.vx; }
+				if ( this.y < margin ) { this.vy = -this.vy; }
+				if ( this.x > world.width-margin ) { this.vx = -this.vx; }
+				if ( this.y > world.height-margin ) { this.vy = -this.vy; }
+				this.x = clamp( this.x, margin, world.width-margin );
+				this.y = clamp( this.y, margin, world.height-margin );
+				// update the object in space
+				this.geo.position.x = this.x;
+				this.geo.position.y = this.y;
+				this.geo.radius = this.value;
+			}
+			Eat(amount) { 
+				this.value -= amount;
+				if ( this.value <= 0 ) { 
+					this.Kill();
+					foods.push(new Food(
+						two.width*0.7,
+						two.height * 0.5 * Math.random() + two.height * 0.25
+					));
+				}
+			}
+			Kill() {
+				two.remove([this.geo]);
+				this.dead = true;
+				let i = foods.indexOf(this);
+				if ( i >= 0 ) { foods.splice(i,1); }
+			}			
+		}
+		
+		class Poison {
+			constructor(x=0,y=0) {
+				this.x = x;
+				this.y = y;
+				this.vx = Math.random() * 10 - 5;
+				this.vy = Math.random() * 100 - 50;
+				this.value = 70;
+				this.r = this.value;
+				this.geo = two.makePolygon(this.x,this.y,this.r,8);
+				this.geo.linewidth = 2;
+				this.geo.stroke = '#FAF';
+				this.geo.fill = 'transparent';
+				this.dead = false;			
+			}
+			Update(delta) {
+				const margin = 200;
+				if ( !delta ) { return; }
+				if ( delta > 1 ) { delta /= 1000; }
+				this.x += this.vx * delta;
+				this.y += this.vy * delta;
+				if ( this.x < margin ) { this.vx = -this.vx; }
+				if ( this.y < margin ) { this.vy = -this.vy; }
+				if ( this.x > world.width-margin ) { this.vx = -this.vx; }
+				if ( this.y > world.height-margin ) { this.vy = -this.vy; }
+				this.x = clamp( this.x, margin, world.width-margin );
+				this.y = clamp( this.y, margin, world.height-margin );
+				// update the object in space
+				this.geo.position.x = this.x;
+				this.geo.position.y = this.y;
+				this.geo.radius = this.value;
+			}
+			Kill() {
+				two.remove([this.geo]);
+				this.dead = true;
+				let i = foods.indexOf(this);
+				if ( i >= 0 ) { foods.splice(i,1); }
+			}			
+		}
+
+		let foods = [ 
+			new Food(two.width*0.7,two.height*0.6),
+			// new Food(two.width*0.7,two.height*0.3),
+		];
+		
+		let threats = [
+			// new Poison(two.width*0.2,two.height*0.8),
+		];
+		
+		function BoidFactory( type, x, y ) {
+			if ( type == 'Simpleton' ) { return new Simpleton(x,y); }
+			// if ( Math.random() > 0.5 ) { return new Simpleton(x,y); }
+			return new Boid(x,y);
+		}
+		
+		class ProtoBoid {
+			constructor( x=0, y=0 ) {
+				// physical stuff
+				this.energy = 0;
+				this.x = x;
+				this.y = y;
+				this.maxspeed = 600;
+				this.maxrot = 8;
+				this.angle = Math.random()*Math.PI*2;
+				this.length = 30;
+				this.width = 15;
+				this.inertia = 0; // can be negative
+				this.angmo = 0; // angular momentum / rotational inertia
+				this.energy_cost = 0.15;
+				// drawing stuff
+				this.path = null;
+				this.container = two.makeGroup();
+				this.container.position.x = x;
+				this.container.position.y = y;
+				this.container.add([this.path]);
+				this.container.visible = true;
+				// neuro stuff
+				this.brain = null;
+				// vision and sensors
+				this.sensors = [];
+				this.sensor_score = 0; // per frame
+				this.total_sensor_score = 0; // accumulates over time
+				this.sensor_group = two.makeGroup();
+				this.sensor_group.linewidth = 1;
+				this.sensor_group.stroke = '#AAEEAA55';
+				this.sensor_group.fill = 'transparent';
+				this.sensor_group.visible = world.ui.show_collision_detection;
+				this.container.add(this.sensor_group);
+			}
+			MakeGeometry() { }
+			MakeMotors() {}
+			MakeSensors() { }
+			MakeBrain( inputs, middles, outputs, connections ) {
+				// training_data.push( { input: sensors, output: [expect] } );
+				// const result = net.train(CreateTrainingData(10000), options);
+				this.brain = architect.Random(inputs, middles, outputs, {
+					connections: connections,
+					gates: 4,
+					selfconnections: 4
+					});			
+			}
+			NeuroInputs() { return []; }
+			Update( delta ) {
+				if ( !delta ) { return; }
+				// sensor collision detection
+				let sinAngle = Math.sin(this.angle);
+				let cosAngle = Math.cos(this.angle);				
+				this.sensor_score = 0;
+				for ( let s of this.sensors ) {
+					s.val = 0;
+					let sx = this.x + ((s.x * cosAngle) - (s.y * sinAngle));
+					let sy = this.y + ((s.x * sinAngle) + (s.y * cosAngle));
+					for ( let food of foods ) { 
+						const dx = Math.abs(food.x - sx);
+						const dy = Math.abs(food.y - sy);
+						const d = Math.sqrt(dx*dx + dy*dy);
+						s.val += clamp( 1 - (d / (s.r + food.r)), 0, 1 );
+						// if this is the inner touch sensor, we also "eat" the food
+						if ( s.type=="touch" && d <= s.r + food.r ) {
+							food.Eat(delta);
+						}
+					}
+					this.sensor_score += s.val;
+					s.geo.fill = s.val ? `rgba(150,255,150,${s.val*0.5})` : 'transparent';
+				}
+				this.sensor_score /= this.sensors.length;
+				this.total_sensor_score += this.sensor_score * delta * 18; // the extra padding is just to make numbers look good
+				this.path.fill = this.sensors.filter(s=>s.val).length ? `rgba(255,255,255,${this.sensor_score*2})` : 'transparent';
+				// UI: toggle collision detection geometry UI
+				this.sensor_group.visible = world.ui.show_collision_detection;
+				
+				// movement / motor control 				
+				this.energy += delta;
+				this.energy = Math.min( this.energy, 1.0 );
+				if ( this.energy >= this.energy_cost ) {
+					this.energy -= this.energy_cost;
+					const outputs = this.brain.activate( this.NeuroInputs() );
+					// activate all motors at once, even if it seems contradictory
+					for ( let i=0; i < outputs.length; i++ ) {
+						this.ActivateMotor( i, outputs[i] );
+					}
+				}
+				// update position with movement
+				// angle in radian = angle in degree * Pi / 180
+				sinAngle = Math.sin(this.angle);
+				cosAngle = Math.cos(this.angle);
+				this.angle += (delta * this.angmo) % Math.PI;
+				this.x += delta * this.inertia * cosAngle;
+				this.y += delta * this.inertia * sinAngle;
+				if ( this.x < 0 ) { this.inertia *= 0.75; }
+				if ( this.y < 0 ) { this.inertia *= 0.75; }
+				if ( this.x > world.width ) { this.inertia *= 0.75; }
+				if ( this.y > world.height ) { this.inertia *= 0.75; }				
+				this.x = clamp( this.x, 0, world.width );
+				this.y = clamp( this.y, 0, world.height );
+				// update the object in space
+				this.container.position.x = this.x;
+				this.container.position.y = this.y;
+				this.container.rotation = this.angle;
+				// viscosity slows down inertia over time
+				this.inertia *= (1 - ( world.settings.viscosity * delta * 10 ) );
+				this.angmo *= (1 - ( world.settings.viscosity * delta * 10 ) );
+				if ( this.inertia > this.maxspeed ) { this.inertia = this.maxspeed; }
+				if ( this.inertia < -this.maxspeed ) { this.inertia = -this.maxspeed; }
+				if ( this.inertia > -5 && this.inertia < 5 ) { this.inertia = 0; } // come to a stop before end of universe
+				if ( this.angmo > this.maxrot ) { this.angmo = this.maxrot; }
+				if ( this.angmo < -this.maxrot ) { this.angmo = -this.maxrot; }
+				if ( this.angmo > -0.05 && this.angmo < 0.05 ) { this.angmo = 0; }
+			}
+			ActivateMotor( i, amount=1 ) {
+				let m = this.motors[i];
+				if ( m ) {
+					if ( m.min && amount < m.min ) { return; }
+					amount = clamp(amount,0,1);
+					if ( m.type == 'linear' ) {
+						this.inertia += m.power * amount;
+					}
+					else if ( m.type == 'angular' ) {
+						this.angmo += m.power * amount;
+					}
+				}
+			}
+			Kill() {
+				two.remove([this.path,this.container]);
+				two.remove(this.sensors.map(x=>x.geo));
+				this.dead = true;
+			}
+		};
+		
+		class Boid extends ProtoBoid {
+			constructor( x=0, y=0 ) {
+				super(x,y);
+				this.maxspeed = 600;
+				this.maxrot = 8;
+				this.length = 30;
+				this.width = 15;
+				this.energy_cost = 0.15;
+				this.MakeGeometry();
+				this.MakeMotors();
+				this.MakeSensors();
+				this.MakeBrain( 13, 20, 4, 200 );
+			}
+			MakeGeometry() {
+				this.path = two.makePath( 
+					this.length/2,0,
+					-this.length/2,
+					this.width/2, 
+					-this.length/2,
+					-this.width/2 
+					);
+				this.path.stroke = '#AEA';
+				this.path.fill = 'transparent';
+				this.path.linewidth = 2;
+				this.container.add([this.path]);
+			}
+			MakeMotors() {
+				this.motors = [
+					{name:'Forward', type:"linear", power:200, on:false, min:0.01 },
+					{name:'Backward', type:"linear", power:-100, on:false, min:0.01 },
+					{name:'Rotate CW', type:"angular", power:3, on:false, min:0.01 },
+					{name:'Rotate CCW', type:"angular", power:-3, on:false, min:0.01 }
+				];
+			}
+			MakeSensors() { 
+				const max_sensor_distance = 1.5;
+				const sensor_radius = Math.max(this.length,this.width) * max_sensor_distance;
+				const sensor_radius_scale = 1.25;
+				// radial directional awareness sensors
+				for ( let i=0, n=6; i < n; i++ ) {
+					let angle = 2 * i * (Math.PI / n);
+					let sensor = {
+						x: 2 * sensor_radius * Math.cos(angle), 
+						y: 2 * sensor_radius * Math.sin(angle), 
+						r: sensor_radius * sensor_radius_scale,
+						angle: angle,
+						val:0,
+						type:"proximity",
+					};
+					sensor.geo = two.makeCircle(sensor.x,sensor.y,sensor.r);
+					this.sensors.push(sensor);
+				}
+				// inner proximity sensor
+				this.sensors.push( {
+					x: 0, 
+					y: 0, 
+					r: sensor_radius * sensor_radius_scale,
+					angle: 0,
+					val:0,
+					type:"touch",
+					geo: two.makeCircle(0,0,sensor_radius * sensor_radius_scale)
+				});	
+				// outer general awareness sensor			
+				const outerlimit = 1.5 * ( 2*sensor_radius + sensor_radius*sensor_radius_scale );
+				this.sensors.push( {
+					x: 0, 
+					y: 0, 
+					r: outerlimit,
+					angle: 0,
+					val:0,
+					type:"awareness",
+					geo: two.makeCircle(0,0,outerlimit)
+				});	
+				// visualization	
+				this.sensor_group.add( this.sensors.map( i => i.geo ) );
+				this.sensor_group.linewidth = 1;
+				this.sensor_group.stroke = '#AAEEAA55';
+				this.sensor_group.fill = 'transparent';				
+			}
+			Kill() {
+				two.remove([this.path,this.container]);
+				two.remove(this.sensors.map(x=>x.geo));
+				this.dead = true;
+			}
+			NeuroInputs() {
+				const inputs = this.sensors.map(s=>s.val);
+				inputs.push(this.angle / (2*Math.PI) );
+				inputs.push((this.angmo + this.maxrot) / (2*this.maxrot));
+				// inputs.push(this.energy);
+				inputs.push((this.inertia + this.maxspeed) / (2*this.maxspeed));
+				// edge detection - to be removed later - replace with actual collision detection
+				const margin = 100;
+				let nearness = 0; 
+				nearness += this.x < margin ? (margin - this.x ) : 0;
+				nearness += this.x > (world.width-margin) ? (world.width - this.x) : 0;
+				nearness += this.x < margin ? (margin - this.y ) : 0;
+				nearness += this.y > (world.height-margin) ? (world.height - this.y) : 0;
+				nearness /= margin*2;
+				inputs.push(nearness);
+				inputs.push(Math.random()); // chaos to prevent one-track minds
+				return inputs;
+			}
+		};
+		
+		class Simpleton extends ProtoBoid {
+			constructor(x,y) {
+				super(x,y);
+				this.maxspeed = 400;
+				this.maxrot = 8;
+				this.length = 12;
+				this.width = 20;
+				this.energy_cost = 0.3;
+				this.MakeGeometry();
+				this.MakeMotors();
+				this.MakeSensors();				
+				this.MakeBrain( 6, 20, 3, 40 );
+			}
+			MakeGeometry() {
+				this.path = two.makeRectangle(0,0,this.width,this.length); 
+				this.path.stroke = '#2DF';
+				this.path.fill = 'transparent';
+				this.path.linewidth = 2;
+				this.container.add([this.path]);
+			}			
+			MakeMotors() {
+				this.motors = [
+					{name:'Forward', type:"linear", power:100, on:false },
+					{name:'Rotate CW', type:"angular", power:4, on:false },
+					{name:'Rotate CCW', type:"angular", power:-4, on:false }
+				];
+			}
+			MakeSensors() {
+				const max_sensor_distance = 2.5;
+				const sensor_radius = Math.max(this.length,this.width) * max_sensor_distance;
+				const sensor_radius_scale = 0.75;
+				// inner touch sensor
+				this.sensors.push( {
+					x: 0, 
+					y: 0, 
+					r: sensor_radius * sensor_radius_scale,
+					angle: 0,
+					val:0,
+					type:"touch",
+					geo: two.makeCircle(0,0,sensor_radius * sensor_radius_scale)
+				});	
+				// forward proximity sensor
+				this.sensors.push( {
+					x: sensor_radius * max_sensor_distance, 
+					y: 0, 
+					r: sensor_radius * 1.5,
+					angle: 0,
+					val:0,
+					type:"touch",
+					geo: two.makeCircle(sensor_radius * max_sensor_distance,0,sensor_radius * 1.5)
+				});	
+				// outer general awareness sensor			
+				const outerlimit = 1.5 * ( 2*sensor_radius + sensor_radius*sensor_radius_scale );
+				this.sensors.push( {
+					x: 0, 
+					y: 0, 
+					r: outerlimit,
+					angle: 0,
+					val:0,
+					type:"awareness",
+					geo: two.makeCircle(0,0,outerlimit)
+				});				
+				// visualization	
+				this.sensor_group.add( this.sensors.map( i => i.geo ) );
+				this.sensor_group.linewidth = 1;
+				this.sensor_group.stroke = '#AAEEAA55';
+				this.sensor_group.fill = 'transparent';							
+			}
+			NeuroInputs() {
+				const inputs = this.sensors.map(s=>s.val);
+				inputs.push(this.angle / (2*Math.PI) );
+				// inputs.push((this.angmo + this.maxrot) / (2*this.maxrot));
+				// inputs.push((this.inertia + this.maxspeed) / (2*this.maxspeed));
+				// edge detection - to be removed later - replace with actual collision detection
+				const margin = 100;
+				let nearness = 0; 
+				nearness += this.x < margin ? (margin - this.x ) : 0;
+				nearness += this.x > (world.width-margin) ? (world.width - this.x) : 0;
+				nearness += this.x < margin ? (margin - this.y ) : 0;
+				nearness += this.y > (world.height-margin) ? (world.height - this.y) : 0;
+				nearness /= margin*2;
+				inputs.push(nearness);
+				inputs.push(Math.random()); // chaos to prevent one-track minds
+				return inputs;
+			}			
+		}
+		
+		let boids = [];
+		for ( let i=0; i < 1; i++ ) {
+			// const b = BoidFactory(world.use_species, Math.random()*world.width, Math.random()*world.height );
+			const b = BoidFactory(world.use_species, two.width*0.25,two.height*0.25 );
+			b.angle = Math.random() * Math.PI * 2;
+			boids.push(b);
+		}
+		 
+		// draw screen
+		two.update();
+		
+		
+		// Set up keyboard controls
+		let rightPressed = false;
+		let leftPressed = false;
+		let upPressed = false;
+		let downPressed = false;
+
+		// Handle key down events
+		const body = document.querySelector("body");
+		body.addEventListener("keydown", function(event) {
+			// console.log(event);
+			// event.preventDefault();
+			// if (event.keyCode == 39) 		{ rightPressed = true; }
+			// else if (event.keyCode == 37) 	{ leftPressed = true; }
+			// if (event.keyCode == 38) 		{ upPressed = true; }
+			// else if (event.keyCode == 40) 	{ downPressed = true; }
+			// if ( upPressed ) { b.ActivateMotor(0,1); }
+			// if ( downPressed ) { b.ActivateMotor(1,1); }
+			// if ( rightPressed ) { b.ActivateMotor(2,1); }
+			// if ( leftPressed ) { b.ActivateMotor(3,1); }
+			if ( event.keyCode == 19 ) {  // `Pause` 
+				if ( two.playing ) { two.pause(); console.log('paused'); } 
+				else { two.play(); console.log('playing'); }
+			}
+			else if ( event.which == 49 ) {  // `1` 
+				event.preventDefault();
+				world.ui.show_collision_detection = !world.ui.show_collision_detection;
+			}
+			else if ( event.which == 35 ) {  // `END` 
+				event.preventDefault();
+				world.simulator.turbo = !world.simulator.turbo;
+				if ( world.simulator.turbo ) { RunSimulator(); }
+			}
+			// if ( event.keyCode == 36 ) {  // `Home`
+			// 	b.angle = 0;
+			// 	b.x = 400;
+			// 	b.y = 400;
+			// 	b.inertia = 0;
+			// 	b.angmo = 0;
+			// 	b.path.position.x = b.x;
+			// 	b.path.position.y = b.y;
+			// 	b.path.rotation = b.angle;
+			// } 
+		});
+
+		// Handle key up events
+		document.addEventListener("keyup", function(event) {
+			if (event.keyCode == 39) 		{ rightPressed = false; }
+			else if (event.keyCode == 37) 	{ leftPressed = false; }
+			if (event.keyCode == 38) 		{ upPressed = false; }
+			else if (event.keyCode == 40) 	{ downPressed = false; }
+		});
+		
+		
+
+		// use delta param to supply manual deltas for simulations.
+		// otherwise it will use two.js's built in delta tracking.
+		function update(frameNumber, delta=0) {
+			// reset sim every so often
+			if ( world.simulator && world.simulator.turns && frameNumber % world.simulator.turns === 0 ) { 
+				// record stats
+				world.simulator.round.num++;
+				world.simulator.round.best_score = 0;
+				world.simulator.round.avg_score = 0;
+				for ( let b of boids ) {
+					world.simulator.round.avg_score += b.total_sensor_score || 0;
+					world.simulator.round.best_score = Math.max(b.total_sensor_score||0, world.simulator.round.best_score);
+				}
+				world.simulator.round.avg_score /= boids.length;
+				world.simulator.best_score = Math.max(world.simulator.best_score, world.simulator.round.best_score);
+				world.simulator.best_avg_score = Math.max(world.simulator.best_avg_score, world.simulator.round.avg_score);
+				document.getElementById('round_output').value = world.simulator.round.num;
+				document.getElementById('best_score_output').value = world.simulator.round.best_score.toFixed();
+				document.getElementById('avg_score_output').value = world.simulator.round.avg_score.toFixed();
+				document.getElementById('total_score_output').value = world.simulator.best_score.toFixed();
+				document.getElementById('best_avg_score_output').value = world.simulator.best_avg_score.toFixed();
+				world.simulator.chartdata.averages.push(world.simulator.round.avg_score);
+				world.simulator.chartdata.highscores.push(world.simulator.round.best_score);
+				simulatorChart.data.labels.push(world.simulator.round.num);
+				simulatorChart.update();
+				// remove deadbeats
+				const min_score = 20;
+				boids.filter( x => !x.total_sensor_score < min_score ).forEach( x=> x.Kill() );
+				boids = boids.filter( x => x.total_sensor_score >= min_score );
+				// sort boids by sensor score ASC
+				boids.sort( (a,b) => a.total_sensor_score - b.total_sensor_score );
+				// cull the herd, keep the winners
+				const cullpct = 0.5;
+				const numkill = Math.trunc(boids.length * 0.9);
+				const killmes = boids.splice(0,numkill);
+				killmes.forEach( x=> x.Kill() );
+				const num_survivors = boids.length;
+				if ( num_survivors ) {
+					console.log("Best score: " + boids[boids.length-1].total_sensor_score );
+				}
+				else {
+					console.log("No survivors :-(" );
+				}
+				// create BoidFactorys'Boid', to make up the difference
+				let el = document.getElementById('numboids_slider');
+				document.getElementById('numboids_slider_output').value = el.value;
+				let n = parseInt(el.value);
+				let diff = n - boids.length;
+				if ( diff > 0 ) {
+					for ( let i=0; i < diff; i++ ) {
+						const b = BoidFactory(world.use_species, two.width*0.25,two.height*0.25 );
+						b.angle = Math.random() * Math.PI * 2;
+						// the BoidFactory 'Boid',will likely be an offspring of one of the survivors,
+						// but we also allow a certain percentage of newcomers to try their luck
+						if ( num_survivors && Math.random() > 0.1 ) {
+							const parent = boids[ Math.trunc( Math.random() * num_survivors ) ];
+							b.brain = Network.fromJSON(parent.brain.toJSON());
+							for ( j=0; j < world.settings.max_mutation; j++ ) { 
+								b.brain.mutate( mutation_options[ Math.trunc(Math.random() * mutation_options.length) ]);
+							}
+						}
+						// if no survivors, it automatically has a randomly generated brain
+						boids.push(b);
+					}			
+				}
+				// reset entire population
+				let newx = Math.random() * two.width/2;
+				let newy = Math.random() * two.height;
+				for ( let b of boids ) {
+					b.total_sensor_score = 0;
+					b.angle = Math.random() * Math.PI * 2;
+					b.x = newx;
+					b.y = newy;
+					b.angmo = 0;
+					b.inertia = 0;
+				}
+				// move the food
+				for ( let food of foods ) {
+					food.x = food.geo.position.x = (Math.random() * two.width/4) + (two.width*0.625)
+					food.y = food.geo.position.y = (Math.random() * two.height/2) + (two.height*0.25);
+					food.vx = Math.random() * 10 - 5;
+					food.vy = Math.random() * 100 - 50;
+					food.value = 100;
+				}
+			}
+			
+			// fix delta supplied in ms
+			if ( delta && delta > 1 ) { delta /= 1000; }
+			delta = Math.min( (delta || two.timeDelta/1000), 0.25); // beware of spikes from pausing
+			
+			// update all boids
+			for ( let b of boids ) {
+				b.Update( delta );
+			}
+			
+			// update food
+			for ( let food of foods ) {
+				food.Update(delta);
+			}
+			
+			// UI stats
+			document.getElementById('framenum_output').value = two.frameCount;
+			document.getElementById('fps_output').value = (1/delta).toFixed();
+		}		
+		
+		function clamp( x, min=null, max=null ) {
+			if ( min !== null ) { x = Math.max(x,min); }
+			if ( max !== null ) { x = Math.min(Math.max(x,min),max); }
+			return x;
+			}
+			
+		function RunSimulator()	{
+			if ( world.simulator.round.num <= world.simulator.rounds && world.simulator.turbo ) {
+				if ( two.playing ) { two.pause(); }
+				for ( n=0; n < 100; n++ ) {
+					++two.frameCount; // fake it
+					update( two.frameCount, 0.055 );
+				}
+				--two.frameCount;
+				two.update();
+				setTimeout( RunSimulator, 0 );
+			}
+			else {
+				two.play();
+			}
+		}
+		
+		two.play();
+	  		
+			
+		function ChangeCulling() {
+			let el = document.getElementById('culling_slider');
+			world.settings.cullpct = el.value;
+			document.getElementById('culling_slider_output').value = el.value;
+		}
+		
+		function ChangeViscosity() {
+			let el = document.getElementById('viscosity_slider');
+			world.settings.viscosity = el.value;
+			document.getElementById('viscosity_slider_output').value = el.value;
+		}
+			
+		function ChangeMutation() {
+			let el = document.getElementById('mutation_slider');
+			world.settings.max_mutation = el.value;
+			document.getElementById('mutation_slider_output').value = el.value;
+		}
+		
+		function ChangeNumBoids() {
+			let el = document.getElementById('numboids_slider');
+			document.getElementById('numboids_slider_output').value = el.value;
+			let n = parseInt(el.value);
+			let diff = n - boids.length;
+			if ( diff > 0 ) {
+				for ( let i=0; i < diff; i++ ) {
+					const b = BoidFactory(world.use_species, two.width*0.25,two.height*0.25 );
+					b.angle = Math.random() * Math.PI * 2;
+					boids.push(b);
+				}			
+			}
+			else if ( diff < 0 ) {		
+				boids.splice(0,-diff).forEach( x => x.Kill() );
+			}
+		}
+		
+		window.onresize = function(event) {
+			world.height = window.innerHeight;
+			world.width = window.innerWidth;
+			two.fit();
+			console.log(`resized to ${window.innerWidth} x ${window.innerHeight}`);
+		}
+		
+		function angleToPoint(x1, y1, x2, y2){
+			d = distance(x1, y1, x2, y2);
+			dx = (x2-x1) / d;
+			dy = (y2-y1) / d;
+			a = Math.acos(dx);
+			a = dy < 0 ? 2 * Math.PI - a : a;
+			return a;
+		}
+		
+		
+		
+		ChangeViscosity();
+		ChangeNumBoids();
+		ChangeMutation();
+		ChangeCulling();
+		
+	</script>
+		
+</body>
+</html>
