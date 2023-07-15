@@ -77,40 +77,11 @@ export class ProtoBoid {
 	}
 	NeuroInputs() { return []; }
 	Update( delta ) {
-		if ( !delta ) { return; }
-		// record travel distance or lack thereof
-		if ( !this.total_fitness_score ) { 
-			this.startx = this.x;
-			this.starty = this.y;
-			this.total_fitness_score = 0.01; // wink
-		}
-		else {
-			this.max_travel = this.max_travel || 0;
-			let travel = Math.abs(this.x - this.startx) + Math.abs(this.y - this.starty);
-			if ( travel >  this.max_travel ) {
-				this.total_fitness_score += (travel - this.max_travel) / 500;
-				this.max_travel = travel;
-			}
-		}
 		// sensor collision detection				
-		this.fitness_score = 0;
-		let score_div = 0;
-		for ( let s of this.sensors ) {
-			s.Sense();
-			if ( s.detect=='food' ) { 
-				score_div++;
-				this.fitness_score += s.val;
-				// inner sensor is worth more
-				if ( s.name=="touch" ) { this.fitness_score += s.val * 3; }
-				// outer awareness sensor is worth less.
-				if ( s.name=="awareness" ) { this.fitness_score -= s.val * 0.9; }
-				// s.geo.fill = s.val ? `rgba(150,255,150,${s.val*0.5})` : 'transparent';
-			}
-		}
-		this.fitness_score /= score_div;
+		for ( let s of this.sensors ) { s.Sense(); }
 		
 		// COLLISION RESPONSE GOES HERE
-		// [!]HACK to make food work
+		// [!]HACK to make food work - eat the food you stupid llama
 		for ( let food of this.tank.foods ) { 
 			const dx = Math.abs(food.x - this.x);
 			const dy = Math.abs(food.y - this.y);
@@ -118,31 +89,8 @@ export class ProtoBoid {
 			let r = Math.max( this.width, this.length );
 			if ( d <= r + food.r ) { 
 				food.Eat(delta*5);  
-				this.fitness_score += 5;  // you win!
 				}
 		}
-		
-		// if ( this.sensors.filter(s=>s.val).length ) {
-		// 	let c = utils.HexColorToRGBArray(this.path.stroke);
-		// 	this.path.fill = `rgba(${c[0]},${c[1]},${c[2]},${this.fitness_score*2})`;
-		// }
-		// else { this.path.fill = 'transparent'; }
-		
-		// experiment: punishment for hugging the edges. bad boid! bad!
-		// edge detection - to be removed later - replace with actual collision detection
-		// const margin = 150;
-		// let nearness = 0; 
-		// nearness += this.x < margin ? (margin - this.x) : 0;
-		// nearness += this.x > (world.width-margin) ? (margin-(world.width - this.x)) : 0;
-		// nearness += this.y < margin ? (margin - this.y ) : 0;
-		// nearness += this.y > (world.height-margin) ? (margin-(world.height - this.y)) : 0;
-		// nearness /= margin*2;
-		// this.fitness_score -= (nearness / margin) * delta * 4;
-		
-		
-		this.total_fitness_score += this.fitness_score * delta * 18; // the extra padding is just to make numbers look good
-		
-		
 		
 		// UI: toggle collision detection geometry UI
 		if ( this.sensor_group.visible != window.vc.show_collision_detection ) {
