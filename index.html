@@ -133,6 +133,7 @@
 		
 		T: <output id="sim_time_output">0</output> | 
 		F: <output id="framenum_output">0</output> | 
+		<!-- OBJ: <output id="num_objects_output">0</output> |  -->
 		FPS: <output id="fps_output">0</output>
 		
 		<br/>
@@ -355,7 +356,7 @@
 			// shale:
 			// bggroup.scale = new Two.Vector(8,1);
 		}
-		// MakeBackground();
+		MakeBackground();
 
 
 		function adjustColor(color, percent) {
@@ -468,7 +469,7 @@
 				if ( this.value <= 0 ) { 
 					this.Kill();
 					foods.push(new Food(
-						(Math.random() * world.width*0.25) + (world.width*0.5),
+						(Math.random() * world.width*0.5) + (world.width*0.25),
 						(Math.random() * world.height*0.5) + (world.height*0.25)				
 					));
 				}
@@ -541,6 +542,181 @@
 			if ( n > 0.33 ) { return new Kayak(x,y); }
 			return new Boid(x,y);
 		}
+		
+
+		class BodyPlan {
+		
+			constructor( points ) {
+				this.points = points;
+				this.linewidth = 2;
+				this.stroke = "#AEA";
+				this.fill = 'transparent'; // "#AEA";
+				this.complexity_factor = 0.3; // 0..1
+				this.max_jitter_pct = 0.1; // max deviation percentage from current width/height
+				this.augmentation_pct = 0.1; // chance of adding and removing points
+				this.UpdateGeometry();
+			}
+			
+			Copy() {
+				let bp = new BodyPlan( this.points.map( x => [ x[0], x[1] ] ) );
+				bp.linewidth = this.linewidth;
+				bp.stroke = this.stroke;
+				bp.fill = this.fill;
+				bp.complexity_factor = this.complexity_factor;
+				bp.max_jitter_pct = this.max_jitter_pct;
+				bp.UpdateGeometry();
+				return bp;
+			}
+			
+			UpdateGeometry() {
+				if ( this.points ) {
+					let anchors = this.points.map( p => new Two.Anchor( p[0], p[1] ) );
+					if ( !this.geo ) { 
+						this.geo = two.makePath(anchors);
+					}
+					else {
+						// technical: two.js has update hooks connected to splice function
+						this.geo.vertices.splice(0, this.geo.vertices.length, ...anchors);
+					}
+					this.geo.linewidth = this.linewidth;
+					this.geo.stroke = this.stroke;
+					this.geo.fill = this.fill;
+					this.geo.center(); // not sure if this does anything useful
+					// recenter the vertices
+					let minx = null; // do not start at zero!
+					let maxx = null; // do not start at zero!
+					let miny = null; // do not start at zero!
+					let maxy = null; // do not start at zero!
+					for ( let p of this.points ) {
+						minx = Math.min( p[0], minx ?? p[0] );
+						maxx = Math.max( p[0], maxx ?? p[0] );
+						miny = Math.min( p[1], miny ?? p[1] );
+						maxy = Math.max( p[1], maxy ?? p[1] );
+					}
+					let w = Math.abs(maxx - minx);
+					let h = Math.abs(maxy - miny);
+					let x_adj = -w*0.5 - minx;
+					let y_adj = -h*0.5 - miny;
+					for ( let p of this.points ) {
+						p[0] += x_adj;
+						p[1] += y_adj;
+					}
+				}
+			}
+			
+			JitterPoints() {
+				let i1 = this.PickJitterPoint();
+				let i2 = this.OppositePoint(i1,this.points.length);
+				let max_jitter_dist = Math.max( this.ShapeWidth(), this.ShapeHeight() );
+				let jitter_dist = max_jitter_dist * this.max_jitter_pct * Math.random();
+				let angle = RandomFloat(0,Math.PI*2);
+				let jitter_x = Math.cos(angle) * jitter_dist;
+				let jitter_y = Math.sin(angle) * jitter_dist;
+				this.points[i1][0] += jitter_x;
+				// maintain symmetry on reflected nodes
+				if ( i1 != i2 ) {
+					this.points[i1][1] += jitter_y;
+					this.points[i2][0] += jitter_x;
+					this.points[i2][1] += -jitter_y;
+				}
+			}
+
+			PickJitterPoint() {
+				return RandomInt(0, Math.trunc((this.points.length)/2));
+			}
+			
+			OppositePoint(i, num_points) {
+				return i==0 ? 0 : (num_points - i);
+			}
+			
+			SplitSegments() {
+				let i1 = this.PickJitterPoint();
+				// we can't start on the center point of odd-numbers collections
+				if ( i1 == this.points.length/2 ) { i1--; }
+				let i2 = i1 + 1;
+				// split first segment
+				let p1x = this.points[i1][0]; 
+				let p1y = this.points[i1][1]; 
+				let p2x = this.points[i2][0]; 
+				let p2y = this.points[i2][1]; 
+				let p3x = (p2x + p1x)/2;
+				let p3y = (p2y + p1y)/2;
+				// maintain symmetry on two opposing segments
+				if ( i2 <= this.points.length/2 ) {
+					let i3 = this.OppositePoint(i2, this.points.length);
+					let i4 = this.OppositePoint(i1, this.points.length);
+					let p4x = this.points[i3][0]; 
+					let p4y = this.points[i3][1]; 
+					let p5x = this.points[i4][0]; 
+					let p5y = this.points[i4][1]; 
+					let p6x = (p5x + p4x)/2;
+					let p6y = (p5y + p4y)/2;
+					this.points.splice( i3+1, 0, [p6x,p6y]); // insert second point
+				}
+				this.points.splice( i1+1, 0, [p3x,p3y]); // insert first point
+			}
+
+			Mutate() {
+				let x = Math.random();
+				let jitter_chance = 1 - this.augmentation_pct;
+				let delete_chance = this.augmentation_pct * (this.points.length / (this.complexity_factor*20)) * 0.5; // magic numbers for balance
+				if ( x < delete_chance ) {
+					this.DeletePoints();	
+				}
+				else if ( x < this.augmentation_pct ) {
+					this.SplitSegments();
+				}
+				else {
+					this.JitterPoints();	
+				}
+				this.RescaleShape(30, 30); // TODO: EXTERNALIZE
+				this.UpdateGeometry();
+			}
+			
+			DeletePoints() {
+				if ( this.points.length <= 4 ) { return; }
+				let i1 = this.PickJitterPoint();
+				if ( i1===0 ) { i1++; } // weird stuff happens when you delete the zero
+				let i2 = this.OppositePoint(i1,this.points.length);
+				if ( i1 != i2 ) { this.points.splice( i2, 1 ); }
+				this.points.splice( i1, 1 );
+			}
+
+			ShapeWidth() {
+				let min = null; // do not start at zero!
+				let max = null; // do not start at zero!
+				for ( let p of this.points ) {
+					min = Math.min( p[0], min ?? p[0] );
+					max = Math.max( p[0], max ?? p[0] );
+				}
+				return Math.abs(max - min);
+			}
+			
+			ShapeHeight() {
+				let min = null; // do not start at zero!
+				let max = null; // do not start at zero!
+				for ( let p of this.points ) {
+					min = Math.min( p[1], min ?? p[1] );
+					max = Math.max( p[1], max ?? p[1] );
+				}
+				return Math.abs(max - min);
+			}
+			
+			RescaleShape(maxw, maxh) {
+				let scalex = maxw / this.ShapeWidth();
+				let scaley = maxh / this.ShapeHeight();
+				// scale up to fill the box
+				let scale = Math.min(scaley,scalex);
+				// if either scale is overflowing the max, scale both down
+				if ( scalex < 1 || scaley < 1 ) {
+					scale = Math.min(scaley,scalex);
+				}
+				for ( let p of this.points ) {
+					p[0] *= scale;
+					p[1] *= scale;
+				}
+			}
+		}		
 		
 		class ProtoBoid {
 			constructor( x=0, y=0 ) {
@@ -836,29 +1012,31 @@
 				this.length = 30;
 				this.width = 15;
 				this.energy_cost = 0.15;
+				this.bodyplan = null;
 				this.MakeGeometry();
 				this.MakeMotors();
 				this.MakeSensors();
 				this.MakeBrain( this.NeuroInputs().length, 12, this.motors.length );
 			}
 			MakeGeometry() {
-				this.path = two.makePath( 
-					this.length/2,0,
-					-this.length/2,
-					this.width/2, 
-					-this.length/2,
-					-this.width/2 
-					);
-				this.path.stroke = '#AEA';
+				this.bodyplan = new BodyPlan([
+					[this.length/2, 0],
+					[-this.length/2, this.width/2],
+					[-this.length/2, -this.width/2]
+				])
+				this.bodyplan.stroke = '#AEA';
+				this.bodyplan.fill = 'transparent';
+				this.bodyplan.linewidth = 2;
+				this.bodyplan.complexity_factor = 0.3; // 0..1
+				this.bodyplan.max_jitter_pct = 0.08; // max deviation percentage from current width/height
+				this.bodyplan.augmentation_pct = 0.1;
+				this.bodyplan.UpdateGeometry();
+				this.container.add([this.bodyplan.geo]);
 				// let c = '#'
 					// + DecToHex(parseInt(128 + 128 * Math.random()))
 					// + DecToHex(parseInt(128 + 128 * Math.random()))
 					// + DecToHex(parseInt(128 + 128 * Math.random()));
 				// this.path.stroke = c;
-				
-				this.path.fill = 'transparent';
-				this.path.linewidth = 2;
-				this.container.add([this.path]);
 			}
 			MakeMotors() {
 				this.motors = [
@@ -918,8 +1096,9 @@
 				this.sensor_group.fill = 'transparent';				
 			}
 			Kill() {
-				two.remove([this.path,this.container]);
-				two.remove(this.sensors.map(x=>x.geo));
+				this.bodyplan.geo.remove();
+				this.sensors.forEach(x=>x.geo.remove());
+				this.container.remove();
 				this.dead = true;
 			}
 			NeuroInputs() {
@@ -1251,8 +1430,13 @@
 								// }
 								b.brain.mutate(option);
 								// drop any nodes that have no conections
-								
 							}
+							// inherit body geometry stuff
+							// TODO -- THIS IS REALLY UGLY
+							b.bodyplan.geo.remove(); // out with the old
+							b.bodyplan = parent.bodyplan.Copy(); // in with the new
+							b.container.add([b.bodyplan.geo]);
+							b.bodyplan.Mutate(); // for fun!
 						}
 						// if no survivors, it automatically has a randomly generated brain
 						boids.push(b);
@@ -1299,10 +1483,11 @@
 			document.getElementById('framenum_output').value = two.frameCount;
 			document.getElementById('sim_time_output').value = world.simulator.round.time.toFixed(1);
 			document.getElementById('fps_output').value = (1/delta).toFixed();
+			// document.getElementById('num_objects_output').value = two.scene.children.length;
 			
 			// braingraph the leader
 			DrawBrainGraph();
-						
+											
 		}		
 		
 		function DrawBrainGraph() {
@@ -1783,7 +1968,86 @@
 			}
 					
 		function mod (n, m) { return (n % m + m) % m; }
-		
+				
+
+		String.prototype.uppercaseFirst = function() {
+			return this.charAt(0).toUpperCase() + this.slice(1);
+			};
+			
+		Number.prototype.clamp = function(min, max) {
+			return Math.min(Math.max(this, min), max);
+			};
+
+		Array.prototype.unique = function() {
+			let arr=[];
+			for ( var i = 0; i < this.length; i++ ) {
+				if ( arr.indexOf(this[i]) == -1 ) {
+					arr.push(this[i]); 
+					}
+				}
+			return arr;
+			}
+		Array.prototype.shuffle = function() {
+			for (let i = this.length - 1; i > 0; i--) {
+				let j = Math.floor(Math.random() * (i + 1));
+				let temp = this[i];
+				this[i] = this[j];
+				this[j] = temp;
+				}
+			return this;
+			}
+			
+		Array.prototype.pickRandom = function() {
+			if ( this.length === 0 ) { return false; }
+			const i = Math.floor( Math.random() * this.length );
+			return this[i];
+			}
+			
+		Array.prototype.contains = function( obj ) {
+			return this.indexOf( obj ) > -1;
+			}
+			
+		Array.prototype.sum = function() {
+			let total = 0;
+			for ( let i of this ) { total += i; }
+			return total;
+			}
+			
+		Array.prototype.avg = function() {
+			return this.length ? ( this.sum() / this.length ) : 0;
+			}
+
+		function Clamp( n, min, max ) { 
+			return Math.min(Math.max(n, min), max);
+			}
+			
+		function RandomFloat( min, max ) { 
+			min = Number.parseFloat(min);
+			max = Number.parseFloat(max);
+			return (Math.random() * ((max+1)-min) ) + min;
+			}
+		function RandomInt( min, max ) { 
+			min = Number.parseInt(min);
+			max = Number.parseInt(max);
+			return Math.floor( (Math.random() * ((max+1)-min) ) + min );
+			}
+			
+		// http://stackoverflow.com/questions/29325069/how-to-generate-random-numbers-biased-towards-one-value-in-a-range
+		function BiasedRand(min, max, bias, influence /* 0.0..1.0 */) {
+			let rnd = Math.random() * (max - min) + min;   // random in range
+			let mix = Math.random() * influence;           // random mixer - higher influence number means more spread
+			return rnd * (1 - mix) + bias * mix;           // mix full range and bias
+			}
+		function BiasedRandInt(min, max, bias, influence) {
+			return Math.floor( BiasedRand(min, max+0.99999, bias, influence) );
+			}
+
+		function standardRandom() {
+		// 	return (1.0 + (((Math.random() + Math.random() + Math.random() + Math.random() + Math.random() + Math.random()) - 3.0) / 3.0)) * 0.5;
+		// 	return (1.0 + (((Math.random() + Math.random() + Math.random() + Math.random()) - 2) / 2)) * 0.5;
+			return (1.0 + (((Math.random() + Math.random() + Math.random() ) - 1.5) / 1.5)) * 0.5;
+			}
+						
 	</script>
 		
 </body>
