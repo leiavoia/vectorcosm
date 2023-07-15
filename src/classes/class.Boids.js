@@ -31,7 +31,7 @@ export class ProtoBoid {
 	] );
 			
 			
-	constructor( x=0, y=0, tank=null ) {
+	constructor( x=0, y=0, tank=null, json=null ) {
 		this.id = Math.random();
 		this.generation = 1;
 		this.tank = tank;
@@ -79,6 +79,18 @@ export class ProtoBoid {
 		// shimmed in for testing:
 		// this.total_movement_cost = 0;
 		// this.last_movement_cost = 0;
+		
+		// rehydrate objects from JSON if supplied
+		if ( json && typeof json === 'object' ) {
+			Object.assign(this,json);
+			this.collision.radius = Math.max(this.length,this.width);
+			this.brain = neataptic.Network.fromJSON(this.brain);
+			this.bodyplan = new BodyPlan(this.bodyplan);
+			this.container.add([this.bodyplan.geo]);
+			this.sensors = this.sensors.map( s => new Sensor(s,this) );
+			this.MakeSensors(); // adds geometry and stuff
+		}
+				
 	}
 	MakeGeometry() { }
 	MakeMotors() {}
@@ -473,6 +485,27 @@ export class ProtoBoid {
 		b.generation = this.generation + 1;
 		return b;
 	}
+			
+	Export( as_JSON=false ) {
+		let b = {};
+		// POD we can just copy over
+		let datakeys = ['id','x','y','species','max_energy','energy','maxspeed','maxrot','length','width','energy_cost','brain_complexity','generation'];
+		for ( let k of datakeys ) { b[k] = this[k]; }
+		b.bodyplan = {};
+		for ( let k of Object.keys(this.bodyplan).filter( _ => !['geo'].includes(_) ) ) { b.bodyplan[k] = this.bodyplan[k]; }
+		b.sensors = this.sensors.map( s => {
+			return JSON.parse( JSON.stringify(s,['x','y','r','l','a','angle','detect','name']) );
+		} );
+		b.motors = this.motors;
+		b.brain = this.brain.toJSON(); // misnomor, its not actually JSON, its POD object
+		let output = b;
+		// trim insignificant digits to save space
+		if ( as_JSON ) {
+			output = JSON.stringify(b).replace(/\d+\.\d+/g, x => parseFloat(x).toPrecision(6) );
+		}
+		return output;
+	}
+	
 };
 
 export class Boid extends ProtoBoid {

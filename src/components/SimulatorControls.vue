@@ -177,12 +177,12 @@
 		window.vc.ToggleUI();
 	}
 	
-	function SaveLeader() {
-		window.vc.SaveLeader();
+	function SavePopulation() {
+		window.vc.SavePopulation();
 	}
 	
-	function LoadLeader() {
-		window.vc.LoadLeader();
+	function LoadPopulation() {
+		window.vc.LoadPopulation();
 	}
 				
 </script>
@@ -195,8 +195,8 @@
 		<button @click="ToggleUI()" id="hide_ui_button">UI</button>
 		<button @click="ToggleShowSensors()" id="show_sensors_button">Sensors</button>
 		<button @click="ToggleShowBrainmap()" id="show_brainmap_button">Brain</button>
-		<button @click="SaveLeader()" id="save_leader_button">Save</button>
-		<button @click="LoadLeader()" id="load_leader_button">Load</button>
+		<button @click="SavePopulation()" id="save_leader_button">Save</button>
+		<button @click="LoadPopulation()" id="load_leader_button">Load</button>
 		
 		<br />
 		

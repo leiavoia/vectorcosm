@@ -4,17 +4,23 @@ import * as utils from '../util/utils.js'
 export default class BodyPlan {
 
 	constructor( points ) {
-		this.length = 30; // default you can override
-		this.width = 20; // default you can override
-		this.points = points;
-		this.linewidth = 2;
-		this.stroke = "#AEA";
-		this.fill = 'transparent'; // "#AEA";
-		this.dashes = [];
-		this.complexity_factor = 0.3; // 0..1
-		this.max_jitter_pct = 0.1; // max deviation percentage from current width/height
-		this.augmentation_pct = 0.1; // chance of adding and removing points
-		this.curved = false;
+		// param is actually JSON to rehydrate
+		if ( typeof points === 'object' && 'points' in points ) {
+			Object.assign(this,points);
+		}
+		else {
+			this.length = 30; // default you can override
+			this.width = 20; // default you can override
+			this.points = points;
+			this.linewidth = 2;
+			this.stroke = "#AEA";
+			this.fill = 'transparent'; // "#AEA";
+			this.dashes = [];
+			this.complexity_factor = 0.3; // 0..1
+			this.max_jitter_pct = 0.1; // max deviation percentage from current width/height
+			this.augmentation_pct = 0.1; // chance of adding and removing points
+			this.curved = false;
+		}
 		this.UpdateGeometry();
 	}
 	

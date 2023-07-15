@@ -11,7 +11,7 @@ import Tank from '../classes/class.Tank.js'
 import Rock from '../classes/class.Rock.js'
 import { AvoidEdgesSimulation, TurningSimulation, FoodChaseSimulation, BasicTravelSimulation } from '../classes/class.Simulation.js'
 import BrainGraph from '../classes/class.BrainGraph.js'
-import { BoidFactory } from '../classes/class.Boids.js'
+import { BoidFactory, ProtoBoid } from '../classes/class.Boids.js'
 
 const { architect, Network } = neataptic;
 
@@ -434,22 +434,16 @@ export default class Vectorcosm {
 	SaveLeader() {
 		if ( this.simulation.tank.boids.length ) {
 			const b = this.simulation.tank.boids.sort( (a,b) => b.total_fitness_score - a.total_fitness_score )[0];
-			localStorage.setItem("leader-brain", JSON.stringify(b.brain.toJSON()));
-			console.log("Saved leader brain with score " + b.total_fitness_score.toFixed(1) );
+			localStorage.setItem("leader", b.Export(true));
 		}		
 	}
 
 	LoadLeader() {
-		let json = localStorage.getItem("leader-brain");
+		let json = localStorage.getItem("leader");
 		if (json) {
-			json = JSON.parse(json);
-			let brain = neataptic.Network.fromJSON(json);
-			// const b = BoidFactory(world.use_species, Math.random()*world.width, Math.random()*world.height );
-			const b = BoidFactory(this.simulation.settings.species, this.width*0.25, this.height*0.25, this.simulation.tank );
-			b.brain = brain;
+			let b = new ProtoBoid( this.width*0.25, this.height*0.25, this.simulation.tank, JSON.parse(json) );
 			b.angle = Math.random() * Math.PI * 2;		
 			this.simulation.tank.boids.push(b);				
-			console.log("Spawned saved brain" );
 		}		
 	}
 	
@@ -457,26 +451,22 @@ export default class Vectorcosm {
 		if ( this.simulation.tank.boids.length ) {
 			let jsons = [];
 			for ( const b of this.simulation.tank.boids ) {
-				jsons.push(b.brain.toJSON());
+				jsons.push( b.Export(false) );
 			}
-			localStorage.setItem("population-brains", JSON.stringify(jsons));
-			console.log("Saved population");
+			let str = JSON.stringify(jsons).replace(/\d+\.\d+/g, x => parseFloat(x).toPrecision(6) );
+			localStorage.setItem("population", str);
 		}		
 	}
 			
 	LoadPopulation() {
-		let json = localStorage.getItem("population-brains");
+		let json = localStorage.getItem("population");
 		if (json) {
 			json = JSON.parse(json);
 			for ( let j of json ) {
-				let brain = neataptic.Network.fromJSON(j);
-				// const b = BoidFactory(world.use_species, Math.random()*world.width, Math.random()*world.height );
-				const b = BoidFactory(this.simulation.settings.species, this.width*0.25, this.height*0.25, this.simulation.tank );
-				b.brain = brain;
+				let b = new ProtoBoid( this.width*0.25, this.height*0.25, this.simulation.tank, j );
 				b.angle = Math.random() * Math.PI * 2;		
 				this.simulation.tank.boids.push(b);	
 			}			
-			console.log("Spawned saved population" );
 		}		
 	}
 			
