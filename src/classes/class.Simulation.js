@@ -1,5 +1,6 @@
 import Tank from '../classes/class.Tank.js'
 import Food from '../classes/class.Food.js'
+import * as utils from '../util/utils.js'
 import { BoidFactory } from '../classes/class.Boids.js'
 import neataptic from "neataptic";
 
@@ -8,31 +9,31 @@ export default class Simulation {
 	constructor( tank, settings ) {
 		this.tank = tank || new Tank( this.tank.width, this.tank.height );
 		this.settings = {
-			max_mutation: 5, // up to
-			cullpct: 0.4, // 0..1
+			max_mutation: 8, // up to
+			cullpct: 0.6, // 0..1
 			min_score: null,
 			// width: 0,
 			// height: 0,
 			num_boids: 40,
 			num_foods: 1,
-			time: 50, // in seconds
+			time: 30, // in seconds
 			rounds: 5000,
 			species: 'Boid',
 			mutation_options: [
-				// neataptic.methods.mutation.ADD_NODE,
-				// neataptic.methods.mutation.SUB_NODE,
-				neataptic.methods.mutation.ADD_CONN,
-				neataptic.methods.mutation.SUB_CONN,
-				neataptic.methods.mutation.MOD_WEIGHT,
-				neataptic.methods.mutation.MOD_BIAS,
-				neataptic.methods.mutation.MOD_ACTIVATION,
-				// neataptic.methods.mutation.ADD_GATE,
-				// neataptic.methods.mutation.SUB_GATE,
-				// neataptic.methods.mutation.ADD_SELF_CONN,
-				// neataptic.methods.mutation.SUB_SELF_CONN,
-				// neataptic.methods.mutation.ADD_BACK_CONN,
-				// neataptic.methods.mutation.SUB_BACK_CONN,
-				// neataptic.methods.mutation.SWAP_NODES
+				[ neataptic.methods.mutation.ADD_NODE, 			5 ],
+				[ neataptic.methods.mutation.SUB_NODE, 			10 ],
+				[ neataptic.methods.mutation.ADD_CONN, 			30 ],
+				[ neataptic.methods.mutation.SUB_CONN, 			40 ],
+				[ neataptic.methods.mutation.MOD_WEIGHT, 		1000 ],
+				[ neataptic.methods.mutation.MOD_BIAS, 			500 ],
+				[ neataptic.methods.mutation.MOD_ACTIVATION, 	20 ],
+				[ neataptic.methods.mutation.ADD_GATE, 			10 ],
+				[ neataptic.methods.mutation.SUB_GATE, 			15 ],
+				[ neataptic.methods.mutation.ADD_SELF_CONN, 	10 ],
+				[ neataptic.methods.mutation.SUB_SELF_CONN, 	10 ],
+				[ neataptic.methods.mutation.ADD_BACK_CONN, 	10 ],
+				[ neataptic.methods.mutation.SUB_BACK_CONN, 	10 ],
+				[ neataptic.methods.mutation.SWAP_NODE, 		10 ],
 			],
 		};
 		if ( settings ) {
@@ -59,6 +60,7 @@ export default class Simulation {
 		this.onUpdate = null;
 		this.onRound = null;
 		this.onComplete = null; // not implemented
+		this.mutationOptionPicker = new utils.RandomPicker( this.settings.mutation_options );
 	}
 	
 	Setup() {
@@ -129,7 +131,8 @@ export default class Simulation {
 					if ( parent ) {
 						b.brain = neataptic.Network.fromJSON(parent.brain.toJSON());
 						for ( let j=0; j < this.settings.max_mutation; j++ ) { 
-							let option = this.settings.mutation_options[ Math.trunc(Math.random() * this.settings.mutation_options.length) ];
+							// let option = this.settings.mutation_options[ Math.trunc(Math.random() * this.settings.mutation_options.length) ];
+							let option = this.mutationOptionPicker.Pick();
 							b.brain.mutate(option);
 							// TODO: drop any nodes that have no connections
 						}
@@ -254,14 +257,14 @@ export class FoodChaseSimulation extends Simulation {
 			const dy = Math.abs(food.y - this.y);
 			const d = Math.sqrt(dx*dx + dy*dy);
 			let r = Math.max( this.width, this.length );
-			if ( d <= r + food.r ) { this.fitness_score += 25; }
+			if ( d <= r + food.r ) { this.fitness_score += 100; }
 		}		
 		b.total_fitness_score += b.fitness_score * this.stats.delta * 18; // extra padding just makes numbers look good
 	}	
 	ScoreBoidPerRound(b) {
-		let div = this.settings.time;
 		if ( b.total_movement_cost ) {
-			b.total_fitness_score /= (b.total_movement_cost || 0) / div;
+			let cps = (b.total_movement_cost || 0) / this.settings.time; // cost per second
+			b.total_fitness_score *= utils.Clamp(5/cps,0.1,3); // /!\ MAGICNUMBERZ
 		}
 	}	
 	Update(delta) {
