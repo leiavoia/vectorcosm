@@ -72,12 +72,12 @@ export class ProtoBoid {
 		// let conns = (middles + outputs + inputs) * (middles + outputs + inputs) * 0.1;
 		// let gates = (middles * Math.random() * 0.5 ).toFixed();
 		// let selfconnections =  (middles * Math.random() * 0.18 ).toFixed();
-		// this.brain = architect.Random(inputs, middles, outputs , {
-		// 	connections: (connections || conns ),
-		// 	gates: gates,
-		// 	selfconnections: selfconnections
-		// 	}  );			
-		this.brain = architect.Perceptron(inputs, middles, outputs);			
+		this.brain = architect.Random(inputs, middles, outputs , {
+			connections: (connections || conns ),
+			// gates: gates,
+			// selfconnections: selfconnections
+			}  );			
+		// this.brain = architect.Perceptron(inputs, middles, outputs);			
 	}
 	NeuroInputs() { return []; }
 	Update( delta ) {
@@ -281,7 +281,10 @@ export class Boid extends ProtoBoid {
 		this.MakeGeometry();
 		this.MakeMotors();
 		this.MakeSensors();
-		this.MakeBrain( this.sensors.length, 10, this.motors.length );
+		let brain_complexity = 2; // 0 .. 5
+		let middle_nodes = 4;
+		let connections = brain_complexity * ( this.sensors.length + middle_nodes + this.motors.length );
+		this.MakeBrain( this.sensors.length, middle_nodes, this.motors.length, connections );
 	}
 	MakeGeometry() {
 		this.bodyplan = new BodyPlan([
@@ -309,10 +312,10 @@ export class Boid extends ProtoBoid {
 		this.motors = [
 			// {name:'Front/Back', linear:3000, min_act:0.1, cost: 0.2, stroketime:0.5, t:0, strokefunc:null, wheel:0.5 },
 			// {name:'Rotate', angular:30, min_act:0.1, cost: 0.12, stroketime:0.35, t:0, strokefunc:null, wheel:0.5 },
-			{name:'Forward', linear:3000, min_act:0.12, cost: 0.5, stroketime:1, t:0, strokefunc:null },
-			{name:'Backward', linear:-1000, min_act:0.35, cost: 2, stroketime:0.65, t:0, strokefunc:null },
-			{name:'Rotate CW', angular:30, min_act:0.55, cost: 0.25, stroketime:0.3, t:0, strokefunc:null },
-			{name:'Rotate CCW', angular:-30, min_act:0.55, cost: 0.25, stroketime:0.3, t:0, strokefunc:null },
+			{name:'Forward', linear:3000, min_act:0.10, cost: 0.5, stroketime:1, t:0, strokefunc:null },
+			{name:'Backward', linear:-1000, min_act:0.10, cost: 2, stroketime:0.65, t:0, strokefunc:null },
+			{name:'Rotate CW', angular:30, min_act:0.10, cost: 0.25, stroketime:0.3, t:0, strokefunc:null },
+			{name:'Rotate CCW', angular:-30, min_act:0.10, cost: 0.25, stroketime:0.3, t:0, strokefunc:null },
 			// {name:'Brake', brake:3000, min_act:0.7, cost: 0.5, stroketime:0.8, t:0, strokefunc:null },
 			// {name:'Color', color:1, min:0, cost: 0 },
 		];

@@ -25,7 +25,7 @@ export default class Simulation {
 			species: 'Boid',
 			mutation_options: [
 				[ neataptic.methods.mutation.ADD_NODE, 			20 ],
-				[ neataptic.methods.mutation.SUB_NODE, 			21 ],
+				[ neataptic.methods.mutation.SUB_NODE, 			20 ],
 				[ neataptic.methods.mutation.ADD_CONN, 			40 ],
 				[ neataptic.methods.mutation.SUB_CONN, 			40 ],
 				[ neataptic.methods.mutation.MOD_WEIGHT, 		1000 ],
