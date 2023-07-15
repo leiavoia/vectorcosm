@@ -19,10 +19,10 @@ let two = new Two({ fitted: true, type: 'CanvasRenderer' });
 window.two = two; // make available everywhere
 // this.config.globalProperties.two = two;
 
-
 // will be created by Chart.js after DOM loads
 let simulatorChart = null;
-
+let simulation = null;
+let tank = null;
 	
 // world settings
 let world = reactive({
@@ -85,9 +85,6 @@ function SetViewScale( scale ) {
 	}
 }
 
-let tank = null;
-		
-
 // use delta param to supply manual deltas for simulations.
 // otherwise it will use two.js's built in delta tracking.
 function update(frameNumber, delta=0) {
@@ -97,8 +94,8 @@ function update(frameNumber, delta=0) {
 	delta = Math.min( (delta || two.timeDelta/1000), 0.25); // beware of spikes from pausing
 	
 	// update simulation		
-	if ( world.sim ) {
-		world.sim.Update(delta);
+	if ( simulation ) {
+		simulation.Update(delta);
 	}			
 	
 	// update all boids
@@ -107,8 +104,12 @@ function update(frameNumber, delta=0) {
 	}
 	
 	// update food
-	for ( let food of tank.foods ) {
+	for ( let i = tank.foods.length-1; i >= 0; i-- ) {
+		const food = tank.foods[i];
 		food.Update(delta);
+		if ( food.dead || !food.value ) {
+			tank.foods.splice(i,1);
+		}
 	}
 	
 	// UI stats
@@ -394,8 +395,8 @@ onMounted(() => {
 	tank.MakeBackground();
 	
 	// set up the simulation
-	world.sim = new Simulation(tank,{});
-	world.sim.Setup();
+	simulation = markRaw( new Simulation(tank,{}) );
+	simulation.Setup();
 	
 	// chart data for simulation
 	simulatorChart = MakeSimulatorChart('simulatorChart', world.simulator.chartdata.averages, world.simulator.chartdata.highscores);

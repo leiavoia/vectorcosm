@@ -44,20 +44,11 @@ export default class Food {
 		if ( this.value <= 0 ) { 
 			this.Kill();
 			return true;
-			//
-			// MOVE THIS <-------------------------------------------------------
-			//
-			// foods.push(new Food(
-			// 	(Math.random() * window.world.width*0.5) + (window.world.width*0.25),
-			// 	(Math.random() * window.world.height*0.5) + (window.world.height*0.25)				
-			// ));
 		}
 		return 0;
 	}
 	Kill() {
 		this.geo.remove();
 		this.dead = true;
-		// let i = foods.indexOf(this);
-		// if ( i >= 0 ) { foods.splice(i,1); }
 	}			
 }

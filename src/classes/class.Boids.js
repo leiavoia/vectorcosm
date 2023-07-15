@@ -98,7 +98,7 @@ export class ProtoBoid {
 				score_div++;
 				this.fitness_score += s.val;
 				// inner sensor is worth more
-				if ( s.name=="touch" ) { this.fitness_score += s.val * 4; }
+				if ( s.name=="touch" ) { this.fitness_score += s.val * 3; }
 				// outer awareness sensor is worth less.
 				if ( s.name=="awareness" ) { this.fitness_score -= s.val * 0.9; }
 				// s.geo.fill = s.val ? `rgba(150,255,150,${s.val*0.5})` : 'transparent';
@@ -112,8 +112,11 @@ export class ProtoBoid {
 			const dx = Math.abs(food.x - this.x);
 			const dy = Math.abs(food.y - this.y);
 			const d = Math.sqrt(dx*dx + dy*dy);
-			let r = Math.max( this.width, this.length ) * 0.5;
-			if ( d <= r + food.r ) { food.Eat(delta);  }
+			let r = Math.max( this.width, this.length );
+			if ( d <= r + food.r ) { 
+				food.Eat(delta*5);  
+				this.fitness_score += 5;  // you win!
+				}
 		}
 		
 		// if ( this.sensors.filter(s=>s.val).length ) {
