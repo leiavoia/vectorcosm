@@ -102,6 +102,14 @@
 		<output for="viscosity_slider" id="viscosity_slider_output"></output>
 		
 		<br/>
+		
+		<!-- works, but not the right time for this in the UI
+		<label for="viscosity_slider">Scale</label>
+		<input type="range" min="0.1" max="3" step="0.1" style="margin-bottom:-0.25em;" onChange="SetViewScale(this.value)" id="viscosity_slider" />
+		<output for="viscosity_slider" id="viscosity_slider_output"></output>
+		
+		<br/>
+		-->
 				
 		Round: <output id="round_output">0</output> | 
 		Best: <output id="best_score_output">0</output> | 
@@ -182,14 +190,17 @@
 		};
 		
 		// default scale depends on device you are on
-		if ( two.width < 500 ) { world.scale = 0.4; }
-		else if ( two.width < 1200 ) { world.scale = 0.6; }
-		else if ( two.width < 1900 ) { world.scale = 1; }
-		else { world.scale = 1; }
-		world.width =  two.width / world.scale,
-		world.height =  two.height / world.scale,
-		two.scene.scale = world.scale;
-
+		function SetViewScale( scale ) {
+			world.scale = clamp( scale, 0.1, 10 );
+			world.width =  two.width / world.scale,
+			world.height =  two.height / world.scale,
+			two.scene.scale = world.scale;
+		}
+		if ( two.width < 500 ) { SetViewScale(0.4); }
+		else if ( two.width < 1200 ) { SetViewScale(0.6); }
+		else if ( two.width < 1900 ) { SetViewScale(1); }
+		else { SetViewScale(1); }
+		
 		// graphing and chart setup				
 		Chart.defaults.color = '#FFF';
 		Chart.defaults.elements.line.backgroundColor = '#41A34F';
@@ -248,69 +259,71 @@
 		let simulatorChart = new Chart( document.getElementById('simulatorChart'), chartconfig );
 
 		// background layer
-		let bgnumpts = Math.trunc(Math.random() * 200) + 10;
-		let bgpts = [];
-		bgpts.push( [0, 0] );
-		bgpts.push( [world.width, 0] );
-		bgpts.push( [0, world.height] );
-		bgpts.push( [world.width, world.height] );
-		for ( let x=0; x < bgnumpts*0.1; x++ ) {
-			bgpts.push( [Math.trunc(Math.random() * world.width), 0] );
-			bgpts.push( [Math.trunc(Math.random() * world.width), world.height] );
-		}
-		for ( let x=0; x < bgnumpts*0.1; x++ ) {
-			bgpts.push( [0, Math.trunc(Math.random() * world.height)] );
-			bgpts.push( [world.width, Math.trunc(Math.random() * world.height) ] );
-		}
-		for ( let x=0; x < bgnumpts*0.8; x++ ) {
-			bgpts.push( [ Math.trunc(Math.random() * world.width), Math.trunc(Math.random() * world.height)] );
-		}
+		function MakeBackground() {
+			let bgnumpts = Math.trunc(Math.random() * 200) + 10;
+			let bgpts = [];
+			bgpts.push( [0, 0] );
+			bgpts.push( [world.width, 0] );
+			bgpts.push( [0, world.height] );
+			bgpts.push( [world.width, world.height] );
+			for ( let x=0; x < bgnumpts*0.1; x++ ) {
+				bgpts.push( [Math.trunc(Math.random() * world.width), 0] );
+				bgpts.push( [Math.trunc(Math.random() * world.width), world.height] );
+			}
+			for ( let x=0; x < bgnumpts*0.1; x++ ) {
+				bgpts.push( [0, Math.trunc(Math.random() * world.height)] );
+				bgpts.push( [world.width, Math.trunc(Math.random() * world.height) ] );
+			}
+			for ( let x=0; x < bgnumpts*0.8; x++ ) {
+				bgpts.push( [ Math.trunc(Math.random() * world.width), Math.trunc(Math.random() * world.height)] );
+			}
 
-		let color_schemes = [
-			['#333333','#333333','#333333'], // solid grey
-			['#0a0a0a','#111111','#1a1a1a'], // basalt
-			['#07290C','#001B04','transparent'], // kelpgarden
-			['#07290C','#001B04','#0C1F01'], // mossgarden
-		];
-		const delaunay = Delaunator.from(bgpts);
-		let triangles = delaunay.triangles;
-		bgcolors = color_schemes[ Math.trunc( Math.random() * color_schemes.length ) ];
-		let bggroup = two.makeGroup();
-		for (let i = 0; i < triangles.length; i += 3) {
-			let c = bgcolors[ Math.trunc( Math.random() * bgcolors.length ) ]; 
-			
-			// fades up the tank 
-			const color_variance = 0.9;
-			let center = (bgpts[triangles[i]][1] + bgpts[triangles[i+1]][1] + bgpts[triangles[i+2]][1]) / 3;
-			const r = (0.5-(center/world.height)) * color_variance + (Math.random()*color_variance*0.5-0.5); 
-			c = adjustColor(c,r);
-			
-			// random shift
-			// const color_variance = 0.2;
-			// const r = Math.random() * color_variance;
-			// c = adjustColor(c, 2 * r - r); // +/- the amount
-			
-			let t = two.makePath(
-				bgpts[triangles[i]][0], 
-				bgpts[triangles[i]][1], 
-				bgpts[triangles[i+1]][0], 
-				bgpts[triangles[i+1]][1], 
-				bgpts[triangles[i+2]][0], 
-				bgpts[triangles[i+2]][1] 
-				);
-			t.linewidth = 2;
-			t.fill = c;
-			t.stroke = c;
-			bggroup.add(t);
-		}		
-		let randscale = Math.random() * 9 + 1;
-		let xory = Math.random() > 0.5;
-		bggroup.scale = new Two.Vector( xory ? randscale : 1.5, xory ? 1.5 : randscale );
-		// basalt cliffs:
-		// bggroup.scale = new Two.Vector(1,10);
-		// shale:
-		// bggroup.scale = new Two.Vector(8,1);
-
+			let color_schemes = [
+				['#333333','#333333','#333333'], // solid grey
+				['#0a0a0a','#111111','#1a1a1a'], // basalt
+				['#07290C','#001B04','transparent'], // kelpgarden
+				['#07290C','#001B04','#0C1F01'], // mossgarden
+			];
+			const delaunay = Delaunator.from(bgpts);
+			let triangles = delaunay.triangles;
+			bgcolors = color_schemes[ Math.trunc( Math.random() * color_schemes.length ) ];
+			let bggroup = two.makeGroup();
+			for (let i = 0; i < triangles.length; i += 3) {
+				let c = bgcolors[ Math.trunc( Math.random() * bgcolors.length ) ]; 
+				
+				// fades up the tank 
+				const color_variance = 0.9;
+				let center = (bgpts[triangles[i]][1] + bgpts[triangles[i+1]][1] + bgpts[triangles[i+2]][1]) / 3;
+				const r = (0.5-(center/world.height)) * color_variance + (Math.random()*color_variance*0.5-0.5); 
+				c = adjustColor(c,r);
+				
+				// random shift
+				// const color_variance = 0.2;
+				// const r = Math.random() * color_variance;
+				// c = adjustColor(c, 2 * r - r); // +/- the amount
+				
+				let t = two.makePath(
+					bgpts[triangles[i]][0], 
+					bgpts[triangles[i]][1], 
+					bgpts[triangles[i+1]][0], 
+					bgpts[triangles[i+1]][1], 
+					bgpts[triangles[i+2]][0], 
+					bgpts[triangles[i+2]][1] 
+					);
+				t.linewidth = 2;
+				t.fill = c;
+				t.stroke = c;
+				bggroup.add(t);
+			}		
+			let randscale = Math.random() * 9 + 1;
+			let xory = Math.random() > 0.5;
+			bggroup.scale = new Two.Vector( xory ? randscale : 1.5, xory ? 1.5 : randscale );
+			// basalt cliffs:
+			// bggroup.scale = new Two.Vector(1,10);
+			// shale:
+			// bggroup.scale = new Two.Vector(8,1);
+		}
+		MakeBackground();
 
 
 		function adjustColor(color, percent) {
@@ -348,8 +361,44 @@
 			return adjustedColor;
 		}
 
-
-
+		class Plant {
+			constructor(x=0,y=0,scale=1) {
+				scale = clamp(scale,0.1,10);
+				this.x = x;
+				this.y = y;
+				let leaves = Math.trunc( Math.random() * 2 ) + 2;
+				this.geo = two.makeGroup();
+				for ( let i=0; i < leaves; i++ ) {
+					let h = Math.random()*400*scale + 200;
+					let w = Math.random()*300*scale + 200;
+					let tip_x = x + ((w * Math.random() * 0.6) - (w * Math.random() * 0.3));
+					let points = [
+						(x + (Math.random() * 60 * scale)) - (30*scale), // root
+						y+50,
+						Math.max(x,tip_x) + Math.random() * w / 2,
+						y - (Math.random() * h/2 + h/2),
+						tip_x,
+						y-h,
+						Math.min(x,tip_x) - Math.random() * w / 2,
+						y - (Math.random() * h/2 + h/2)
+					];
+					let path = two.makePath(...points);
+					path.linewidth = 2;
+					path.stroke = adjustColor('#AEA1',0.1);
+					path.fill = adjustColor('#AEA2',0.1);
+					this.geo.add( path );
+				}
+			}
+		}
+		
+		let num_plants = 7;
+		for ( let i=0; i < num_plants; i++ ) {
+			let plant = new Plant(
+				(Math.random()*world.width + Math.random()*world.width) / 2,
+				world.height,
+				(Math.random() * 2 + 0.5)
+				);
+		}
 		
 		class Food {
 			constructor(x=0,y=0) {
@@ -359,7 +408,7 @@
 				this.vy = Math.random() * 100 - 50;
 				this.value = 100;
 				this.r = this.value;
-				this.geo = two.makeCircle(this.x,this.y,this.r);
+				this.geo = two.makePolygon(this.x,this.y,this.r,9);
 				this.geo.linewidth = 2;
 				this.geo.stroke = '#FA0';
 				this.geo.fill = 'transparent';
@@ -901,7 +950,7 @@
 			}
 			else if ( event.which == 49 ) {  // `1` 
 				event.preventDefault();
-				ToggleShowCollision();
+				ToggleShowSensors();
 			}
 			else if ( event.which == 50 ) {  // `2` 
 				event.preventDefault();
@@ -940,7 +989,7 @@
 		// use delta param to supply manual deltas for simulations.
 		// otherwise it will use two.js's built in delta tracking.
 		function update(frameNumber, delta=0) {
-			// reset sim every so often
+			// reset sim every so often --------\/----------------
 			if ( world.simulator && world.simulator.turns && frameNumber % world.simulator.turns === 0 ) { 
 				// record stats
 				world.simulator.round.num++;
@@ -1020,6 +1069,7 @@
 					food.value = 100;
 				}
 			}
+			// end simulation code ------/\--------------------------
 			
 			// fix delta supplied in ms
 			if ( delta && delta > 1 ) { delta /= 1000; }
