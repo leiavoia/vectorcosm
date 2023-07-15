@@ -153,8 +153,8 @@
 		const mutation_options =  [
 			// methods.mutation.ADD_NODE,
 			// methods.mutation.SUB_NODE,
-			// methods.mutation.ADD_CONN,
-			// methods.mutation.SUB_CONN,
+			methods.mutation.ADD_CONN,
+			methods.mutation.SUB_CONN,
 			methods.mutation.MOD_WEIGHT,
 			methods.mutation.MOD_BIAS,
 			// methods.mutation.MOD_ACTIVATION,
@@ -349,7 +349,7 @@
 			// shale:
 			// bggroup.scale = new Two.Vector(8,1);
 		}
-		MakeBackground();
+		// MakeBackground();
 
 
 		function adjustColor(color, percent) {
@@ -580,16 +580,30 @@
 			MakeBrain( inputs, middles, outputs, connections ) {
 				// training_data.push( { input: sensors, output: [expect] } );
 				// const result = net.train(CreateTrainingData(10000), options);
-				// this.brain = architect.Random(inputs, middles, outputs, {
-				// 	connections: connections,
+				// this.brain = architect.Random(inputs, middles, outputs , {
+				// 	connections: (connections || ((middles * outputs * inputs)/2).toFixed() ),
 				// 	gates: 4,
 				// 	selfconnections: 4
-				// 	});			
+				// 	} );			
 				this.brain = architect.Perceptron(inputs, middles, outputs);			
 			}
 			NeuroInputs() { return []; }
 			Update( delta ) {
 				if ( !delta ) { return; }
+				// record travel distance or lack thereof
+				if ( !this.total_fitness_score ) { 
+					this.startx = this.x;
+					this.starty = this.y;
+					this.total_fitness_score = 0.01; // wink
+				}
+				else {
+					this.max_travel = this.max_travel || 0;
+					let travel = Math.abs(this.x - this.startx) + Math.abs(this.y - this.starty);
+					if ( travel >  this.max_travel ) {
+						this.total_fitness_score += (travel - this.max_travel) / 500;
+						this.max_travel = travel;
+					}
+				}
 				// sensor collision detection
 				let sinAngle = Math.sin(this.angle);
 				let cosAngle = Math.cos(this.angle);				
@@ -609,7 +623,11 @@
 						}
 					}
 					this.fitness_score += s.val;
-					s.geo.fill = s.val ? `rgba(150,255,150,${s.val*0.5})` : 'transparent';
+					// inner sensor is worth more
+					if ( s.type=="touch" ) { this.fitness_score += s.val * 2; }
+					// outer awareness sensor is worth less.
+					if ( s.type=="awareness" ) { this.fitness_score -= s.val * 0.9; }
+					// s.geo.fill = s.val ? `rgba(150,255,150,${s.val*0.5})` : 'transparent';
 				}
 				this.fitness_score /= this.sensors.length;
 				
@@ -621,14 +639,14 @@
 				
 				// experiment: punishment for hugging the edges. bad boid! bad!
 				// edge detection - to be removed later - replace with actual collision detection
-				const margin = 150;
-				let nearness = 0; 
-				nearness += this.x < margin ? (margin - this.x) : 0;
-				nearness += this.x > (world.width-margin) ? (margin-(world.width - this.x)) : 0;
-				nearness += this.y < margin ? (margin - this.y ) : 0;
-				nearness += this.y > (world.height-margin) ? (margin-(world.height - this.y)) : 0;
-				nearness /= margin*2;
-				this.fitness_score -= (nearness / margin) * delta * 4;
+				// const margin = 150;
+				// let nearness = 0; 
+				// nearness += this.x < margin ? (margin - this.x) : 0;
+				// nearness += this.x > (world.width-margin) ? (margin-(world.width - this.x)) : 0;
+				// nearness += this.y < margin ? (margin - this.y ) : 0;
+				// nearness += this.y > (world.height-margin) ? (margin-(world.height - this.y)) : 0;
+				// nearness /= margin*2;
+				// this.fitness_score -= (nearness / margin) * delta * 4;
 				
 				
 				this.total_fitness_score += this.fitness_score * delta * 18; // the extra padding is just to make numbers look good
@@ -636,7 +654,9 @@
 				
 				
 				// UI: toggle collision detection geometry UI
-				this.sensor_group.visible = world.ui.show_collision_detection;
+				if ( this.sensor_group.visible != world.ui.show_collision_detection ) {
+					this.sensor_group.visible = world.ui.show_collision_detection;
+				}
 				
 				// energy generation
 				// TODO: metabolize food
@@ -648,12 +668,12 @@
 				// estimate cost of moving to see if we can afford to move at all
 				let cost = 0
 				for ( let i=0; i < brain_outputs.length; i++ ) {
-					cost += this.ActivateMotor( i, clamp(brain_outputs[i],0,1), delta, true ); // estimate costs
+					cost += this.ActivateMotor( i, brain_outputs[i], delta, true ); // estimate costs
 				}
 				// activate all motors at once, even if it seems contradictory
 				if ( this.energy >= cost ) {
 					for ( let i=0; i < brain_outputs.length; i++ ) {
-						this.ActivateMotor( i, clamp(Math.tanh(brain_outputs[i]),0,1), delta );
+						this.ActivateMotor( i, Math.tanh(brain_outputs[i]), delta );
 					}
 				}
 				// update position with movement:
@@ -739,10 +759,11 @@
 				if ( this.angmo > -0.05 && this.angmo < 0.05 ) { this.angmo = 0; }
 			}
 			// use estimate=true if you want a cost value returned instead of the actual movement 
-			ActivateMotor( i, amount /* 0..1 */, delta, estimate = false ) {
+			ActivateMotor( i, amount /* -1..1 */, delta, estimate = false ) {
 				let m = this.motors[i];
 				if ( m ) {
 					// if ( m.t==0 ) { console.log(`ignore: ${m.name}, ${amount} < ${m.min_act}`); }
+					if ( m.wheel ) { amount = (amount - 0.5) * 2; } 
 					if ( m.t==0 && m.min_act && Math.abs(amount) < m.min_act ) { return 0; }
 					// if ( m.t==0 ) { console.log(`stroke: ${m.name}`); }
 					// if we decided to activate the stroke, record the power it was activated with
@@ -750,7 +771,8 @@
 					if ( m.t==0 ) { m.strokepow = amount; }
 					else { amount = m.strokepow; }
 					delta = Math.min( delta, m.stroketime - m.t ); // don't allow overtaxing
-					amount = clamp(amount,0,1) * delta; // power applied
+					amount = clamp(amount,-1,1);
+					amount *= delta; // power applied
 					m.t = clamp(m.t+delta, 0, m.stroketime); // increase stroke time
 					let cost = m.cost * delta; // cost of power
 					if ( estimate ) { return cost; }
@@ -760,6 +782,7 @@
 					// amount = some_function(amount);
 					// For testing, assume constant power output
 					// amount = Math.sin(amount) / Math.PI;
+					// amount *= (m.stroketime - m.t) / m.stroketime; // linear downslope
 					amount = amount * 0.64; // magic number
 					if ( m.hasOwnProperty('linear') ) {
 						this.inertia += m.linear * amount;
@@ -795,7 +818,7 @@
 				this.MakeGeometry();
 				this.MakeMotors();
 				this.MakeSensors();
-				this.MakeBrain( 14, 12, 4/* , 200 */ );
+				this.MakeBrain( 13, 13, 4/* , 200 */ );
 			}
 			MakeGeometry() {
 				this.path = two.makePath( 
@@ -818,6 +841,8 @@
 			}
 			MakeMotors() {
 				this.motors = [
+					// {name:'Front/Back', linear:3000, min_act:0.1, cost: 0.2, stroketime:0.5, t:0, strokefunc:null, wheel:0.5 },
+					// {name:'Rotate', angular:30, min_act:0.1, cost: 0.12, stroketime:0.35, t:0, strokefunc:null, wheel:0.5 },
 					{name:'Forward', linear:3000, min_act:0.12, cost: 0.5, stroketime:1, t:0, strokefunc:null },
 					{name:'Backward', linear:-1000, min_act:0.35, cost: 2, stroketime:0.65, t:0, strokefunc:null },
 					{name:'Rotate CW', angular:30, min_act:0.55, cost: 0.25, stroketime:0.3, t:0, strokefunc:null },
@@ -854,7 +879,7 @@
 					geo: two.makeCircle(0,0,sensor_radius * sensor_radius_scale)
 				});	
 				// outer general awareness sensor			
-				const outerlimit = 1.5 * ( 2*sensor_radius + sensor_radius*sensor_radius_scale );
+				const outerlimit = 2 * ( 2*sensor_radius + sensor_radius*sensor_radius_scale );
 				this.sensors.push( {
 					x: 0, 
 					y: 0, 
@@ -877,12 +902,13 @@
 			}
 			NeuroInputs() {
 				const inputs = this.sensors.map(s=>s.val);
-				inputs.push(this.angle / (2*Math.PI) );
-				inputs.push((this.angmo + this.maxrot) / (2*this.maxrot));
-				// inputs.push(this.energy);
 				inputs.push((this.inertia + this.maxspeed) / (2*this.maxspeed));
-				inputs.push(this.x / world.width);
-				inputs.push(this.y / world.height);					
+				inputs.push((this.angmo + this.maxrot) / (2*this.maxrot));
+				inputs.push(Math.cos(this.angle)*0.5 + 0.5);
+				inputs.push(Math.sin(this.angle)*0.5 + 0.5);
+				// inputs.push(this.energy);
+				// inputs.push(this.x / world.width);
+				// inputs.push(this.y / world.height);					
 				// edge detection - to be removed later - replace with actual collision detection
 				const margin = 150;
 				let nearness = 0; 
@@ -905,12 +931,13 @@
 					'proximity 6',
 					'touch',
 					'awareness',
-					'angle',
-					'spin',
 					'inertia',
-					'world X',
-					'world Y',
+					'spin',
+					'angle-cos',
+					'angle-sin',
 					'edges',
+					// 'world X',
+					// 'world Y',
 					// 'chaos'
 				];
 			}
@@ -1158,9 +1185,9 @@
 				simulatorChart.data.labels.push(world.simulator.round.num);
 				simulatorChart.update();
 				// remove deadbeats
-				// const min_score = 20;
-				// boids.filter( x => !x.total_fitness_score < min_score ).forEach( x=> x.Kill() );
-				// boids = boids.filter( x => x.total_fitness_score >= min_score );
+				const min_score = 2;
+				boids.filter( x => !x.total_fitness_score < min_score ).forEach( x=> x.Kill() );
+				boids = boids.filter( x => x.total_fitness_score >= min_score );
 				// sort boids by sensor score ASC
 				boids.sort( (a,b) => a.total_fitness_score - b.total_fitness_score );
 				// cull the herd, keep the winners
@@ -1169,6 +1196,14 @@
 				const killmes = boids.splice(0,numkill);
 				killmes.forEach( x=> x.Kill() );
 				const num_survivors = boids.length;
+				// if the score is very low, keep the spawn location constant
+				let spawn_x = (Math.random() > 0.5 ? 0.25 : 0.75) * world.width; 
+				let spawn_y = (Math.random() > 0.5 ? 0.25 : 0.75) * world.height; 
+				// randomize spawn location only after they learn to swim a bit first
+				// if ( world.simulator.round.avg_score > 16 ) {
+				// 	spawn_x = Math.random() * world.width; 
+				// 	spawn_y = Math.random() * world.height;
+				// } 				
 				// create boids to make up the difference
 				let el = document.getElementById('numboids_slider');
 				document.getElementById('numboids_slider_output').value = el.value;
@@ -1177,9 +1212,9 @@
 				if ( diff > 0 ) {
 					for ( let i=0; i < diff; i++ ) {
 						let parent = null;
-						if ( num_survivors && Math.random() > 0.1 ) {
+						// if ( num_survivors && Math.random() > 0.1 ) {
 							parent = boids[ Math.trunc( Math.random() * boids.length ) ];
-						}
+						// }
 						let species = parent ? parent.species : world.use_species;
 						// const b = BoidFactory(species, world.width*Math.random(),world.height*Math.random() );
 						const b = BoidFactory(species, world.width*0.25,world.height*0.25 );
@@ -1194,6 +1229,8 @@
 									option = methods.mutation.MOD_ACTIVATION;
 								}
 								b.brain.mutate(option);
+								// drop any nodes that have no conections
+								
 							}
 						}
 						// if no survivors, it automatically has a randomly generated brain
@@ -1203,13 +1240,14 @@
 				// reset entire population
 				// let newx = Math.random() * world.width/2;
 				// let newy = Math.random() * world.height;
+				let new_angle = Math.random() * Math.PI * 2;
 				for ( let b of boids ) {
 					b.total_fitness_score = 0;
-					b.angle = Math.random() * Math.PI * 2;
+					b.angle = new_angle;
 					// b.x = Math.random() * world.width*0.8 + world.width*0.1;
 					// b.y = Math.random() * world.height*0.8 + world.height*0.1;
-					b.x = world.width*0.25;
-					b.y = world.height*0.25;
+					b.x = spawn_x;
+					b.y = spawn_y;
 					b.angmo = 0;
 					b.inertia = 0;
 				}
@@ -1217,8 +1255,8 @@
 				for ( let food of foods ) {
 					// food.x = food.geo.position.x = (Math.random() * world.width*0.5) + (world.width*0.25);
 					// food.y = food.geo.position.y = (Math.random() * world.height*0.5) + (world.height*0.25);
-					food.x = food.geo.position.x = world.width*0.75;
-					food.y = food.geo.position.y = world.height*0.75;
+					food.x = food.geo.position.x = world.width - spawn_x;
+					food.y = food.geo.position.y = world.height - spawn_y;
 					food.vx = 0; // Math.random() * 10 - 5;
 					food.vy = Math.random() * 100 - 50;
 					food.value = 100;
@@ -1276,7 +1314,7 @@
 						let node2 = c.to;
 						let line = two.makeLine(node1.my_x, node1.my_y, node2.my_x, node2.my_y);
 						let v = Math.trunc( Math.abs( clamp(c.weight,-10,10) ) * 256 ); // scales 0..0.1 to 0..256
-						v = clamp(v,32,255); // minimum color for visibility
+						v = clamp(v,64,255); // minimum color for visibility
 						line.stroke = (c.weight > 0 ? '#FFFFFF' : '#DD1111') + DecToHex(v);
 						line.linewidth = 1;
 						world.braingraph.add(line);
@@ -1300,12 +1338,12 @@
 						}
 						else if ( node.type == 'output' ) {
 							rect = two.makePolygon(node.my_x, node.my_y, node_r, 4);
-							let text = two.makeText( target.motors[output_i++].name + ' ' + activation_label, node.my_x, node.my_y, { fill: '#FFF' } );
+							let text = two.makeText( target.motors[output_i++].name + ' / ' + node.squash.name + ' ' + activation_label, node.my_x, node.my_y, { fill: '#FFF' } );
 							text.position.y -= node_r + 8;
 							world.braingraph.add(text);
 						}
 						else {
-							node_r += clamp(node.bias*2,-4,7);
+							node_r += clamp(node.bias*2,-3,3);
  							rect = two.makeCircle(node.my_x, node.my_y, node_r);
 							let text = two.makeText( node.squash.name + ' ' + activation_label, node.my_x, node.my_y, { fill: '#FFF' } );
 							text.position.y -= node_r + 8;
