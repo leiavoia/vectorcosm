@@ -207,14 +207,10 @@ export class RandomPicker {
 	}
 	Pick() {
 		if ( !this.items.length ) { return null; }
-		if ( this.items.length==1 ) { return this.items[0]; }
+		if ( this.items.length===1 ) { return this.items[0][0]; }
 		let n = Math.random();
-		let i = 0;
-		let total = 0;
-		while ( i <= this.items.length ) {
-			total += this.items[i][1];
-			if ( n < total ) { return this.items[i][0]; }
-			i++;
+		for ( let i of this.items ) {
+			if ( n <= i[1] ) { return i[0]; }
 		}
 		return this.items[this.items.length-1][0];
 	}
