@@ -21,6 +21,7 @@ export default class BodyPlan {
 		bp.fill = this.fill;
 		bp.complexity_factor = this.complexity_factor;
 		bp.max_jitter_pct = this.max_jitter_pct;
+		bp.augmentation_pct = this.augmentation_pct;
 		bp.UpdateGeometry();
 		return bp;
 	}

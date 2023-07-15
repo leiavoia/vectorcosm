@@ -83,40 +83,42 @@ export default class Vectorcosm {
 		
 		// set up simulations so we have something to watch
 		this.sim_queue = [
-			new AvoidEdgesSimulation(this.tank,{
-				name: 'Dont hit rocks',
-				num_boids: 1,
-				time: 35,
-				punishment: 0.5,
-				max_segment_spread: 70,
-				segments: 7,
-				max_mutation: 8,
-				num_rocks: 2,
-				angle_spread: 0.1,
-				food_proximity_bonus: 0,
-				// tunnel: true,
-				spiral:true,
-				end: {
-					// avg_score:400,
-					// avg_score_rounds: 10,
-					rounds:10000
-				},
-			}),	
-			// new FoodChaseSimulation(this.tank,{
+			// new AvoidEdgesSimulation(this.tank,{
 			// 	name: 'Dont hit rocks',
-			// 	num_boids: 50,
-			// 	time: 30,
-			// 	// min_score: 5,
-			// 	max_mutation: 6,
-			// 	num_rocks: 7,
-			// 	target_spread: 200,
-			// 	food_speed: 100,
+			// 	num_boids: 1,
+			// 	time: 35,
+			// 	punishment: 0.5,
+			// 	max_segment_spread: 70,
+			// 	segments: 7,
+			// 	max_mutation: 8,
+			// 	num_rocks: 2,
+			// 	angle_spread: 0.1,
+			// 	food_proximity_bonus: 0,
+			// 	// tunnel: true,
+			// 	spiral:true,
 			// 	end: {
 			// 		// avg_score:400,
 			// 		// avg_score_rounds: 10,
 			// 		rounds:10000
 			// 	},
 			// }),	
+			new FoodChaseSimulation(this.tank,{
+				name: 'Dont hit rocks',
+				num_boids: 100,
+				time: 30,
+				// min_score: 5,
+				max_mutation: 6,
+				num_rocks: 2,
+				target_spread: 200,
+				num_foods: 3,
+				food_speed: 100,
+				species:'random',
+				end: {
+					// avg_score:400,
+					// avg_score_rounds: 10,
+					rounds:10000
+				},
+			}),	
 		];
 		
 		
@@ -203,7 +205,7 @@ export default class Vectorcosm {
 		
 		// update all boids
 		for ( let b of this.tank.boids ) {
-			b.bodyplan.geo.fill = '#AEA9';
+			// b.bodyplan.geo.fill = '#AEA9';
 			b.collision.contact_obstacle = false;
 			b.Update(delta);
 		}
@@ -401,7 +403,8 @@ export default class Vectorcosm {
 			for ( let n=0; n < 100; n++ ) {
 				++this.two.frameCount; // fake it
 				// this.update( this.two.frameCount, 0.055 );
-				this.update( this.two.frameCount, 1/60 );
+				// this.update( this.two.frameCount, 1/60 );
+				this.update( this.two.frameCount, 1/30 );
 			}
 			--this.two.frameCount;
 			this.two.update();

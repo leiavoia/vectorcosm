@@ -7,19 +7,14 @@ import {Circle, Polygon, Result} from 'collisions';
 const { architect, Network } = neataptic;
 
 export function BoidFactory( type, x, y, tank ) {
-	// if ( type == 'Kayak' ) { return new Kayak(x,y); }
-	// if ( type == 'Simpleton' ) { return new Simpleton(x,y); }
-	// if ( type == 'Boid' ) { return new Boid(x,y,tank); }
-	// random!
-	// let n = Math.random(); 
-	// if ( n > 0.67 ) { return new Simpleton(x,y); }
-	// if ( n > 0.33 ) { return new Kayak(x,y); }
+	if ( type == 'random' ) { return ProtoBoid.Random(x, y, tank); }
 	return new Boid(x,y,tank);
 }
 	
 export class ProtoBoid {
 	constructor( x=0, y=0, tank=null ) {
 		this.id = Math.random();
+		this.generation = 1;
 		this.tank = tank;
 		this.species = 'prototype';
 		// physical stuff
@@ -60,6 +55,11 @@ export class ProtoBoid {
 		this.fitness_score = 0; // per frame
 		this.total_fitness_score = 0; // accumulates over time
 		this.last_movement_cost = 0;
+		// motors
+		this.motors = [];
+		// shimmed in for testing:
+		// this.total_movement_cost = 0;
+		// this.last_movement_cost = 0;
 	}
 	MakeGeometry() { }
 	MakeMotors() {}
@@ -67,27 +67,18 @@ export class ProtoBoid {
 	MakeSensors() { 
 		// visualization	
 		this.sensor_group = window.two.makeGroup();
-		this.sensor_group.add( this.sensors.map( i => i.geo ) );
-		this.sensor_group.linewidth = 1;
-		this.sensor_group.stroke = '#AAEEAA55';
-		this.sensor_group.fill = 'transparent';
+		this.sensor_group.add( this.sensors.filter( s => s.detect=='food' || s.detect=='obstacles' ).map( i => i.geo ) );
 		this.sensor_group.visible = window.vc.show_collision_detection;
 		this.container.add(this.sensor_group);
 	}
-	MakeBrain( inputs, middles, outputs, connections ) {
-		// training_data.push( { input: sensors, output: [expect] } );
-		// const result = net.train(CreateTrainingData(10000), options);
-		// let conns = (middles + outputs + inputs) * (middles + outputs + inputs) * 0.1;
-		// let gates = (middles * Math.random() * 0.5 ).toFixed();
-		// let selfconnections =  (middles * Math.random() * 0.18 ).toFixed();
-		// this.brain = architect.Random(inputs, middles, outputs , {
-		// 	connections: (connections || conns ),
-		// 	// gates: gates,
-		// 	// selfconnections: selfconnections
-		// 	}  );			
-		this.brain = architect.Perceptron(inputs, middles, outputs, {connections:connections});			
+	MakeBrain( inputs, middles, outputs, connections, type='random' ) {	
+		if ( type=='perceptron' ) {
+			this.brain = architect.Perceptron(inputs, middles, outputs, {connections:connections});			
+		}
+		else {
+			this.brain = architect.Random(inputs, middles, outputs, {connections:connections});			
+		}
 	}
-	NeuroInputs() { return []; }
 	Update( delta ) {
 		if ( !delta ) { return; }
 		
@@ -108,6 +99,9 @@ export class ProtoBoid {
 		
 		// movement / motor control 				
 		let brain_outputs = this.brain.activate( this.NeuroInputs() );
+		for ( let input of brain_outputs ) {
+			if ( Number.isNaN(input) ) { debugger; }
+		}
 		// estimate cost of moving to see if we can afford to move at all
 		let cost = 0
 		for ( let i=0; i < brain_outputs.length; i++ ) {
@@ -228,7 +222,7 @@ export class ProtoBoid {
 				this.inertia *= 0.75; // what a drag
 				this.container.position.x = this.x;
 				this.container.position.y = this.y;
-				this.bodyplan.geo.fill = '#D11';
+				// this.bodyplan.geo.fill = '#D11';
 				this.collision.contact_obstacle = true;
 			}
 		}
@@ -300,9 +294,170 @@ export class ProtoBoid {
 		}
 	}
 	Kill() {
-		window.two.remove([this.path,this.container]);
-		window.two.remove(this.sensors.map(x=>x.geo));
+		this.bodyplan.geo.remove();
+		this.sensors.forEach(x=>x.geo.remove());
+		this.container.remove();
 		this.dead = true;
+	}
+	NeuroInputs() {
+		return this.sensors.map(s=>s.val);
+	}
+	NeuroInputLabels() {
+		return this.sensors.map(s=>s.name||s.detect);
+	}	
+	static Random(x,y,tank) {
+		let b = new ProtoBoid(x,y,tank);
+		b.species = 'random-unknown';
+		b.max_energy = Math.random() * 500 + 100;
+		b.energy = b.max_energy;
+		b.maxspeed = 600;
+		b.maxrot = 20;
+		b.length = utils.BiasedRandInt(5,100,15,0.5);
+		b.width = utils.BiasedRandInt(5,70,10,0.5);
+		b.collision.radius = Math.max(b.length, b.width) / 2;
+		b.energy_cost = 0.15;
+		// body plan / mutation
+		let num_extra_pts = utils.BiasedRandInt( 1, 4, 1, 0.5 );
+		let pts = []; 
+		for ( let n=0; n < num_extra_pts; n++ ) {
+			let px = utils.RandomFloat( -b.length/2, b.length/2 );
+			let py = utils.RandomFloat( 0, b.width/2 );
+			pts.push([px,py]);
+		}
+		// make complimentary points on other side of body
+		pts.sort( (a,b) => b[0] - a[0] );
+		let new_pts = pts.map( p => [ p[0], -p[1] ] );
+		// random chance for extra point in the back
+		if ( Math.random() > 0.5 ) { 
+			new_pts.push( [ utils.RandomFloat( -b.length/2, 0 ), 0] );
+		}
+		pts.push( ...new_pts.reverse() );
+		// standard forward nose point required for all body plans
+		pts.unshift( [this.length/2, 0] );
+		b.bodyplan = new BodyPlan(pts);
+		b.bodyplan.complexity_factor = utils.BiasedRand(0,1,0.3,0.5);
+		b.bodyplan.max_jitter_pct = utils.BiasedRand(0,0.2,0.08,0.5);
+		b.bodyplan.augmentation_pct = utils.BiasedRand(0,0.5,0.1,0.9);;
+		// colors
+		const color_roll = Math.random();
+		if ( color_roll < 0.33 ) {
+			b.bodyplan.linewidth = 2;
+			b.bodyplan.stroke = utils.RandomColor( true, false, true );
+			b.bodyplan.fill = 'transparent';
+		}
+		else if ( color_roll > 0.67 ) {
+			b.bodyplan.linewidth = 0;
+			b.bodyplan.stroke = 'transparent';
+			b.bodyplan.fill =  utils.RandomColor( true, false, true ) + 'AA';
+		}
+		else {
+			b.bodyplan.linewidth = 2;
+			b.bodyplan.stroke = utils.RandomColor( true, false, true );
+			b.bodyplan.fill =  utils.RandomColor( true, false, true ) + 'AA';
+		}
+		b.bodyplan.UpdateGeometry();
+		b.container.add([b.bodyplan.geo]);
+		
+		// sensors:
+		// food sensors are mandatory - its just a matter of how many
+		const my_max_dim = Math.max( b.length, b.width );
+		const max_sensor_distance = my_max_dim * 5;
+		const max_sensor_radius = my_max_dim * 5;
+		const min_sensor_distance = my_max_dim;
+		const min_sensor_radius = my_max_dim;
+		for ( let detect of ['food','obstacles'] ) {
+			const base_num_sensors = utils.BiasedRandInt(1,4,2,0.5);
+			for ( let n=0; n < base_num_sensors; n++ ) {
+				let sx = 0;
+				let sy = 0;
+				let r = utils.RandomInt(min_sensor_radius, max_sensor_radius);
+				let d = utils.RandomInt(min_sensor_radius, max_sensor_radius);
+				let a = Math.random() * Math.PI * 2;
+				// TODO: update b when we revise body plan symmetry
+				// decide if sensor is going to be axially aligned or symmetrical
+				// axial / symmetry = 0
+				if ( Math.random() < 0.33 ) {
+					b.sensors.push( new Sensor({ x:d, y:sy, r, angle:0, detect, name:detect }, b ) );			
+				}
+				// symmetry = 1
+				else {
+					for ( let angle of [a, Math.PI*2-a] ) {
+						sx = d * Math.cos(angle);
+						sy = d * Math.sin(angle);				
+						b.sensors.push( new Sensor({ x:sx, y:sy, r, angle, detect, name:detect }, b ) );			
+					}
+				}
+			}
+		}
+		b.MakeSensors();
+		// random chance to get any of the non-collision sensors	
+		const non_coll_sensors = ['inertia', 'spin', 'angle-sin', 'angle-cos', 'edges', 'world-x', 'world-y', 'chaos', 'friends'];
+		const num_non_coll_sensors = utils.RandomInt(0, non_coll_sensors.length, non_coll_sensors.length / 3, 0.3 ); 
+		for ( let n=0; n < num_non_coll_sensors; n++ ) {
+			const i = Math.floor( Math.random() * non_coll_sensors.length );
+			const detect = non_coll_sensors.splice(i,1).pop();
+			b.sensors.push( new Sensor({detect}, b) );
+		}
+		// motors
+		const num_motors = utils.BiasedRandInt(1,8,3,0.5);
+		for ( let n=0; n < num_motors; n++ ) {
+			let strokefunc = null;
+			let wheel = Math.random() > 0.75 ? true : false;
+			const cost = utils.BiasedRand(0.05, 5.0, 0.25, 0.8);
+			const stroketime = utils.BiasedRand(0.1, 3.0, 0.3, 0.6); 
+			const min_act = utils.BiasedRand(0,0.9,0.1,0.95);
+			let motor = { min_act, cost, stroketime, t:0, strokefunc, wheel };
+			let linear = utils.BiasedRandInt( 10, 2000, 800, 0.25 );
+			let angular = utils.BiasedRandInt( 1, 100, 20, 0.5 );
+			if ( Math.random() > 0.65 ) { linear = -linear; }
+			if ( Math.random() > 0.65 ) { angular = -angular; }
+			const combo_chance = Math.random();
+			if ( combo_chance > 0.75 ) { linear = 0; }
+			else if ( combo_chance < 0.25 ) { angular = 0; }
+			if ( linear ) { motor.linear = linear; }
+			if ( angular ) { motor.angular = angular; }
+			motor.name = (motor.linear && motor.angular) ? 'Combo' : (motor.linear ? 'Linear' : 'Angular');
+			if ( motor.wheel ) { motor.name += ' Wheel'; }
+			b.motors.push( motor );
+			// if non-wheel motor has angular movement, create a symmetrical counterpart
+			if ( !motor.wheel && motor.angular ) {
+				let motor2 = Object.assign( {}, motor );
+				motor2.angular = -motor.angular;
+				motor2.name = motor.name + ' B';
+				motor.name = motor.name + ' A';
+				b.motors.push(motor2);
+			} 
+		}
+		// neuro stuff
+		b.brain_complexity = utils.BiasedRand(0.1,5,2,0.8);
+		let middle_nodes = utils.BiasedRandInt(0,6,3,0.3);
+		let connections = b.brain_complexity * ( b.sensors.length + middle_nodes + b.motors.length );
+		b.MakeBrain( b.sensors.length, middle_nodes, b.motors.length, connections, 'random' );
+		
+		return b;
+	}
+	Copy( mutate=false ) {
+		let b = new ProtoBoid(this.x, this.y, this.tank);
+		// POD we can just copy over
+		let datakeys = ['species','max_energy','energy','maxspeed','maxrot','length','width','energy_cost','brain_complexity'];
+		for ( let k of datakeys ) { b[k] = this[k]; }
+		b.collision.radius = this.collision.radius;
+		// body plan stuff
+		if ( b?.bodyplan?.geo ) b.bodyplan.geo.remove(); // out with the old
+		b.bodyplan = this.bodyplan.Copy(); // in with the new
+		b.container.add([b.bodyplan.geo]);
+		b.sensors = this.sensors.map( s => {
+			let data = JSON.parse( JSON.stringify(s,['x','y','r','l','a','angle','detect','name']) );
+			return new Sensor(data,b);
+		} );
+		b.MakeSensors();
+		b.motors = JSON.parse( JSON.stringify(this.motors) );
+		b.brain = neataptic.Network.fromJSON(this.brain.toJSON());
+		if ( mutate ) {
+			b.bodyplan.Mutate();
+		}
+		b.generation = this.generation + 1;
+		return b;
 	}
 };
 
@@ -419,18 +574,6 @@ export class Boid extends ProtoBoid {
 			name:"FR whisker",
 		}, this) );	
 		super.MakeSensors();
-	}
-	Kill() {
-		this.bodyplan.geo.remove();
-		this.sensors.forEach(x=>x.geo.remove());
-		this.container.remove();
-		this.dead = true;
-	}
-	NeuroInputs() {
-		return this.sensors.map(s=>s.val);
-	}
-	NeuroInputLabels() {
-		return this.sensors.map(s=>s.name||s.detect);
 	}
 };
 

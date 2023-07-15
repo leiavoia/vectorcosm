@@ -82,7 +82,6 @@ export default class Rock {
 			let attempts = 0;
 			while ( attempts < 10 ) {
 				let p = [ utils.RandomInt(0,this.x2), utils.RandomInt(0,this.y2) ];
-				console.log(p);
 				if ( params.new_points_respect_hull && !this.PointInHull( p[0], p[1], this.collision.hull ) ) { 
 					attempts++; 
 					continue; 

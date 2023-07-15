@@ -253,7 +253,7 @@ export function RandomColor( as_hex=true, inc_transp=false, bright=false ) {
 		RandomInt(0,255),
 	];
 	if ( bright ) {
-		while ( c[0] + c[1] + c[2] < 400 ) {
+		while ( c[0] + c[1] + c[2] < 600 ) {
 			const i = RandomInt(0,2);
 			c[i] += Math.min( 20, 255 - c[i] );
 		}

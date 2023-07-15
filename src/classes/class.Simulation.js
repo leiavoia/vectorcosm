@@ -150,21 +150,13 @@ export default class Simulation {
 				const parent_selection = this.tank.boids.slice();
 				for ( let i=0; i < diff; i++ ) {
 					let parent = parent_selection.length ? parent_selection[ Math.trunc( Math.random() * parent_selection.length ) ] : null;
-					let species = parent ? parent.species : this.settings.species;
-					let b = BoidFactory( species, 0, 0, this.tank );
+					let species = parent ? parent.species : this.settings?.species;
+					let b = parent ? parent.Copy() : BoidFactory( species, 0, 0, this.tank );
 					if ( parent ) {
-						b.brain = neataptic.Network.fromJSON(parent.brain.toJSON());
 						for ( let j=0; j < this.settings.max_mutation; j++ ) { 
-							// let option = this.settings.mutation_options[ Math.trunc(Math.random() * this.settings.mutation_options.length) ];
 							let option = this.mutationOptionPicker.Pick();
 							b.brain.mutate(option);
-							// TODO: drop any nodes that have no connections
 						}
-						// inherit body geometry stuff
-						// TODO -- THIS IS REALLY UGLY
-						b.bodyplan.geo.remove(); // out with the old
-						b.bodyplan = parent.bodyplan.Copy(); // in with the new
-						b.container.add([b.bodyplan.geo]);
 						b.bodyplan.Mutate(); // for fun!
 					}
 					// if no survivors, it automatically has a randomly generated brain
@@ -200,7 +192,7 @@ export default class Simulation {
 		if ( diff > 0 ) {
 			for ( let i=0; i < diff; i++ ) {
 				// const b = BoidFactory(world.use_species, Math.random()*world.width, Math.random()*world.height );
-				const b = BoidFactory(this.settings.species, this.tank.width*0.25, this.tank.height*0.25, this.tank );
+				const b = BoidFactory(this.settings?.species, this.tank.width*0.25, this.tank.height*0.25, this.tank );
 				b.angle = Math.random() * Math.PI * 2;
 				this.tank.boids.push(b);
 			}			
@@ -218,7 +210,7 @@ export class FoodChaseSimulation extends Simulation {
 		let spawn_x = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.width; 
 		let spawn_y = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.height; 	
 		for ( let i=this.tank.boids.length; i < this.settings.num_boids; i++ ) {
-			const b = BoidFactory(this.species, spawn_x, spawn_y, this.tank );
+			const b = BoidFactory(this.settings?.species, spawn_x, spawn_y, this.tank );
 			// b.angle = 0;
 			this.tank.boids.push(b);
 		}

@@ -1,5 +1,5 @@
 import * as utils from '../util/utils.js'
-import { Boid } from '../classes/class.Boids.js'
+import { Boid, ProtoBoid } from '../classes/class.Boids.js'
 import Rock from '../classes/class.Rock.js'
 import {Circle, Polygon, Result} from 'collisions';
 
@@ -22,6 +22,9 @@ export default class Sensor {
 		this.val = 0; // output value of sensation, 0..1, used as input for neural networks
 		// this can be differentiated by geometry type later. just circles for now.
 		this.geo = window.two.makeCircle(this.x, this.y, this.r);
+		this.geo.fill = 'transparent';
+		this.geo.linewidth = 1;
+		this.geo.stroke = this.detect=='obstacles' ? '#FF22BB77' : '#AAEEAA77';
 	}
 	// does sensor checks and puts detected values into this.val
 	Sense() {
@@ -83,10 +86,12 @@ export default class Sensor {
 				break;
 			} 
 			case 'friends' : {
-				this.val = this.owner.tank.grid
-					.GetObjectsByCoords( this.owner.x, this.owner.y ) // use box for better accuracy, worse CPU
-					.filter( x => x instanceof Boid )
-					.length;
+				this.val = 0
+				// use box for better accuracy, worse CPU
+				let friends = this.owner.tank.grid.GetObjectsByCoords( this.owner.x, this.owner.y );
+				if ( friends ) {
+					this.val = friends.filter( x => x instanceof Boid || x instanceof ProtoBoid ).length;
+				}
 				const n = Math.pow(Math.E, this.val);
 				this.val = n / (n+1);
 				break;
