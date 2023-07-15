@@ -214,6 +214,9 @@
 			two.scene.scale = world.scale;
 			document.getElementById('world_scale_slider').value = world.scale;
 			document.getElementById('world_scale_slider_output').value = world.scale;
+			if ( world.braingraph ) {
+				world.braingraph.onScreenSizeChange();
+			}
 		}
 		if ( two.width < 500 ) { SetViewScale(0.4); }
 		else if ( two.width < 1200 ) { SetViewScale(0.6); }
@@ -1308,7 +1311,7 @@
 					let target = world.ui.focus_object || boids.sort( (a,b) => b.total_fitness_score - a.total_fitness_score )[0];
 					TrackObject(target);
 					world.braingraph =  world.braingraph ?? new BrainGraph(target);
-					world.braingraph.target = target;
+					world.braingraph.setTarget(target);
 					world.braingraph.Draw();
 				}
 				// otherwise close
@@ -1327,15 +1330,37 @@
 			constructor(target) { 
 				this.target = target;
 				this.brain = target.brain;
-				// this.geo = two.makeGroup();
+				this.draw_conns = true;
+				this.draw_nodes = true;
+				this.geo = two.makeGroup();
+				this.conns_geo = null;
+				this.nodes_geo = null;
+				this.window_resize_cb = event => this.onScreenSizeChange();
+				window.addEventListener("resize", this.window_resize_cb );
 			}
 			Kill() {
+				window.removeEventListener("resize", this.window_resize_cb );
 				two.remove(this.geo);
 				StopTrackObject();
 			}
+			onScreenSizeChange() {
+				if ( this.conns_geo ) { 
+					this.conns_geo.remove();  
+					this.conns_geo = null;
+				}
+				if ( this.nodes_geo ) { 
+					this.nodes_geo.remove();  
+					this.nodes_geo = null;
+				}
+				console.log("screen changed - updating BG");
+			}
+			setTarget(t) {
+				if ( this.target != t ) { 
+					this.target = t;
+					this.onScreenSizeChange();
+				}
+			}
 			Draw() {
-				if ( this.geo ) { two.remove(this.geo); }
-				this.geo = two.makeGroup();
 				let x = world.width / 2;
 				let y = world.height / 2;
 				let r = Math.min( world.width, world.height ) / 2.2;
@@ -1348,64 +1373,84 @@
 					node.my_x = x + Math.cos(node.my_a) * r;
 					node.my_y = y + Math.sin(node.my_a) * r;
 				}
-				// draw direct connections as lines
-				for ( let c of this.brain.connections ) {
-					let line = two.makeLine(c.from.my_x, c.from.my_y, c.to.my_x, c.to.my_y);
-					let v = Math.trunc( Math.abs( clamp(c.weight,-10,10) ) * 256 ); // scales 0..0.1 to 0..256
-					v = clamp(v,64,255); // minimum color for visibility
-					line.stroke = (c.weight > 0 ? '#FFFFFF' : '#DD1111') + DecToHex(v);
-					line.linewidth = 1;
-					if ( c.gater ) { line.dashes = [12,8]; }
-					this.geo.add(line);
-				}
-				// draw self connections as extra rings
-				for ( let c of this.brain.selfconns ) {
-					// self connection draws a circle
-					let ring_r = clamp(c.from.bias*2,-3,3) + 2;
-					let line = two.makeCircle(c.from.my_x, c.from.my_y, ring_r);
-					let v = Math.trunc( Math.abs( clamp(c.weight,-10,10) ) * 256 ); // scales 0..0.1 to 0..256
-					v = clamp(v,64,255); // minimum color for visibility
-					line.stroke = (c.weight > 0 ? '#FFFFFF' : '#DD1111') + DecToHex(v);
-					line.linewidth = 1;
-					line.fill = 'transparent';
-					if ( c.gater ) { line.dashes = [12,8]; }
-					this.geo.add(line);
+				// draw connections - connections do not fluctuate, so we can draw once and be done
+				if ( this.draw_conns ) {
+					// if ( this.conns_geo ) { 
+					// 	this.conns_geo.remove(); 
+					// 	this.conns_geo = null;
+					// }
+					if ( !this.conns_geo ) { 
+						this.conns_geo = two.makeGroup(); 
+						this.geo.add(this.conns_geo);
+						// this.conns_geo = two.makeGroup();
+						// draw direct connections as lines
+						for ( let c of this.brain.connections ) {
+							let line = two.makeLine(c.from.my_x, c.from.my_y, c.to.my_x, c.to.my_y);
+							let v = Math.trunc( Math.abs( clamp(c.weight,-10,10) ) * 256 ); // scales 0..0.1 to 0..256
+							v = clamp(v,64,255); // minimum color for visibility
+							line.stroke = (c.weight > 0 ? '#FFFFFF' : '#DD1111') + DecToHex(v);
+							line.linewidth = 1;
+							if ( c.gater ) { line.dashes = [12,8]; }
+							this.conns_geo.add(line);
+						}
+						// draw self connections as extra rings
+						for ( let c of this.brain.selfconns ) {
+							// self connection draws a circle
+							let ring_r = clamp(c.from.bias*2,-3,3) + 2;
+							let line = two.makeCircle(c.from.my_x, c.from.my_y, ring_r);
+							let v = Math.trunc( Math.abs( clamp(c.weight,-10,10) ) * 256 ); // scales 0..0.1 to 0..256
+							v = clamp(v,64,255); // minimum color for visibility
+							line.stroke = (c.weight > 0 ? '#FFFFFF' : '#DD1111') + DecToHex(v);
+							line.linewidth = 1;
+							line.fill = 'transparent';
+							if ( c.gater ) { line.dashes = [12,8]; }
+							this.conns_geo.add(line);
+						}
+					}
 				}
 				// draw output nodes and labels
-				let output_i = 0;
-				let input_i = 0;
-				const input_labels = this.target.NeuroInputLabels();
-				for ( let i=0; i < this.brain.nodes.length; i++ ) {
-					let node = this.brain.nodes[i];
-					let activation_label = node.activation.toFixed(2);
-					let rect = null;
-					if ( node.type == 'input' ) {
-						rect = two.makePolygon(node.my_x, node.my_y, node_r, 3);
-						let text = two.makeText( input_labels[input_i++] + ' ' + activation_label, node.my_x, node.my_y, { fill: '#FFF' } );
-						text.position.y -= node_r + 8;
-						this.geo.add(text);
+				if ( this.draw_nodes ) {
+					if ( this.nodes_geo ) { 
+						this.nodes_geo.remove(); 
+						this.nodes_geo = null;
 					}
-					else if ( node.type == 'output' ) {
-						rect = two.makePolygon(node.my_x, node.my_y, node_r, 4);
-						let text = two.makeText( this.target.motors[output_i++].name + ' / ' + node.squash.name + ' ' + activation_label, node.my_x, node.my_y, { fill: '#FFF' } );
-						text.position.y -= node_r + 8;
-						this.geo.add(text);
+					this.nodes_geo = two.makeGroup();
+					this.geo.add(this.nodes_geo);
+					let output_i = 0;
+					let input_i = 0;
+					const input_labels = this.target.NeuroInputLabels();
+					for ( let i=0; i < this.brain.nodes.length; i++ ) {
+						let node = this.brain.nodes[i];
+						let activation_label = node.activation.toFixed(2);
+						let rect = null;
+						if ( node.type == 'input' ) {
+							rect = two.makePolygon(node.my_x, node.my_y, node_r, 3);
+							let text = two.makeText( input_labels[input_i++] + ' ' + activation_label, node.my_x, node.my_y, { fill: '#FFF' } );
+							text.position.y -= node_r + 8;
+							this.nodes_geo.add(text);
+						}
+						else if ( node.type == 'output' ) {
+							rect = two.makePolygon(node.my_x, node.my_y, node_r, 4);
+							let text = two.makeText( this.target.motors[output_i++].name + ' / ' + node.squash.name + ' ' + activation_label, node.my_x, node.my_y, { fill: '#FFF' } );
+							text.position.y -= node_r + 8;
+							this.nodes_geo.add(text);
+						}
+						else {
+							node_r += clamp(node.bias*2,-3,3);
+							rect = two.makeCircle(node.my_x, node.my_y, node_r);
+							let text = two.makeText( node.squash.name + ' ' + activation_label, node.my_x, node.my_y, { fill: '#FFF' } );
+							text.position.y -= node_r + 8;
+							this.nodes_geo.add(text);
+						}
+						let hexval = DecToHex( Math.round(Math.abs(clamp(node.activation,-1,1)) * 255) );
+						rect.fill = node.activation >= 0 
+							? ('#00' + hexval + '00') 
+							: ('#' + hexval + '0000') ;
+						rect.linewidth = 1;
+						rect.stroke = '#FFF';
+						this.nodes_geo.add(rect);
 					}
-					else {
-						node_r += clamp(node.bias*2,-3,3);
-						rect = two.makeCircle(node.my_x, node.my_y, node_r);
-						// if ( node. )
-						let text = two.makeText( node.squash.name + ' ' + activation_label, node.my_x, node.my_y, { fill: '#FFF' } );
-						text.position.y -= node_r + 8;
-						this.geo.add(text);
-					}
-					let hexval = DecToHex( Math.round(Math.abs(clamp(node.activation,-1,1)) * 255) );
-					rect.fill = node.activation >= 0 
-						? ('#00' + hexval + '00') 
-						: ('#' + hexval + '0000') ;
-					rect.linewidth = 1;
-					rect.stroke = '#FFF';
-					this.geo.add(rect);
+					this.geo.add(this.nodes_geo);
 				}
 			}
 		}
@@ -1544,12 +1589,11 @@
 			else { two.play(); console.log('playing'); }
 		}
 		
-		
-		window.onresize = function(event) {
+		window.addEventListener("resize", function (event) {
 			world.height = window.innerHeight / world.scale;
 			world.width = window.innerWidth / world.scale;
 			two.fit();
-		}
+		});
 		
 		document.getElementById('hide_ui_button').addEventListener('click', function(event) {
 			event.preventDefault();
