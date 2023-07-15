@@ -7,7 +7,7 @@ import Chart from 'chart.js/auto';
 // https://www.chartjs.org/docs/latest/getting-started/integration.html
 import * as utils from './util/utils.js'
 import Tank from './classes/class.Tank.js'
-import Food from './classes/class.Food.js'
+import Simulation from './classes/class.Simulation.js'
 import BrainGraph from './classes/class.BrainGraph.js'
 import { BoidFactory } from './classes/class.Boids.js'
 // import Plant from './classes/class.Plant.js'
@@ -85,25 +85,6 @@ function SetViewScale( scale ) {
 	}
 }
 
-// set up neataptic
-const { architect, Network, methods } = neataptic;
-const mutation_options =  [
-	// methods.mutation.ADD_NODE,
-	// methods.mutation.SUB_NODE,
-	// methods.mutation.ADD_CONN,
-	// methods.mutation.SUB_CONN,
-	methods.mutation.MOD_WEIGHT,
-	methods.mutation.MOD_BIAS,
-	// methods.mutation.MOD_ACTIVATION,
-	// methods.mutation.ADD_GATE,
-	// methods.mutation.SUB_GATE,
-	// methods.mutation.ADD_SELF_CONN,
-	// methods.mutation.SUB_SELF_CONN,
-	// methods.mutation.ADD_BACK_CONN,
-	// methods.mutation.SUB_BACK_CONN
-];
-
-
 let tank = null;
 		
 
@@ -114,115 +95,15 @@ function update(frameNumber, delta=0) {
 	// fix delta supplied in ms
 	if ( delta && delta > 1 ) { delta /= 1000; }
 	delta = Math.min( (delta || two.timeDelta/1000), 0.25); // beware of spikes from pausing
-			
-	// reset sim every so often --------\/----------------
-	world.simulator.round.time += delta;
-	if ( world.simulator && world.simulator.time && world.simulator.round.time >= world.simulator.time ) { 
-		// record stats
-		world.simulator.round.num++;
-		world.simulator.round.time = 0;
-		world.simulator.round.best_score = 0;
-		world.simulator.round.avg_score = 0;
-		let avg = 0;
-		let best = 0;
-		for ( let b of tank.boids ) {
-			avg += b.total_fitness_score || 0;
-			best = Math.max(b.total_fitness_score||0, best);
-		}
-		avg /= tank.boids.length || 1;
-		world.simulator.round.avg_score = avg;
-		world.simulator.round.best_score = best;
-		world.simulator.best_score = Math.max(world.simulator.best_score, world.simulator.round.best_score);
-		world.simulator.best_avg_score = Math.max(world.simulator.best_avg_score, world.simulator.round.avg_score);
-		world.simulator.chartdata.averages.push(avg);
-		world.simulator.chartdata.highscores.push(best);
-		simulatorChart.data.labels.push(world.simulator.round.num);
-		simulatorChart.update();
-		// remove deadbeats
-		const min_score = 2;
-		tank.boids.filter( x => x.total_fitness_score < min_score ).forEach( x => x.Kill() );
-		tank.boids = tank.boids.filter( x => !x.dead );
-		// sort boids by sensor score ASC
-		tank.boids.sort( (a,b) => a.total_fitness_score - b.total_fitness_score );
-		// cull the herd, keep the winners
-		const numkill = Math.trunc(tank.boids.length * world.settings.cullpct);
-		const killmes = tank.boids.splice(0,numkill);
-		killmes.forEach( x=> x.Kill() );
-		const num_survivors = tank.boids.length;
-		// if the score is very low, keep the spawn location constant
-		let spawn_x = (Math.random() > 0.5 ? 0.25 : 0.75) * world.width; 
-		let spawn_y = (Math.random() > 0.5 ? 0.25 : 0.75) * world.height; 
-		// randomize spawn location only after they learn to swim a bit first
-		// if ( world.simulator.round.avg_score > 16 ) {
-		// 	spawn_x = Math.random() * world.width; 
-		// 	spawn_y = Math.random() * world.height;
-		// } 				
-		// create boids to make up the difference
-		let n = world.simulator.num_boids;
-		let diff = n - tank.boids.length;
-		if ( diff > 0 ) {
-			for ( let i=0; i < diff; i++ ) {
-				let parent = null;
-				// if ( num_survivors && Math.random() > 0.1 ) {
-					parent = tank.boids[ Math.trunc( Math.random() * tank.boids.length ) ];
-				// }
-				let species = parent ? parent.species : world.use_species;
-				// const b = BoidFactory(species, world.width*Math.random(),world.height*Math.random() );
-				const b = BoidFactory(species, world.width*0.25,world.height*0.25,tank );
-				b.angle = Math.random() * Math.PI * 2;
-				// the BoidFactory 'Boid',will likely be an offspring of one of the survivors,
-				// but we also allow a certain percentage of newcomers to try their luck
-				if ( parent ) {
-					b.brain = Network.fromJSON(parent.brain.toJSON());
-					for ( let j=0; j < world.settings.max_mutation; j++ ) { 
-						let option = mutation_options[ Math.trunc(Math.random() * mutation_options.length) ];
-						// if ( Math.random() <= world.settings.max_mutation * 0.0002 ) {
-						// 	option = methods.mutation.MOD_ACTIVATION;
-						// }
-						b.brain.mutate(option);
-						// drop any nodes that have no conections
-					}
-					// inherit body geometry stuff
-					// TODO -- THIS IS REALLY UGLY
-					b.bodyplan.geo.remove(); // out with the old
-					b.bodyplan = parent.bodyplan.Copy(); // in with the new
-					b.container.add([b.bodyplan.geo]);
-					b.bodyplan.Mutate(); // for fun!
-				}
-				// if no survivors, it automatically has a randomly generated brain
-				tank.boids.push(b);
-			}			
-		}
-		// reset entire population
-		// let newx = Math.random() * world.width/2;
-		// let newy = Math.random() * world.height;
-		let new_angle = Math.random() * Math.PI * 2;
-		for ( let b of tank.boids ) {
-			b.total_fitness_score = 0;
-			b.angle = new_angle;
-			// b.x = Math.random() * world.width*0.8 + world.width*0.1;
-			// b.y = Math.random() * world.height*0.8 + world.height*0.1;
-			b.x = spawn_x;
-			b.y = spawn_y;
-			b.angmo = 0;
-			b.inertia = 0;
-		}
-		// move the food
-		for ( let food of tank.foods ) {
-			// food.x = food.geo.position.x = (Math.random() * world.width*0.5) + (world.width*0.25);
-			// food.y = food.geo.position.y = (Math.random() * world.height*0.5) + (world.height*0.25);
-			food.x = food.geo.position.x = world.width - spawn_x;
-			food.y = food.geo.position.y = world.height - spawn_y;
-			food.vx = 0; // Math.random() * 10 - 5;
-			food.vy = Math.random() * 100 - 50;
-			food.value = 100;
-		}
-	}
-	// end simulation code ------/\--------------------------
+	
+	// update simulation		
+	if ( world.sim ) {
+		world.sim.Update(delta);
+	}			
 	
 	// update all boids
 	for ( let b of tank.boids ) {
-		b.Update( delta );
+		b.Update(delta);
 	}
 	
 	// update food
@@ -329,7 +210,7 @@ function LoadLeader() {
 	let json = localStorage.getItem("leader-brain");
 	if (json) {
 		json = JSON.parse(json);
-		let brain = Network.fromJSON(json);
+		let brain = neataptic.Network.fromJSON(json);
 		// const b = BoidFactory(world.use_species, Math.random()*world.width, Math.random()*world.height );
 		const b = BoidFactory(world.use_species, world.width*0.25, world.height*0.25,tank );
 		b.brain = brain;
@@ -510,32 +391,15 @@ onMounted(() => {
 
 	// set up tank
 	tank = new Tank( world.width, world.height );
-	tank.boids = [];
-	tank.foods = [];
-	tank.threats = [];
 	tank.MakeBackground();
 	
-	// make boids
-	for ( let i=0; i < 1; i++ ) {
-		// const b = BoidFactory(world.use_species, Math.random()*world.width, Math.random()*world.height );
-		const b = BoidFactory(world.use_species, world.width*0.25,world.height*0.25, tank );
-		b.angle = Math.random() * Math.PI * 2;
-		tank.boids.push(b);
-	}
-		
+	// set up the simulation
+	world.sim = new Simulation(tank,{});
+	world.sim.Setup();
+	
 	// chart data for simulation
 	simulatorChart = MakeSimulatorChart('simulatorChart', world.simulator.chartdata.averages, world.simulator.chartdata.highscores);
 
-	// add food to simulation
-	tank.foods.push(
-		new Food(
-			(Math.random() * world.width*0.25) + (world.width*0.5),
-			(Math.random() * world.height*0.5) + (world.height*0.25)
-		),
-	);
-	
-	ChangeNumBoids(20);
-		
 	// draw screen
 	two.update();
 	two.play();

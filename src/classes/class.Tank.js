@@ -7,11 +7,16 @@ export default class Tank {
 	constructor( w, h ) {
 		this.width = w;
 		this.height = h;
-		this.bg = window.two.makeGroup();
+		this.viscosity = 0.5;
+		this.boids = [];
+		this.foods = [];
+		this.threats = [];
 	}
 	
 	// background layer
 	MakeBackground() {
+		if ( this.bg ) { this.bg.remove(); }
+		this.bg = window.two.makeGroup();
 		let bgnumpts = Math.trunc(Math.random() * 200) + 10;
 		let bgpts = [];
 		bgpts.push( [0, 0] );

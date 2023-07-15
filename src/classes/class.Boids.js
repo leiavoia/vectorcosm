@@ -2,14 +2,14 @@ import neataptic from "neataptic";
 import BodyPlan from '../classes/class.BodyPlan.js'
 import Sensor from '../classes/class.Sensor.js'
 import * as utils from '../util/utils.js'
-const { architect, Network, methods } = neataptic;
+const { architect, Network } = neataptic;
 
 export function BoidFactory( type, x, y, tank ) {
 	// if ( type == 'Kayak' ) { return new Kayak(x,y); }
 	// if ( type == 'Simpleton' ) { return new Simpleton(x,y); }
-	if ( type == 'Boid' ) { return new Boid(x,y,tank); }
+	// if ( type == 'Boid' ) { return new Boid(x,y,tank); }
 	// random!
-	let n = Math.random(); 
+	// let n = Math.random(); 
 	// if ( n > 0.67 ) { return new Simpleton(x,y); }
 	// if ( n > 0.33 ) { return new Kayak(x,y); }
 	return new Boid(x,y,tank);
@@ -17,6 +17,7 @@ export function BoidFactory( type, x, y, tank ) {
 	
 export class ProtoBoid {
 	constructor( x=0, y=0, tank=null ) {
+		this.id = Math.random();
 		this.tank = tank;
 		this.species = 'prototype';
 		// physical stuff
@@ -191,7 +192,7 @@ export class ProtoBoid {
 		// this.x = utils.clamp( this.x, 0, window.world.width );
 		// this.y = utils.clamp( this.y, 0, window.world.height );
 		// // viscosity slows down inertia over time
-		// const drag = (1 - ( window.world.settings.viscosity * delta * 10 ) );
+		// const drag = (1 - ( this.tank.viscosity * delta * 10 ) );
 		// this.momentum_x *= drag;
 		// this.momentum_y *= drag;
 		// this.inertia *= drag;
@@ -232,8 +233,8 @@ export class ProtoBoid {
 		this.container.position.y = this.y;
 		this.container.rotation = this.angle;
 		// viscosity slows down inertia over time
-		this.inertia *= (1 - ( window.world.settings.viscosity * delta * 10 ) );
-		this.angmo *= (1 - ( window.world.settings.viscosity * delta * 10 ) );
+		this.inertia *= (1 - ( this.tank.viscosity * delta * 10 ) );
+		this.angmo *= (1 - ( this.tank.viscosity * delta * 10 ) );
 		// speed caps
 		if ( this.inertia > this.maxspeed ) { this.inertia = this.maxspeed; }
 		if ( this.inertia < -this.maxspeed ) { this.inertia = -this.maxspeed; }
