@@ -12,6 +12,25 @@ export function BoidFactory( type, x, y, tank ) {
 }
 	
 export class ProtoBoid {
+
+	static mutationOptionPicker = new utils.RandomPicker( [
+		[ neataptic.methods.mutation.ADD_NODE, 			16 ],
+		[ neataptic.methods.mutation.SUB_NODE, 			20 ],
+		[ neataptic.methods.mutation.ADD_CONN, 			34 ],
+		[ neataptic.methods.mutation.SUB_CONN, 			40 ],
+		[ neataptic.methods.mutation.MOD_WEIGHT, 		1000 ],
+		[ neataptic.methods.mutation.MOD_BIAS, 			500 ],
+		[ neataptic.methods.mutation.MOD_ACTIVATION, 	15 ],
+		[ neataptic.methods.mutation.ADD_GATE, 			10 ],
+		[ neataptic.methods.mutation.SUB_GATE, 			10 ],
+		[ neataptic.methods.mutation.ADD_SELF_CONN, 	10 ],
+		[ neataptic.methods.mutation.SUB_SELF_CONN, 	10 ],
+		[ neataptic.methods.mutation.ADD_BACK_CONN, 	10 ],
+		[ neataptic.methods.mutation.SUB_BACK_CONN, 	10 ],
+		[ neataptic.methods.mutation.SWAP_NODES, 		12 ],
+	] );
+			
+			
 	constructor( x=0, y=0, tank=null ) {
 		this.id = Math.random();
 		this.generation = 1;
@@ -71,12 +90,20 @@ export class ProtoBoid {
 		this.sensor_group.visible = window.vc.show_collision_detection;
 		this.container.add(this.sensor_group);
 	}
-	MakeBrain( inputs, middles, outputs, connections, type='random' ) {	
+	MakeBrain( inputs, middles, outputs, connections=null, type='random' ) {	
 		if ( type=='perceptron' ) {
-			this.brain = architect.Perceptron(inputs, middles, outputs, {connections:connections});			
+			this.brain = architect.Perceptron(inputs, middles, outputs);			
 		}
 		else {
-			this.brain = architect.Random(inputs, middles, outputs, {connections:connections});			
+			this.brain = architect.Random(inputs, middles, outputs);			
+		}
+		// prune out default connections that Neataptic likes to set up.
+		// NOTE: this could be optimized by building network from scratch.
+		if ( connections > 0 ) {
+			let sanity = 100; 
+			while ( this.brain.connections.length > connections && --sanity ) {
+				this.brain.mutate( neataptic.methods.mutation.SUB_CONN );
+			}
 		}
 	}
 	Update( delta ) {
@@ -337,7 +364,9 @@ export class ProtoBoid {
 		b.bodyplan = new BodyPlan(pts);
 		b.bodyplan.complexity_factor = utils.BiasedRand(0,1,0.3,0.5);
 		b.bodyplan.max_jitter_pct = utils.BiasedRand(0,0.2,0.08,0.5);
-		b.bodyplan.augmentation_pct = utils.BiasedRand(0,0.5,0.1,0.9);;
+		b.bodyplan.augmentation_pct = utils.BiasedRand(0,0.5,0.1,0.9);
+		b.bodyplan.length = b.length;
+		b.bodyplan.width = b.width;
 		// colors
 		const color_roll = Math.random();
 		if ( color_roll < 0.33 ) {
@@ -431,11 +460,16 @@ export class ProtoBoid {
 		// neuro stuff
 		b.brain_complexity = utils.BiasedRand(0.1,5,2,0.8);
 		let middle_nodes = utils.BiasedRandInt(0,6,3,0.3);
-		let connections = b.brain_complexity * ( b.sensors.length + middle_nodes + b.motors.length );
+		let connections = Math.trunc(  b.brain_complexity * ( b.sensors.length + middle_nodes + b.motors.length ) );
 		b.MakeBrain( b.sensors.length, middle_nodes, b.motors.length, connections, 'random' );
+		// crazytown
+		for ( let n=0; n< 100; n++ ) {
+			b.brain.mutate( ProtoBoid.mutationOptionPicker.Pick() );
+		}
 		
 		return b;
 	}
+			
 	Copy( mutate=false ) {
 		let b = new ProtoBoid(this.x, this.y, this.tank);
 		// POD we can just copy over
