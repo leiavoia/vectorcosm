@@ -20,6 +20,20 @@ export default class Vectorcosm {
 		// set up Two now, attach to DOM later
 		this.two = new Two({ fitted: true, type: 'CanvasRenderer' });
 		window.two = this.two; // make available everywhere
+		this.renderLayers = {};
+		this.renderLayers['tank'] = this.two.makeGroup(); // meta group. UI and tank layers need to scale separately
+		this.renderLayers['-2'] = this.two.makeGroup(); // tank backdrop
+		this.renderLayers['-1'] = this.two.makeGroup(); // background objects
+		this.renderLayers['0'] = this.two.makeGroup(); // middle for most objects / default
+		this.renderLayers['1'] = this.two.makeGroup(); // foregrounds objects
+		this.renderLayers['2'] = this.two.makeGroup(); // very near objects
+		this.renderLayers['ui'] = this.two.makeGroup(); // UI layer - stays separate from the others
+		this.renderLayers['tank'].add(this.renderLayers['-2']);
+		this.renderLayers['tank'].add(this.renderLayers['-1']);
+		this.renderLayers['tank'].add(this.renderLayers['0']);
+		this.renderLayers['tank'].add(this.renderLayers['1']);
+		this.renderLayers['tank'].add(this.renderLayers['2']);
+		
 
 		this.simulation = null;
 		this.tank = null;
@@ -44,16 +58,19 @@ export default class Vectorcosm {
 		this.two.appendTo(elem);
 		// `types is one of: 'WebGLRenderer', 'SVGRenderer', 'CanvasRenderer'
 		this.two.bind('update', (frameNumber, delta) => { this.update(frameNumber, delta); } );
+		this.SetViewScale(1);
+		
+		// set up tank
+		this.tank = new Tank( this.width, this.height );
+		this.tank.MakeBackground();
 		
 		// default screen scaling based on user window
 		if ( this.two.width < 500 ) { this.SetViewScale(0.4); }
 		else if ( this.two.width < 1200 ) { this.SetViewScale(0.6); }
 		else if ( this.two.width < 1900 ) { this.SetViewScale(1); }
 		else { this.SetViewScale(1); }
-
-		// set up tank
-		this.tank = new Tank( this.width, this.height );
-		this.tank.MakeBackground();
+		
+		// set up simulations so we have something to watch
 		this.sim_queue = [
 			new FoodChaseSimulation(this.tank,{
 				name: 'food chaser',
@@ -121,12 +138,16 @@ export default class Vectorcosm {
 		this.two.play();
 	}
 
-	// default scale depends on device you are on
 	SetViewScale( scale ) {
 		this.scale = utils.clamp( scale, 0.1, 10 );
-		this.width =  two.width / this.scale,
-		this.height =  two.height / this.scale,
-		two.scene.scale = this.scale;
+		this.width = two.width;
+		this.height = two.height;
+		if ( this.tank && this.tank.responsive ) {
+			this.tank.width = this.width / this.scale;
+			this.tank.height = this.height / this.scale;
+			this.tank.ScaleBackground();
+		}
+		this.renderLayers['tank'].scale = this.scale;
 		if ( this.braingraph ) {
 			this.braingraph.onScreenSizeChange();
 		}
@@ -171,6 +192,15 @@ export default class Vectorcosm {
 										
 	}		
 
+	AddShapeToRenderLayer( geo, layer='0' ) {
+		try {
+			this.renderLayers[layer].add(geo);
+		}
+		catch (error) {
+			console.warn('no drawing layer named ' + layer);
+		}
+	}
+	
 	DrawBrainGraph() {
 		if ( this.show_brainmap && !this.simulation.turbo ) {
 			// anything to track?
@@ -205,6 +235,7 @@ export default class Vectorcosm {
 			this.focus_geo.stroke = '#AEA';
 			this.focus_geo.linewidth = 4;
 			this.focus_geo.fill = 'transparent';
+			this.AddShapeToRenderLayer(this.focus_geo);
 		}
 		else {
 			this.focus_geo.position.x = this.focus_object.x;
@@ -235,7 +266,6 @@ export default class Vectorcosm {
 			else {
 				if ( ++i == this.tank.boids.length ) { i = 0; }
 			}
-			console.log('tracking ' + i );
 			this.TrackObject( this.tank.boids[i] );
 		}
 	}

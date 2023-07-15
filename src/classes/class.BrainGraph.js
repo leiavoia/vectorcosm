@@ -10,6 +10,7 @@ export default class BrainGraph {
 		this.conns_geo = null;
 		this.nodes_geo = null;
 		this.window_resize_cb = event => this.onScreenSizeChange();
+		window.vc.AddShapeToRenderLayer(this.geo,'ui'); // UI layer
 		window.addEventListener("resize", this.window_resize_cb );
 	}
 	Kill() {
@@ -40,7 +41,7 @@ export default class BrainGraph {
 		}
 		let x = window.vc.width / 2;
 		let y = window.vc.height / 2;
-		let r = Math.min( window.vc.width, window.vc.height ) / 2.2;
+		let r = Math.min( window.vc.width, window.vc.height ) / 2.25;
 		let a = (Math.PI * 2) /  this.brain.nodes.length;
 		let node_r = 25;
 		// update node positions in the ring

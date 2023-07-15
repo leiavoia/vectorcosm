@@ -15,6 +15,7 @@ export default class Food {
 		this.geo.noStroke();
 		let stops = [ new Two.Stop(0, '#FA06'), new Two.Stop(1, '#FA0F') ];
 		this.geo.fill = new Two.RadialGradient(0, 0, 1, stops, -0.25, -0.25);
+		window.vc.AddShapeToRenderLayer(this.geo); // main layer
 		// this.geo.fill.units = 'objectBoundingBox';
 		this.dead = false;			
 	}
@@ -26,10 +27,10 @@ export default class Food {
 		this.y += this.vy * delta;
 		if ( this.x < margin ) { this.vx = -this.vx; }
 		if ( this.y < margin ) { this.vy = -this.vy; }
-		if ( this.x > window.vc.width-margin ) { this.vx = -this.vx; }
-		if ( this.y > window.vc.height-margin ) { this.vy = -this.vy; }
-		this.x = utils.clamp( this.x, margin, window.vc.width-margin );
-		this.y = utils.clamp( this.y, margin, window.vc.height-margin );
+		if ( this.x > window.vc.tank.width-margin ) { this.vx = -this.vx; }
+		if ( this.y > window.vc.tank.height-margin ) { this.vy = -this.vy; }
+		this.x = utils.clamp( this.x, margin, window.vc.tank.width-margin );
+		this.y = utils.clamp( this.y, margin, window.vc.tank.height-margin );
 		// update the object in space
 		this.r = this.value * 0.25;
 		this.geo.radius = Math.max(this.r,5);

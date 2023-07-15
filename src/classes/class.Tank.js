@@ -7,6 +7,8 @@ export default class Tank {
 	constructor( w, h ) {
 		this.width = w;
 		this.height = h;
+		this.scale_to_window = 1; // helpful for UI
+		this.responsive = true; // snap to window size on resize events
 		this.viscosity = 0.5;
 		this.boids = [];
 		this.foods = [];
@@ -80,9 +82,19 @@ export default class Tank {
 			t.stroke = c;
 			this.bg.add(t);
 		}		
-		let randscale = Math.cbrt( Math.random() * 99 + 1 ); // TODO: weighted random
-		let xory = Math.random() > 0.5;
-		this.bg.scale = new Two.Vector( xory ? randscale : 1.5, xory ? 1.5 : randscale );
+		// let randscale = Math.cbrt( Math.random() * 99 + 1 ); // TODO: weighted random
+		// let xory = Math.random() > 0.5;
+		// this.bg.scale = new Two.Vector( xory ? randscale : 1.5, xory ? 1.5 : randscale );
+		window.vc.AddShapeToRenderLayer(this.bg, -2);
+		this.ScaleBackground();
+	}
+	
+	ScaleBackground() {
+		// scale the background until it covers the scene - should look static
+		this.bg.scale = 1; // reset to one
+		const rect = this.bg.getBoundingClientRect(true);
+		const to_scale = 1 / Math.min(  rect.width / this.width, rect.height / this.height );
+		this.bg.scale = to_scale;
 	}
 
 

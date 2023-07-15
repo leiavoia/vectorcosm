@@ -44,6 +44,7 @@ export class ProtoBoid {
 		this.container.position.y = y;
 		this.container.add([this.path]);
 		this.container.visible = true;
+		window.vc.AddShapeToRenderLayer(this.container); // main layer
 		// neuro stuff
 		this.brain = null;
 		// vision and sensors
@@ -184,11 +185,11 @@ export class ProtoBoid {
 		// hitting walls causes artificial drag
 		if ( this.x < 0 ) { this.inertia *= 0.75; }
 		if ( this.y < 0 ) { this.inertia *= 0.75; }
-		if ( this.x > window.vc.width ) { this.inertia *= 0.75; }
-		if ( this.y > window.vc.height ) { this.inertia *= 0.75; }				
+		if ( this.x > this.tank.width ) { this.inertia *= 0.75; }
+		if ( this.y > this.tank.height ) { this.inertia *= 0.75; }				
 		// stay inside world bounds
-		this.x = utils.clamp( this.x, 0, window.vc.width );
-		this.y = utils.clamp( this.y, 0, window.vc.height );
+		this.x = utils.clamp( this.x, 0, this.tank.width );
+		this.y = utils.clamp( this.y, 0, this.tank.height );
 		// update drawing geometry
 		this.container.position.x = this.x;
 		this.container.position.y = this.y;

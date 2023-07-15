@@ -25,7 +25,8 @@ window.vc.onSimulationChange = new_sim => { sim.value = new_sim; }
 // Handle key down events
 const body = document.querySelector("body");
 body.addEventListener("touchstart", function(event) {
-	vc.ToggleUI();
+	event.preventDefault();
+	if ( !vc.show_ui ) { vc.ToggleUI(); }
 });
 body.addEventListener("keydown", function(event) {
 	if ( event.keyCode == 19 ) {  // `Pause` 
@@ -79,9 +80,10 @@ body.addEventListener("keydown", function(event) {
 });
 			
 window.addEventListener("resize", function (event) {
-	vc.height = window.innerHeight / vc.scale;
-	vc.width = window.innerWidth / vc.scale;
+	vc.height = window.innerHeight;
+	vc.width = window.innerWidth;
 	vc.two.fit();
+	vc.SetViewScale( vc.scale ); // trigger update, even though scale hasent changed
 });
 				
 
