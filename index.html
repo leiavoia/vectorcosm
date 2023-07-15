@@ -139,10 +139,12 @@
 		
 		<canvas id="simulatorChart" style="width: 12em; height: 4em;"></canvas>
        
-	  
 	</div>
 	
 	<script>
+	
+
+
 		// set up Two.js
 		let elem = document.getElementById('draw-shapes');
 		let two = new Two({ fitted: true }).appendTo(elem);
@@ -664,7 +666,7 @@
 				this.energy = Math.min( this.energy, this.max_energy || 100 );
 				
 				// movement / motor control 				
-				const brain_outputs = this.brain.activate( this.NeuroInputs() );
+				let brain_outputs = this.brain.activate( this.NeuroInputs() );
 				// estimate cost of moving to see if we can afford to move at all
 				let cost = 0
 				for ( let i=0; i < brain_outputs.length; i++ ) {
@@ -760,21 +762,28 @@
 			}
 			// use estimate=true if you want a cost value returned instead of the actual movement 
 			ActivateMotor( i, amount /* -1..1 */, delta, estimate = false ) {
+				// sometimes neataptic can output nan and infinities. 
+				if ( Number.isNaN(amount) || !Number.isFinite(amount) ) { return; }
 				let m = this.motors[i];
 				if ( m ) {
-					// if ( m.t==0 ) { console.log(`ignore: ${m.name}, ${amount} < ${m.min_act}`); }
+					// shift amount to halfway point for wheel motors
 					if ( m.wheel ) { amount = (amount - 0.5) * 2; } 
+					// check for minimum activation
 					if ( m.t==0 && m.min_act && (m.wheel ? Math.abs(amount) : amount) < m.min_act ) { return 0; }
-					// if ( m.t==0 ) { console.log(`stroke: ${m.name}`); }
-					// if we decided to activate the stroke, record the power it was activated with
-					// instead of using a varying stroke each frame.
+					// sanity check
+					amount = clamp(amount,-1,1);
+					// if we decided to activate a new stroke, record the power it was
+					//  activated with instead of using a varying stroke each frame.
 					if ( m.t==0 ) { m.strokepow = amount; }
 					else { amount = m.strokepow; }
-					delta = Math.min( delta, m.stroketime - m.t ); // don't allow overtaxing
-					amount = clamp(amount,-1,1);
-					amount *= delta; // power applied
-					m.t = clamp(m.t+delta, 0, m.stroketime); // increase stroke time
-					let cost = m.cost * delta; // cost of power
+					// don't allow overtaxing
+					delta = Math.min( delta, m.stroketime - m.t ); 
+					// apply power
+					amount *= delta;
+					// increase stroke time
+					m.t = clamp(m.t+delta, 0, m.stroketime); 
+					// cost of doing business
+					let cost = m.cost * delta; 
 					if ( estimate ) { return cost; }
 					this.energy -= cost;
 					//
@@ -1181,7 +1190,7 @@
 					world.simulator.round.avg_score += b.total_fitness_score || 0;
 					world.simulator.round.best_score = Math.max(b.total_fitness_score||0, world.simulator.round.best_score);
 				}
-				world.simulator.round.avg_score /= boids.length;
+				world.simulator.round.avg_score /= boids.length || 1;
 				world.simulator.best_score = Math.max(world.simulator.best_score, world.simulator.round.best_score);
 				world.simulator.best_avg_score = Math.max(world.simulator.best_avg_score, world.simulator.round.avg_score);
 				document.getElementById('round_output').value = world.simulator.round.num;
@@ -1195,13 +1204,12 @@
 				simulatorChart.update();
 				// remove deadbeats
 				const min_score = 2;
-				boids.filter( x => !x.total_fitness_score < min_score ).forEach( x=> x.Kill() );
-				boids = boids.filter( x => x.total_fitness_score >= min_score );
+				boids.filter( x => x.total_fitness_score < min_score ).forEach( x => x.Kill() );
+				boids = boids.filter( x => !x.dead );
 				// sort boids by sensor score ASC
 				boids.sort( (a,b) => a.total_fitness_score - b.total_fitness_score );
 				// cull the herd, keep the winners
-				const cullpct = 0.5;
-				const numkill = Math.trunc(boids.length * 0.9);
+				const numkill = Math.trunc(boids.length * world.settings.cullpct);
 				const killmes = boids.splice(0,numkill);
 				killmes.forEach( x=> x.Kill() );
 				const num_survivors = boids.length;
@@ -1293,22 +1301,7 @@
 				if ( world.braingraph ) {
 					two.remove(world.braingraph);
 				}
-				if ( boids.length ) {
-					// nodetypes = {
-					// 	'LOGISTIC': { color: '#72F8E0' },
-					// 	'RELU': { color: '#5abbc9' },
-					// 	'STEP': { color: '#694fd8' },
-					// 	'GAUSSIAN': { color: '#55cec1' },
-					// 	'BENT_IDENTITY': { color: '#5ce399' },
-					// 	'SINUSOID': { color: '#a25bb0' },
-					// 	'SOFTSIGN': { color: '#8c9107' },
-					// 	'TANH': { color: '#e4880a' },
-					// 	'ABSOLUTE': { color: '#1aae7a' },
-					// 	'INVERSE': { color: '#c1ab35' },
-					// 	'BIPOLAR': { color: '#000' },
-					// 	'IDENTITY': { color: '#41ad91' },
-					// 	'TANH': { color: '#5b3b49' },
-					// }	
+				if ( boids.length ) {	
 					let target = world.ui.focus_object || boids.sort( (a,b) => b.total_fitness_score - a.total_fitness_score )[0];
 					TrackObject(target);
 					let brain = target.brain;
@@ -1318,7 +1311,14 @@
 					let a = (Math.PI * 2) /  brain.nodes.length;
 					let node_r = 25;
 					world.braingraph = two.makeGroup();
-					// draw connections first
+					// update node positions in the ring
+					for ( let i=0; i < brain.nodes.length; i++ ) {
+						let node = brain.nodes[i];
+						node.my_a = a * i;
+						node.my_x = x + Math.cos(node.my_a) * r;
+						node.my_y = y + Math.sin(node.my_a) * r;
+					}
+					// draw direct connections as lines
 					for ( let c of brain.connections ) {
 						line = two.makeLine(c.from.my_x, c.from.my_y, c.to.my_x, c.to.my_y);
 						let v = Math.trunc( Math.abs( clamp(c.weight,-10,10) ) * 256 ); // scales 0..0.1 to 0..256
@@ -1328,9 +1328,11 @@
 						if ( c.gater ) { line.dashes = [12,8]; }
 						world.braingraph.add(line);
 					}
+					// draw self connections as extra rings
 					for ( let c of brain.selfconns ) {
 						// self connection draws a circle
-						let line = two.makeCircle(c.from.my_x + node_r, c.from.my_y + node_r, node_r);
+						let ring_r = clamp(c.from.bias*2,-3,3) + 2;
+						let line = two.makeCircle(c.from.my_x, c.from.my_y, ring_r);
 						let v = Math.trunc( Math.abs( clamp(c.weight,-10,10) ) * 256 ); // scales 0..0.1 to 0..256
 						v = clamp(v,64,255); // minimum color for visibility
 						line.stroke = (c.weight > 0 ? '#FFFFFF' : '#DD1111') + DecToHex(v);
@@ -1345,9 +1347,6 @@
 					const input_labels = target.NeuroInputLabels();
 					for ( let i=0; i < brain.nodes.length; i++ ) {
 						let node = brain.nodes[i];
-						node.my_a = a * i;
-						node.my_x = x + Math.cos(node.my_a) * r;
-						node.my_y = y + Math.sin(node.my_a) * r;
 						let activation_label = node.activation.toFixed(2);
 						let rect = null;
 						if ( node.type == 'input' ) {
@@ -1374,7 +1373,6 @@
 						rect.fill = node.activation >= 0 
 							? ('#00' + hexval + '00') 
 							: ('#' + hexval + '0000') ;
-						// rect.stroke = nodetypes[node.squash.name]?.color ?? '#999' ;
 						rect.linewidth = 1;
 						rect.stroke = '#FFF';
 						world.braingraph.add(rect);
@@ -1386,7 +1384,7 @@
 				if ( world.braingraph ) { two.remove(world.braingraph); }
 				StopTrackObject();
 			}
-			
+						
 		}		
 		
 		
