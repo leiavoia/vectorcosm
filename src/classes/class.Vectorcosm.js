@@ -8,7 +8,7 @@ import Chart from 'chart.js/auto';
 // https://www.chartjs.org/docs/latest/getting-started/integration.html
 import * as utils from '../util/utils.js'
 import Tank from '../classes/class.Tank.js'
-import Simulation from '../classes/class.Simulation.js'
+import { FoodChaseSimulation } from '../classes/class.Simulation.js'
 import BrainGraph from '../classes/class.BrainGraph.js'
 import { BoidFactory } from '../classes/class.Boids.js'
 
@@ -56,7 +56,7 @@ export default class Vectorcosm {
 		this.tank.MakeBackground();
 		
 		// set up the simulation
-		this.simulation = new Simulation(this.tank,{});
+		this.simulation = new FoodChaseSimulation(this.tank,{});
 		this.simulation.Setup();
 		
 		// draw screen

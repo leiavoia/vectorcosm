@@ -62,93 +62,19 @@ export default class Simulation {
 	}
 	
 	Setup() {
-		// starting population
+		// sterilize the tank
 		this.tank.boids.forEach( x => x.Kill() );
 		this.tank.boids.length = 0;
-		let spawn_x = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.width; 
-		let spawn_y = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.height; 	
-		for ( let i=0; i < this.settings.num_boids; i++ ) {
-			const b = BoidFactory(this.species, spawn_x, spawn_y, this.tank );
-			// b.angle = 0;
-			this.tank.boids.push(b);
-		}
-		// make dinner
 		this.tank.foods.forEach( x => x.Kill() );
 		this.tank.foods.length = 0;
-		for ( let i=0; i < this.settings.num_foods; i++ ) {
-			let food = new Food( this.tank.width - spawn_x, this.tank.height - spawn_y );
-			food.vx = Math.random() * 10 - 5;
-			food.vy = Math.random() * 100 - 50;
-			this.tank.foods.push(food);
-		}
 	}
 	
 	Reset() {
-		// reset entire population
-		let new_angle = Math.random() * Math.PI * 2;
-		let spawn_x = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.width; 
-		let spawn_y = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.height; 			
-		for ( let b of this.tank.boids ) {
-			b.total_fitness_score = 0;
-			b.angle = new_angle;
-			b.x = spawn_x;
-			b.y = spawn_y;
-			b.angmo = 0;
-			b.inertia = 0;
-			b.energy = b.max_energy;
-			b.total_fitness_score = 0;
-			b.fitness_score = 0;
-		}
-		// respawn food
-		this.tank.foods.forEach( x => x.Kill() );
-		this.tank.foods.length = 0;
-		for ( let i=0; i < this.settings.num_foods; i++ ) {
-			let food = new Food( this.tank.width - spawn_x, this.tank.height - spawn_y );
-			food.vx = Math.random() * 10 - 5;
-			food.vy = Math.random() * 100 - 50;
-			this.tank.foods.push(food);
-		}	
+		// inherit me	
 	}
 	
 	ScoreBoid(b) {
-		b.fitness_score = 0;
-		// record travel distance or lack thereof
-		if ( !b.total_fitness_score ) { 
-			b.startx = b.x;
-			b.starty = b.y;
-			b.total_fitness_score = 0.01; // wink
-		}
-		else {
-			b.max_travel = b.max_travel || 0;
-			let travel = Math.abs(b.x - b.startx) + Math.abs(b.y - b.starty);
-			if ( travel >  b.max_travel ) {
-				b.total_fitness_score += (travel - b.max_travel) / 500;
-				b.max_travel = travel;
-			}
-		}
-		// sensor collision detection				
-		b.fitness_score = 0;
-		let score_div = 0;
-		for ( let s of b.sensors ) {
-			if ( s.detect=='food' ) { 
-				score_div++;
-				b.fitness_score += s.val;
-				// inner sensor is worth more
-				if ( s.name=="touch" ) { b.fitness_score += s.val * 3; }
-				// outer awareness sensor is worth less.
-				if ( s.name=="awareness" ) { b.fitness_score -= s.val * 0.9; }
-			}
-		}
-		b.fitness_score /= score_div;
-		// eat food, get win!
-		for ( let food of this.tank.foods ) { 
-			const dx = Math.abs(food.x - this.x);
-			const dy = Math.abs(food.y - this.y);
-			const d = Math.sqrt(dx*dx + dy*dy);
-			let r = Math.max( this.width, this.length );
-			if ( d <= r + food.r ) { this.fitness_score += 5; }
-		}			
-		b.total_fitness_score += b.fitness_score * this.stats.delta * 18; // extra padding just makes numbers look good
+		// inherit me
 	}
 	
 	Update( delta ) {
@@ -219,17 +145,6 @@ export default class Simulation {
 			this.Reset();
 			if ( typeof(this.onRound) === 'function' ) { this.onRound(this); }
 		}
-		
-		// keep the food coming
-		if ( this.tank.foods.length < this.settings.num_foods ) {
-			let diff = this.settings.num_foods - this.tank.foods.length;
-			for ( let i=0; i < diff; i++ ) {
-				let food = new Food( this.tank.width * Math.random(), this.tank.height * Math.random() );
-				food.vx = Math.random() * 10 - 5;
-				food.vy = Math.random() * 100 - 50;
-				this.tank.foods.push(food);
-			}	
-		}
 					
 		if ( typeof(this.onUpdate) === 'function' ) { this.onUpdate(this); }
 		
@@ -250,5 +165,104 @@ export default class Simulation {
 			this.tank.boids.splice(0,-diff).forEach( x => x.Kill() );
 		}
 	}
-	
+}
+
+export class FoodChaseSimulation extends Simulation {
+	Setup() {
+		super.Setup(); // sterilize
+		// starting population
+		let spawn_x = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.width; 
+		let spawn_y = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.height; 	
+		for ( let i=0; i < this.settings.num_boids; i++ ) {
+			const b = BoidFactory(this.species, spawn_x, spawn_y, this.tank );
+			// b.angle = 0;
+			this.tank.boids.push(b);
+		}
+		// make dinner
+		for ( let i=0; i < this.settings.num_foods; i++ ) {
+			let food = new Food( this.tank.width - spawn_x, this.tank.height - spawn_y );
+			food.vx = Math.random() * 10 - 5;
+			food.vy = Math.random() * 100 - 50;
+			this.tank.foods.push(food);
+		}
+	}
+	Reset() {
+		// reset entire population
+		let new_angle = Math.random() * Math.PI * 2;
+		let spawn_x = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.width; 
+		let spawn_y = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.height; 			
+		for ( let b of this.tank.boids ) {
+			b.total_fitness_score = 0;
+			b.angle = new_angle;
+			b.x = spawn_x;
+			b.y = spawn_y;
+			b.angmo = 0;
+			b.inertia = 0;
+			b.energy = b.max_energy;
+			b.total_fitness_score = 0;
+			b.fitness_score = 0;
+		}
+		// respawn food
+		this.tank.foods.forEach( x => x.Kill() );
+		this.tank.foods.length = 0;
+		for ( let i=0; i < this.settings.num_foods; i++ ) {
+			let food = new Food( this.tank.width - spawn_x, this.tank.height - spawn_y );
+			food.vx = Math.random() * 10 - 5;
+			food.vy = Math.random() * 100 - 50;
+			this.tank.foods.push(food);
+		}
+	}	
+	ScoreBoid(b) {
+		b.fitness_score = 0;
+		// record travel distance or lack thereof
+		if ( !b.total_fitness_score ) { 
+			b.startx = b.x;
+			b.starty = b.y;
+			b.total_fitness_score = 0.01; // wink
+		}
+		else {
+			b.max_travel = b.max_travel || 0;
+			let travel = Math.abs(b.x - b.startx) + Math.abs(b.y - b.starty);
+			if ( travel >  b.max_travel ) {
+				b.total_fitness_score += (travel - b.max_travel) / 500;
+				b.max_travel = travel;
+			}
+		}
+		// sensor collision detection				
+		b.fitness_score = 0;
+		let score_div = 0;
+		for ( let s of b.sensors ) {
+			if ( s.detect=='food' ) { 
+				score_div++;
+				b.fitness_score += s.val;
+				// inner sensor is worth more
+				if ( s.name=="touch" ) { b.fitness_score += s.val * 3; }
+				// outer awareness sensor is worth less.
+				if ( s.name=="awareness" ) { b.fitness_score -= s.val * 0.9; }
+			}
+		}
+		b.fitness_score /= score_div;
+		// eat food, get win!
+		for ( let food of this.tank.foods ) { 
+			const dx = Math.abs(food.x - this.x);
+			const dy = Math.abs(food.y - this.y);
+			const d = Math.sqrt(dx*dx + dy*dy);
+			let r = Math.max( this.width, this.length );
+			if ( d <= r + food.r ) { this.fitness_score += 5; }
+		}			
+		b.total_fitness_score += b.fitness_score * this.stats.delta * 18; // extra padding just makes numbers look good
+	}	
+	Update(delta) {
+		super.Update(delta);
+		// keep the food coming
+		if ( this.tank.foods.length < this.settings.num_foods ) {
+			let diff = this.settings.num_foods - this.tank.foods.length;
+			for ( let i=0; i < diff; i++ ) {
+				let food = new Food( this.tank.width * Math.random(), this.tank.height * Math.random() );
+				food.vx = Math.random() * 10 - 5;
+				food.vy = Math.random() * 100 - 50;
+				this.tank.foods.push(food);
+			}	
+		}	 
+	}	
 }
