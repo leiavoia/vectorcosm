@@ -19,10 +19,12 @@ export default class Food {
 		this.geo.fill = new Two.RadialGradient(0, 0, 1, stops, -0.25, -0.25);
 		window.vc.AddShapeToRenderLayer(this.geo); // main layer
 		// this.geo.fill.units = 'objectBoundingBox';
-		this.dead = false;			
+		this.dead = false;		
+		this.collision = { radius: this.r }	;
 	}
 	Update(delta) {
-		const margin = 300;
+		// const margin = 300;
+		const margin = 10;
 		if ( !delta ) { return; }
 		if ( delta > 1 ) { delta /= 1000; }
 		this.x += this.vx * delta;
@@ -38,7 +40,7 @@ export default class Food {
 		this.geo.radius = Math.max(this.r,5);
 		this.geo.position.x = this.x;
 		this.geo.position.y = this.y;
-		
+		this.collision.radius = this.r;
 		// collision detection with obstacles
 		// things i might collide with:
 		let candidates = window.vc.tank.grid.GetObjectsByBox( 

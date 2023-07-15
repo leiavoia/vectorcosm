@@ -91,6 +91,8 @@ export class ProtoBoid {
 	Update( delta ) {
 		if ( !delta ) { return; }
 		
+		this.collision.contact_obstacle = false;
+		
 		// sensor collision detection				
 		for ( let s of this.sensors ) { s.Sense(); }
 		
@@ -227,6 +229,7 @@ export class ProtoBoid {
 				this.container.position.x = this.x;
 				this.container.position.y = this.y;
 				this.bodyplan.geo.fill = '#D11';
+				this.collision.contact_obstacle = true;
 			}
 		}
 		

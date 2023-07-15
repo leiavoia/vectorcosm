@@ -4,6 +4,7 @@ import Rock from '../classes/class.Rock.js'
 import * as utils from '../util/utils.js'
 import { BoidFactory } from '../classes/class.Boids.js'
 import neataptic from "neataptic";
+import {Circle} from 'collisions';
 
 export default class Simulation {
 
@@ -264,12 +265,13 @@ export class FoodChaseSimulation extends Simulation {
 		let margin = 200;
 		for ( let i =0; i < num_rocks; i++ ) {
 			this.tank.obstacles.push(
-				new Rock( 
-					utils.RandomInt(margin,this.tank.width-margin)-200, 
-					utils.RandomInt(margin,this.tank.height-margin)-150, 
-					utils.RandomInt(150,400), 
-					utils.RandomInt(100,300) 
-				)
+				new Rock( {
+					x: utils.RandomInt(margin,this.tank.width-margin)-200, 
+					y: utils.RandomInt(margin,this.tank.height-margin)-150, 
+					w: utils.RandomInt(150,400), 
+					h: utils.RandomInt(100,300),
+					complexity: 2
+				})
 			);		
 		}			
 	}	
@@ -496,82 +498,194 @@ export class AvoidEdgesSimulation extends Simulation {
 			b.fitness_score = 0;
 			b.total_movement_cost = 0;
 		}
-		// check for deflection angle settings
-		let target_spread = this.settings?.target_spread || 0;
-		// respawn food
-		this.tank.foods.forEach( x => x.Kill() );
-		this.tank.foods.length = 0;
-		let food = new Food( 
-			this.tank.width * 0.7 + (Math.random()*target_spread*2 - target_spread), 
-			this.tank.height * 0.5 + (Math.random()*target_spread*2 - target_spread)
-		);
-		food.vx = 0;
-		food.vy = 0;
-		this.tank.foods.push(food);
-		// randomize rocks
-		this.tank.obstacles.forEach( x => x.Kill() );
-		this.tank.obstacles.length = 0;
 		
-		let size = 150;
-		let shift = Math.random() > 0.5 ? size : -size;
-		this.tank.obstacles.push(
-			new Rock( {
-				x: 0,
-				y: 0,
-				w: this.tank.width,
-				h: this.tank.height/2 - size,
-				complexity: 7,
-				force_corners:true
-			}),
-			new Rock( { 
-				x: 0,
-				y: this.tank.height / 2 + size,
-				hull: [
-					[ 0, 0 ],
-					[ this.tank.width, 0 ],
-					[ this.tank.width, this.tank.height/2 - size ],
-					[ 0, this.tank.height/2 - size, ]
-				],
-				complexity: 	7
-			})
-		);	
+		if ( this.settings.spiral) {
+			let max_size = this.settings?.max_segment_spread || 200;
+			let tunnel_width = max_size * Math.random() + 60;
+			let w = this.tank.width;
+			let h = this.tank.height;
+			let edge_size = 20;
 			
-					
-		// if ( Math.random() > 0.5 ) {
-		// 	this.tank.obstacles.push(
-		// 		new Rock( 
-		// 			this.tank.width/2 - 50,
-		// 			0,
-		// 			100,
-		// 			this.tank.height/2 + 50,
-		// 			6
-		// 		)
-		// 	);		
-		// }
-		// else {
-		// 	this.tank.obstacles.push(
-		// 		new Rock( 
-		// 			this.tank.width/2 - 50,
-		// 			this.tank.height/2 - 50,
-		// 			100,
-		// 			this.tank.height/2 + 50,
-		// 			6
-		// 		)
-		// 	);		
-		// }
-					
-		// let num_rocks = this.settings?.num_rocks || 1;
-		// let margin = 200;
-		// for ( let i =0; i < num_rocks; i++ ) {
-		// 	this.tank.obstacles.push(
-		// 		new Rock( 
-		// 			utils.RandomInt(margin,this.tank.width-margin)-200, 
-		// 			utils.RandomInt(margin,this.tank.height-margin)-150, 
-		// 			utils.RandomInt(150,400), 
-		// 			utils.RandomInt(100,300) 
-		// 		)
-		// 	);		
-		// }
+			// put boids in the bottom left corner
+			let spawn_x = (edge_size + tunnel_width/2);
+			let spawn_y = (edge_size + tunnel_width/2); 
+			for ( let b of this.tank.boids ) {
+				b.x = spawn_x;
+				b.y = spawn_y;
+			}
+			
+			// make a c-shape obstacle course
+			this.tank.obstacles.forEach( x => x.Kill() );
+			this.tank.obstacles.length = 0;
+			
+			// edge the map
+			this.tank.obstacles.push(
+				new Rock( { 
+					x: 0,
+					y: 0,
+					hull: [
+						[ 0, 0 ],
+						[ w, 0 ],
+						[ w, edge_size ],
+						[ 0, edge_size ]
+					],
+					complexity: 0
+				}),
+				new Rock( { 
+					x: 0,
+					y: h - edge_size,
+					hull: [
+						[ 0, 0 ],
+						[ w, 0 ],
+						[ w, edge_size ],
+						[ 0, edge_size ]
+					],
+					complexity: 0
+				}),
+				new Rock( { 
+					x: 0,
+					y: 0,
+					hull: [
+						[ 0, 0 ],
+						[ edge_size, 0 ],
+						[ edge_size, h ],
+						[ 0, h ]
+					],
+					complexity: 0
+				}),
+				new Rock( { 
+					x: w - edge_size,
+					y: 0,
+					hull: [
+						[ 0, 0 ],
+						[ edge_size, 0 ],
+						[ edge_size, h ],
+						[ 0, h ]
+					],
+					complexity: 0
+				}),
+				// interior
+				new Rock( { 
+					y: edge_size + tunnel_width,
+					x: 0,
+					hull: [
+						[ 0, 0 ],
+						[ w - (edge_size + tunnel_width), 0 ],
+						[ w - (edge_size + tunnel_width), h - (2*(edge_size + tunnel_width)) ],
+						[ 0, h - (2*(edge_size + tunnel_width)) ]
+					],
+					complexity: 0
+				}),
+			);
+				
+			// food goes along tunnel with special data to act as progress markers
+			this.tank.foods.forEach( x => x.Kill() );
+			this.tank.foods.length = 0;
+			let food_num = 0;
+			let food_spacing = 100;
+			for ( let x = (edge_size + tunnel_width/2); x < w - (edge_size + tunnel_width/2); x += food_spacing ) {
+				let food = new Food( x, (edge_size + tunnel_width/2) );
+				food.vx = 0;
+				food.vy = 0;
+				food.goal = food_num++;
+				this.tank.foods.push(food);
+			}
+			for ( let y = (edge_size + tunnel_width/2); y < h - (edge_size + tunnel_width/2); y += food_spacing ) {
+				let food = new Food( w - (edge_size + tunnel_width/2), y );
+				food.vx = 0;
+				food.vy = 0;
+				food.goal = food_num++;
+				this.tank.foods.push(food);
+			}
+			for ( let x = w - (edge_size + tunnel_width/2); x > (edge_size + tunnel_width/2); x -= food_spacing ) {
+				let food = new Food( x, h- (edge_size + tunnel_width/2) );
+				food.vx = 0;
+				food.vy = 0;
+				food.goal = food_num++;
+				this.tank.foods.push(food);
+			}
+			
+		
+		}
+		
+		else if ( this.settings.tunnel ) {
+			// randomize rocks
+			this.tank.obstacles.forEach( x => x.Kill() );
+			this.tank.obstacles.length = 0;
+			
+			let max_size = this.settings?.max_segment_spread || 200;
+			let joints = this.settings?.segments || 7;
+			let jwidth = this.tank.width / joints;
+			let last_shift = 0;
+			let size = Math.random() * max_size + 50;
+			for ( let j=0; j < joints; j++ ) { 
+				let shift = Math.random() > 0.5 ? size : -size;
+				// shift is zero if first point
+				if ( j==0 ) { shift = 0; }
+				this.tank.obstacles.push(
+					new Rock( { 
+						x: jwidth * j,
+						y: 0,
+						hull: [
+							[ 0, 0 ],
+							[ jwidth, 0 ],
+							[ jwidth, (this.tank.height/2 + shift)-size ],
+							[ 0, (this.tank.height/2 + last_shift)-size, ]
+						],
+						complexity: 2
+					}),
+					new Rock( { 
+						x: jwidth * j,
+						y: this.tank.height / 2,
+						hull: [
+							[ 0, last_shift+size ],
+							[ jwidth, shift+size ],
+							[ jwidth, this.tank.height/2 ],
+							[ 0, this.tank.height/2 ]
+						],
+						complexity: 2
+					})
+				);	
+				last_shift = shift;	
+			}	
+			// food goes at the end of the tunnel
+			this.tank.foods.forEach( x => x.Kill() );
+			this.tank.foods.length = 0;
+			let food = new Food( 
+				this.tank.width,
+				this.tank.height/2 + last_shift
+			);
+			food.vx = 0;
+			food.vy = 0;
+			this.tank.foods.push(food);
+		}
+		else {
+			this.tank.obstacles.forEach( x => x.Kill() );
+			this.tank.obstacles.length = 0;
+			let num_rocks = this.settings?.num_rocks || 0;
+			for ( let j=0; j < num_rocks; j++ ) { 
+				this.tank.obstacles.push(
+					new Rock( { 
+						x: (this.tank.width / 2) + (Math.random() * (this.tank.width / 4)),
+						y: (this.tank.height / 4) + (Math.random() * (this.tank.height / 4)),
+						w: (Math.random() * 200 + 50),
+						h: (Math.random() * 100 + 50),
+						force_corners: false,
+						complexity: 2
+					}),
+				);	
+			}	
+			// food goes at the end of the tunnel
+			this.tank.foods.forEach( x => x.Kill() );
+			this.tank.foods.length = 0;
+			let food = new Food( 
+				this.tank.width,
+				this.tank.height/2
+			);
+			food.vx = 0;
+			food.vy = 0;
+			this.tank.foods.push(food);
+		}
 	}	
 	ScoreBoidPerFrame(b) {
 		// record minimum distance to food circle
@@ -583,27 +697,53 @@ export class AvoidEdgesSimulation extends Simulation {
 			b.total_fitness_score = Math.min( d, b.total_fitness_score );
 		}
 		// punished for getting close to the edge
-		b.sensors.filter( s => s.detect=='obstacles' )
-		.forEach( s => b.punishment = (b.punishment||0) + s.val );
+		// b.sensors.filter( s => s.detect=='obstacles' )
+		// .forEach( s => b.punishment = (b.punishment||0) + s.val );
+		if ( b.collision.contact_obstacle ) {
+			b.punishment = (b.punishment || 0) + ( this.settings?.punishment || 0.2 ); 
+		}
+		
+		// manually check to see if we are touching a marker
+		let my_radius = 100; // Math.max(b.length, b.width) * 0.5;
+		let candidates = this.tank.grid.GetObjectsByBox( 
+			b.x - my_radius,
+			b.y - my_radius,
+			b.x + my_radius,
+			b.y + my_radius
+		);
+		// console.log(candidates.length + ' cand');
+		for ( let o of candidates ) {
+			const circle  = new Circle(b.x, b.y, my_radius);
+			const circle2  = new Circle(o.x, o.y, o.r);
+			if ( circle.collides(circle2) ) {
+				b.best_goal = Math.max(b.best_goal||0,o.goal||0);
+			}
+		}
+		
+		
 	}	
 	ScoreBoidPerRound(b) {
-		b.total_fitness_score = -b.total_fitness_score || 0; // golf!
+		// let food_proximity_bonus = this.settings?.food_proximity_bonus || 1;
+		// b.total_fitness_score = food_proximity_bonus * (this.tank.width - (b.total_fitness_score || 0)); // golf!
+		b.total_fitness_score = b.best_goal * 100;
 		b.total_fitness_score -= b.punishment;
 	}	
 	Update(delta) {
 		super.Update(delta);
 		// keep the food coming
-		this.tank.foods[0].value = 80; // artificially inflate the food instead of respawning new ones.
-		if ( !this.tank.foods.length ) {
-			let r = 100 + Math.random() * 200;
-			let angle = Math.random() * Math.PI * 2;
-			let dx = r * Math.cos(angle); 
-			let dy = r * Math.sin(angle);
-			let food = new Food( this.tank.width*0.5 + dx, this.tank.height*0.5 + dy );
-			food.vx = 0;
-			food.vy = 0;
-			this.tank.foods.push(food);
-		}	 
+		for ( let f of this.tank.foods ) {
+			f.value = 80; // artificially inflate the food instead of respawning new ones.
+		}
+		// if ( !this.tank.foods.length ) {
+		// 	let r = 100 + Math.random() * 200;
+		// 	let angle = Math.random() * Math.PI * 2;
+		// 	let dx = r * Math.cos(angle); 
+		// 	let dy = r * Math.sin(angle);
+		// 	let food = new Food( this.tank.width*0.5 + dx, this.tank.height*0.5 + dy );
+		// 	food.vx = 0;
+		// 	food.vy = 0;
+		// 	this.tank.foods.push(food);
+		// }	 
 	}	
 }
 		

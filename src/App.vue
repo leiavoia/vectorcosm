@@ -29,7 +29,7 @@ body.addEventListener("touchstart", function(event) {
 	if ( !vc.show_ui ) { vc.ToggleUI(); }
 });
 body.addEventListener("keydown", function(event) {
-	if ( event.keyCode == 19 ) {  // `Pause` 
+	if ( event.which == 80 || event.which == 19 ) {  // `Pause` 
 		vc.TogglePause();
 	}
 	else if ( event.keyCode == 37 ) {  // `left arrow` 
@@ -68,7 +68,7 @@ body.addEventListener("keydown", function(event) {
 		event.preventDefault();
 		vc.LoadPopulation();
 	}
-	else if ( event.which == 35 ) {  // `END` 
+	else if ( event.which == 70 || event.which == 35 ) {  // `END` 
 		event.preventDefault();
 		vc.ToggleSimulatorFF();
 	}
