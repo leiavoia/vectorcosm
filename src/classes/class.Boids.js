@@ -36,6 +36,8 @@ export class ProtoBoid {
 		this.angmo = 0; // angular momentum / rotational inertia
 		this.energy_cost = 0.15;
 		// drawing stuff
+		this.outline_color = utils.RandomColor( true, false, true ) + 'AA';
+		this.fill_color = utils.RandomColor( true, false, true ) + 'AA';
 		this.path = null;
 		this.container = window.two.makeGroup();
 		this.container.position.x = x;
@@ -285,9 +287,11 @@ export class Boid extends ProtoBoid {
 			[this.length/2, 0],
 			[-this.length/2, this.width/2],
 			[-this.length/2, -this.width/2]
-		])
-		this.bodyplan.stroke = 'transparent';
-		this.bodyplan.fill = '#AEA9';
+		]);
+		// this.bodyplan.stroke = this.outline_color;
+		this.bodyplan.stroke = 'transparent'; // remove this one day when outlines come back into fashion
+		// this.bodyplan.fill = this.fill_color;
+		this.bodyplan.fill = '#AEA9'; // original "Dart green" test color
 		this.bodyplan.linewidth = 0;
 		this.bodyplan.complexity_factor = 0.3; // 0..1
 		this.bodyplan.max_jitter_pct = 0.08; // max deviation percentage from current width/height

@@ -83,7 +83,6 @@
 	}
 	
 	const loadCallbacksOnSim = () => {
-		console.log(`updating callbacks on sim "${props.sim.settings.name||'unknown'}"`);
 		props.sim.onUpdate = _ => {
 			copyStats();
 		}; 

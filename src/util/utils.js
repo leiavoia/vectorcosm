@@ -41,6 +41,7 @@ export function RGBArrayToHexColor( arr ) {
 		DecToHex(arr[0]) +
 		DecToHex(arr[1]) +
 		DecToHex(arr[2]) ;
+	if ( typeof arr[3] !== 'undefined' ) { str += DecToHex(arr[3]); }
 	return str;
 	}
 	
@@ -218,4 +219,49 @@ export class RandomPicker {
 		return this.items[this.items.length-1][0];
 	}
 
+}
+
+
+// Civ.colors = [
+// 	[128, 0, 0], 		// maroon
+// 	[45, 130, 220], 	// blue
+// 	[219, 210, 72], 	// yellow
+// 	[10, 128, 30], 		// forest green
+// 	[15, 120, 155],		// teal
+// 	[192, 192, 192], 	// silver
+// 	[255, 0, 0], 		// red
+// 	[0, 220, 0], 		// green
+// 	[100, 100, 100], 	// grey
+// 	[128, 128, 0], 		// olive
+// 	[20, 66, 170], 		// navy
+// 	[255, 0, 255],		// fuschia
+// 	[128, 0, 128],		// purple
+// 	[0, 255, 255],		// aqua
+// 	[140,205,140],		// spring green
+// 	[195,144,212],		// lavender
+// 	[212,161,144],		// mid brown
+// 	[120,80,24],		// dark brown
+// 	[222,195,144],		// tan
+// 	[190,102,40],		// dull orange
+// 	[255,149,0],		// orange 
+// 	[162,255,31],		// chartreuse
+// 	[230,119,119],		// salmon
+// 	[255,186,206]		// pink
+// 	];
+// Civ.colors.shuffle();
+
+export function RandomColor( as_hex=true, inc_transp=false, bright=false ) {
+	let c = [ 
+		RandomInt(0,255),
+		RandomInt(0,255),
+		RandomInt(0,255),
+	];
+	if ( bright ) {
+		while ( c[0] + c[1] + c[2] < 400 ) {
+			const i = RandomInt(0,2);
+			c[i] += Math.min( 20, 255 - c[i] );
+		}
+	}
+	if ( inc_transp ) { c.push( RandomInt(0,255) ); }
+	return as_hex ? RGBArrayToHexColor(c) : c;
 }
