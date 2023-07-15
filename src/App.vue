@@ -72,6 +72,14 @@ body.addEventListener("keydown", function(event) {
 		event.preventDefault();
 		vc.ToggleSimulatorFF();
 	}
+	else if ( event.which == 84 ) {  // `T` 
+		event.preventDefault();
+		if ( vc.focus_object ) { vc.StopTrackObject(); }
+		else {
+			const b = vc.tank.boids.sort( (a,b) => b.total_fitness_score - a.total_fitness_score )[0];
+			vc.TrackObject(b);
+		}
+	}
 	else if ( event.which == 76 ) {  // `L` 
 		event.preventDefault();
 		const b = vc.tank.boids.sort( (a,b) => b.total_fitness_score - a.total_fitness_score )[0];
@@ -84,6 +92,7 @@ window.addEventListener("resize", function (event) {
 	vc.width = window.innerWidth;
 	vc.two.fit();
 	vc.SetViewScale( vc.scale ); // trigger update, even though scale hasent changed
+	if ( vc.tank ) { vc.tank.Resize(vc.width, vc.height); } // [!]HACK - move this 
 });
 				
 

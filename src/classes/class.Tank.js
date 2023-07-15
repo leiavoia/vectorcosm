@@ -1,6 +1,7 @@
 import Two from "two.js";
 import Delaunator from 'delaunator';
 import * as utils from '../util/utils.js'
+import SpaceGrid from '../classes/class.SpaceGrid.js'
 
 export default class Tank {
 
@@ -13,6 +14,14 @@ export default class Tank {
 		this.boids = [];
 		this.foods = [];
 		this.threats = [];
+		this.grid = new SpaceGrid(w,h,200);
+	}
+	
+	Resize(w,h) {
+		this.width = w;
+		this.height = h;
+		this.grid = new SpaceGrid(w,h,200);
+		this.ScaleBackground();
 	}
 	
 	// background layer

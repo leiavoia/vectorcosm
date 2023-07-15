@@ -1,4 +1,5 @@
 import * as utils from '../util/utils.js'
+import { Boid } from '../classes/class.Boids.js'
 
 export default class Sensor {
 	constructor( data, owner ) {
@@ -77,6 +78,15 @@ export default class Sensor {
 			} 
 			case 'chaos' : {
 				this.val = Math.random();
+				break;
+			} 
+			case 'friends' : {
+				this.val = this.owner.tank.grid
+					.GetObjectsByCoords( this.owner.x, this.owner.y ) // use box for better accuracy, worse CPU
+					.filter( x => x instanceof Boid )
+					.length;
+				const n = Math.pow(Math.E, this.val);
+				this.val = n / (n+1);
 				break;
 			} 
 		}

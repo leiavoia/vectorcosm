@@ -143,9 +143,7 @@ export default class Vectorcosm {
 		this.width = two.width;
 		this.height = two.height;
 		if ( this.tank && this.tank.responsive ) {
-			this.tank.width = this.width / this.scale;
-			this.tank.height = this.height / this.scale;
-			this.tank.ScaleBackground();
+			this.tank.Resize(this.width / this.scale, this.height / this.scale);
 		}
 		this.renderLayers['tank'].scale = this.scale;
 		if ( this.braingraph ) {
@@ -166,9 +164,13 @@ export default class Vectorcosm {
 			this.simulation.Update(delta);
 		}			
 		
+		// not the best place for this, but works for now
+		this.tank.grid.Clear();
+		
 		// update all boids
 		for ( let b of this.tank.boids ) {
 			b.Update(delta);
+			this.tank.grid.Add(b);
 		}
 		
 		// update food
@@ -177,6 +179,9 @@ export default class Vectorcosm {
 			food.Update(delta);
 			if ( food.dead || !food.value ) {
 				this.tank.foods.splice(i,1);
+			}
+			else {
+				this.tank.grid.Add(food);
 			}
 		}
 		
@@ -189,6 +194,27 @@ export default class Vectorcosm {
 		
 		// track any object that has focus
 		if ( this.focus_object ) { this.TrackObject(this.focus_object); }
+		// ease out
+		else {
+			let target_scale = this.scale;
+			let scale = this.renderLayers['tank'].scale;
+			if ( scale != target_scale ) { 
+				let scale_step = 1/30; // TODO: tween
+				if ( scale < target_scale ) { scale = Math.min( scale+scale_step, target_scale ); }
+				if ( scale > target_scale ) { scale = Math.max( scale-scale_step, target_scale ); }
+				let max_x = (this.tank.width*scale) - (this.width);
+				if ( this.renderLayers['tank'].position.x > 0 ) { this.renderLayers['tank'].position.x = 0; }  
+				if ( this.renderLayers['tank'].position.x < -max_x ) { this.renderLayers['tank'].position.x = -max_x; }  
+				let max_y = (this.tank.height*scale) - (this.height);
+				if ( this.renderLayers['tank'].position.y > 0 ) { this.renderLayers['tank'].position.y = 0; }  
+				if ( this.renderLayers['tank'].position.y < -max_y ) { this.renderLayers['tank'].position.y = -max_y; }  			
+				this.renderLayers['tank'].scale = scale;
+				// or just snap:
+				// this.renderLayers['tank'].scale = target_scale;
+				// this.renderLayers['tank'].position.x = 0;
+				// this.renderLayers['tank'].position.y = 0;
+			}
+		}
 										
 	}		
 
@@ -240,6 +266,41 @@ export default class Vectorcosm {
 		else {
 			this.focus_geo.position.x = this.focus_object.x;
 			this.focus_geo.position.y = this.focus_object.y;
+			// track the "camera" by pan/zoom of the tank layer.
+			let target_scale = 1;
+			let scale_step = 1/30; // TODO: tween
+			let scale = this.renderLayers['tank'].scale;
+			if ( scale != target_scale ) { 
+				if ( scale < target_scale ) { scale = Math.min( scale+scale_step, target_scale ); }
+				if ( scale > target_scale ) { scale = Math.max( scale-scale_step, target_scale ); }
+			}
+			this.renderLayers['tank'].scale = scale;
+			// to avoid motion sickness, dont pan unless object is outside safety margin
+			let margin_pct = 0.3;
+			let margin_x = this.width * margin_pct;
+			let margin_y = this.height * margin_pct;
+			let xoff = -(this.focus_object.x * scale) + (this.width/2);
+			let yoff = -(this.focus_object.y * scale) + (this.height/2);
+			let min_world_x = xoff - ( this.width - margin_x / scale );
+			let min_world_y = yoff - ( this.height - margin_y / scale );
+			let max_world_x = xoff + ( margin_x / scale );
+			let max_world_y = yoff + ( margin_y / scale );
+			// console.log(min_world_x, min_world_y, max_world_x, max_world_y);
+			if ( 
+				this.focus_geo.position.x < min_world_x || 
+				this.focus_geo.position.x > max_world_x ||
+				this.focus_geo.position.y < min_world_y || 
+				this.focus_geo.position.y > max_world_y 
+			) {
+				this.renderLayers['tank'].position.x = xoff;
+				this.renderLayers['tank'].position.y = yoff;
+				let max_x = (this.tank.width*scale) - (this.width);
+				if ( this.renderLayers['tank'].position.x > 0 ) { this.renderLayers['tank'].position.x = 0; }  
+				if ( this.renderLayers['tank'].position.x < -max_x ) { this.renderLayers['tank'].position.x = -max_x; }  
+				let max_y = (this.tank.height*scale) - (this.height);
+				if ( this.renderLayers['tank'].position.y > 0 ) { this.renderLayers['tank'].position.y = 0; }  
+				if ( this.renderLayers['tank'].position.y < -max_y ) { this.renderLayers['tank'].position.y = -max_y; }  
+			}
 		}
 	}
 	
@@ -249,6 +310,9 @@ export default class Vectorcosm {
 		if ( this.focus_geo ) {
 			this.focus_geo.remove();
 			this.focus_geo = null;
+			// this.renderLayers['tank'].scale = this.scale;
+			// this.renderLayers['tank'].position.x = 0;
+			// this.renderLayers['tank'].position.y = 0;
 		}
 	}
 	
