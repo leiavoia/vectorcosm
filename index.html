@@ -147,7 +147,8 @@
 
 		// set up Two.js
 		let elem = document.getElementById('draw-shapes');
-		let two = new Two({ fitted: true }).appendTo(elem);
+		let two = new Two({ fitted: true, type: 'CanvasRenderer' }).appendTo(elem);
+		// `types is one of: 'WebGLRenderer', 'SVGRenderer', 'CanvasRenderer'
 		two.bind('update', update);
 
 		// set up neataptic
