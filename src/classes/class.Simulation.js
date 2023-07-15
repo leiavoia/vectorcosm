@@ -138,7 +138,7 @@ export default class Simulation {
 				this.tank.boids.filter( x => x.total_fitness_score < this.settings.min_score ).forEach( x => x.Kill() );
 			}
 			this.tank.boids = this.tank.boids.filter( x => !x.dead );
-			// sort boids by sensor score ASC
+			// sort boids by fitness score ASC
 			this.tank.boids.sort( (a,b) => a.total_fitness_score - b.total_fitness_score );
 			// cull the herd, keep the winners
 			const numkill = Math.trunc(this.tank.boids.length * this.settings.cullpct);
@@ -149,7 +149,10 @@ export default class Simulation {
 			if ( diff > 0 ) {
 				const parent_selection = this.tank.boids.slice();
 				for ( let i=0; i < diff; i++ ) {
-					let parent = parent_selection.length ? parent_selection[ Math.trunc( Math.random() * parent_selection.length ) ] : null;
+					// pick from the end of the selection
+					let parent = parent_selection.length 
+						? parent_selection[ Math.trunc( utils.BiasedRandInt(0,parent_selection.length-1,parent_selection.length-1,0.75) ) ] 
+						: null;
 					let species = parent ? parent.species : this.settings?.species;
 					let b = parent ? parent.Copy() : BoidFactory( species, 0, 0, this.tank );
 					if ( parent ) {
@@ -214,21 +217,26 @@ export class FoodChaseSimulation extends Simulation {
 			// b.angle = 0;
 			this.tank.boids.push(b);
 		}
-		// make dinner
-		for ( let i=this.tank.foods.length; i < this.settings.num_foods; i++ ) {
-			let food = new Food( this.tank.width - spawn_x, this.tank.height - spawn_y );
-			let food_speed = this.settings?.food_speed || 100;
-			food.vx = Math.random() * food_speed - (food_speed*0.5);
-			food.vy = Math.random() * food_speed - (food_speed*0.5);
-			this.tank.foods.push(food);
-		}
+		// // make dinner
+		// for ( let i=this.tank.foods.length; i < this.settings.num_foods; i++ ) {
+		// 	let food = new Food( this.tank.width - spawn_x, this.tank.height - spawn_y );
+		// 	let food_speed = this.settings?.food_speed || 100;
+		// 	food.vx = Math.random() * food_speed - (food_speed*0.5);
+		// 	food.vy = Math.random() * food_speed - (food_speed*0.5);
+		// 	this.tank.foods.push(food);
+		// }
+		this.Reset();
 	}
 	Reset() {
 		// reset entire population
-		let new_angle = Math.random() * Math.PI * 2;
 		let spawn_x = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.width; 
 		let spawn_y = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.height; 			
 		for ( let b of this.tank.boids ) {
+			let new_angle = Math.random() * Math.PI * 2;
+			if ( this.settings?.random_boid_pos ) {
+				spawn_x = Math.random() * this.tank.width; 
+				spawn_y = Math.random() * this.tank.height; 			
+			}
 			b.total_fitness_score = 0;
 			b.angle = new_angle;
 			b.x = spawn_x;
@@ -244,6 +252,10 @@ export class FoodChaseSimulation extends Simulation {
 		this.tank.foods.forEach( x => x.Kill() );
 		this.tank.foods.length = 0;
 		for ( let i=0; i < this.settings.num_foods; i++ ) {
+			if ( this.settings?.random_food_pos ) {
+				spawn_x = Math.random() * this.tank.width; 
+				spawn_y = Math.random() * this.tank.height; 			
+			}
 			let food = new Food( this.tank.width - spawn_x, this.tank.height - spawn_y );
 			let food_speed = this.settings?.food_speed || 100;
 			food.vx = Math.random() * food_speed - (food_speed*0.5);
@@ -292,16 +304,8 @@ export class FoodChaseSimulation extends Simulation {
 		for ( let s of b.sensors ) {
 			if ( s.detect=='food' ) { 
 				score_div++;
-				b.fitness_score += s.val;
-				// inner sensor is worth more
-				if ( s.name=="touch" ) { b.fitness_score += s.val * 3; }
-				// outer awareness sensor is worth less.
-				if ( s.name=="awareness" ) { b.fitness_score -= s.val * 0.9; }
+				b.fitness_score += s.val * ( 20 / Math.max( b.width, b.length ) ); // bigger creatures get less score
 			}
-			// punished for getting close to obstacles
-			// else if ( s.detect=='obstacles' ) {
-			// 	b.fitness_score -= s.val * this.stats.delta * 25;
-			// }
 		}
 		b.fitness_score /= score_div;
 		// eat food, get win!
@@ -310,7 +314,9 @@ export class FoodChaseSimulation extends Simulation {
 			const dy = Math.abs(food.y - b.y);
 			const d = Math.sqrt(dx*dx + dy*dy);
 			let r = Math.max( b.width, b.length );
-			if ( d <= r + food.r ) { b.fitness_score += 5; }
+			if ( d <= r + food.r ) { 
+				b.fitness_score += 5 * ( 20 / Math.max( b.width, b.length ) );  // bigger creatures get less score
+			}
 		}		
 		// total score		
 		b.total_fitness_score += b.fitness_score * this.stats.delta * 18; // extra padding just makes numbers look good

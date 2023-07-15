@@ -10,9 +10,11 @@ export default class BodyPlan {
 		this.linewidth = 2;
 		this.stroke = "#AEA";
 		this.fill = 'transparent'; // "#AEA";
+		this.dashes = [];
 		this.complexity_factor = 0.3; // 0..1
 		this.max_jitter_pct = 0.1; // max deviation percentage from current width/height
 		this.augmentation_pct = 0.1; // chance of adding and removing points
+		this.curved = false;
 		this.UpdateGeometry();
 	}
 	
@@ -23,9 +25,11 @@ export default class BodyPlan {
 		bp.linewidth = this.linewidth;
 		bp.stroke = this.stroke;
 		bp.fill = this.fill;
+		bp.dashes = this.dashes;
 		bp.complexity_factor = this.complexity_factor;
 		bp.max_jitter_pct = this.max_jitter_pct;
 		bp.augmentation_pct = this.augmentation_pct;
+		bp.curved = this.curved;
 		bp.UpdateGeometry();
 		return bp;
 	}
@@ -43,6 +47,8 @@ export default class BodyPlan {
 			this.geo.linewidth = this.linewidth;
 			this.geo.stroke = this.stroke;
 			this.geo.fill = this.fill;
+			this.geo.curved = this.curved;
+			this.geo.dashes = this.dashes;
 			this.geo.center(); // not sure if this does anything useful
 			// recenter the vertices
 			let minx = null; // do not start at zero!

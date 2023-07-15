@@ -90,10 +90,27 @@ export default class Sensor {
 				// use box for better accuracy, worse CPU
 				let friends = this.owner.tank.grid.GetObjectsByCoords( this.owner.x, this.owner.y );
 				if ( friends ) {
-					this.val = friends.filter( x => x instanceof Boid || x instanceof ProtoBoid ).length;
+					friends = friends.filter( x => 
+						(x instanceof Boid || x instanceof ProtoBoid) 
+						&& x.species==this.owner.species 
+					);
+					this.val = Math.max( friends.length - 1, 0 );
+					this.val = Math.min( 1.0, Math.log10( this.val + 1 ) );
 				}
-				const n = Math.pow(Math.E, this.val);
-				this.val = n / (n+1);
+				break;
+			} 
+			case 'enemies' : {
+				this.val = 0
+				// use box for better accuracy, worse CPU
+				let friends = this.owner.tank.grid.GetObjectsByCoords( this.owner.x, this.owner.y );
+				if ( friends ) {
+					friends = friends.filter( x => 
+						(x instanceof Boid || x instanceof ProtoBoid) 
+						&& x.species!=this.owner.species 
+					);
+					this.val = Math.max( friends.length - 1, 0 );
+					this.val = Math.min( 1.0, Math.log10( this.val + 1 ) );
+				}
 				break;
 			} 
 			case 'obstacles' : {

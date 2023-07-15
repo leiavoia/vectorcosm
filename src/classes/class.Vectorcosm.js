@@ -19,7 +19,10 @@ export default class Vectorcosm {
 
 	constructor() {
 		// set up Two now, attach to DOM later
-		this.two = new Two({ fitted: true, type: 'CanvasRenderer' });
+		// WebGLRenderer: fastest if hardware acceleration available
+		// SVGRenderer: fast on newer browsers with accelerated SVG rendering. Also allows SVG scene export.
+		// CanvasRenderer: faster on older machines, slower on newer machines
+		this.two = new Two({ fitted: true, type: 'SVGRenderer' }); 
 		window.two = this.two; // make available everywhere
 		this.renderLayers = {};
 		this.renderLayers['tank'] = this.two.makeGroup(); // meta group. UI and tank layers need to scale separately
@@ -104,15 +107,18 @@ export default class Vectorcosm {
 			// }),	
 			new FoodChaseSimulation(this.tank,{
 				name: 'Dont hit rocks',
-				num_boids: 100,
+				num_boids: 50,
+				random_boid_pos: true,
+				random_food_pos: true,
 				time: 30,
 				// min_score: 5,
 				max_mutation: 6,
-				num_rocks: 2,
-				target_spread: 200,
-				num_foods: 3,
+				num_rocks: 5,
+				target_spread: 800,
+				num_foods: 6,
 				food_speed: 100,
 				species:'random',
+				cullpct: 0.2,
 				end: {
 					// avg_score:400,
 					// avg_score_rounds: 10,
@@ -404,7 +410,7 @@ export default class Vectorcosm {
 				++this.two.frameCount; // fake it
 				// this.update( this.two.frameCount, 0.055 );
 				// this.update( this.two.frameCount, 1/60 );
-				this.update( this.two.frameCount, 1/30 );
+				this.update( this.two.frameCount, 1/30 ); // TODO: make this an app setting
 			}
 			--this.two.frameCount;
 			this.two.update();

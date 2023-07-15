@@ -92,7 +92,7 @@ export class ProtoBoid {
 	}
 	MakeBrain( inputs, middles, outputs, connections=null, type='random' ) {	
 		if ( type=='perceptron' ) {
-			this.brain = architect.Perceptron(inputs, middles, outputs);			
+			this.brain = architect.Perceptron(inputs, middles||1, outputs);			
 		}
 		else {
 			this.brain = architect.Random(inputs, middles, outputs);			
@@ -126,8 +126,8 @@ export class ProtoBoid {
 		
 		// movement / motor control 				
 		let brain_outputs = this.brain.activate( this.NeuroInputs() );
-		for ( let input of brain_outputs ) {
-			if ( Number.isNaN(input) ) { debugger; }
+		for ( let k in brain_outputs ) {
+			if ( Number.isNaN(brain_outputs[k]) ) { brain_outputs[k] = 0; }
 		}
 		// estimate cost of moving to see if we can afford to move at all
 		let cost = 0
@@ -292,13 +292,14 @@ export class ProtoBoid {
 			let cost = m.cost * delta; 
 			if ( estimate ) { return cost; }
 			this.energy -= cost;
-			//
-			// TODO: insert stroke power function
-			// amount = some_function(amount);
-			// For testing, assume constant power output
-			// amount = Math.sin(amount) / Math.PI;
-			// amount *= (m.stroketime - m.t) / m.stroketime; // linear downslope
-			amount = amount * 0.64; // magic number
+			// stroke power function
+			switch ( m.strokefun ) {
+				case 'linear_down' : amount *= (m.stroketime - m.t) / m.stroketime; break;
+				case 'linear_up' : amount *= 1 - ((m.stroketime - m.t) / m.stroketime); break;
+				case 'bell' : amount = Math.sin(amount) / Math.PI; break;
+				// constant-time output
+				default: amount = amount * 0.64; // magic number to keep inline with others
+			}
 			if ( m.hasOwnProperty('linear') ) {
 				this.inertia += m.linear * amount;
 			}
@@ -334,72 +335,29 @@ export class ProtoBoid {
 	}	
 	static Random(x,y,tank) {
 		let b = new ProtoBoid(x,y,tank);
-		b.species = 'random-unknown';
+		b.species = utils.RandomName(12);
 		b.max_energy = Math.random() * 500 + 100;
 		b.energy = b.max_energy;
 		b.maxspeed = 600;
 		b.maxrot = 20;
-		b.length = utils.BiasedRandInt(5,100,15,0.5);
-		b.width = utils.BiasedRandInt(5,70,10,0.5);
+		b.length = utils.BiasedRandInt(8,200,15,0.95);
+		b.width = utils.BiasedRandInt(8,125,10,0.95);
 		b.collision.radius = Math.max(b.length, b.width) / 2;
 		b.energy_cost = 0.15;
-		// body plan / mutation
-		let num_extra_pts = utils.BiasedRandInt( 1, 4, 1, 0.5 );
-		let pts = []; 
-		for ( let n=0; n < num_extra_pts; n++ ) {
-			let px = utils.RandomFloat( -b.length/2, b.length/2 );
-			let py = utils.RandomFloat( 0, b.width/2 );
-			pts.push([px,py]);
-		}
-		// make complimentary points on other side of body
-		pts.sort( (a,b) => b[0] - a[0] );
-		let new_pts = pts.map( p => [ p[0], -p[1] ] );
-		// random chance for extra point in the back
-		if ( Math.random() > 0.5 ) { 
-			new_pts.push( [ utils.RandomFloat( -b.length/2, 0 ), 0] );
-		}
-		pts.push( ...new_pts.reverse() );
-		// standard forward nose point required for all body plans
-		pts.unshift( [this.length/2, 0] );
-		b.bodyplan = new BodyPlan(pts);
-		b.bodyplan.complexity_factor = utils.BiasedRand(0,1,0.3,0.5);
-		b.bodyplan.max_jitter_pct = utils.BiasedRand(0,0.2,0.08,0.5);
-		b.bodyplan.augmentation_pct = utils.BiasedRand(0,0.5,0.1,0.9);
-		b.bodyplan.length = b.length;
-		b.bodyplan.width = b.width;
-		// colors
-		const color_roll = Math.random();
-		if ( color_roll < 0.33 ) {
-			b.bodyplan.linewidth = 2;
-			b.bodyplan.stroke = utils.RandomColor( true, false, true );
-			b.bodyplan.fill = 'transparent';
-		}
-		else if ( color_roll > 0.67 ) {
-			b.bodyplan.linewidth = 0;
-			b.bodyplan.stroke = 'transparent';
-			b.bodyplan.fill =  utils.RandomColor( true, false, true ) + 'AA';
-		}
-		else {
-			b.bodyplan.linewidth = 2;
-			b.bodyplan.stroke = utils.RandomColor( true, false, true );
-			b.bodyplan.fill =  utils.RandomColor( true, false, true ) + 'AA';
-		}
-		b.bodyplan.UpdateGeometry();
-		b.container.add([b.bodyplan.geo]);
 		
 		// sensors:
 		// food sensors are mandatory - its just a matter of how many
 		const my_max_dim = Math.max( b.length, b.width );
-		const max_sensor_distance = my_max_dim * 5;
-		const max_sensor_radius = my_max_dim * 5;
-		const min_sensor_distance = my_max_dim;
-		const min_sensor_radius = my_max_dim;
+		const max_sensor_distance = Math.sqrt(my_max_dim) * 40;
+		const max_sensor_radius = Math.sqrt(my_max_dim) * 35;
+		const min_sensor_distance = Math.min( my_max_dim, max_sensor_distance );
+		const min_sensor_radius = Math.min( my_max_dim, max_sensor_radius );
 		for ( let detect of ['food','obstacles'] ) {
-			const base_num_sensors = utils.BiasedRandInt(1,4,2,0.5);
+			const base_num_sensors = utils.BiasedRandInt(1,3,1.5,0.5);
 			for ( let n=0; n < base_num_sensors; n++ ) {
 				let sx = 0;
 				let sy = 0;
-				let r = utils.RandomInt(min_sensor_radius, max_sensor_radius);
+				let r = utils.RandomInt(min_sensor_radius, max_sensor_radius) * (detect=='obstacles' ? 0.6 : 1.0);
 				let d = utils.RandomInt(min_sensor_radius, max_sensor_radius);
 				let a = Math.random() * Math.PI * 2;
 				// TODO: update b when we revise body plan symmetry
@@ -420,29 +378,36 @@ export class ProtoBoid {
 		}
 		b.MakeSensors();
 		// random chance to get any of the non-collision sensors	
-		const non_coll_sensors = ['inertia', 'spin', 'angle-sin', 'angle-cos', 'edges', 'world-x', 'world-y', 'chaos', 'friends'];
+		const non_coll_sensors = ['inertia', 'spin', 'angle-sin', 'angle-cos', 'edges', 'world-x', 'world-y', 'chaos', 'friends', 'enemies'];
 		const num_non_coll_sensors = utils.RandomInt(0, non_coll_sensors.length, non_coll_sensors.length / 3, 0.3 ); 
 		for ( let n=0; n < num_non_coll_sensors; n++ ) {
 			const i = Math.floor( Math.random() * non_coll_sensors.length );
 			const detect = non_coll_sensors.splice(i,1).pop();
 			b.sensors.push( new Sensor({detect}, b) );
 		}
+		
 		// motors
 		const num_motors = utils.BiasedRandInt(1,8,3,0.5);
 		for ( let n=0; n < num_motors; n++ ) {
-			let strokefunc = null;
+			let strokefunc = Math.random();
 			let wheel = Math.random() > 0.75 ? true : false;
 			const cost = utils.BiasedRand(0.05, 5.0, 0.25, 0.8);
-			const stroketime = utils.BiasedRand(0.1, 3.0, 0.3, 0.6); 
+			const stroketime = utils.BiasedRand(0.1, 5.0, 1, 0.6); 
 			const min_act = utils.BiasedRand(0,0.9,0.1,0.95);
+			if ( strokefunc < 0.5 ) { strokefunc = 'linear_down'; }
+			else if ( strokefunc < 0.7 ) { strokefunc = 'linear_up'; }
+			else if ( strokefunc < 0.85 ) { strokefunc = 'bell'; }
 			let motor = { min_act, cost, stroketime, t:0, strokefunc, wheel };
 			let linear = utils.BiasedRandInt( 10, 2000, 800, 0.25 );
 			let angular = utils.BiasedRandInt( 1, 100, 20, 0.5 );
 			if ( Math.random() > 0.65 ) { linear = -linear; }
 			if ( Math.random() > 0.65 ) { angular = -angular; }
-			const combo_chance = Math.random();
-			if ( combo_chance > 0.75 ) { linear = 0; }
-			else if ( combo_chance < 0.25 ) { angular = 0; }
+			// if we roll a 1, it MUST be a combo
+			if ( num_motors > 1 ) {
+				const combo_chance = Math.random();
+				if ( combo_chance > 0.75 ) { linear = 0; }
+				else if ( combo_chance < 0.25 ) { angular = 0; }
+			}
 			if ( linear ) { motor.linear = linear; }
 			if ( angular ) { motor.angular = angular; }
 			motor.name = (motor.linear && motor.angular) ? 'Combo' : (motor.linear ? 'Linear' : 'Angular');
@@ -457,14 +422,74 @@ export class ProtoBoid {
 				b.motors.push(motor2);
 			} 
 		}
+		
+		// body plan / mutation // TODO: move this to BodyPlan class
+		// let num_extra_pts = utils.BiasedRandInt( 1, 7, 1, 0.5 );
+		// more features means more complex body plans
+		let num_extra_pts = Math.round( (b.sensors.length + b.motors.length) / 5 );
+		let pts = []; 
+		for ( let n=0; n < num_extra_pts; n++ ) {
+			let px = utils.RandomFloat( -b.length/2, b.length/2 );
+			let py = utils.RandomFloat( 0 /* -b.width/8 */, b.width/2 );
+			pts.push([px,py]);
+		}
+		// make complimentary points on other side of body
+		pts.sort( (a,b) => b[0] - a[0] );
+		let new_pts = pts.map( p => [ p[0], -p[1] ] );
+		// random chance for extra point in the back
+		if ( Math.random() > 0.5 ) { 
+			new_pts.push( [ utils.RandomFloat( -b.length/2, 0 ), 0] );
+		}
+		pts.push( ...new_pts.reverse() );
+		// standard forward nose point required for all body plans
+		pts.unshift( [this.length/2, 0] );
+		b.bodyplan = new BodyPlan(pts);
+		// b.bodyplan.complexity_factor = utils.BiasedRand(0,1,0.3,0.5);
+		b.bodyplan.complexity_factor = utils.Clamp( Math.round( num_extra_pts / 5 ), 0, 1) ; // utils.BiasedRand(0,1,0.3,0.5);
+		b.bodyplan.max_jitter_pct = utils.BiasedRand(0,0.2,0.08,0.5);
+		b.bodyplan.augmentation_pct = utils.BiasedRand(0,0.1,0.01,0.9);
+		b.bodyplan.length = b.length;
+		b.bodyplan.width = b.width;
+		b.bodyplan.curved = Math.random() > 0.7;
+		if ( Math.random() > 0.92 ) {
+			b.bodyplan.dashes = [];
+			let num_dashes = utils.RandomInt(2,7);
+			for ( let n=0; n < num_dashes; n++ ) {
+				b.bodyplan.dashes.push( utils.RandomInt(0,10) );
+			}		
+		}
+		// colors
+		const color_roll = Math.random();
+		if ( color_roll < 0.33 ) { // just line
+			b.bodyplan.linewidth = Math.random() > 0.5 ? utils.BiasedRandInt(2,8,2,0.99) : 2;
+			b.bodyplan.stroke = utils.RandomColor( true, false, true );
+			b.bodyplan.fill = 'transparent';
+		}
+		else if ( color_roll > 0.67 ) { // just fill
+			b.bodyplan.linewidth = 0;
+			b.bodyplan.stroke = 'transparent';
+			b.bodyplan.fill =  utils.RandomColor( true, false, true ) + 'AA';
+		}
+		else { // line and fill
+			b.bodyplan.linewidth = Math.random() > 0.5 ? utils.BiasedRandInt(2,8,2,0.99) : 2;
+			b.bodyplan.stroke = utils.RandomColor( true, false, true );
+			b.bodyplan.fill =  utils.RandomColor( true, false, false ) + 'AA'; // don't need bright interiors if we also have line
+		}
+		b.bodyplan.UpdateGeometry();
+		b.container.add([b.bodyplan.geo]);
+				
 		// neuro stuff
-		b.brain_complexity = utils.BiasedRand(0.1,5,2,0.8);
-		let middle_nodes = utils.BiasedRandInt(0,6,3,0.3);
+		b.brain_complexity = utils.BiasedRand(0.5,5,2,0.8);
+		let middle_nodes = utils.BiasedRandInt(0,12,3,0.3);
 		let connections = Math.trunc(  b.brain_complexity * ( b.sensors.length + middle_nodes + b.motors.length ) );
-		b.MakeBrain( b.sensors.length, middle_nodes, b.motors.length, connections, 'random' );
+		let network_type = 'perceptron'; // Math.random() > 0.65 ? 'perceptron' : 'random';
+		b.MakeBrain( b.sensors.length, middle_nodes, b.motors.length, connections, network_type );
 		// crazytown
-		for ( let n=0; n< 100; n++ ) {
+		for ( let n=0; n< 50; n++ ) {
 			b.brain.mutate( ProtoBoid.mutationOptionPicker.Pick() );
+		}
+		for ( let n=0; n< 50; n++ ) {
+			b.brain.mutate( neataptic.methods.mutation.MOD_WEIGHT );
 		}
 		
 		return b;
