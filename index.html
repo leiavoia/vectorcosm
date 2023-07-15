@@ -71,11 +71,15 @@
 	<div class="shape-container">
 		<div id="draw-shapes"></div>
 	</div>
+	
 	<div class="ui" id="ui_container">
-		<button id="hide_ui_button">Hide UI</button>
 		<button id="pause_button">Pause</button>
-		<button id="show_sensors_button">Show Sensors</button>
-		<button id="fast_forward_button">Fast Forward</button>
+		<button id="fast_forward_button">FF</button>
+		<button id="hide_ui_button">UI</button>
+		<button id="show_sensors_button">Sensors</button>
+		<button id="show_brainmap_button">Brain</button>
+		<button id="save_leader_button">Save</button>
+		<button id="load_leader_button">Load</button>
 		
 		<br />
 		
@@ -103,22 +107,22 @@
 		
 		<br/>
 		
-		<!-- works, but not the right time for this in the UI
-		<label for="viscosity_slider">Scale</label>
-		<input type="range" min="0.1" max="3" step="0.1" style="margin-bottom:-0.25em;" onChange="SetViewScale(this.value)" id="viscosity_slider" />
-		<output for="viscosity_slider" id="viscosity_slider_output"></output>
+		<!-- works, but not the right time for this in the UI -->
+		<label for="world_scale_slider">Scale</label>
+		<input type="range" min="0.1" max="2" step="0.1" style="margin-bottom:-0.25em;" onChange="SetViewScale(this.value)" id="world_scale_slider" />
+		<output for="world_scale_slider" id="world_scale_slider_output"></output>
 		
 		<br/>
-		-->
+		
 				
 		Round: <output id="round_output">0</output> | 
 		Best: <output id="best_score_output">0</output> | 
-		Average: <output id="avg_score_output">0</output>
+		Avg: <output id="avg_score_output">0</output>
 		
 		<br />
 		
-		High Score: <output id="total_score_output">0</output> | 
-		Best Average: <output id="best_avg_score_output">0</output>
+		Sim Best: <output id="total_score_output">0</output> | 
+		Best Avg: <output id="best_avg_score_output">0</output>
 		
 		<br/>
 		
@@ -127,8 +131,9 @@
 		
 		<br/>
 		
-		<canvas id="simulatorChart" style="width: 15em; height: 4em;"></canvas>
-		
+		<canvas id="simulatorChart" style="width: 12em; height: 4em;"></canvas>
+       
+	  
 	</div>
 	
 	<script>
@@ -166,6 +171,9 @@
 			ui: {
 				show_collision_detection: false,
 				show_ui: true,
+				show_brainmap: false,
+				focus_object: null,
+				focus_geo: null
 			},
 			width: two.width * 2,
 			height: two.height * 2,
@@ -195,6 +203,8 @@
 			world.width =  two.width / world.scale,
 			world.height =  two.height / world.scale,
 			two.scene.scale = world.scale;
+			document.getElementById('world_scale_slider').value = world.scale;
+			document.getElementById('world_scale_slider_output').value = world.scale;
 		}
 		if ( two.width < 500 ) { SetViewScale(0.4); }
 		else if ( two.width < 1200 ) { SetViewScale(0.6); }
@@ -406,7 +416,7 @@
 				this.y = y;
 				this.vx = Math.random() * 10 - 5;
 				this.vy = Math.random() * 100 - 50;
-				this.value = 100;
+				this.value = 80;
 				this.r = this.value;
 				this.geo = two.makePolygon(this.x,this.y,this.r,9);
 				this.geo.linewidth = 2;
@@ -415,7 +425,7 @@
 				this.dead = false;			
 			}
 			Update(delta) {
-				const margin = 400;
+				const margin = 300;
 				if ( !delta ) { return; }
 				if ( delta > 1 ) { delta /= 1000; }
 				this.x += this.vx * delta;
@@ -436,8 +446,8 @@
 				if ( this.value <= 0 ) { 
 					this.Kill();
 					foods.push(new Food(
-						world.width*0.7,
-						world.height * 0.5 * Math.random() + world.height * 0.25
+						(Math.random() * world.width*0.5) + (world.width*0.25),
+						(Math.random() * world.height*0.5) + (world.height*0.25)
 					));
 				}
 			}
@@ -489,8 +499,10 @@
 		}
 
 		let foods = [ 
-			new Food(world.width*0.7,world.height*0.6),
-			// new Food(world.width*0.7,world.height*0.3),
+			new Food(
+				(Math.random() * world.width*0.5) + (world.width*0.25),
+				(Math.random() * world.height*0.5) + (world.height*0.25)
+			),
 		];
 		
 		let threats = [
@@ -551,11 +563,12 @@
 			MakeBrain( inputs, middles, outputs, connections ) {
 				// training_data.push( { input: sensors, output: [expect] } );
 				// const result = net.train(CreateTrainingData(10000), options);
-				this.brain = architect.Random(inputs, middles, outputs, {
-					connections: connections,
-					gates: 4,
-					selfconnections: 4
-					});			
+				// this.brain = architect.Random(inputs, middles, outputs, {
+				// 	connections: connections,
+				// 	gates: 4,
+				// 	selfconnections: 4
+				// 	});			
+				this.brain = architect.Perceptron(inputs, middles, outputs);			
 			}
 			NeuroInputs() { return []; }
 			Update( delta ) {
@@ -600,7 +613,7 @@
 					const outputs = this.brain.activate( this.NeuroInputs() );
 					// activate all motors at once, even if it seems contradictory
 					for ( let i=0; i < outputs.length; i++ ) {
-						this.ActivateMotor( i, outputs[i] );
+						this.ActivateMotor( i, clamp(outputs[i],0,1) );
 					}
 				}
 				// update position with movement:
@@ -657,7 +670,8 @@
 				// update pointing angle based on spin
 				sinAngle = Math.sin(this.angle);
 				cosAngle = Math.cos(this.angle);
-				this.angle += (delta * this.angmo) % Math.PI;
+				// [!]TECHNICAL: Javascript `%` operator is NOT mathematically strict modulus and behaves badly on negative numbers!
+				this.angle = mod( this.angle + (delta * this.angmo), 2*Math.PI );
 				// move forward or backward
 				this.x += delta * this.inertia * cosAngle;
 				this.y += delta * this.inertia * sinAngle;
@@ -716,7 +730,7 @@
 				this.MakeGeometry();
 				this.MakeMotors();
 				this.MakeSensors();
-				this.MakeBrain( 13, 20, 4, 200 );
+				this.MakeBrain( 13, 6, 4, 200 );
 			}
 			MakeGeometry() {
 				this.path = two.makePath( 
@@ -733,14 +747,14 @@
 			}
 			MakeMotors() {
 				this.motors = [
-					{name:'Forward', linear:200, on:false, min:0.01 },
-					{name:'Backward', linear:-100, on:false, min:0.01 },
-					{name:'Rotate CW', angular:3, on:false, min:0.01 },
-					{name:'Rotate CCW', angular:-3, on:false, min:0.01 }
+					{name:'Forward', linear:200, on:false, min:0.08 },
+					{name:'Backward', linear:-100, on:false, min:0.08 },
+					{name:'Rotate CW', angular:3, on:false, min:0.08 },
+					{name:'Rotate CCW', angular:-3, on:false, min:0.08 }
 				];
 			}
 			MakeSensors() { 
-				const max_sensor_distance = 1.5;
+				const max_sensor_distance = 2.5;
 				const sensor_radius = Math.max(this.length,this.width) * max_sensor_distance;
 				const sensor_radius_scale = 1.25;
 				// radial directional awareness sensors
@@ -796,16 +810,37 @@
 				// inputs.push(this.energy);
 				inputs.push((this.inertia + this.maxspeed) / (2*this.maxspeed));
 				// edge detection - to be removed later - replace with actual collision detection
-				const margin = 100;
-				let nearness = 0; 
-				nearness += this.x < margin ? (margin - this.x ) : 0;
-				nearness += this.x > (world.width-margin) ? (world.width - this.x) : 0;
-				nearness += this.x < margin ? (margin - this.y ) : 0;
-				nearness += this.y > (world.height-margin) ? (world.height - this.y) : 0;
-				nearness /= margin*2;
-				inputs.push(nearness);
-				inputs.push(Math.random()); // chaos to prevent one-track minds
+				// const margin = 100;
+				// let nearness = 0; 
+				// nearness += this.x < margin ? (margin - this.x) : 0;
+				// nearness += this.x > (world.width-margin) ? (margin-(world.width - this.x)) : 0;
+				// nearness += this.y < margin ? (margin - this.y ) : 0;
+				// nearness += this.y > (world.height-margin) ? (margin-(world.height - this.y)) : 0;
+				// nearness /= margin*2;
+				// inputs.push(nearness);
+				// inputs.push(Math.random()); // chaos to prevent one-track minds
+				inputs.push(this.x / world.width);
+				inputs.push(this.y / world.height);					
 				return inputs;
+			}
+			NeuroInputLabels() {
+				return [
+					'proximity 1',
+					'proximity 2',
+					'proximity 3',
+					'proximity 4',
+					'proximity 5',
+					'proximity 6',
+					'touch',
+					'awareness',
+					'angle',
+					'spin',
+					'inertia',
+					'world X',
+					'world Y',
+					// 'edges',
+					// 'chaos'
+				];
 			}
 		};
 		
@@ -821,7 +856,7 @@
 				this.MakeGeometry();
 				this.MakeMotors();
 				this.MakeSensors();				
-				this.MakeBrain( 6, 20, 3, 40 );
+				this.MakeBrain( 5, 20, 3, 40 );
 			}
 			MakeGeometry() {
 				this.path = two.makeRectangle(0,0,this.width,this.length); 
@@ -886,15 +921,24 @@
 				// edge detection - to be removed later - replace with actual collision detection
 				const margin = 100;
 				let nearness = 0; 
-				nearness += this.x < margin ? (margin - this.x ) : 0;
-				nearness += this.x > (world.width-margin) ? (world.width - this.x) : 0;
-				nearness += this.x < margin ? (margin - this.y ) : 0;
-				nearness += this.y > (world.height-margin) ? (world.height - this.y) : 0;
+				nearness += this.x < margin ? (margin - this.x) : 0;
+				nearness += this.x > (world.width-margin) ? (margin-(world.width - this.x)) : 0;
+				nearness += this.y < margin ? (margin - this.y ) : 0;
+				nearness += this.y > (world.height-margin) ? (margin-(world.height - this.y)) : 0;
 				nearness /= margin*2;
 				inputs.push(nearness);
-				inputs.push(Math.random()); // chaos to prevent one-track minds
+				// inputs.push(Math.random()); // chaos to prevent one-track minds
 				return inputs;
-			}			
+			}		
+			NeuroInputLabels() {
+				return [
+					'inner',
+					'front',
+					'outer',
+					'edges',
+					// 'chaos'
+				];
+			}				
 		}
 		
 		class Kayak extends ProtoBoid {
@@ -909,7 +953,7 @@
 				this.MakeGeometry();
 				this.MakeMotors();
 				this.MakeSensors();				
-				this.MakeBrain( 7, 20, 2, 50 );
+				this.MakeBrain( 6, 20, 2, 50 );
 			}
 			MakeGeometry() {
 				this.path = two.makePath( 
@@ -979,15 +1023,26 @@
 				inputs.push(this.angle / (2*Math.PI) );
 				inputs.push(this.x / world.width);
 				inputs.push(this.y / world.height);
-				inputs.push(Math.random()); // chaos to prevent one-track minds
+				// inputs.push(Math.random()); // chaos to prevent one-track minds
 				return inputs;
-			}			
+			}	
+			NeuroInputLabels() {
+				return [
+					'inner',
+					'front',
+					'outer',
+					'angle',
+					'world X',
+					'world Y',
+					// 'chaos'
+				];
+			}						
 		}
 		
 		let boids = [];
 		for ( let i=0; i < 1; i++ ) {
-			// const b = BoidFactory(world.use_species, Math.random()*world.width, Math.random()*world.height );
-			const b = BoidFactory(world.use_species, world.width*0.25,world.height*0.25 );
+			const b = BoidFactory(world.use_species, Math.random()*world.width, Math.random()*world.height );
+			// const b = BoidFactory(world.use_species, world.width*0.25,world.height*0.25 );
 			b.angle = Math.random() * Math.PI * 2;
 			boids.push(b);
 		}
@@ -995,52 +1050,6 @@
 		// draw screen
 		two.update();
 		
-		// Handle key down events
-		const body = document.querySelector("body");
-		body.addEventListener("touchstart", function(event) {
-			if ( !world.ui.show_ui ) ToggleUI();
-		});
-		body.addEventListener("keydown", function(event) {
-			if ( event.keyCode == 19 ) {  // `Pause` 
-				TogglePause();
-			}
-			else if ( event.which == 49 ) {  // `1` 
-				event.preventDefault();
-				ToggleShowSensors();
-			}
-			else if ( event.which == 50 ) {  // `2` 
-				event.preventDefault();
-				ToggleUI()
-			}
-			else if ( event.which == 35 ) {  // `END` 
-				event.preventDefault();
-				ToggleSimulatorFF();
-			}
-		});
-
-		function SetShowUI(x) {
-			world.ui.show_ui = !!x;
-			let el = document.getElementById('ui_container');
-			if ( world.ui.show_ui ) { el.style.visibility = 'visible'; }
-			else { el.style.visibility = 'hidden'; }
-		}
-		function ToggleUI() {
-			SetShowUI( !world.ui.show_ui );
-		}
-		function SetShowSensors(x) {
-			world.ui.show_collision_detection = !world.ui.show_collision_detection;
-		}
-		function ToggleShowSensors() {
-			SetShowSensors( !world.ui.show_collision_detection );
-		}
-		function ToggleSimulatorFF() {
-			world.simulator.turbo = !world.simulator.turbo;
-			if ( world.simulator.turbo ) { RunSimulator(); }
-		}
-		function TogglePause() {
-			if ( two.playing ) { two.pause(); console.log('paused'); } 
-			else { two.play(); console.log('playing'); }
-		}
 		
 		// use delta param to supply manual deltas for simulations.
 		// otherwise it will use two.js's built in delta tracking.
@@ -1079,7 +1088,7 @@
 				const killmes = boids.splice(0,numkill);
 				killmes.forEach( x=> x.Kill() );
 				const num_survivors = boids.length;
-				// create BoidFactorys'Boid', to make up the difference
+				// create boids to make up the difference
 				let el = document.getElementById('numboids_slider');
 				document.getElementById('numboids_slider_output').value = el.value;
 				let n = parseInt(el.value);
@@ -1091,7 +1100,7 @@
 							parent = boids[ Math.trunc( Math.random() * boids.length ) ];
 						}
 						let species = parent ? parent.species : world.use_species;
-						const b = BoidFactory(species, world.width*0.25,world.height*0.25 );
+						const b = BoidFactory(species, world.width*Math.random(),world.height*Math.random() );
 						b.angle = Math.random() * Math.PI * 2;
 						// the BoidFactory 'Boid',will likely be an offspring of one of the survivors,
 						// but we also allow a certain percentage of newcomers to try their luck
@@ -1106,21 +1115,21 @@
 					}			
 				}
 				// reset entire population
-				let newx = Math.random() * world.width/2;
-				let newy = Math.random() * world.height;
+				// let newx = Math.random() * world.width/2;
+				// let newy = Math.random() * world.height;
 				for ( let b of boids ) {
 					b.total_sensor_score = 0;
 					b.angle = Math.random() * Math.PI * 2;
-					b.x = newx;
-					b.y = newy;
+					b.x = Math.random() * world.width*0.8 + world.width*0.1;
+					b.y = Math.random() * world.height*0.8 + world.height*0.1;
 					b.angmo = 0;
 					b.inertia = 0;
 				}
 				// move the food
 				for ( let food of foods ) {
-					food.x = food.geo.position.x = (Math.random() * world.width/4) + (world.width*0.625)
-					food.y = food.geo.position.y = (Math.random() * world.height/2) + (world.height*0.25);
-					food.vx = Math.random() * 10 - 5;
+					food.x = food.geo.position.x = (Math.random() * world.width*0.5) + (world.width*0.25)
+					food.y = food.geo.position.y = (Math.random() * world.height*0.5) + (world.height*0.25);
+					food.vx = Math.random() * 100 - 50;
 					food.vy = Math.random() * 100 - 50;
 					food.value = 100;
 				}
@@ -1144,7 +1153,94 @@
 			// UI stats
 			document.getElementById('framenum_output').value = two.frameCount;
 			document.getElementById('fps_output').value = (1/delta).toFixed();
+			
+			// braingraph the leader
+			if ( world.ui.show_brainmap && !world.simulator.turbo ) {
+				if ( world.braingraph ) {
+					two.remove(world.braingraph);
+				}
+				if ( boids.length ) {
+					nodetypes = {
+						'LOGISTIC': { color: '#72F8E0' },
+						'RELU': { color: '#5abbc9' },
+						'STEP': { color: '#694fd8' },
+						'GAUSSIAN': { color: '#55cec1' },
+						'BENT_IDENTITY': { color: '#5ce399' },
+						'SINUSOID': { color: '#a25bb0' },
+						'SOFTSIGN': { color: '#8c9107' },
+						'TANH': { color: '#e4880a' },
+						'ABSOLUTE': { color: '#1aae7a' },
+						'INVERSE': { color: '#c1ab35' },
+						'BIPOLAR': { color: '#000' },
+						'IDENTITY': { color: '#41ad91' },
+						'TANH': { color: '#5b3b49' },
+					}	
+					let target = world.ui.focus_object || boids.sort( (a,b) => b.total_sensor_score - a.total_sensor_score )[0];
+					TrackObject(target);
+					let brain = target.brain;
+					let x = world.width / 2;
+					let y = world.height / 2;
+					let r = Math.min( world.width, world.height ) / 2.2;
+					let a = (Math.PI * 2) /  brain.nodes.length;
+					let node_r = 25;
+					world.braingraph = two.makeGroup();
+					for ( let c of brain.connections ) {
+						let node1 = c.from;
+						let node2 = c.to;
+						let line = two.makeLine(node1.my_x, node1.my_y, node2.my_x, node2.my_y);
+						let v = Math.trunc( Math.abs( clamp(c.weight,-0.1,0.1) ) * (256/10) * 100 );
+						line.stroke = (c.weight > 0 ? '#FFFFFF' : '#DD1111') + DecToHex(v);
+						line.linewidth = 1;
+						world.braingraph.add(line);
+					}
+					let output_i = 0;
+					let input_i = 0;
+					const input_labels = target.NeuroInputLabels();
+					for ( let i=0; i < brain.nodes.length; i++ ) {
+						let node = brain.nodes[i];
+						node.my_a = a * i;
+						node.my_x = x + Math.cos(node.my_a) * r;
+						node.my_y = y + Math.sin(node.my_a) * r;
+						let activation_label = node.activation.toFixed(2);
+						// let rect = two.makeRectangle(node.my_x, node.my_y, node_r*2, node_r*2);
+						let rect = null;
+						if ( node.type == 'input' ) {
+							rect = two.makePolygon(node.my_x, node.my_y, node_r, 3);
+							let text = two.makeText( input_labels[input_i++] + ' ' + activation_label, node.my_x, node.my_y, { fill: '#FFF' } );
+							text.position.y -= node_r + 8;
+							world.braingraph.add(text);
+						}
+						else if ( node.type == 'output' ) {
+							rect = two.makePolygon(node.my_x, node.my_y, node_r, 4);
+							let text = two.makeText( target.motors[output_i++].name + ' ' + activation_label, node.my_x, node.my_y, { fill: '#FFF' } );
+							text.position.y -= node_r + 8;
+							world.braingraph.add(text);
+						}
+						else {
+ 							rect = two.makeCircle(node.my_x, node.my_y, node_r);
+							let text = two.makeText( node.squash.name + ' ' + activation_label, node.my_x, node.my_y, { fill: '#FFF' } );
+							text.position.y -= node_r + 8;
+							world.braingraph.add(text);
+						}
+						let hexval = DecToHex( Math.round(Math.abs(clamp(node.activation,-1,1)) * 255) );
+						rect.fill = node.activation >= 0 
+							? ('#00' + hexval + '00') 
+							: ('#' + hexval + '0000') ;
+						rect.stroke = nodetypes[node.squash.name]?.color ?? '#999' ;
+						rect.linewidth = 5;
+						world.braingraph.add(rect);
+					}
+					// console.log(brain.connections[0]);
+				}
+			}
+			else {
+				if ( world.braingraph ) { two.remove(world.braingraph); }
+				StopTrackObject();
+			}
+			
 		}		
+		
+		
 		
 		function clamp( x, min=null, max=null ) {
 			if ( min !== null ) { x = Math.max(x,min); }
@@ -1168,8 +1264,46 @@
 			}
 		}
 		
+		
+		
+		//
+		//
 		two.play();
-	  		
+	  	//
+		//	
+			
+		function TrackObject(o) {
+			if ( !o ) { return; }
+			if ( o.dead ) { StopTrackObject(o); return; }
+			world.ui.focus_object = o;
+			if ( !world.ui.focus_geo ) {
+				world.ui.focus_geo = two.makeCircle(world.ui.focus_object.x, world.ui.focus_object.y, 50);
+				world.ui.focus_geo.stroke = '#AEA';
+				world.ui.focus_geo.linewidth = 4;
+				world.ui.focus_geo.fill = 'transparent';
+			}
+			else {
+				world.ui.focus_geo.position.x = world.ui.focus_object.x;
+				world.ui.focus_geo.position.y = world.ui.focus_object.y;
+			}
+		}
+		function StopTrackObject() {
+			if ( !world.ui.focus_object ) { return ; }
+			world.ui.focus_object = null;
+			two.remove([world.ui.focus_geo]);
+			world.ui.focus_geo = null;
+		}
+		function ShiftFocusTarget() {
+			if ( !boids.length ) { return; }
+			if ( !world.ui.focus_object ) { 
+				TrackObject(boids[0]);
+			}
+			else {
+				let i = boids.indexOf( world.ui.focus_object );
+				if ( ++i == boids.length ) { i = 0; }
+				TrackObject( boids[i] );
+			}
+		}
 			
 		function ChangeCulling() {
 			let el = document.getElementById('culling_slider');
@@ -1197,7 +1331,7 @@
 			let diff = n - boids.length;
 			if ( diff > 0 ) {
 				for ( let i=0; i < diff; i++ ) {
-					const b = BoidFactory(world.use_species, world.width*0.25,world.height*0.25 );
+					const b = BoidFactory(world.use_species, Math.random()*world.width, Math.random()*world.height );
 					b.angle = Math.random() * Math.PI * 2;
 					boids.push(b);
 				}			
@@ -1206,6 +1340,35 @@
 				boids.splice(0,-diff).forEach( x => x.Kill() );
 			}
 		}
+		
+
+		function SetShowUI(x) {
+			world.ui.show_ui = !!x;
+			let el = document.getElementById('ui_container');
+			if ( world.ui.show_ui ) { el.style.visibility = 'visible'; }
+			else { el.style.visibility = 'hidden'; }
+		}
+		function ToggleUI() {
+			SetShowUI( !world.ui.show_ui );
+		}
+		function SetShowSensors(x) {
+			world.ui.show_collision_detection = !world.ui.show_collision_detection;
+		}
+		function ToggleShowSensors() {
+			SetShowSensors( !world.ui.show_collision_detection );
+		}
+		function ToggleShowBrainmap() {
+			world.ui.show_brainmap = !world.ui.show_brainmap;
+		}
+		function ToggleSimulatorFF() {
+			world.simulator.turbo = !world.simulator.turbo;
+			if ( world.simulator.turbo ) { RunSimulator(); }
+		}
+		function TogglePause() {
+			if ( two.playing ) { two.pause(); console.log('paused'); } 
+			else { two.play(); console.log('playing'); }
+		}
+		
 		
 		window.onresize = function(event) {
 			world.height = window.innerHeight / world.scale;
@@ -1234,16 +1397,88 @@
 			return false;
 		});
 		
+		document.getElementById('show_brainmap_button').addEventListener('click', function(event) {
+			ToggleShowBrainmap();
+			return false;
+		});
 		
+		document.getElementById('save_leader_button').addEventListener('click', function(event) {
+			SaveLeader();
+			return false;
+		});
 		
+		document.getElementById('load_leader_button').addEventListener('click', function(event) {
+			LoadLeader();
+			return false;
+		});
 		
 		
 		ChangeViscosity();
-		ChangeNumBoids(50);
+		ChangeNumBoids(30);
 		ChangeMutation();
 		ChangeCulling();
 		SetShowUI(world.ui.show_ui);
 			
+			
+		// Handle key down events
+		const body = document.querySelector("body");
+		body.addEventListener("touchstart", function(event) {
+			if ( !world.ui.show_ui ) ToggleUI();
+		});
+		body.addEventListener("keydown", function(event) {
+			if ( event.keyCode == 19 ) {  // `Pause` 
+				TogglePause();
+			}
+			else if ( event.keyCode == 39 ) {  // `right arrow` 
+				event.preventDefault();
+				ShiftFocusTarget();
+			}
+			else if ( event.which == 49 ) {  // `1` 
+				event.preventDefault();
+				ToggleShowSensors();
+			}
+			else if ( event.which == 50 ) {  // `2` 
+				event.preventDefault();
+				ToggleUI()
+			}
+			else if ( event.which == 66 ) {  // `B` 
+				event.preventDefault();
+				ToggleShowBrainmap()
+			}
+			else if ( event.which == 51 ) {  // `3` 
+				event.preventDefault();
+				SaveLeader();
+			}
+			else if ( event.which == 52 ) {  // `4` 
+				event.preventDefault();
+				LoadLeader();
+			}
+			else if ( event.which == 35 ) {  // `END` 
+				event.preventDefault();
+				ToggleSimulatorFF();
+			}
+		});
+			
+		function SaveLeader() {
+			if ( boids.length ) {
+				const b = boids.sort( (a,b) => b.total_sensor_score - a.total_sensor_score )[0];
+				localStorage.setItem("leader-brain", JSON.stringify(b.brain.toJSON()));
+				console.log("Saved leader brain with score " + b.total_sensor_score.toFixed(1) );
+			}		
+		}
+		
+		function LoadLeader() {
+			let json = localStorage.getItem("leader-brain");
+			if (json) {
+				json = JSON.parse(json);
+				let brain = Network.fromJSON(json);
+				const b = BoidFactory(world.use_species, Math.random()*world.width, Math.random()*world.height );
+				b.brain = brain;
+				b.angle = Math.random() * Math.PI * 2;		
+				boids.push(b);				
+				console.log("Spawned saved brain" );
+			}		
+		}
 			
 			
 		//
@@ -1314,6 +1549,8 @@
 			a = dy < 0 ? 2 * Math.PI - a : a;
 			return a;
 		}
+		
+		function mod (n, m) { return (n % m + m) % m; }
 		
 	</script>
 		
