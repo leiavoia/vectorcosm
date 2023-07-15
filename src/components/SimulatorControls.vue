@@ -50,6 +50,7 @@
 		vars.round.best_score = props.sim.stats.round.best_score;
 		vars.round.avg_score = props.sim.stats.round.avg_score;
 		vars.round.time = props.sim.stats.round.time;
+		vars.fps = window.vc.fps;
 	}
 	
 	copyPropsFromSim();
@@ -77,11 +78,16 @@
 	}
 
 	function updateScale() {
-		window.app.SetViewScale(vars.scale);
+		window.vc.SetViewScale(vars.scale);
 	}
 	
 	props.sim.onUpdate = _ => {
 		copyStats();
+	}; 
+	
+	props.sim.onRound = _ => {
+		simulatorChart.data.labels.push(props.sim.stats.round.num);
+		simulatorChart.update();
 	}; 
 	
 	// will be created by Chart.js after DOM loads
@@ -238,7 +244,7 @@
 
 		T: <output id="sim_time_output">{{vars.round.time.toFixed(1)}}</output> | 
 		F: <output id="framenum_output">{{vars.framenum}}</output> |  
-		<!-- FPS: <output id="fps_output">{{window.vc.fps}}</output>  -->
+		FPS: <output id="fps_output">{{vars.fps}}</output> 
 
 		<br/>
 		<canvas id="simulatorChart" style="width: 12em; height: 4em;"></canvas> 

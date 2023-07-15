@@ -56,6 +56,7 @@ export default class Simulation {
 		};
 		this.turbo = false;
 		this.onUpdate = null;
+		this.onRound = null;
 		this.onComplete = null; // not implemented
 	}
 	
@@ -116,10 +117,6 @@ export default class Simulation {
 			this.stats.best_avg_score = Math.max(this.stats.best_avg_score, this.stats.round.avg_score);
 			this.stats.chartdata.averages.push(avg);
 			this.stats.chartdata.highscores.push(best);
-			
-			// FIXME: EXTERNALIZE AND RECONNECT
-			// simulatorChart.data.labels.push(this.stats.round.num);
-			// simulatorChart.update();
 			
 			// remove deadbeats
 			if ( this.settings.min_score !== null ) {
@@ -188,6 +185,8 @@ export default class Simulation {
 			// 	food.vy = Math.random() * 100 - 50;
 			// 	food.value = 100;
 			// }
+			
+			if ( typeof(this.onRound) === 'function' ) { this.onRound(this); }
 		}
 		
 		if ( typeof(this.onUpdate) === 'function' ) { this.onUpdate(this); }
