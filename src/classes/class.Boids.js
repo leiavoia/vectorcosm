@@ -340,13 +340,17 @@ export class ProtoBoid {
 		b.energy = b.max_energy;
 		b.maxspeed = 600;
 		b.maxrot = 20;
-		b.length = utils.BiasedRandInt(8,200,15,0.95);
-		b.width = utils.BiasedRandInt(8,125,10,0.95);
 		b.collision.radius = Math.max(b.length, b.width) / 2;
 		b.energy_cost = 0.15;
 		
+		b.bodyplan = BodyPlan.Random();
+		b.container.add([b.bodyplan.geo]);
+		// [!]temporary?:
+		b.length = b.bodyplan.length;
+		b.width = b.bodyplan.width;
+		
 		// sensors:
-		// food sensors are mandatory - its just a matter of how many
+		// food and obstacle sensors are mandatory - its just a matter of how many
 		const my_max_dim = Math.max( b.length, b.width );
 		const max_sensor_distance = Math.sqrt(my_max_dim) * 40;
 		const max_sensor_radius = Math.sqrt(my_max_dim) * 35;
@@ -422,62 +426,13 @@ export class ProtoBoid {
 				b.motors.push(motor2);
 			} 
 		}
-		
-		// body plan / mutation // TODO: move this to BodyPlan class
-		// let num_extra_pts = utils.BiasedRandInt( 1, 7, 1, 0.5 );
-		// more features means more complex body plans
-		let num_extra_pts = Math.round( (b.sensors.length + b.motors.length) / 5 );
-		let pts = []; 
-		for ( let n=0; n < num_extra_pts; n++ ) {
-			let px = utils.RandomFloat( -b.length/2, b.length/2 );
-			let py = utils.RandomFloat( 0 /* -b.width/8 */, b.width/2 );
-			pts.push([px,py]);
-		}
-		// make complimentary points on other side of body
-		pts.sort( (a,b) => b[0] - a[0] );
-		let new_pts = pts.map( p => [ p[0], -p[1] ] );
-		// random chance for extra point in the back
-		if ( Math.random() > 0.5 ) { 
-			new_pts.push( [ utils.RandomFloat( -b.length/2, 0 ), 0] );
-		}
-		pts.push( ...new_pts.reverse() );
-		// standard forward nose point required for all body plans
-		pts.unshift( [this.length/2, 0] );
-		b.bodyplan = new BodyPlan(pts);
-		// b.bodyplan.complexity_factor = utils.BiasedRand(0,1,0.3,0.5);
-		b.bodyplan.complexity_factor = utils.Clamp( Math.round( num_extra_pts / 5 ), 0, 1) ; // utils.BiasedRand(0,1,0.3,0.5);
-		b.bodyplan.max_jitter_pct = utils.BiasedRand(0,0.2,0.08,0.5);
-		b.bodyplan.augmentation_pct = utils.BiasedRand(0,0.1,0.01,0.9);
-		b.bodyplan.length = b.length;
-		b.bodyplan.width = b.width;
-		b.bodyplan.curved = Math.random() > 0.7;
-		if ( Math.random() > 0.92 ) {
-			b.bodyplan.dashes = [];
-			let num_dashes = utils.RandomInt(2,7);
-			for ( let n=0; n < num_dashes; n++ ) {
-				b.bodyplan.dashes.push( utils.RandomInt(0,10) );
-			}		
-		}
-		// colors
-		const color_roll = Math.random();
-		if ( color_roll < 0.33 ) { // just line
-			b.bodyplan.linewidth = Math.random() > 0.5 ? utils.BiasedRandInt(2,8,2,0.99) : 2;
-			b.bodyplan.stroke = utils.RandomColor( true, false, true );
-			b.bodyplan.fill = 'transparent';
-		}
-		else if ( color_roll > 0.67 ) { // just fill
-			b.bodyplan.linewidth = 0;
-			b.bodyplan.stroke = 'transparent';
-			b.bodyplan.fill =  utils.RandomColor( true, false, true ) + 'AA';
-		}
-		else { // line and fill
-			b.bodyplan.linewidth = Math.random() > 0.5 ? utils.BiasedRandInt(2,8,2,0.99) : 2;
-			b.bodyplan.stroke = utils.RandomColor( true, false, true );
-			b.bodyplan.fill =  utils.RandomColor( true, false, false ) + 'AA'; // don't need bright interiors if we also have line
-		}
-		b.bodyplan.UpdateGeometry();
-		b.container.add([b.bodyplan.geo]);
-				
+			
+		// make the body complexity loosely match ability
+		let complexity_variance = Math.random() * 0.2 - 0.1;
+		b.bodyplan.complexity_factor = complexity_variance + ( (b.sensors.length + b.motors.length) / 30 ); // magic numbers
+		b.bodyplan.complexity_factor = utils.Clamp( b.bodyplan.complexity_factor, 0, 1 ); 
+		b.bodyplan.RandomizePoints();
+			
 		// neuro stuff
 		b.brain_complexity = utils.BiasedRand(0.5,5,2,0.8);
 		let middle_nodes = utils.BiasedRandInt(0,12,3,0.3);

@@ -34,6 +34,71 @@ export default class BodyPlan {
 		return bp;
 	}
 	
+	RandomizePoints() {
+		let num_extra_pts = Math.ceil( this.complexity_factor * 5 );
+		let pts = []; 
+		for ( let n=0; n < num_extra_pts; n++ ) {
+			let px = utils.RandomFloat( -this.length/2, this.length/2 );
+			let py = utils.RandomFloat( 0 /* -this.width/8 */, this.width/2 );
+			pts.push([px,py]);
+		}
+		// make complimentary points on other side of body
+		pts.sort( (a,b) => b[0] - a[0] );
+		let new_pts = pts.map( p => [ p[0], -p[1] ] );
+		// random chance for extra point in the back
+		if ( Math.random() > 0.5 ) { 
+			new_pts.push( [ utils.RandomFloat( -this.length/2, 0 ), 0] );
+		}
+		pts.push( ...new_pts.reverse() );
+		// standard forward nose point required for all body plans
+		pts.unshift( [this.length/2, 0] );
+		this.points = pts;
+		this.UpdateGeometry();
+	}
+	
+	// 0..1, basically corresponds to num_points = complexity * 20
+	static Random( complexity=null ) {
+		// setup
+		let bp = new BodyPlan();
+		complexity = utils.Clamp( complexity||Math.random(), 0, 1 );
+		bp.complexity_factor = utils.Clamp( complexity||0.1, 0, 1 );
+		bp.length = utils.BiasedRandInt(8,150,15,0.95);
+		bp.width = utils.BiasedRandInt(8,100,10,0.95);
+		bp.max_jitter_pct = utils.BiasedRand(0,0.2,0.08,0.5);
+		bp.augmentation_pct = utils.BiasedRand(0,0.1,0.01,0.9);
+		bp.curved = Math.random() > 0.7;
+		if ( Math.random() > 0.92 ) {
+			bp.dashes = [];
+			let num_dashes = utils.RandomInt(2,7);
+			for ( let n=0; n < num_dashes; n++ ) {
+				bp.dashes.push( utils.RandomInt(0,10) );
+			}		
+		}
+		
+		// colors
+		const color_roll = Math.random();
+		if ( color_roll < 0.33 ) { // just line
+			bp.linewidth = Math.random() > 0.5 ? utils.BiasedRandInt(2,8,2,0.99) : 2;
+			bp.stroke = utils.RandomColor( true, false, true );
+			bp.fill = 'transparent';
+		}
+		else if ( color_roll > 0.67 ) { // just fill
+			bp.linewidth = 0;
+			bp.stroke = 'transparent';
+			bp.fill =  utils.RandomColor( true, false, true ) + 'AA';
+		}
+		else { // line and fill
+			bp.linewidth = Math.random() > 0.5 ? utils.BiasedRandInt(2,8,2,0.99) : 2;
+			bp.stroke = utils.RandomColor( true, false, true );
+			bp.fill =  utils.RandomColor( true, false, false ) + 'AA'; // don't need bright interiors if we also have line
+		}
+		
+		// points
+		bp.RandomizePoints(); // includes update
+		
+		return bp;
+	}
+	
 	UpdateGeometry() {
 		if ( this.points ) {
 			let anchors = this.points.map( p => new Two.Anchor( p[0], p[1] ) );
