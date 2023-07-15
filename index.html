@@ -296,10 +296,19 @@
 			}
 
 			let color_schemes = [
-				['#333333','#333333','#333333'], // solid grey
-				['#0a0a0a','#111111','#1a1a1a'], // basalt
+				['#352619','#2E1D06','#2E2A1D','#473120','#2c0b04','#492f05','#6c7471','transparent','transparent'
+				,'transparent','transparent','transparent','transparent','transparent','transparent'], // shipwreck
+				['#352619','#2E1D06','#2E2A1D','#473120','#2c0b04','#492f05'], // mudstone
+				['#4b4b48','#4B4E50','#6c7471','transparent','transparent'], // Wavebreak
+				['#1C4D44'], // copper oxide
+				['#1C4D44','#1C4D44','#1C4D44','#3b4b30','#18270B','#1C4D44','#1C4D44','#1C4D44','#3b4b30','#18270B','#656b5c'], // Serpentine
+				['#070808','#4B4E50','#070808','#4B4E50','#070808','#4B4E50','#070808','#4B4E50','#9ba1a5'], // speckled granite
+				['#301A30','#4E2237','#2b0a36'], // sunrise
+				['#333333','#383533'], // basalt
+				['#0a0a0a','#111111','#1a1a1a'], // obsidian
 				['#07290C','#001B04','transparent'], // kelpgarden
 				['#07290C','#001B04','#0C1F01'], // mossgarden
+				['#001C41','#001C41','#00355e','#05080f','#001C41','#001C41','#00355e','#05080f','#004b9b'], // moonlight
 			];
 			const delaunay = Delaunator.from(bgpts);
 			let triangles = delaunay.triangles;
@@ -327,12 +336,12 @@
 					bgpts[triangles[i+2]][0], 
 					bgpts[triangles[i+2]][1] 
 					);
-				t.linewidth = 2;
+				t.linewidth = 1;
 				t.fill = c;
 				t.stroke = c;
 				bggroup.add(t);
 			}		
-			let randscale = Math.random() * 9 + 1;
+			let randscale = Math.cbrt( Math.random() * 99 + 1 ); // TODO: weighted random
 			let xory = Math.random() > 0.5;
 			bggroup.scale = new Two.Vector( xory ? randscale : 1.5, xory ? 1.5 : randscale );
 			// basalt cliffs:
@@ -408,7 +417,7 @@
 			}
 		}
 		
-		// let num_plants = 7;
+		// let num_plants = 1 + (Math.random()*8);
 		// for ( let i=0; i < num_plants; i++ ) {
 		// 	let plant = new Plant(
 		// 		(Math.random()*world.width + Math.random()*world.width) / 2,
@@ -555,8 +564,8 @@
 				this.brain = null;
 				// vision and sensors
 				this.sensors = [];
-				this.sensor_score = 0; // per frame
-				this.total_sensor_score = 0; // accumulates over time
+				this.fitness_score = 0; // per frame
+				this.total_fitness_score = 0; // accumulates over time
 				this.sensor_group = two.makeGroup();
 				this.sensor_group.linewidth = 1;
 				this.sensor_group.stroke = '#AAEEAA55';
@@ -583,7 +592,7 @@
 				// sensor collision detection
 				let sinAngle = Math.sin(this.angle);
 				let cosAngle = Math.cos(this.angle);				
-				this.sensor_score = 0;
+				this.fitness_score = 0;
 				for ( let s of this.sensors ) {
 					s.val = 0;
 					let sx = this.x + ((s.x * cosAngle) - (s.y * sinAngle));
@@ -598,16 +607,32 @@
 							food.Eat(delta);
 						}
 					}
-					this.sensor_score += s.val;
+					this.fitness_score += s.val;
 					s.geo.fill = s.val ? `rgba(150,255,150,${s.val*0.5})` : 'transparent';
 				}
-				this.sensor_score /= this.sensors.length;
-				this.total_sensor_score += this.sensor_score * delta * 18; // the extra padding is just to make numbers look good
-				if ( this.sensors.filter(s=>s.val).length ) {
-					let c = HexColorToRGBArray(this.path.stroke);
-					this.path.fill = `rgba(${c[0]},${c[1]},${c[2]},${this.sensor_score*2})`;
-				}
-				else { this.path.fill = 'transparent'; }
+				this.fitness_score /= this.sensors.length;
+				
+				// if ( this.sensors.filter(s=>s.val).length ) {
+				// 	let c = HexColorToRGBArray(this.path.stroke);
+				// 	this.path.fill = `rgba(${c[0]},${c[1]},${c[2]},${this.fitness_score*2})`;
+				// }
+				// else { this.path.fill = 'transparent'; }
+				
+				// experiment: punishment for hugging the edges. bad boid! bad!
+				// edge detection - to be removed later - replace with actual collision detection
+				const margin = 150;
+				let nearness = 0; 
+				nearness += this.x < margin ? (margin - this.x) : 0;
+				nearness += this.x > (world.width-margin) ? (margin-(world.width - this.x)) : 0;
+				nearness += this.y < margin ? (margin - this.y ) : 0;
+				nearness += this.y > (world.height-margin) ? (margin-(world.height - this.y)) : 0;
+				nearness /= margin*2;
+				this.fitness_score -= (nearness / margin) * delta * 4;
+				
+				
+				this.total_fitness_score += this.fitness_score * delta * 18; // the extra padding is just to make numbers look good
+				
+				
 				
 				// UI: toggle collision detection geometry UI
 				this.sensor_group.visible = world.ui.show_collision_detection;
@@ -716,6 +741,10 @@
 					if ( m.hasOwnProperty('angular') ) {
 						this.angmo += m.angular * amount;
 					}
+					if ( m.hasOwnProperty('color') ) {
+						let c = HexColorToRGBArray(this.path.stroke);
+						this.path.fill = `rgba(${c[0]},${c[1]},${c[2]},${clamp(amount,0,1)})`;
+					}
 				}
 			}
 			Kill() {
@@ -737,7 +766,7 @@
 				this.MakeGeometry();
 				this.MakeMotors();
 				this.MakeSensors();
-				this.MakeBrain( 13, 6, 4/* , 200 */ );
+				this.MakeBrain( 14, 12, 4/* , 200 */ );
 			}
 			MakeGeometry() {
 				this.path = two.makePath( 
@@ -748,6 +777,12 @@
 					-this.width/2 
 					);
 				this.path.stroke = '#AEA';
+				// let c = '#'
+					// + DecToHex(parseInt(128 + 128 * Math.random()))
+					// + DecToHex(parseInt(128 + 128 * Math.random()))
+					// + DecToHex(parseInt(128 + 128 * Math.random()));
+				// this.path.stroke = c;
+				
 				this.path.fill = 'transparent';
 				this.path.linewidth = 2;
 				this.container.add([this.path]);
@@ -757,7 +792,8 @@
 					{name:'Forward', linear:200, on:false, min:0.08, cost: 1 },
 					{name:'Backward', linear:-100, on:false, min:0.08, cost: 2 },
 					{name:'Rotate CW', angular:3, on:false, min:0.08, cost: 1.25 },
-					{name:'Rotate CCW', angular:-3, on:false, min:0.08, cost: 1.25 }
+					{name:'Rotate CCW', angular:-3, on:false, min:0.08, cost: 1.25 },
+					// {name:'Color', color:1, min:0, cost: 0 },
 				];
 			}
 			MakeSensors() { 
@@ -816,18 +852,18 @@
 				inputs.push((this.angmo + this.maxrot) / (2*this.maxrot));
 				// inputs.push(this.energy);
 				inputs.push((this.inertia + this.maxspeed) / (2*this.maxspeed));
-				// edge detection - to be removed later - replace with actual collision detection
-				// const margin = 100;
-				// let nearness = 0; 
-				// nearness += this.x < margin ? (margin - this.x) : 0;
-				// nearness += this.x > (world.width-margin) ? (margin-(world.width - this.x)) : 0;
-				// nearness += this.y < margin ? (margin - this.y ) : 0;
-				// nearness += this.y > (world.height-margin) ? (margin-(world.height - this.y)) : 0;
-				// nearness /= margin*2;
-				// inputs.push(nearness);
-				// inputs.push(Math.random()); // chaos to prevent one-track minds
 				inputs.push(this.x / world.width);
 				inputs.push(this.y / world.height);					
+				// edge detection - to be removed later - replace with actual collision detection
+				const margin = 150;
+				let nearness = 0; 
+				nearness += this.x < margin ? (margin - this.x) : 0;
+				nearness += this.x > (world.width-margin) ? (margin-(world.width - this.x)) : 0;
+				nearness += this.y < margin ? (margin - this.y ) : 0;
+				nearness += this.y > (world.height-margin) ? (margin-(world.height - this.y)) : 0;
+				nearness /= margin*2;
+				inputs.push(nearness);
+				// inputs.push(Math.random()); // chaos to prevent one-track minds
 				return inputs;
 			}
 			NeuroInputLabels() {
@@ -845,7 +881,7 @@
 					'inertia',
 					'world X',
 					'world Y',
-					// 'edges',
+					'edges',
 					// 'chaos'
 				];
 			}
@@ -863,7 +899,7 @@
 				this.MakeGeometry();
 				this.MakeMotors();
 				this.MakeSensors();				
-				this.MakeBrain( 5, 6, 3, 40 );
+				this.MakeBrain( 5, 7, 3, 40 );
 			}
 			MakeGeometry() {
 				this.path = two.makeRectangle(0,0,this.width,this.length); 
@@ -876,7 +912,8 @@
 				this.motors = [
 					{name:'Forward', linear:100, on:false },
 					{name:'Rotate CW', angular:4, on:false },
-					{name:'Rotate CCW', angular:-4, on:false }
+					{name:'Rotate CCW', angular:-4, on:false },
+					// {name:'Color', color:1 },
 				];
 			}
 			MakeSensors() {
@@ -960,7 +997,7 @@
 				this.MakeGeometry();
 				this.MakeMotors();
 				this.MakeSensors();				
-				this.MakeBrain( 6, 8, 2, 50 );
+				this.MakeBrain( 6, 7, 2, 50 );
 			}
 			MakeGeometry() {
 				this.path = two.makePath( 
@@ -982,6 +1019,7 @@
 				this.motors = [
 					{name:'Left Stroke', linear:200, angular:12, on:false },
 					{name:'Right Stroke', linear:200, angular:-12, on:false },
+					// {name:'Color', color:1 },
 				];
 			}
 			MakeSensors() {
@@ -1075,8 +1113,8 @@
 				world.simulator.round.best_score = 0;
 				world.simulator.round.avg_score = 0;
 				for ( let b of boids ) {
-					world.simulator.round.avg_score += b.total_sensor_score || 0;
-					world.simulator.round.best_score = Math.max(b.total_sensor_score||0, world.simulator.round.best_score);
+					world.simulator.round.avg_score += b.total_fitness_score || 0;
+					world.simulator.round.best_score = Math.max(b.total_fitness_score||0, world.simulator.round.best_score);
 				}
 				world.simulator.round.avg_score /= boids.length;
 				world.simulator.best_score = Math.max(world.simulator.best_score, world.simulator.round.best_score);
@@ -1091,11 +1129,11 @@
 				simulatorChart.data.labels.push(world.simulator.round.num);
 				simulatorChart.update();
 				// remove deadbeats
-				const min_score = 20;
-				boids.filter( x => !x.total_sensor_score < min_score ).forEach( x=> x.Kill() );
-				boids = boids.filter( x => x.total_sensor_score >= min_score );
+				// const min_score = 20;
+				// boids.filter( x => !x.total_fitness_score < min_score ).forEach( x=> x.Kill() );
+				// boids = boids.filter( x => x.total_fitness_score >= min_score );
 				// sort boids by sensor score ASC
-				boids.sort( (a,b) => a.total_sensor_score - b.total_sensor_score );
+				boids.sort( (a,b) => a.total_fitness_score - b.total_fitness_score );
 				// cull the herd, keep the winners
 				const cullpct = 0.5;
 				const numkill = Math.trunc(boids.length * 0.9);
@@ -1137,7 +1175,7 @@
 				// let newx = Math.random() * world.width/2;
 				// let newy = Math.random() * world.height;
 				for ( let b of boids ) {
-					b.total_sensor_score = 0;
+					b.total_fitness_score = 0;
 					b.angle = Math.random() * Math.PI * 2;
 					// b.x = Math.random() * world.width*0.8 + world.width*0.1;
 					// b.y = Math.random() * world.height*0.8 + world.height*0.1;
@@ -1195,7 +1233,7 @@
 					// 	'IDENTITY': { color: '#41ad91' },
 					// 	'TANH': { color: '#5b3b49' },
 					// }	
-					let target = world.ui.focus_object || boids.sort( (a,b) => b.total_sensor_score - a.total_sensor_score )[0];
+					let target = world.ui.focus_object || boids.sort( (a,b) => b.total_fitness_score - a.total_fitness_score )[0];
 					TrackObject(target);
 					let brain = target.brain;
 					let x = world.width / 2;
@@ -1238,7 +1276,7 @@
 							world.braingraph.add(text);
 						}
 						else {
-							node_r += clamp(node.bias*2,-10,10);
+							node_r += clamp(node.bias*2,-4,7);
  							rect = two.makeCircle(node.my_x, node.my_y, node_r);
 							let text = two.makeText( node.squash.name + ' ' + activation_label, node.my_x, node.my_y, { fill: '#FFF' } );
 							text.position.y -= node_r + 8;
@@ -1489,16 +1527,16 @@
 			}
 			else if ( event.which == 76 ) {  // `L` 
 				event.preventDefault();
-				const b = boids.sort( (a,b) => b.total_sensor_score - a.total_sensor_score )[0];
+				const b = boids.sort( (a,b) => b.total_fitness_score - a.total_fitness_score )[0];
 				if ( b ) console.log(b);
 			}
 		});
 			
 		function SaveLeader() {
 			if ( boids.length ) {
-				const b = boids.sort( (a,b) => b.total_sensor_score - a.total_sensor_score )[0];
+				const b = boids.sort( (a,b) => b.total_fitness_score - a.total_fitness_score )[0];
 				localStorage.setItem("leader-brain", JSON.stringify(b.brain.toJSON()));
-				console.log("Saved leader brain with score " + b.total_sensor_score.toFixed(1) );
+				console.log("Saved leader brain with score " + b.total_fitness_score.toFixed(1) );
 			}		
 		}
 		
