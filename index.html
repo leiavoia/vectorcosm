@@ -134,7 +134,7 @@
 						
 		// world settings
 		let world = {
-			use_species: 'Boid',
+			use_species: 'Kayak',
 			settings: { 
 				viscosity: 0.22, // 0..1
 				max_mutation: 5, // up to
@@ -147,7 +147,7 @@
 			height: two.height,
 			simulator: {
 				turbo: false,
-				turns: 1500,
+				turns: 3000,
 				rounds: 5000,
 				best_score: 0,
 				best_avg_score: 0,
@@ -323,6 +323,7 @@
 		];
 		
 		function BoidFactory( type, x, y ) {
+			if ( type == 'Kayak' ) { return new Kayak(x,y); }
 			if ( type == 'Simpleton' ) { return new Simpleton(x,y); }
 			// if ( Math.random() > 0.5 ) { return new Simpleton(x,y); }
 			return new Boid(x,y);
@@ -405,8 +406,8 @@
 				this.sensor_group.visible = world.ui.show_collision_detection;
 				
 				// movement / motor control 				
-				this.energy += delta;
-				this.energy = Math.min( this.energy, 1.0 );
+				this.energy += delta + Math.random() * delta;
+				this.energy = Math.min( this.energy, this.max_energy || 1.0 );
 				if ( this.energy >= this.energy_cost ) {
 					this.energy -= this.energy_cost;
 					const outputs = this.brain.activate( this.NeuroInputs() );
@@ -447,11 +448,11 @@
 				if ( m ) {
 					if ( m.min && amount < m.min ) { return; }
 					amount = clamp(amount,0,1);
-					if ( m.type == 'linear' ) {
-						this.inertia += m.power * amount;
+					if ( m.hasOwnProperty('linear') ) {
+						this.inertia += m.linear * amount;
 					}
-					else if ( m.type == 'angular' ) {
-						this.angmo += m.power * amount;
+					if ( m.hasOwnProperty('angular') ) {
+						this.angmo += m.angular * amount;
 					}
 				}
 			}
@@ -490,10 +491,10 @@
 			}
 			MakeMotors() {
 				this.motors = [
-					{name:'Forward', type:"linear", power:200, on:false, min:0.01 },
-					{name:'Backward', type:"linear", power:-100, on:false, min:0.01 },
-					{name:'Rotate CW', type:"angular", power:3, on:false, min:0.01 },
-					{name:'Rotate CCW', type:"angular", power:-3, on:false, min:0.01 }
+					{name:'Forward', linear:200, on:false, min:0.01 },
+					{name:'Backward', linear:-100, on:false, min:0.01 },
+					{name:'Rotate CW', angular:3, on:false, min:0.01 },
+					{name:'Rotate CCW', angular:-3, on:false, min:0.01 }
 				];
 			}
 			MakeSensors() { 
@@ -588,9 +589,9 @@
 			}			
 			MakeMotors() {
 				this.motors = [
-					{name:'Forward', type:"linear", power:100, on:false },
-					{name:'Rotate CW', type:"angular", power:4, on:false },
-					{name:'Rotate CCW', type:"angular", power:-4, on:false }
+					{name:'Forward', linear:100, on:false },
+					{name:'Rotate CW', angular:4, on:false },
+					{name:'Rotate CCW', angular:-4, on:false }
 				];
 			}
 			MakeSensors() {
@@ -653,6 +654,92 @@
 			}			
 		}
 		
+		class Kayak extends ProtoBoid {
+			constructor(x,y) {
+				super(x,y);
+				this.maxspeed = 400;
+				this.maxrot = 10;
+				this.length = 18;
+				this.width = 18;
+				this.energy_cost = 0.88;
+				this.MakeGeometry();
+				this.MakeMotors();
+				this.MakeSensors();				
+				this.MakeBrain( 7, 20, 2, 50 );
+			}
+			MakeGeometry() {
+				this.path = two.makePath( 
+					-this.length/2,
+					this.width/2,
+					this.length/2,
+					0, 
+					-this.length/2,
+					-this.width/2 ,
+					-this.length/4,
+					0, 
+					);
+				this.path.stroke = '#AB8';
+				this.path.fill = 'transparent';
+				this.path.linewidth = 2;
+				this.container.add([this.path]);
+			}			
+			MakeMotors() {
+				this.motors = [
+					{name:'Left Stroke', linear:200, angular:12, on:false },
+					{name:'Right Stroke', linear:200, angular:-12, on:false },
+				];
+			}
+			MakeSensors() {
+				const max_sensor_distance = 2.5;
+				const sensor_radius = Math.max(this.length,this.width) * max_sensor_distance;
+				const sensor_radius_scale = 0.75;
+				// inner touch sensor
+				this.sensors.push( {
+					x: 0, 
+					y: 0, 
+					r: sensor_radius * sensor_radius_scale,
+					angle: 0,
+					val:0,
+					type:"touch",
+					geo: two.makeCircle(0,0,sensor_radius * sensor_radius_scale)
+				});	
+				// forward proximity sensor
+				this.sensors.push( {
+					x: sensor_radius * max_sensor_distance, 
+					y: 0, 
+					r: sensor_radius * 1.5,
+					angle: 0,
+					val:0,
+					type:"touch",
+					geo: two.makeCircle(sensor_radius * max_sensor_distance,0,sensor_radius * 1.5)
+				});	
+				// outer general awareness sensor			
+				const outerlimit = 1.5 * ( 2*sensor_radius + sensor_radius*sensor_radius_scale );
+				this.sensors.push( {
+					x: 0, 
+					y: 0, 
+					r: outerlimit,
+					angle: 0,
+					val:0,
+					type:"awareness",
+					geo: two.makeCircle(0,0,outerlimit)
+				});				
+				// visualization	
+				this.sensor_group.add( this.sensors.map( i => i.geo ) );
+				this.sensor_group.linewidth = 1;
+				this.sensor_group.stroke = '#AAEEAA55';
+				this.sensor_group.fill = 'transparent';							
+			}
+			NeuroInputs() {
+				const inputs = this.sensors.map(s=>s.val);
+				inputs.push(this.angle / (2*Math.PI) );
+				inputs.push(this.x / world.width);
+				inputs.push(this.y / world.height);
+				inputs.push(Math.random()); // chaos to prevent one-track minds
+				return inputs;
+			}			
+		}
+		
 		let boids = [];
 		for ( let i=0; i < 1; i++ ) {
 			// const b = BoidFactory(world.use_species, Math.random()*world.width, Math.random()*world.height );
@@ -674,7 +761,6 @@
 		// Handle key down events
 		const body = document.querySelector("body");
 		body.addEventListener("keydown", function(event) {
-			// console.log(event);
 			// event.preventDefault();
 			// if (event.keyCode == 39) 		{ rightPressed = true; }
 			// else if (event.keyCode == 37) 	{ leftPressed = true; }
@@ -756,12 +842,6 @@
 				const killmes = boids.splice(0,numkill);
 				killmes.forEach( x=> x.Kill() );
 				const num_survivors = boids.length;
-				if ( num_survivors ) {
-					console.log("Best score: " + boids[boids.length-1].total_sensor_score );
-				}
-				else {
-					console.log("No survivors :-(" );
-				}
 				// create BoidFactorys'Boid', to make up the difference
 				let el = document.getElementById('numboids_slider');
 				document.getElementById('numboids_slider_output').value = el.value;
@@ -888,7 +968,6 @@
 			world.height = window.innerHeight;
 			world.width = window.innerWidth;
 			two.fit();
-			console.log(`resized to ${window.innerWidth} x ${window.innerHeight}`);
 		}
 		
 		function angleToPoint(x1, y1, x2, y2){
