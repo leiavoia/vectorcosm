@@ -10,7 +10,7 @@ export default class Simulation {
 		this.settings = {
 			max_mutation: 5, // up to
 			cullpct: 0.4, // 0..1
-			min_score: 2,
+			min_score: null,
 			// width: 0,
 			// height: 0,
 			num_boids: 40,
@@ -73,7 +73,7 @@ export default class Simulation {
 		// inherit me	
 	}
 	
-	ScoreBoid(b) {
+	ScoreBoidPerFrame(b) {
 		// inherit me
 	}
 	
@@ -83,9 +83,11 @@ export default class Simulation {
 		this.stats.delta = delta;
 		this.stats.framenum++;
 		// score boids on performance
-		for ( let b of this.tank.boids ) { this.ScoreBoid(b); }
+		for ( let b of this.tank.boids ) { this.ScoreBoidPerFrame(b); }
 		// reset the round if we hit time
 		if ( this.stats.round.time && this.stats.round.time >= this.settings.time ) { 
+			// final scoring
+			for ( let b of this.tank.boids ) { this.ScoreBoidPerRound(b); }
 			// record stats
 			this.stats.round.num++;
 			this.stats.round.time = 0;
@@ -201,6 +203,7 @@ export class FoodChaseSimulation extends Simulation {
 			b.energy = b.max_energy;
 			b.total_fitness_score = 0;
 			b.fitness_score = 0;
+			b.total_movement_cost = 0;
 		}
 		// respawn food
 		this.tank.foods.forEach( x => x.Kill() );
@@ -212,7 +215,10 @@ export class FoodChaseSimulation extends Simulation {
 			this.tank.foods.push(food);
 		}
 	}	
-	ScoreBoid(b) {
+	ScoreBoidPerFrame(b) {
+		// record energy used for later
+		b.total_movement_cost = (b.total_movement_cost || 0 ) + ( b.last_movement_cost || 0 );
+		// calculate score for this frame	
 		b.fitness_score = 0;
 		// record travel distance or lack thereof
 		if ( !b.total_fitness_score ) { 
@@ -248,9 +254,15 @@ export class FoodChaseSimulation extends Simulation {
 			const dy = Math.abs(food.y - this.y);
 			const d = Math.sqrt(dx*dx + dy*dy);
 			let r = Math.max( this.width, this.length );
-			if ( d <= r + food.r ) { this.fitness_score += 5; }
-		}			
+			if ( d <= r + food.r ) { this.fitness_score += 25; }
+		}		
 		b.total_fitness_score += b.fitness_score * this.stats.delta * 18; // extra padding just makes numbers look good
+	}	
+	ScoreBoidPerRound(b) {
+		let div = this.settings.time;
+		if ( b.total_movement_cost ) {
+			b.total_fitness_score /= (b.total_movement_cost || 0) / div;
+		}
 	}	
 	Update(delta) {
 		super.Update(delta);
