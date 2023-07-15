@@ -34,10 +34,22 @@
 			display:inline-block;
 			text-align:left;
 		}
+		.ui {
+			color:white; 
+			position: fixed; 
+			left:1em; 
+			top:1em; 
+			z-index: 10; 
+			font-size: 1.5em; 
+			line-height: 1.5em;
+			visibility: visible;
+		}
+		.ui.hidden { visibility: hidden; }
 	</style>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/two.js/0.8.10/two.min.js"></script>
 	<script src="https://wagenaartje.github.io/neataptic/cdn/1.4.7/neataptic.js"></script>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.5.1/chart.min.js"></script>
+	<script src="https://unpkg.com/delaunator@5.0.0/delaunator.min.js"></script>
 
 	<link rel="canonical" href="https://leiavoia.net/cogmind/dataminer/" />
 	<meta name="description" content="AI Aquarium for Digital Lifeforms" />
@@ -51,9 +63,6 @@
 	<!-- prod version -->
 	<!-- <script src="https://unpkg.com/vue@2.6.14/dist/vue.min.js"></script> -->
 	
-	
-		
-			
 	<meta charset="UTF-8">
 </head>
 
@@ -62,7 +71,13 @@
 	<div class="shape-container">
 		<div id="draw-shapes"></div>
 	</div>
-	<div style="color:white; position: fixed; left:1em; top:1em; z-index: 10; font-size: 1.5em; line-height: 1.5em;">
+	<div class="ui" id="ui_container">
+		<button id="hide_ui_button">Hide UI</button>
+		<button id="pause_button">Pause</button>
+		<button id="show_sensors_button">Show Sensors</button>
+		<button id="fast_forward_button">Fast Forward</button>
+		
+		<br />
 		
 		<label for="numboids_slider">Boids</label>
 		<input type="range" min="0" max="250" step="1" style="margin-bottom:-0.25em;" onChange="ChangeNumBoids()" id="numboids_slider" />
@@ -134,17 +149,19 @@
 						
 		// world settings
 		let world = {
-			use_species: 'Kayak',
+			use_species: 'Boid',
 			settings: { 
 				viscosity: 0.22, // 0..1
 				max_mutation: 5, // up to
 				cullpct: 0.8, // 0..1
 			},
 			ui: {
-				show_collision_detection: false
+				show_collision_detection: false,
+				show_ui: true,
 			},
-			width: two.width,
-			height: two.height,
+			width: two.width * 2,
+			height: two.height * 2,
+			scale: 0.5,
 			simulator: {
 				turbo: false,
 				turns: 3000,
@@ -164,6 +181,14 @@
 			}
 		};
 		
+		// default scale depends on device you are on
+		if ( two.width < 500 ) { world.scale = 0.4; }
+		else if ( two.width < 1200 ) { world.scale = 0.6; }
+		else if ( two.width < 1900 ) { world.scale = 1; }
+		else { world.scale = 1; }
+		world.width =  two.width / world.scale,
+		world.height =  two.height / world.scale,
+		two.scene.scale = world.scale;
 
 		// graphing and chart setup				
 		Chart.defaults.color = '#FFF';
@@ -222,6 +247,107 @@
 		};
 		let simulatorChart = new Chart( document.getElementById('simulatorChart'), chartconfig );
 
+		// background layer
+		let bgnumpts = Math.trunc(Math.random() * 200) + 10;
+		let bgpts = [];
+		bgpts.push( [0, 0] );
+		bgpts.push( [world.width, 0] );
+		bgpts.push( [0, world.height] );
+		bgpts.push( [world.width, world.height] );
+		for ( let x=0; x < bgnumpts*0.1; x++ ) {
+			bgpts.push( [Math.trunc(Math.random() * world.width), 0] );
+			bgpts.push( [Math.trunc(Math.random() * world.width), world.height] );
+		}
+		for ( let x=0; x < bgnumpts*0.1; x++ ) {
+			bgpts.push( [0, Math.trunc(Math.random() * world.height)] );
+			bgpts.push( [world.width, Math.trunc(Math.random() * world.height) ] );
+		}
+		for ( let x=0; x < bgnumpts*0.8; x++ ) {
+			bgpts.push( [ Math.trunc(Math.random() * world.width), Math.trunc(Math.random() * world.height)] );
+		}
+
+		let color_schemes = [
+			['#333333','#333333','#333333'], // solid grey
+			['#0a0a0a','#111111','#1a1a1a'], // basalt
+			['#07290C','#001B04','transparent'], // kelpgarden
+			['#07290C','#001B04','#0C1F01'], // mossgarden
+		];
+		const delaunay = Delaunator.from(bgpts);
+		let triangles = delaunay.triangles;
+		bgcolors = color_schemes[ Math.trunc( Math.random() * color_schemes.length ) ];
+		let bggroup = two.makeGroup();
+		for (let i = 0; i < triangles.length; i += 3) {
+			let c = bgcolors[ Math.trunc( Math.random() * bgcolors.length ) ]; 
+			
+			// fades up the tank 
+			const color_variance = 0.9;
+			let center = (bgpts[triangles[i]][1] + bgpts[triangles[i+1]][1] + bgpts[triangles[i+2]][1]) / 3;
+			const r = (0.5-(center/world.height)) * color_variance + (Math.random()*color_variance*0.5-0.5); 
+			c = adjustColor(c,r);
+			
+			// random shift
+			// const color_variance = 0.2;
+			// const r = Math.random() * color_variance;
+			// c = adjustColor(c, 2 * r - r); // +/- the amount
+			
+			let t = two.makePath(
+				bgpts[triangles[i]][0], 
+				bgpts[triangles[i]][1], 
+				bgpts[triangles[i+1]][0], 
+				bgpts[triangles[i+1]][1], 
+				bgpts[triangles[i+2]][0], 
+				bgpts[triangles[i+2]][1] 
+				);
+			t.linewidth = 2;
+			t.fill = c;
+			t.stroke = c;
+			bggroup.add(t);
+		}		
+		let randscale = Math.random() * 9 + 1;
+		let xory = Math.random() > 0.5;
+		bggroup.scale = new Two.Vector( xory ? randscale : 1.5, xory ? 1.5 : randscale );
+		// basalt cliffs:
+		// bggroup.scale = new Two.Vector(1,10);
+		// shale:
+		// bggroup.scale = new Two.Vector(8,1);
+
+
+
+		function adjustColor(color, percent) {
+			if ( !color.match(/#*[A-E0-9]{3,8}/i) ) { return color; }
+			color = color.replace('#','').trim();
+			// convert shorthand to longhand
+			if ( color.length <= 4 ) {
+				color = color.split('').map( p => p+p ).join('');
+			}
+					
+			// Parse the color string into its individual RGB components
+			const red = parseInt(color.slice(0, 2), 16);
+			const green = parseInt(color.slice(2, 4), 16);
+			const blue = parseInt(color.slice(4, 6), 16);
+			const alpha = color.slice(6, 8);
+
+			// Calculate the new RGB values
+			const newRed = Math.trunc(red + (red*percent));
+			const newGreen = Math.trunc(green + (green*percent));
+			const newBlue = Math.trunc(blue + (blue*percent));
+
+			// Clamp the RGB values to ensure they are within the valid range of 0-255
+			const clampedRed = Math.max(0, Math.min(255, newRed));
+			const clampedGreen = Math.max(0, Math.min(255, newGreen));
+			const clampedBlue = Math.max(0, Math.min(255, newBlue));
+
+			// Convert the new RGB values back to a color string
+			const adjustedColor = "#" +
+				clampedRed.toString(16).padStart(2, '0') +
+				clampedGreen.toString(16).padStart(2, '0') +
+				clampedBlue.toString(16).padStart(2, '0') + 
+				alpha
+				;
+
+			return adjustedColor;
+		}
+
 
 
 		
@@ -261,8 +387,8 @@
 				if ( this.value <= 0 ) { 
 					this.Kill();
 					foods.push(new Food(
-						two.width*0.7,
-						two.height * 0.5 * Math.random() + two.height * 0.25
+						world.width*0.7,
+						world.height * 0.5 * Math.random() + world.height * 0.25
 					));
 				}
 			}
@@ -314,23 +440,28 @@
 		}
 
 		let foods = [ 
-			new Food(two.width*0.7,two.height*0.6),
-			// new Food(two.width*0.7,two.height*0.3),
+			new Food(world.width*0.7,world.height*0.6),
+			// new Food(world.width*0.7,world.height*0.3),
 		];
 		
 		let threats = [
-			// new Poison(two.width*0.2,two.height*0.8),
+			// new Poison(world.width*0.2,world.height*0.8),
 		];
 		
 		function BoidFactory( type, x, y ) {
 			if ( type == 'Kayak' ) { return new Kayak(x,y); }
 			if ( type == 'Simpleton' ) { return new Simpleton(x,y); }
-			// if ( Math.random() > 0.5 ) { return new Simpleton(x,y); }
+			if ( type == 'Boid' ) { return new Boid(x,y); }
+			// random!
+			let n = Math.random(); 
+			if ( n > 0.67 ) { return new Simpleton(x,y); }
+			if ( n > 0.33 ) { return new Kayak(x,y); }
 			return new Boid(x,y);
 		}
 		
 		class ProtoBoid {
 			constructor( x=0, y=0 ) {
+				this.species = 'prototype';
 				// physical stuff
 				this.energy = 0;
 				this.x = x;
@@ -401,7 +532,12 @@
 				}
 				this.sensor_score /= this.sensors.length;
 				this.total_sensor_score += this.sensor_score * delta * 18; // the extra padding is just to make numbers look good
-				this.path.fill = this.sensors.filter(s=>s.val).length ? `rgba(255,255,255,${this.sensor_score*2})` : 'transparent';
+				if ( this.sensors.filter(s=>s.val).length ) {
+					let c = HexColorToRGBArray(this.path.stroke);
+					this.path.fill = `rgba(${c[0]},${c[1]},${c[2]},${this.sensor_score*2})`;
+				}
+				else { this.path.fill = 'transparent'; }
+				
 				// UI: toggle collision detection geometry UI
 				this.sensor_group.visible = world.ui.show_collision_detection;
 				
@@ -466,6 +602,7 @@
 		class Boid extends ProtoBoid {
 			constructor( x=0, y=0 ) {
 				super(x,y);
+				this.species = 'Boid';
 				this.maxspeed = 600;
 				this.maxrot = 8;
 				this.length = 30;
@@ -570,6 +707,7 @@
 		class Simpleton extends ProtoBoid {
 			constructor(x,y) {
 				super(x,y);
+				this.species = 'Simpleton';
 				this.maxspeed = 400;
 				this.maxrot = 8;
 				this.length = 12;
@@ -657,6 +795,7 @@
 		class Kayak extends ProtoBoid {
 			constructor(x,y) {
 				super(x,y);
+				this.species = 'Kayak';
 				this.maxspeed = 400;
 				this.maxrot = 10;
 				this.length = 18;
@@ -678,7 +817,7 @@
 					-this.length/4,
 					0, 
 					);
-				this.path.stroke = '#AB8';
+				this.path.stroke = '#E94';
 				this.path.fill = 'transparent';
 				this.path.linewidth = 2;
 				this.container.add([this.path]);
@@ -743,7 +882,7 @@
 		let boids = [];
 		for ( let i=0; i < 1; i++ ) {
 			// const b = BoidFactory(world.use_species, Math.random()*world.width, Math.random()*world.height );
-			const b = BoidFactory(world.use_species, two.width*0.25,two.height*0.25 );
+			const b = BoidFactory(world.use_species, world.width*0.25,world.height*0.25 );
 			b.angle = Math.random() * Math.PI * 2;
 			boids.push(b);
 		}
@@ -751,60 +890,53 @@
 		// draw screen
 		two.update();
 		
-		
-		// Set up keyboard controls
-		let rightPressed = false;
-		let leftPressed = false;
-		let upPressed = false;
-		let downPressed = false;
-
 		// Handle key down events
 		const body = document.querySelector("body");
+		body.addEventListener("touchstart", function(event) {
+			if ( !world.ui.show_ui ) ToggleUI();
+		});
 		body.addEventListener("keydown", function(event) {
-			// event.preventDefault();
-			// if (event.keyCode == 39) 		{ rightPressed = true; }
-			// else if (event.keyCode == 37) 	{ leftPressed = true; }
-			// if (event.keyCode == 38) 		{ upPressed = true; }
-			// else if (event.keyCode == 40) 	{ downPressed = true; }
-			// if ( upPressed ) { b.ActivateMotor(0,1); }
-			// if ( downPressed ) { b.ActivateMotor(1,1); }
-			// if ( rightPressed ) { b.ActivateMotor(2,1); }
-			// if ( leftPressed ) { b.ActivateMotor(3,1); }
 			if ( event.keyCode == 19 ) {  // `Pause` 
-				if ( two.playing ) { two.pause(); console.log('paused'); } 
-				else { two.play(); console.log('playing'); }
+				TogglePause();
 			}
 			else if ( event.which == 49 ) {  // `1` 
 				event.preventDefault();
-				world.ui.show_collision_detection = !world.ui.show_collision_detection;
+				ToggleShowCollision();
+			}
+			else if ( event.which == 50 ) {  // `2` 
+				event.preventDefault();
+				ToggleUI()
 			}
 			else if ( event.which == 35 ) {  // `END` 
 				event.preventDefault();
-				world.simulator.turbo = !world.simulator.turbo;
-				if ( world.simulator.turbo ) { RunSimulator(); }
+				ToggleSimulatorFF();
 			}
-			// if ( event.keyCode == 36 ) {  // `Home`
-			// 	b.angle = 0;
-			// 	b.x = 400;
-			// 	b.y = 400;
-			// 	b.inertia = 0;
-			// 	b.angmo = 0;
-			// 	b.path.position.x = b.x;
-			// 	b.path.position.y = b.y;
-			// 	b.path.rotation = b.angle;
-			// } 
 		});
 
-		// Handle key up events
-		document.addEventListener("keyup", function(event) {
-			if (event.keyCode == 39) 		{ rightPressed = false; }
-			else if (event.keyCode == 37) 	{ leftPressed = false; }
-			if (event.keyCode == 38) 		{ upPressed = false; }
-			else if (event.keyCode == 40) 	{ downPressed = false; }
-		});
+		function SetShowUI(x) {
+			world.ui.show_ui = !!x;
+			let el = document.getElementById('ui_container');
+			if ( world.ui.show_ui ) { el.style.visibility = 'visible'; }
+			else { el.style.visibility = 'hidden'; }
+		}
+		function ToggleUI() {
+			SetShowUI( !world.ui.show_ui );
+		}
+		function SetShowSensors(x) {
+			world.ui.show_collision_detection = !world.ui.show_collision_detection;
+		}
+		function ToggleShowSensors() {
+			SetShowSensors( !world.ui.show_collision_detection );
+		}
+		function ToggleSimulatorFF() {
+			world.simulator.turbo = !world.simulator.turbo;
+			if ( world.simulator.turbo ) { RunSimulator(); }
+		}
+		function TogglePause() {
+			if ( two.playing ) { two.pause(); console.log('paused'); } 
+			else { two.play(); console.log('playing'); }
+		}
 		
-		
-
 		// use delta param to supply manual deltas for simulations.
 		// otherwise it will use two.js's built in delta tracking.
 		function update(frameNumber, delta=0) {
@@ -849,12 +981,16 @@
 				let diff = n - boids.length;
 				if ( diff > 0 ) {
 					for ( let i=0; i < diff; i++ ) {
-						const b = BoidFactory(world.use_species, two.width*0.25,two.height*0.25 );
+						let parent = null;
+						if ( num_survivors && Math.random() > 0.1 ) {
+							parent = boids[ Math.trunc( Math.random() * boids.length ) ];
+						}
+						let species = parent ? parent.species : world.use_species;
+						const b = BoidFactory(species, world.width*0.25,world.height*0.25 );
 						b.angle = Math.random() * Math.PI * 2;
 						// the BoidFactory 'Boid',will likely be an offspring of one of the survivors,
 						// but we also allow a certain percentage of newcomers to try their luck
-						if ( num_survivors && Math.random() > 0.1 ) {
-							const parent = boids[ Math.trunc( Math.random() * num_survivors ) ];
+						if ( parent ) {
 							b.brain = Network.fromJSON(parent.brain.toJSON());
 							for ( j=0; j < world.settings.max_mutation; j++ ) { 
 								b.brain.mutate( mutation_options[ Math.trunc(Math.random() * mutation_options.length) ]);
@@ -865,8 +1001,8 @@
 					}			
 				}
 				// reset entire population
-				let newx = Math.random() * two.width/2;
-				let newy = Math.random() * two.height;
+				let newx = Math.random() * world.width/2;
+				let newy = Math.random() * world.height;
 				for ( let b of boids ) {
 					b.total_sensor_score = 0;
 					b.angle = Math.random() * Math.PI * 2;
@@ -877,8 +1013,8 @@
 				}
 				// move the food
 				for ( let food of foods ) {
-					food.x = food.geo.position.x = (Math.random() * two.width/4) + (two.width*0.625)
-					food.y = food.geo.position.y = (Math.random() * two.height/2) + (two.height*0.25);
+					food.x = food.geo.position.x = (Math.random() * world.width/4) + (world.width*0.625)
+					food.y = food.geo.position.y = (Math.random() * world.height/2) + (world.height*0.25);
 					food.vx = Math.random() * 10 - 5;
 					food.vy = Math.random() * 100 - 50;
 					food.value = 100;
@@ -947,14 +1083,15 @@
 			document.getElementById('mutation_slider_output').value = el.value;
 		}
 		
-		function ChangeNumBoids() {
+		function ChangeNumBoids(x) {
 			let el = document.getElementById('numboids_slider');
-			document.getElementById('numboids_slider_output').value = el.value;
-			let n = parseInt(el.value);
+			let n = parseInt(x) || parseInt(el.value);
+			document.getElementById('numboids_slider_output').value = n;
+			el.value = n;
 			let diff = n - boids.length;
 			if ( diff > 0 ) {
 				for ( let i=0; i < diff; i++ ) {
-					const b = BoidFactory(world.use_species, two.width*0.25,two.height*0.25 );
+					const b = BoidFactory(world.use_species, world.width*0.25,world.height*0.25 );
 					b.angle = Math.random() * Math.PI * 2;
 					boids.push(b);
 				}			
@@ -965,11 +1102,104 @@
 		}
 		
 		window.onresize = function(event) {
-			world.height = window.innerHeight;
-			world.width = window.innerWidth;
+			world.height = window.innerHeight / world.scale;
+			world.width = window.innerWidth / world.scale;
 			two.fit();
 		}
 		
+		document.getElementById('hide_ui_button').addEventListener('click', function(event) {
+			event.preventDefault();
+			ToggleUI();
+			return false;
+		});
+		
+		document.getElementById('pause_button').addEventListener('click', function(event) {
+			TogglePause();
+			return false;
+		});
+		
+		document.getElementById('show_sensors_button').addEventListener('click', function(event) {
+			ToggleShowSensors();
+			return false;
+		});
+		
+		document.getElementById('fast_forward_button').addEventListener('click', function(event) {
+			ToggleSimulatorFF();
+			return false;
+		});
+		
+		
+		
+		
+		
+		ChangeViscosity();
+		ChangeNumBoids(50);
+		ChangeMutation();
+		ChangeCulling();
+		SetShowUI(world.ui.show_ui);
+			
+			
+			
+		//
+		// UTILS ------------------------\/-----------------
+		//
+		
+		function DecToHex( n ) { 
+			n = n.toString(16);
+			if ( n.length % 2 ) { n = '0' + n; }
+			return n;
+			}
+			
+		function HexToDec( n ) { 
+			return parseInt(n, 16);
+			}
+
+
+		// converts "#000000" -> "rgb(x,y,z)"
+		function HexColorToRGB( hex ) {
+			hex = hex.replace('#','').trim();
+			let str = 'rgb(';
+			str += HexToDec(hex.substr(0,2)) + ',';
+			str += HexToDec(hex.substr(2,2)) + ',';
+			str += HexToDec(hex.substr(4,2)) + ')';
+			return str;
+			}
+			
+		// converts "#000000" -> [x,y,z]
+		function HexColorToRGBArray( hex ) {
+			hex = hex.replace('#','').trim();
+			// convert shorthand to longhand
+			if ( hex.length <= 4 ) {
+				hex = hex.split('').map( p => p+p ).join('');
+			}			
+			let arr = [
+				HexToDec(hex.substr(0,2)),
+				HexToDec(hex.substr(2,2)),
+				HexToDec(hex.substr(4,2)),
+				]
+			return arr;
+			}
+			
+		// converts [x,y,z] -> "#000000"
+		function RGBArrayToHexColor( arr ) {
+			let str = '#' +
+				DecToHex(arr[0]) +
+				DecToHex(arr[1]) +
+				DecToHex(arr[2]) ;
+			return str;
+			}
+			
+		// converts "rgb(x,y,z)" -> "#000000"
+		function RGBToHexColor( rgb ) {
+			let matches = rgb.match(/(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+			let str = '#';
+			str += DecToHex( matches[1] || 1 );
+			str += DecToHex( matches[2] || 1 );
+			str += DecToHex( matches[3] || 1 );
+			return str;
+			}
+			
+			
 		function angleToPoint(x1, y1, x2, y2){
 			d = distance(x1, y1, x2, y2);
 			dx = (x2-x1) / d;
@@ -978,13 +1208,6 @@
 			a = dy < 0 ? 2 * Math.PI - a : a;
 			return a;
 		}
-		
-		
-		
-		ChangeViscosity();
-		ChangeNumBoids();
-		ChangeMutation();
-		ChangeCulling();
 		
 	</script>
 		
