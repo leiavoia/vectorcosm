@@ -26,10 +26,10 @@ export default class Food {
 		this.y += this.vy * delta;
 		if ( this.x < margin ) { this.vx = -this.vx; }
 		if ( this.y < margin ) { this.vy = -this.vy; }
-		if ( this.x > window.world.width-margin ) { this.vx = -this.vx; }
-		if ( this.y > window.world.height-margin ) { this.vy = -this.vy; }
-		this.x = utils.clamp( this.x, margin, window.world.width-margin );
-		this.y = utils.clamp( this.y, margin, window.world.height-margin );
+		if ( this.x > window.vc.width-margin ) { this.vx = -this.vx; }
+		if ( this.y > window.vc.height-margin ) { this.vy = -this.vy; }
+		this.x = utils.clamp( this.x, margin, window.vc.width-margin );
+		this.y = utils.clamp( this.y, margin, window.vc.height-margin );
 		// update the object in space
 		this.r = this.value * 0.25;
 		this.geo.radius = this.r;

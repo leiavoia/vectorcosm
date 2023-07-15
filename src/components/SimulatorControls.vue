@@ -17,15 +17,13 @@
 	Chart.defaults.elements.bar.borderColor = '#41A34F';
 	Chart.defaults.elements.point.radius = 0;
 	
-	let show_ui = true;
-	
 	let props = defineProps(['sim']);
 	
 	let vars = { round:{} };
 	
 	function copyPropsFromSim() {
 		// settings
-		vars.scale = window.world.scale;
+		vars.scale = window.vc.scale;
 		vars.max_mutation = props.sim.settings.max_mutation;
 		vars.num_boids = props.sim.settings.num_boids;
 		vars.cullpct = props.sim.settings.cullpct;
@@ -147,60 +145,32 @@
 	}
 			
 	function ToggleSimulatorFF() {
-		props.sim.turbo = !props.sim.turbo;
-		if ( props.sim.turbo ) { RunSimulator(); }
+		window.vc.ToggleSimulatorFF();
 	}
 	function TogglePause() {
-		if ( two.playing ) { two.pause(); } 
-		else { two.play(); }
+		window.vc.TogglePause();
 	}
 	
 	function ToggleShowSensors() {
-	
+		window.vc.ToggleShowSensors();
 	}
 	
 	function ToggleShowBrainmap() {
+		window.vc.ToggleShowBrainmap();
+	}
 	
+	function ToggleUI() {
+		window.vc.ToggleUI();
 	}
-		
+	
 	function SaveLeader() {
-		if ( props.sim.tank.boids.length ) {
-			const b = props.sim.tank.boids.sort( (a,b) => b.total_fitness_score - a.total_fitness_score )[0];
-			localStorage.setItem("leader-brain", JSON.stringify(b.brain.toJSON()));
-			console.log("Saved leader brain with score " + b.total_fitness_score.toFixed(1) );
-		}		
+		window.vc.SaveLeader();
 	}
-
+	
 	function LoadLeader() {
-		let json = localStorage.getItem("leader-brain");
-		if (json) {
-			json = JSON.parse(json);
-			let brain = neataptic.Network.fromJSON(json);
-			// const b = BoidFactory(world.use_species, Math.random()*world.width, Math.random()*world.height );
-			const b = BoidFactory(props.sim.settings.species, window.world.width*0.25, window.world.height*0.25, props.sim.tank );
-			b.brain = brain;
-			b.angle = Math.random() * Math.PI * 2;		
-			props.sim.tank.boids.push(b);				
-			console.log("Spawned saved brain" );
-		}		
+		window.vc.LoadLeader();
 	}
-		
-	function RunSimulator()	{
-		if ( props.sim && props.sim.turbo && props.sim.stats.round.time <= props.sim.settings.time ) {
-			if ( two.playing ) { two.pause(); }
-			for ( let n=0; n < 100; n++ ) {
-				++two.frameCount; // fake it
-				update( two.frameCount, 0.055 );
-			}
-			--two.frameCount;
-			two.update();
-			setTimeout( RunSimulator, 0 );
-		}
-		else {
-			two.play();
-		}
-	}
-						
+				
 </script>
 
 <template>
@@ -268,7 +238,7 @@
 
 		T: <output id="sim_time_output">{{vars.round.time.toFixed(1)}}</output> | 
 		F: <output id="framenum_output">{{vars.framenum}}</output> |  
-		<!-- FPS: <output id="fps_output">{{window.world.ui.fps}}</output>  -->
+		<!-- FPS: <output id="fps_output">{{window.vc.fps}}</output>  -->
 
 		<br/>
 		<canvas id="simulatorChart" style="width: 12em; height: 4em;"></canvas> 

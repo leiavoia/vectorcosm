@@ -59,7 +59,7 @@ export class ProtoBoid {
 		this.sensor_group.linewidth = 1;
 		this.sensor_group.stroke = '#AAEEAA55';
 		this.sensor_group.fill = 'transparent';
-		this.sensor_group.visible = window.world.ui.show_collision_detection;
+		this.sensor_group.visible = window.vc.show_collision_detection;
 		this.container.add(this.sensor_group);
 	}
 	MakeBrain( inputs, middles, outputs, connections ) {
@@ -145,8 +145,8 @@ export class ProtoBoid {
 		
 		
 		// UI: toggle collision detection geometry UI
-		if ( this.sensor_group.visible != window.world.ui.show_collision_detection ) {
-			this.sensor_group.visible = window.world.ui.show_collision_detection;
+		if ( this.sensor_group.visible != window.vc.show_collision_detection ) {
+			this.sensor_group.visible = window.vc.show_collision_detection;
 		}
 		
 		// energy generation
@@ -192,11 +192,11 @@ export class ProtoBoid {
 		// // dragging on walls kill momentum / intertia
 		// if ( this.x < 0 ) { this.inertia *= 0.75; this.momentum_x = 0; }
 		// if ( this.y < 0 ) { this.inertia *= 0.75; this.momentum_y = 0; }
-		// if ( this.x > window.world.width ) { this.inertia *= 0.75; this.momentum_x = 0; }
-		// if ( this.y > window.world.height ) { this.inertia *= 0.75; this.momentum_y = 0; }	
-		// // stay inside window.world bounds			
-		// this.x = utils.clamp( this.x, 0, window.world.width );
-		// this.y = utils.clamp( this.y, 0, window.world.height );
+		// if ( this.x > window.vc.width ) { this.inertia *= 0.75; this.momentum_x = 0; }
+		// if ( this.y > window.vc.height ) { this.inertia *= 0.75; this.momentum_y = 0; }	
+		// // stay inside window.vc bounds			
+		// this.x = utils.clamp( this.x, 0, window.vc.width );
+		// this.y = utils.clamp( this.y, 0, window.vc.height );
 		// // viscosity slows down inertia over time
 		// const drag = (1 - ( this.tank.viscosity * delta * 10 ) );
 		// this.momentum_x *= drag;
@@ -229,11 +229,11 @@ export class ProtoBoid {
 		// hitting walls causes artificial drag
 		if ( this.x < 0 ) { this.inertia *= 0.75; }
 		if ( this.y < 0 ) { this.inertia *= 0.75; }
-		if ( this.x > window.world.width ) { this.inertia *= 0.75; }
-		if ( this.y > window.world.height ) { this.inertia *= 0.75; }				
+		if ( this.x > window.vc.width ) { this.inertia *= 0.75; }
+		if ( this.y > window.vc.height ) { this.inertia *= 0.75; }				
 		// stay inside world bounds
-		this.x = utils.clamp( this.x, 0, window.world.width );
-		this.y = utils.clamp( this.y, 0, window.world.height );
+		this.x = utils.clamp( this.x, 0, window.vc.width );
+		this.y = utils.clamp( this.y, 0, window.vc.height );
 		// update drawing geometry
 		this.container.position.x = this.x;
 		this.container.position.y = this.y;
@@ -497,9 +497,9 @@ export class Boid extends ProtoBoid {
 // 		const margin = 100;
 // 		let nearness = 0; 
 // 		nearness += this.x < margin ? (margin - this.x) : 0;
-// 		nearness += this.x > (window.world.width-margin) ? (margin-(window.world.width - this.x)) : 0;
+// 		nearness += this.x > (window.vc.width-margin) ? (margin-(window.vc.width - this.x)) : 0;
 // 		nearness += this.y < margin ? (margin - this.y ) : 0;
-// 		nearness += this.y > (window.world.height-margin) ? (margin-(window.world.height - this.y)) : 0;
+// 		nearness += this.y > (window.vc.height-margin) ? (margin-(window.vc.height - this.y)) : 0;
 // 		nearness /= margin*2;
 // 		inputs.push(nearness);
 // 		// inputs.push(Math.random()); // chaos to prevent one-track minds
@@ -597,8 +597,8 @@ export class Boid extends ProtoBoid {
 // 	NeuroInputs() {
 // 		const inputs = this.sensors.map(s=>s.val);
 // 		inputs.push(this.angle / (2*Math.PI) );
-// 		inputs.push(this.x / window.world.width);
-// 		inputs.push(this.y / window.world.height);
+// 		inputs.push(this.x / window.vc.width);
+// 		inputs.push(this.y / window.vc.height);
 // 		// inputs.push(Math.random()); // chaos to prevent one-track minds
 // 		return inputs;
 // 	}	

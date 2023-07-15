@@ -33,9 +33,9 @@ export default class BrainGraph {
 		}
 	}
 	Draw() {
-		let x = window.world.width / 2;
-		let y = window.world.height / 2;
-		let r = Math.min( window.world.width, window.world.height ) / 2.2;
+		let x = window.vc.width / 2;
+		let y = window.vc.height / 2;
+		let r = Math.min( window.vc.width, window.vc.height ) / 2.2;
 		let a = (Math.PI * 2) /  this.brain.nodes.length;
 		let node_r = 25;
 		// update node positions in the ring

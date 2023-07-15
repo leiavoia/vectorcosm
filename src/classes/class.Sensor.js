@@ -61,18 +61,18 @@ export default class Sensor {
 			case 'edges' : {
 				const margin = 150;
 				this.val += this.owner.x < margin ? (margin - this.owner.x) : 0;
-				this.val += this.owner.x > (window.world.width-margin) ? (margin-(window.world.width - this.owner.x)) : 0;
+				this.val += this.owner.x > (window.vc.width-margin) ? (margin-(window.vc.width - this.owner.x)) : 0;
 				this.val += this.owner.y < margin ? (margin - this.owner.y ) : 0;
-				this.val += this.owner.y > (window.world.height-margin) ? (margin-(window.world.height - this.owner.y)) : 0;
+				this.val += this.owner.y > (window.vc.height-margin) ? (margin-(window.vc.height - this.owner.y)) : 0;
 				this.val /= margin*2;
 				break;
 			} 
 			case 'world-x' : {
-				this.val = this.owner.x / window.world.width;
+				this.val = this.owner.x / window.vc.width;
 				break;
 			} 
 			case 'world-y' : {
-				this.val = this.owner.y / window.world.height;
+				this.val = this.owner.y / window.vc.height;
 				break;
 			} 
 			case 'chaos' : {
