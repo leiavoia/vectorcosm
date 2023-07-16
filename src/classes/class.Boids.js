@@ -119,12 +119,17 @@ export class ProtoBoid {
 		}
 	}
 	Update( delta ) {
+	
+		const frame_skip = 0; // [!]EXPERIMENTAL TODO: make this a game setting
+		
 		if ( !delta ) { return; }
 		
 		this.collision.contact_obstacle = false;
 		
 		// sensor collision detection				
-		for ( let s of this.sensors ) { s.Sense(); }
+		if ( !frame_skip || window.two.frameCount % frame_skip === 0 ) {
+			for ( let s of this.sensors ) { s.Sense(); }
+		}
 		
 		// UI: toggle collision detection geometry UI
 		if ( this.sensor_group.visible != window.vc.show_collision_detection ) {
@@ -136,23 +141,32 @@ export class ProtoBoid {
 		this.energy += delta + Math.random() * delta;
 		this.energy = Math.min( this.energy, this.max_energy || 100 );
 		
-		// movement / motor control 				
-		let brain_outputs = this.brain.activate( this.NeuroInputs() );
-		for ( let k in brain_outputs ) {
-			if ( Number.isNaN(brain_outputs[k]) ) { brain_outputs[k] = 0; }
-		}
-		// estimate cost of moving to see if we can afford to move at all
-		let cost = 0
-		for ( let i=0; i < brain_outputs.length; i++ ) {
-			cost += this.ActivateMotor( i, brain_outputs[i], delta, true ); // estimate costs
-		}
-		// activate all motors at once, even if it seems contradictory
-		if ( this.energy >= cost ) {
+		// CPU optimization: we don't need to run AI every frame
+		if ( !frame_skip || window.two.frameCount % frame_skip === 0 ) {
+			// movement / motor control 				
+			let brain_outputs = this.brain.activate( this.NeuroInputs() );
+			for ( let k in brain_outputs ) {
+				if ( Number.isNaN(brain_outputs[k]) ) { brain_outputs[k] = 0; }
+			}
+			// estimate cost of moving to see if we can afford to move at all
+			let cost = 0
 			for ( let i=0; i < brain_outputs.length; i++ ) {
-				this.ActivateMotor( i, Math.tanh(brain_outputs[i]), delta );
+				cost += this.ActivateMotor( i, brain_outputs[i], delta, true ); // estimate costs
+			}
+			// activate all motors at once, even if it seems contradictory
+			if ( this.energy >= cost ) {
+				for ( let i=0; i < brain_outputs.length; i++ ) {
+					this.ActivateMotor( i, Math.tanh(brain_outputs[i]), delta );
+				}
+			}
+			this.last_movement_cost = cost; // helps training functions
+		}
+		// shoot blanks but keep the motors running through strokes
+		else {
+			for ( let i=0; i < this.motors.length; i++ ) {
+				this.ActivateMotor( i, 0, delta );
 			}
 		}
-		this.last_movement_cost = cost; // helps training functions
 		
 		// update position with movement:
 		// - The object has angular momentum that changes its pointing angle.
