@@ -322,6 +322,8 @@ export class Boid {
 				case 'linear_down' : amount *= (m.stroketime - m.t) / m.stroketime; break;
 				case 'linear_up' : amount *= 1 - ((m.stroketime - m.t) / m.stroketime); break;
 				case 'bell' : amount = Math.sin(amount) / Math.PI; break;
+				case 'step_up' : amount = (m.t > m.stroketime/2) ? amount : 0 ; break;
+				case 'step_down' : amount = (m.t < m.stroketime/2) ? amount : 0 ; break;
 				// constant-time output
 				default: amount = amount * 0.64; // magic number to keep inline with others
 			}
@@ -423,9 +425,11 @@ export class Boid {
 			const cost = utils.BiasedRand(0.05, 5.0, 0.25, 0.8);
 			const stroketime = utils.BiasedRand(0.1, 5.0, 1, 0.6); 
 			const min_act = utils.BiasedRand(0,0.9,0.1,0.95);
-			if ( strokefunc < 0.5 ) { strokefunc = 'linear_down'; }
-			else if ( strokefunc < 0.7 ) { strokefunc = 'linear_up'; }
-			else if ( strokefunc < 0.85 ) { strokefunc = 'bell'; }
+			if ( strokefunc < 0.4 ) { strokefunc = 'linear_down'; }
+			else if ( strokefunc < 0.5 ) { strokefunc = 'linear_up'; }
+			else if ( strokefunc < 0.65 ) { strokefunc = 'bell'; }
+			else if ( strokefunc < 0.7 ) { strokefunc = 'step_down'; }
+			else if ( strokefunc < 0.75 ) { strokefunc = 'step_up'; }
 			let motor = { min_act, cost, stroketime, t:0, strokefunc, wheel };
 			let linear = utils.BiasedRandInt( 10, 2000, 800, 0.25 );
 			let angular = utils.BiasedRandInt( 1, 100, 20, 0.5 );
