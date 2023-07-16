@@ -7,11 +7,10 @@ import {Circle, Polygon, Result} from 'collisions';
 const { architect, Network } = neataptic;
 
 export function BoidFactory( type, x, y, tank ) {
-	if ( type == 'random' ) { return ProtoBoid.Random(x, y, tank); }
-	return new Boid(x,y,tank);
+	return Boid.Random(x, y, tank);
 }
 	
-export class ProtoBoid {
+export class Boid {
 
 	static mutationOptionPicker = new utils.RandomPicker( [
 		[ neataptic.methods.mutation.ADD_NODE, 			16 ],
@@ -35,7 +34,7 @@ export class ProtoBoid {
 		this.id = Math.random();
 		this.generation = 1;
 		this.tank = tank;
-		this.species = 'prototype';
+		this.species = 'unknown';
 		// physical stuff
 		this.max_energy = 100;
 		this.energy = this.max_energy;
@@ -319,7 +318,7 @@ export class ProtoBoid {
 			if ( estimate ) { return cost; }
 			this.energy -= cost;
 			// stroke power function
-			switch ( m.strokefun ) {
+			switch ( m.strokefunc ) {
 				case 'linear_down' : amount *= (m.stroketime - m.t) / m.stroketime; break;
 				case 'linear_up' : amount *= 1 - ((m.stroketime - m.t) / m.stroketime); break;
 				case 'bell' : amount = Math.sin(amount) / Math.PI; break;
@@ -349,7 +348,7 @@ export class ProtoBoid {
 	}
 	Kill() {
 		this.bodyplan.geo.remove();
-		this.sensors.forEach(x=>x.geo.remove());
+		this.sensors.forEach(x=> x?.geo ? x.geo.remove() : null );
 		this.container.remove();
 		this.dead = true;
 	}
@@ -360,7 +359,7 @@ export class ProtoBoid {
 		return this.sensors.map(s=>s.name||s.detect);
 	}	
 	static Random(x,y,tank) {
-		let b = new ProtoBoid(x,y,tank);
+		let b = new Boid(x,y,tank);
 		b.species = utils.RandomName(12);
 		b.max_energy = Math.random() * 500 + 100;
 		b.energy = b.max_energy;
@@ -467,7 +466,7 @@ export class ProtoBoid {
 		b.MakeBrain( b.sensors.length, middle_nodes, b.motors.length, connections, network_type );
 		// crazytown
 		for ( let n=0; n< 50; n++ ) {
-			b.brain.mutate( ProtoBoid.mutationOptionPicker.Pick() );
+			b.brain.mutate( Boid.mutationOptionPicker.Pick() );
 		}
 		for ( let n=0; n< 50; n++ ) {
 			b.brain.mutate( neataptic.methods.mutation.MOD_WEIGHT );
@@ -477,7 +476,7 @@ export class ProtoBoid {
 	}
 			
 	Copy( mutate=false ) {
-		let b = new ProtoBoid(this.x, this.y, this.tank);
+		let b = new Boid(this.x, this.y, this.tank);
 		// POD we can just copy over
 		let datakeys = ['species','max_energy','energy','maxspeed','maxrot','length','width','energy_cost','brain_complexity'];
 		for ( let k of datakeys ) { b[k] = this[k]; }
@@ -521,316 +520,3 @@ export class ProtoBoid {
 	}
 	
 };
-
-export class Boid extends ProtoBoid {
-	constructor( x=0, y=0, tank=null ) {
-		super(x,y,tank);
-		this.max_energy = 100;
-		this.energy = this.max_energy;
-		this.species = 'Boid';
-		this.maxspeed = 600;
-		this.maxrot = 8;
-		this.length = 30;
-		this.width = 15;
-		this.energy_cost = 0.15;
-		this.bodyplan = null;
-		this.MakeGeometry();
-		this.MakeMotors();
-		this.MakeSensors();
-		let brain_complexity = 2; // 0 .. 5
-		let middle_nodes = 6;
-		let connections = brain_complexity * ( this.sensors.length + middle_nodes + this.motors.length );
-		this.MakeBrain( this.sensors.length, middle_nodes, this.motors.length, connections );
-	}
-	MakeGeometry() {
-		this.bodyplan = new BodyPlan([
-			[this.length/2, 0],
-			[-this.length/2, this.width/2],
-			[-this.length/2, -this.width/2]
-		]);
-		// this.bodyplan.stroke = this.outline_color;
-		this.bodyplan.stroke = 'transparent'; // remove this one day when outlines come back into fashion
-		// this.bodyplan.fill = this.fill_color;
-		this.bodyplan.fill = '#AEA9'; // original "Dart green" test color
-		this.bodyplan.linewidth = 0;
-		this.bodyplan.complexity_factor = 0.3; // 0..1
-		this.bodyplan.max_jitter_pct = 0.08; // max deviation percentage from current width/height
-		this.bodyplan.augmentation_pct = 0.1;
-		this.bodyplan.UpdateGeometry();
-		this.container.add([this.bodyplan.geo]);
-		// let c = '#'
-			// + utils.DecToHex(parseInt(128 + 128 * Math.random()))
-			// + utils.DecToHex(parseInt(128 + 128 * Math.random()))
-			// + utils.DecToHex(parseInt(128 + 128 * Math.random()));
-		// this.path.stroke = c;
-	}
-	MakeMotors() {
-		this.motors = [
-			// {name:'Front/Back', linear:3000, min_act:0.1, cost: 0.2, stroketime:0.5, t:0, strokefunc:null, wheel:0.5 },
-			// {name:'Rotate', angular:30, min_act:0.1, cost: 0.12, stroketime:0.35, t:0, strokefunc:null, wheel:0.5 },
-			{name:'Forward', linear:3000, min_act:0.10, cost: 0.5, stroketime:1, t:0, strokefunc:null },
-			{name:'Backward', linear:-1000, min_act:0.10, cost: 2, stroketime:0.65, t:0, strokefunc:null },
-			{name:'Rotate CW', angular:30, min_act:0.10, cost: 0.25, stroketime:0.3, t:0, strokefunc:null },
-			{name:'Rotate CCW', angular:-30, min_act:0.10, cost: 0.25, stroketime:0.3, t:0, strokefunc:null },
-			// {name:'Brake', brake:3000, min_act:0.7, cost: 0.5, stroketime:0.8, t:0, strokefunc:null },
-			// {name:'Color', color:1, min:0, cost: 0 },
-		];
-	}
-	MakeSensors() { 
-		const max_sensor_distance = 2.5;
-		const sensor_radius = Math.max(this.length,this.width) * max_sensor_distance;
-		const sensor_radius_scale = 1.25;
-		// radial directional awareness sensors
-		for ( let i=0, n=6; i < n; i++ ) {
-			let angle = 2 * i * (Math.PI / n);
-			this.sensors.push( new Sensor({
-				x: 2 * sensor_radius * Math.cos(angle), 
-				y: 2 * sensor_radius * Math.sin(angle), 
-				r: sensor_radius * sensor_radius_scale,
-				angle: angle,
-				detect:'food',
-				name:"proximity",
-			}, this ) );
-		}
-		// inner proximity sensor
-		this.sensors.push( new Sensor({
-			x: 0, 
-			y: 0, 
-			r: sensor_radius,
-			angle: 0,
-			detect: 'food',
-			name:"touch",
-		}, this) );	
-		// outer general awareness sensor			
-		const outerlimit = 2 * ( 2*sensor_radius + sensor_radius*sensor_radius_scale );
-		this.sensors.push( new Sensor({
-			x: 0, 
-			y: 0, 
-			r: outerlimit,
-			angle: 0,
-			detect: 'food',
-			name:"awareness",
-		}, this) );	
-		this.sensors.push( new Sensor({detect:'inertia'}, this) );
-		this.sensors.push( new Sensor({detect:'spin'}, this) );
-		this.sensors.push( new Sensor({detect:'angle-cos'}, this) );
-		this.sensors.push( new Sensor({detect:'angle-sin'}, this) );
-		this.sensors.push( new Sensor({detect:'edges'}, this) );
-		// this.sensors.push( new Sensor({detect:'world-x'}, this) );
-		// this.sensors.push( new Sensor({detect:'world-y'}, this) );
-		// this.sensors.push( new Sensor({detect:'chaos'}, this) );
-		// obstacle detection whiskers
-		this.sensors.push( new Sensor({
-			x: 50, 
-			y: -50, 
-			r: 80,
-			detect: 'obstacles',
-			name:"FL whisker",
-		}, this) );	
-		this.sensors.push( new Sensor({
-			x: 50, 
-			y: 50, 
-			r: 80,
-			detect: 'obstacles',
-			name:"FR whisker",
-		}, this) );	
-		super.MakeSensors();
-	}
-};
-
-// export class Simpleton extends ProtoBoid {
-// 	constructor(x,y) {
-// 		super(x,y);
-// 		this.species = 'Simpleton';
-// 		this.maxspeed = 400;
-// 		this.maxrot = 8;
-// 		this.length = 12;
-// 		this.width = 20;
-// 		this.energy_cost = 0.3;
-// 		this.MakeGeometry();
-// 		this.MakeMotors();
-// 		this.MakeSensors();				
-// 		this.MakeBrain( 5, 7, 3, 40 );
-// 	}
-// 	MakeGeometry() {
-// 		this.path = window.two.makeRectangle(0,0,this.width,this.length); 
-// 		this.path.stroke = '#2DF';
-// 		this.path.fill = 'transparent';
-// 		this.path.linewidth = 2;
-// 		this.container.add([this.path]);
-// 	}			
-// 	MakeMotors() {
-// 		this.motors = [
-// 			{name:'Forward', linear:100, on:false },
-// 			{name:'Rotate CW', angular:4, on:false },
-// 			{name:'Rotate CCW', angular:-4, on:false },
-// 			// {name:'Color', color:1 },
-// 		];
-// 	}
-// 	MakeSensors() {
-// 		const max_sensor_distance = 2.5;
-// 		const sensor_radius = Math.max(this.length,this.width) * max_sensor_distance;
-// 		const sensor_radius_scale = 0.75;
-// 		// inner touch sensor
-// 		this.sensors.push( {
-// 			x: 0, 
-// 			y: 0, 
-// 			r: sensor_radius * sensor_radius_scale,
-// 			angle: 0,
-// 			val:0,
-// 			type:"touch",
-// 			geo: window.two.makeCircle(0,0,sensor_radius * sensor_radius_scale)
-// 		});	
-// 		// forward proximity sensor
-// 		this.sensors.push( {
-// 			x: sensor_radius * max_sensor_distance, 
-// 			y: 0, 
-// 			r: sensor_radius * 1.5,
-// 			angle: 0,
-// 			val:0,
-// 			type:"touch",
-// 			geo: window.two.makeCircle(sensor_radius * max_sensor_distance,0,sensor_radius * 1.5)
-// 		});	
-// 		// outer general awareness sensor			
-// 		const outerlimit = 1.5 * ( 2*sensor_radius + sensor_radius*sensor_radius_scale );
-// 		this.sensors.push( {
-// 			x: 0, 
-// 			y: 0, 
-// 			r: outerlimit,
-// 			angle: 0,
-// 			val:0,
-// 			type:"awareness",
-// 			geo: window.two.makeCircle(0,0,outerlimit)
-// 		});				
-// 		// visualization	
-// 		this.sensor_group.add( this.sensors.map( i => i.geo ) );
-// 		this.sensor_group.linewidth = 1;
-// 		this.sensor_group.stroke = '#AAEEAA55';
-// 		this.sensor_group.fill = 'transparent';							
-// 	}
-// 	NeuroInputs() {
-// 		const inputs = this.sensors.map(s=>s.val);
-// 		inputs.push(this.angle / (2*Math.PI) );
-// 		// inputs.push((this.angmo + this.maxrot) / (2*this.maxrot));
-// 		// inputs.push((this.inertia + this.maxspeed) / (2*this.maxspeed));
-// 		// edge detection - to be removed later - replace with actual collision detection
-// 		const margin = 100;
-// 		let nearness = 0; 
-// 		nearness += this.x < margin ? (margin - this.x) : 0;
-// 		nearness += this.x > (window.vc.width-margin) ? (margin-(window.vc.width - this.x)) : 0;
-// 		nearness += this.y < margin ? (margin - this.y ) : 0;
-// 		nearness += this.y > (window.vc.height-margin) ? (margin-(window.vc.height - this.y)) : 0;
-// 		nearness /= margin*2;
-// 		inputs.push(nearness);
-// 		// inputs.push(Math.random()); // chaos to prevent one-track minds
-// 		return inputs;
-// 	}		
-// 	NeuroInputLabels() {
-// 		return [
-// 			'inner',
-// 			'front',
-// 			'outer',
-// 			'edges',
-// 			// 'chaos'
-// 		];
-// 	}				
-// }
-
-// export class Kayak extends ProtoBoid {
-// 	constructor(x,y) {
-// 		super(x,y);
-// 		this.species = 'Kayak';
-// 		this.maxspeed = 400;
-// 		this.maxrot = 10;
-// 		this.length = 18;
-// 		this.width = 18;
-// 		this.energy_cost = 0.88;
-// 		this.MakeGeometry();
-// 		this.MakeMotors();
-// 		this.MakeSensors();				
-// 		this.MakeBrain( 6, 7, 2, 50 );
-// 	}
-// 	MakeGeometry() {
-// 		this.path = window.two.makePath( 
-// 			-this.length/2,
-// 			this.width/2,
-// 			this.length/2,
-// 			0, 
-// 			-this.length/2,
-// 			-this.width/2 ,
-// 			-this.length/4,
-// 			0, 
-// 			);
-// 		this.path.stroke = '#E94';
-// 		this.path.fill = 'transparent';
-// 		this.path.linewidth = 2;
-// 		this.container.add([this.path]);
-// 	}			
-// 	MakeMotors() {
-// 		this.motors = [
-// 			{name:'Left Stroke', linear:200, angular:12, on:false },
-// 			{name:'Right Stroke', linear:200, angular:-12, on:false },
-// 			// {name:'Color', color:1 },
-// 		];
-// 	}
-// 	MakeSensors() {
-// 		const max_sensor_distance = 2.5;
-// 		const sensor_radius = Math.max(this.length,this.width) * max_sensor_distance;
-// 		const sensor_radius_scale = 0.75;
-// 		// inner touch sensor
-// 		this.sensors.push( {
-// 			x: 0, 
-// 			y: 0, 
-// 			r: sensor_radius * sensor_radius_scale,
-// 			angle: 0,
-// 			val:0,
-// 			type:"touch",
-// 			geo: window.two.makeCircle(0,0,sensor_radius * sensor_radius_scale)
-// 		});	
-// 		// forward proximity sensor
-// 		this.sensors.push( {
-// 			x: sensor_radius * max_sensor_distance, 
-// 			y: 0, 
-// 			r: sensor_radius * 1.5,
-// 			angle: 0,
-// 			val:0,
-// 			type:"touch",
-// 			geo: window.two.makeCircle(sensor_radius * max_sensor_distance,0,sensor_radius * 1.5)
-// 		});	
-// 		// outer general awareness sensor			
-// 		const outerlimit = 1.5 * ( 2*sensor_radius + sensor_radius*sensor_radius_scale );
-// 		this.sensors.push( {
-// 			x: 0, 
-// 			y: 0, 
-// 			r: outerlimit,
-// 			angle: 0,
-// 			val:0,
-// 			type:"awareness",
-// 			geo: window.two.makeCircle(0,0,outerlimit)
-// 		});				
-// 		// visualization	
-// 		this.sensor_group.add( this.sensors.map( i => i.geo ) );
-// 		this.sensor_group.linewidth = 1;
-// 		this.sensor_group.stroke = '#AAEEAA55';
-// 		this.sensor_group.fill = 'transparent';							
-// 	}
-// 	NeuroInputs() {
-// 		const inputs = this.sensors.map(s=>s.val);
-// 		inputs.push(this.angle / (2*Math.PI) );
-// 		inputs.push(this.x / window.vc.width);
-// 		inputs.push(this.y / window.vc.height);
-// 		// inputs.push(Math.random()); // chaos to prevent one-track minds
-// 		return inputs;
-// 	}	
-// 	NeuroInputLabels() {
-// 		return [
-// 			'inner',
-// 			'front',
-// 			'outer',
-// 			'angle',
-// 			'world X',
-// 			'world Y',
-// 			// 'chaos'
-// 		];
-// 	}						
-// }

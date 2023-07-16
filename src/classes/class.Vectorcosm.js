@@ -11,7 +11,7 @@ import Tank from '../classes/class.Tank.js'
 import Rock from '../classes/class.Rock.js'
 import { AvoidEdgesSimulation, TurningSimulation, FoodChaseSimulation, BasicTravelSimulation } from '../classes/class.Simulation.js'
 import BrainGraph from '../classes/class.BrainGraph.js'
-import { BoidFactory, ProtoBoid } from '../classes/class.Boids.js'
+import { BoidFactory, Boid } from '../classes/class.Boids.js'
 
 const { architect, Network } = neataptic;
 
@@ -441,7 +441,7 @@ export default class Vectorcosm {
 	LoadLeader() {
 		let json = localStorage.getItem("leader");
 		if (json) {
-			let b = new ProtoBoid( this.width*0.25, this.height*0.25, this.simulation.tank, JSON.parse(json) );
+			let b = new Boid( this.width*0.25, this.height*0.25, this.simulation.tank, JSON.parse(json) );
 			b.angle = Math.random() * Math.PI * 2;		
 			this.simulation.tank.boids.push(b);				
 		}		
@@ -463,7 +463,7 @@ export default class Vectorcosm {
 		if (json) {
 			json = JSON.parse(json);
 			for ( let j of json ) {
-				let b = new ProtoBoid( this.width*0.25, this.height*0.25, this.simulation.tank, j );
+				let b = new Boid( this.width*0.25, this.height*0.25, this.simulation.tank, j );
 				b.angle = Math.random() * Math.PI * 2;		
 				this.simulation.tank.boids.push(b);	
 			}			

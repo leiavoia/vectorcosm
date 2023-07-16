@@ -1,5 +1,5 @@
 import * as utils from '../util/utils.js'
-import { Boid, ProtoBoid } from '../classes/class.Boids.js'
+import { Boid } from '../classes/class.Boids.js'
 import Rock from '../classes/class.Rock.js'
 import {Circle, Polygon, Result} from 'collisions';
 
@@ -91,7 +91,7 @@ export default class Sensor {
 				let friends = this.owner.tank.grid.GetObjectsByCoords( this.owner.x, this.owner.y );
 				if ( friends ) {
 					friends = friends.filter( x => 
-						(x instanceof Boid || x instanceof ProtoBoid) 
+						(x instanceof Boid) 
 						&& x.species==this.owner.species 
 					);
 					this.val = Math.max( friends.length - 1, 0 );
@@ -105,7 +105,7 @@ export default class Sensor {
 				let friends = this.owner.tank.grid.GetObjectsByCoords( this.owner.x, this.owner.y );
 				if ( friends ) {
 					friends = friends.filter( x => 
-						(x instanceof Boid || x instanceof ProtoBoid) 
+						(x instanceof Boid) 
 						&& x.species!=this.owner.species 
 					);
 					this.val = Math.max( friends.length - 1, 0 );
