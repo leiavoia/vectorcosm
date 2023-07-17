@@ -48,8 +48,8 @@ export class Boid {
 		};
 		// this.momentum_x = 0; // use momentum with the momentum_based code in Update()
 		// this.momentum_y = 0;
-		this.maxspeed = 600;
-		this.maxrot = 8;
+		this.maxspeed = 2000; // these are global maximum speeds to prevent collision detection from breaking in fringe cases
+		this.maxrot = 20;
 		this.angle = Math.random()*Math.PI*2;
 		this.length = 30;
 		this.width = 15;
@@ -305,25 +305,40 @@ export class Boid {
 			amount = utils.clamp(amount,-1,1);
 			// if we decided to activate a new stroke, record the power it was
 			//  activated with instead of using a varying stroke each frame.
-			if ( m.t==0 ) { m.strokepow = amount; }
-			else { amount = m.strokepow; }
+			if ( m.t==0 ) { 
+				m.strokepow = amount; 
+				// use this if you want the stroke time to coordinate with the power
+				// i.e. a quick flick versus a hard push
+				// m.this_stoke_time = m.stroketime * amount;
+				// use this modified version to make sure stroke times are "kinda normalized"
+				// and can't get too low with very short power values
+				m.this_stoke_time = m.stroketime * ( Math.abs(amount) + ((1-Math.abs(amount))*0.5) );
+				// use this if you want a constant stroke time,
+				// however this tends to look a bit robotic
+				// m.this_stoke_time = m.stroketime;
+			}
+			else { 
+				amount = m.strokepow; 
+			}
 			// don't allow overtaxing
-			delta = Math.min( delta, m.stroketime - m.t ); 
+			delta = Math.min( delta, m.this_stoke_time - m.t ); 
 			// apply power
 			amount *= delta;
 			// increase stroke time
-			m.t = utils.clamp(m.t+delta, 0, m.stroketime); 
+			m.t = utils.clamp(m.t+delta, 0, m.this_stoke_time); 
 			// cost of doing business
 			let cost = m.cost * delta; 
 			if ( estimate ) { return cost; }
 			this.energy -= cost;
 			// stroke power function
 			switch ( m.strokefunc ) {
-				case 'linear_down' : amount *= (m.stroketime - m.t) / m.stroketime; break;
-				case 'linear_up' : amount *= 1 - ((m.stroketime - m.t) / m.stroketime); break;
+				case 'linear_down' : amount *= (m.this_stoke_time - m.t) / m.this_stoke_time; break;
+				case 'linear_up' : amount *= 1 - ((m.this_stoke_time - m.t) / m.this_stoke_time); break;
 				case 'bell' : amount = Math.sin(amount) / Math.PI; break;
-				case 'step_up' : amount = (m.t > m.stroketime/2) ? amount : 0 ; break;
-				case 'step_down' : amount = (m.t < m.stroketime/2) ? amount : 0 ; break;
+				case 'step_up' : amount = (m.t > m.this_stoke_time/2) ? amount : 0 ; break;
+				case 'step_down' : amount = (m.t < m.this_stoke_time/2) ? amount : 0 ; break;
+				case 'burst' : amount = (m.t > m.this_stoke_time/5) ? amount : 0 ; break;
+				case 'spring' : amount = (m.t < m.this_stoke_time/5) ? amount : 0 ; break;
 				// constant-time output
 				default: amount = amount * 0.64; // magic number to keep inline with others
 			}
@@ -345,7 +360,7 @@ export class Boid {
 				let c = utils.HexColorToRGBArray(this.path.stroke);
 				this.path.fill = `rgba(${c[0]},${c[1]},${c[2]},${utils.clamp(amount,0,1)})`;
 			}
-			if ( m.t == m.stroketime ) { m.t = 0; } // reset stroke
+			if ( m.t >= m.this_stoke_time ) { m.t = 0; } // reset stroke
 		}
 	}
 	Kill() {
@@ -423,13 +438,15 @@ export class Boid {
 			let strokefunc = Math.random();
 			let wheel = Math.random() > 0.75 ? true : false;
 			const cost = utils.BiasedRand(0.05, 5.0, 0.25, 0.8);
-			const stroketime = utils.BiasedRand(0.1, 5.0, 1, 0.6); 
+			const stroketime = utils.BiasedRand(0.1, 8.0, 1, 0.8); 
 			const min_act = utils.BiasedRand(0,0.9,0.1,0.95);
 			if ( strokefunc < 0.4 ) { strokefunc = 'linear_down'; }
 			else if ( strokefunc < 0.5 ) { strokefunc = 'linear_up'; }
 			else if ( strokefunc < 0.65 ) { strokefunc = 'bell'; }
 			else if ( strokefunc < 0.7 ) { strokefunc = 'step_down'; }
 			else if ( strokefunc < 0.75 ) { strokefunc = 'step_up'; }
+			else if ( strokefunc < 0.78 ) { strokefunc = 'burst'; }
+			else if ( strokefunc < 0.84 ) { strokefunc = 'spring'; }
 			let motor = { min_act, cost, stroketime, t:0, strokefunc, wheel };
 			let linear = utils.BiasedRandInt( 10, 2000, 800, 0.25 );
 			let angular = utils.BiasedRandInt( 1, 100, 20, 0.5 );

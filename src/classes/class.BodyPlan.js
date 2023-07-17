@@ -68,8 +68,8 @@ export default class BodyPlan {
 		let bp = new BodyPlan();
 		complexity = utils.Clamp( complexity||Math.random(), 0, 1 );
 		bp.complexity_factor = utils.Clamp( complexity||0.1, 0, 1 );
-		bp.length = utils.BiasedRandInt(8,150,15,0.95);
-		bp.width = utils.BiasedRandInt(8,100,10,0.95);
+		bp.length = utils.BiasedRandInt(8,100,15,0.95);
+		bp.width = utils.BiasedRandInt(8,60,10,0.95);
 		bp.max_jitter_pct = utils.BiasedRand(0,0.2,0.08,0.5);
 		bp.augmentation_pct = utils.BiasedRand(0,0.1,0.01,0.9);
 		bp.curved = Math.random() > 0.7;
