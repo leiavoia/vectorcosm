@@ -109,7 +109,7 @@ onMounted(() => {
     <div class="shape-container">
       <div id="draw-shapes"></div>
     </div>
-    <div class="ui" id="ui_container" v-if="sim">
+    <div class="ui" id="ui_container" style="visibility:hidden;"  v-if="sim">
 		<simulator-controls :sim="sim"></simulator-controls>
     </div>
 </template>

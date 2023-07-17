@@ -45,7 +45,7 @@ export default class Vectorcosm {
 		
 		// world settings
 		this.show_collision_detection = false;
-		this.show_ui = true;
+		this.show_ui = false;
 		this.show_brainmap = false;
 		this.focus_object = null;
 		this.focus_geo = null;

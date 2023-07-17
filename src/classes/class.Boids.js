@@ -438,7 +438,7 @@ export class Boid {
 			let strokefunc = Math.random();
 			let wheel = Math.random() > 0.75 ? true : false;
 			const cost = utils.BiasedRand(0.05, 5.0, 0.25, 0.8);
-			const stroketime = utils.BiasedRand(0.1, 8.0, 1, 0.8); 
+			const stroketime = utils.BiasedRand(0.1, 3.5, 1, 0.8); 
 			const min_act = utils.BiasedRand(0,0.9,0.1,0.95);
 			if ( strokefunc < 0.4 ) { strokefunc = 'linear_down'; }
 			else if ( strokefunc < 0.5 ) { strokefunc = 'linear_up'; }
