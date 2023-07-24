@@ -151,7 +151,7 @@ export default class Simulation {
 				for ( let i=0; i < diff; i++ ) {
 					// pick from the end of the selection
 					let parent = parent_selection.length 
-						? parent_selection[ Math.trunc( utils.BiasedRandInt(0,parent_selection.length-1,parent_selection.length-1,0.75) ) ] 
+						? parent_selection[ utils.BiasedRandInt(0,parent_selection.length-1,parent_selection.length-1,0.8) ] 
 						: null;
 					let species = parent ? parent.species : this.settings?.species;
 					let b = parent ? parent.Copy() : BoidFactory( species, 0, 0, this.tank );
@@ -260,6 +260,7 @@ export class FoodChaseSimulation extends Simulation {
 			let food_speed = this.settings?.food_speed || 100;
 			food.vx = Math.random() * food_speed - (food_speed*0.5);
 			food.vy = Math.random() * food_speed - (food_speed*0.5);
+			// food.edibility = 1; // universal edibility
 			this.tank.foods.push(food);
 		}
 		// randomize rocks
@@ -314,9 +315,18 @@ export class FoodChaseSimulation extends Simulation {
 			const dy = Math.abs(food.y - b.y);
 			const d = Math.sqrt(dx*dx + dy*dy);
 			let r = Math.max( b.width, b.length );
-			if ( d <= r + food.r ) { 
-				b.fitness_score += 5 * ( 20 / Math.max( b.width, b.length ) );  // bigger creatures get less score
+			let touching = r + food.r;
+			const margin = 150;
+			if ( d < touching + margin && food.IsEdibleBy(b) ) {
+				// small bonus for getting close
+				let score = ( margin - ( d - touching ) ) / margin ;
+				b.fitness_score += score * ( 20 / Math.max( b.width, b.length ) );  // bigger creatures get less score
+				// big points if touching
+				if ( d <= touching ) { 
+					b.fitness_score += 5 * ( 20 / Math.max( b.width, b.length ) );  // bigger creatures get less score
+				}
 			}
+						
 		}		
 		// total score		
 		b.total_fitness_score += b.fitness_score * this.stats.delta * 18; // extra padding just makes numbers look good
@@ -337,6 +347,7 @@ export class FoodChaseSimulation extends Simulation {
 				let food_speed = this.settings?.food_speed || 100;
 				food.vx = Math.random() * food_speed - (food_speed*0.5);
 				food.vy = Math.random() * food_speed - (food_speed*0.5);
+				// food.edibility = 1; // universal edibility
 				this.tank.foods.push(food);
 			}	
 		}	 
@@ -377,6 +388,7 @@ export class BasicTravelSimulation extends Simulation {
 		);
 		food.vx = 0;
 		food.vy = 0;
+		food.edibility = 1; // universal edibility
 		this.tank.foods.push(food);
 	}	
 	ScoreBoidPerFrame(b) {
@@ -404,6 +416,7 @@ export class BasicTravelSimulation extends Simulation {
 			);
 			food.vx = 0;
 			food.vy = 0;
+			food.edibility = 1; // universal edibility
 			this.tank.foods.push(food);	
 		}	 
 	}		
@@ -441,6 +454,7 @@ export class TurningSimulation extends Simulation {
 		let food = new Food( this.tank.width*0.5 + dx, this.tank.height*0.5 + dy );
 		food.vx = 0;
 		food.vy = 0;
+		food.edibility = 1; // universal edibility
 		this.tank.foods.push(food);
 	}	
 	ScoreBoidPerFrame(b) {
@@ -468,6 +482,7 @@ export class TurningSimulation extends Simulation {
 			let food = new Food( this.tank.width*0.5 + dx, this.tank.height*0.5 + dy );
 			food.vx = 0;
 			food.vy = 0;
+			food.edibility = 1; // universal edibility
 			this.tank.foods.push(food);
 		}	 
 	}		
@@ -586,6 +601,7 @@ export class AvoidEdgesSimulation extends Simulation {
 				food.vx = 0;
 				food.vy = 0;
 				food.goal = food_num++;
+				food.edibility = 1; // universal edibility
 				this.tank.foods.push(food);
 			}
 			for ( let y = (edge_size + tunnel_width/2); y < h - (edge_size + tunnel_width/2); y += food_spacing ) {
@@ -593,6 +609,7 @@ export class AvoidEdgesSimulation extends Simulation {
 				food.vx = 0;
 				food.vy = 0;
 				food.goal = food_num++;
+				food.edibility = 1; // universal edibility
 				this.tank.foods.push(food);
 			}
 			for ( let x = w - (edge_size + tunnel_width/2); x > (edge_size + tunnel_width/2); x -= food_spacing ) {
@@ -600,6 +617,7 @@ export class AvoidEdgesSimulation extends Simulation {
 				food.vx = 0;
 				food.vy = 0;
 				food.goal = food_num++;
+				food.edibility = 1; // universal edibility
 				this.tank.foods.push(food);
 			}
 			
@@ -655,6 +673,7 @@ export class AvoidEdgesSimulation extends Simulation {
 			);
 			food.vx = 0;
 			food.vy = 0;
+			food.edibility = 1; // universal edibility
 			this.tank.foods.push(food);
 		}
 		else {
@@ -682,18 +701,11 @@ export class AvoidEdgesSimulation extends Simulation {
 			);
 			food.vx = 0;
 			food.vy = 0;
+			food.edibility = 1; // universal edibility
 			this.tank.foods.push(food);
 		}
 	}	
 	ScoreBoidPerFrame(b) {
-		// record minimum distance to food circle
-		const food = this.tank.foods[0];
-		if ( food ) { 
-			const dx = Math.abs(food.x - b.x);
-			const dy = Math.abs(food.y - b.y);
-			const d = Math.sqrt(dx*dx + dy*dy);
-			b.total_fitness_score = Math.min( d, b.total_fitness_score );
-		}
 		// punished for getting close to the edge
 		// b.sensors.filter( s => s.detect=='obstacles' )
 		// .forEach( s => b.punishment = (b.punishment||0) + s.val );
@@ -701,29 +713,47 @@ export class AvoidEdgesSimulation extends Simulation {
 			b.punishment = (b.punishment || 0) + ( this.settings?.punishment || 0.2 ); 
 		}
 		
-		// manually check to see if we are touching a marker
-		let my_radius = 100; // Math.max(b.length, b.width) * 0.5;
-		let candidates = this.tank.grid.GetObjectsByBox( 
-			b.x - my_radius,
-			b.y - my_radius,
-			b.x + my_radius,
-			b.y + my_radius
-		);
-		// console.log(candidates.length + ' cand');
-		for ( let o of candidates ) {
-			const circle  = new Circle(b.x, b.y, my_radius);
-			const circle2  = new Circle(o.x, o.y, o.r);
-			if ( circle.collides(circle2) ) {
-				b.best_goal = Math.max(b.best_goal||0,o.goal||0);
+		// score by furthest marker
+		if ( this.settings.spiral ) {
+			// manually check to see if we are touching a marker
+			let my_radius = 100; // Math.max(b.length, b.width) * 0.5;
+			let candidates = this.tank.grid.GetObjectsByBox( 
+				b.x - my_radius,
+				b.y - my_radius,
+				b.x + my_radius,
+				b.y + my_radius
+			);
+			// console.log(candidates.length + ' cand');
+			for ( let o of candidates ) {
+				const circle  = new Circle(b.x, b.y, my_radius);
+				const circle2  = new Circle(o.x, o.y, o.r);
+				if ( circle.collides(circle2) ) {
+					b.best_goal = Math.max(b.best_goal||0,o.goal||0);
+				}
 			}
 		}
+		
+		// record minimum distance to food circle
+		else {
+			const food = this.tank.foods[0];
+			if ( food ) { 
+				const dx = Math.abs(food.x - b.x);
+				const dy = Math.abs(food.y - b.y);
+				const d = Math.sqrt(dx*dx + dy*dy);
+				b.total_fitness_score = Math.min( d, b.total_fitness_score );
+			}
+		}		
 		
 		
 	}	
 	ScoreBoidPerRound(b) {
-		// let food_proximity_bonus = this.settings?.food_proximity_bonus || 1;
-		// b.total_fitness_score = food_proximity_bonus * (this.tank.width - (b.total_fitness_score || 0)); // golf!
-		b.total_fitness_score = b.best_goal * 100;
+		if ( this.settings.spiral ) {
+			b.total_fitness_score = b.best_goal * 100;
+		}
+		else {
+			let food_proximity_bonus = this.settings?.food_proximity_bonus || 1;
+			b.total_fitness_score = food_proximity_bonus * (this.tank.width - (b.total_fitness_score || 0)); // golf!
+		}
 		b.total_fitness_score -= b.punishment;
 	}	
 	Update(delta) {
@@ -740,6 +770,7 @@ export class AvoidEdgesSimulation extends Simulation {
 		// 	let food = new Food( this.tank.width*0.5 + dx, this.tank.height*0.5 + dy );
 		// 	food.vx = 0;
 		// 	food.vy = 0;
+		//	food.edibility = 1; // universal edibility
 		// 	this.tank.foods.push(food);
 		// }	 
 	}	

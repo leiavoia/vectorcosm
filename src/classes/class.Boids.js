@@ -40,6 +40,9 @@ export class Boid {
 		this.energy = this.max_energy;
 		this.x = x;
 		this.y = y;
+		// diet
+		this.diet = 0; // 0..1
+		this.diet_range = 0.5; // 0..1
 		// collision
 		this.collision = {
 			shape: 'circle',
@@ -286,8 +289,10 @@ export class Boid {
 			const d = Math.sqrt(dx*dx + dy*dy);
 			let r = Math.max( this.width, this.length );
 			if ( d <= r + food.r ) { 
-				food.Eat(delta*5);  
+				if ( food.IsEdibleBy(this) ) {
+					food.Eat(delta*5);  
 				}
+			}
 		}
 		
 	}
@@ -384,7 +389,8 @@ export class Boid {
 		b.maxrot = 20;
 		b.collision.radius = Math.max(b.length, b.width) / 2;
 		b.energy_cost = 0.15;
-		
+		b.diet = Math.random();
+		b.diet_range = Math.max( Math.random()*0.5, 0.05 );
 		b.bodyplan = BodyPlan.Random();
 		b.container.add([b.bodyplan.geo]);
 		// [!]temporary?:
@@ -437,9 +443,9 @@ export class Boid {
 		for ( let n=0; n < num_motors; n++ ) {
 			let strokefunc = Math.random();
 			let wheel = Math.random() > 0.75 ? true : false;
-			const cost = utils.BiasedRand(0.05, 5.0, 0.25, 0.8);
-			const stroketime = utils.BiasedRand(0.1, 3.5, 1, 0.8); 
-			const min_act = utils.BiasedRand(0,0.9,0.1,0.95);
+			const cost = utils.BiasedRand(0.05, 5.0, 0.25, 0.6);
+			const stroketime = utils.BiasedRand(0.1, 3.5, 1, 0.6); 
+			const min_act = utils.BiasedRand(0,0.9,0.1,0.6);
 			if ( strokefunc < 0.4 ) { strokefunc = 'linear_down'; }
 			else if ( strokefunc < 0.5 ) { strokefunc = 'linear_up'; }
 			else if ( strokefunc < 0.65 ) { strokefunc = 'bell'; }
@@ -448,7 +454,7 @@ export class Boid {
 			else if ( strokefunc < 0.78 ) { strokefunc = 'burst'; }
 			else if ( strokefunc < 0.84 ) { strokefunc = 'spring'; }
 			let motor = { min_act, cost, stroketime, t:0, strokefunc, wheel };
-			let linear = utils.BiasedRandInt( 10, 2000, 800, 0.25 );
+			let linear = utils.BiasedRandInt( 10, 2000, 800, 0.4 );
 			let angular = utils.BiasedRandInt( 1, 100, 20, 0.5 );
 			if ( Math.random() > 0.65 ) { linear = -linear; }
 			if ( Math.random() > 0.65 ) { angular = -angular; }
@@ -499,7 +505,7 @@ export class Boid {
 	Copy( mutate=false ) {
 		let b = new Boid(this.x, this.y, this.tank);
 		// POD we can just copy over
-		let datakeys = ['species','max_energy','energy','maxspeed','maxrot','length','width','energy_cost','brain_complexity'];
+		let datakeys = ['species','max_energy','energy','maxspeed','maxrot','length','width','energy_cost','brain_complexity','diet','diet_range'];
 		for ( let k of datakeys ) { b[k] = this[k]; }
 		b.collision.radius = this.collision.radius;
 		// body plan stuff
@@ -523,7 +529,7 @@ export class Boid {
 	Export( as_JSON=false ) {
 		let b = {};
 		// POD we can just copy over
-		let datakeys = ['id','x','y','species','max_energy','energy','maxspeed','maxrot','length','width','energy_cost','brain_complexity','generation'];
+		let datakeys = ['id','x','y','species','max_energy','energy','maxspeed','maxrot','length','width','energy_cost','brain_complexity','generation','diet','diet_range'];
 		for ( let k of datakeys ) { b[k] = this[k]; }
 		b.bodyplan = {};
 		for ( let k of Object.keys(this.bodyplan).filter( _ => !['geo'].includes(_) ) ) { b.bodyplan[k] = this.bodyplan[k]; }

@@ -68,10 +68,10 @@ export default class BodyPlan {
 		let bp = new BodyPlan();
 		complexity = utils.Clamp( complexity||Math.random(), 0, 1 );
 		bp.complexity_factor = utils.Clamp( complexity||0.1, 0, 1 );
-		bp.length = utils.BiasedRandInt(8,100,15,0.95);
-		bp.width = utils.BiasedRandInt(8,60,10,0.95);
-		bp.max_jitter_pct = utils.BiasedRand(0,0.2,0.08,0.5);
-		bp.augmentation_pct = utils.BiasedRand(0,0.1,0.01,0.9);
+		bp.length = utils.BiasedRandInt(8,100,20,0.9);
+		bp.width = utils.BiasedRandInt(8,60,14,0.9);
+		bp.max_jitter_pct = utils.BiasedRand(0,0.2,0.05,0.8);
+		bp.augmentation_pct = utils.BiasedRand(0,0.04,0.01,0.9);
 		bp.curved = Math.random() > 0.7;
 		if ( Math.random() > 0.92 ) {
 			bp.dashes = [];
@@ -84,7 +84,7 @@ export default class BodyPlan {
 		// colors
 		const color_roll = Math.random();
 		if ( color_roll < 0.33 ) { // just line
-			bp.linewidth = Math.random() > 0.5 ? utils.BiasedRandInt(2,8,2,0.99) : 2;
+			bp.linewidth = Math.random() > 0.5 ? utils.BiasedRandInt(2,8,2,0.8) : 2;
 			bp.stroke = utils.RandomColor( true, false, true );
 			bp.fill = 'transparent';
 		}
@@ -94,7 +94,7 @@ export default class BodyPlan {
 			bp.fill =  utils.RandomColor( true, false, true ) + 'AA';
 		}
 		else { // line and fill
-			bp.linewidth = Math.random() > 0.5 ? utils.BiasedRandInt(2,8,2,0.99) : 2;
+			bp.linewidth = Math.random() > 0.5 ? utils.BiasedRandInt(2,8,2,0.8) : 2;
 			bp.stroke = utils.RandomColor( true, false, true );
 			bp.fill =  utils.RandomColor( true, false, false ) + 'AA'; // don't need bright interiors if we also have line
 		}

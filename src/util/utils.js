@@ -137,9 +137,9 @@ export function RandomInt( min, max ) {
 	}
 	
 // http://stackoverflow.com/questions/29325069/how-to-generate-random-numbers-biased-towards-one-value-in-a-range
-export function BiasedRand(min, max, bias, influence /* 0.0..1.0 */) {
+export function BiasedRand(min, max, bias, influence /* 0.0..1.0 more influence = less range */) {
 	let rnd = Math.random() * (max - min) + min;   // random in range
-	let mix = Math.random() * influence;           // random mixer - higher influence number means more spread
+	let mix = 1 - ( Math.random() * influence );   // random mixer - higher influence number means more spread
 	return rnd * (1 - mix) + bias * mix;           // mix full range and bias
 	}
 export function BiasedRandInt(min, max, bias, influence) {

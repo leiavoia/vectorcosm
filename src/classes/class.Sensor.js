@@ -44,8 +44,14 @@ export default class Sensor {
 					const dx = Math.abs(obj.x - sx);
 					const dy = Math.abs(obj.y - sy);
 					const d = Math.sqrt(dx*dx + dy*dy);
-					this.val += utils.clamp( 1 - (d / (this.r + obj.r)), 0, 1 );
+					let proximity = utils.clamp( 1 - (d / (this.r + obj.r)), 0, 1 );
+					if ( proximity && obj.IsEdibleBy(this.owner) ) {
+						// do not factor in food quality. This sensor only detects direction.
+						this.val += proximity;
+					}
 				}
+				this.val = utils.clamp( this.val, 0, 1 );
+				// this.geo.fill = this.val ? ('#AAEEAA'+utils.DecToHex(Math.trunc(this.val*128))) : 'transparent';
 				break;
 			}
 			case 'inertia' : {
@@ -137,9 +143,9 @@ export default class Sensor {
 						this.val = Math.max( v, this.val );
 					}
 				}
+				this.val = utils.clamp( this.val, 0, 1 );
 			}
 		}
-		this.val = utils.clamp( this.val, 0, 1 );
 		return this.val;
 	}
 }

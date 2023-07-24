@@ -11,12 +11,19 @@ export default class Food {
 		this.vy = Math.random() * 100 - 50;
 		this.value = 80;
 		this.r = this.value * 0.25;
+		this.hue = Math.random();
+		this.colorval = Math.random();
+		this.edibility = Math.random() * 0.5;
 		this.geo = window.two.makeCircle(this.x,this.y,this.r);
 		// this.geo.linewidth=2;
 		// this.geo.stroke = 'white';
 		this.geo.noStroke();
-		let stops = [ new Two.Stop(0, '#FA06'), new Two.Stop(1, '#FA0F') ];
-		this.geo.fill = new Two.RadialGradient(0, 0, 1, stops, -0.25, -0.25);
+		// let stops = [ new Two.Stop(0, '#FA06'), new Two.Stop(1, '#FA0F') ];
+		// this.geo.fill = new Two.RadialGradient(0, 0, 1, stops, -0.25, -0.25);
+		this.geo.fill = `hsl(${this.hue*255},${(Math.min(1,this.edibility+0.5))*100}%,${this.colorval*100}%)`;
+		this.geo.stroke = `hsl(${this.hue*255},${(Math.min(1,this.edibility+0.5))*100}%,50%)`;
+		this.geo.linewidth = 4;
+		this.geo.dashes = [3,3];
 		window.vc.AddShapeToRenderLayer(this.geo); // main layer
 		// this.geo.fill.units = 'objectBoundingBox';
 		this.dead = false;		
@@ -82,5 +89,14 @@ export default class Food {
 	Kill() {
 		this.geo.remove();
 		this.dead = true;
+	}
+	// returns TRUE if the food hue is inside the boid's dietary range
+	IsEdibleBy( boid ) {
+		let diff = boid.diet - boid.diet_range*0.5;
+		let max = (boid.diet + boid.diet_range*0.5) - diff;
+		let target1 = utils.mod( (this.hue - diff) - (this.edibility*0.5), 1 ).toPrecision(8); // javascript modulus can't handle negatives
+		let target2 = utils.mod( (this.hue - diff) + (this.edibility*0.5), 1 ).toPrecision(8); // javascript modulus can't handle negatives
+		const result =  target1 <= max || target2 <= max || target1 >= target2;	// beware floating point imprecision on comparison
+		return result;
 	}			
 }
