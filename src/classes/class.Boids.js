@@ -327,8 +327,6 @@ export class Boid {
 			}
 			// don't allow overtaxing
 			delta = Math.min( delta, m.this_stoke_time - m.t ); 
-			// apply power
-			amount *= delta;
 			// increase stroke time
 			m.t = utils.clamp(m.t+delta, 0, m.this_stoke_time); 
 			// cost of doing business
@@ -339,14 +337,18 @@ export class Boid {
 			switch ( m.strokefunc ) {
 				case 'linear_down' : amount *= (m.this_stoke_time - m.t) / m.this_stoke_time; break;
 				case 'linear_up' : amount *= 1 - ((m.this_stoke_time - m.t) / m.this_stoke_time); break;
-				case 'bell' : amount = Math.sin(amount) / Math.PI; break;
-				case 'step_up' : amount = (m.t > m.this_stoke_time/2) ? amount : 0 ; break;
-				case 'step_down' : amount = (m.t < m.this_stoke_time/2) ? amount : 0 ; break;
-				case 'burst' : amount = (m.t > m.this_stoke_time/5) ? amount : 0 ; break;
-				case 'spring' : amount = (m.t < m.this_stoke_time/5) ? amount : 0 ; break;
+				case 'bell' : amount = amount * (Math.sin((m.t/m.this_stoke_time) * Math.PI)); break;
+				case 'step_up' : amount = (m.t >= m.this_stoke_time*0.5) ? amount : 0 ; break;
+				case 'step_down' : amount = (m.t < m.this_stoke_time*0.5) ? amount : 0 ; break;
+				case 'burst' : amount = (m.t >= m.this_stoke_time*0.8) ? amount : 0 ; break;
+				case 'spring' : amount = (m.t < m.this_stoke_time*0.2) ? amount : 0 ; break;
 				// constant-time output
-				default: amount = amount * 0.64; // magic number to keep inline with others
+				// default: amount = amount * 0.64; // magic number to keep inline with others
+				// ^ feels weird to use magic numbers. TODO: instead increase cost of 100% output by 1/0.64 
 			}
+			m.last_amount = amount; // mostly for UI and animation
+			// apply power
+			amount *= delta;
 			if ( m.hasOwnProperty('linear') ) {
 				this.inertia += m.linear * amount;
 			}
@@ -453,6 +455,7 @@ export class Boid {
 			else if ( strokefunc < 0.75 ) { strokefunc = 'step_up'; }
 			else if ( strokefunc < 0.78 ) { strokefunc = 'burst'; }
 			else if ( strokefunc < 0.84 ) { strokefunc = 'spring'; }
+			else { strokefunc = 'constant'; }
 			let motor = { min_act, cost, stroketime, t:0, strokefunc, wheel };
 			let linear = utils.BiasedRandInt( 10, 2000, 800, 0.4 );
 			let angular = utils.BiasedRandInt( 1, 100, 20, 0.5 );
