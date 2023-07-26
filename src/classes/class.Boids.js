@@ -62,11 +62,9 @@ export class Boid {
 		// drawing stuff
 		this.outline_color = utils.RandomColor( true, false, true ) + 'AA';
 		this.fill_color = utils.RandomColor( true, false, true ) + 'AA';
-		this.path = null;
 		this.container = window.two.makeGroup();
 		this.container.position.x = x;
 		this.container.position.y = y;
-		this.container.add([this.path]);
 		this.container.visible = true;
 		window.vc.AddShapeToRenderLayer(this.container); // main layer
 		// neuro stuff
@@ -299,13 +297,17 @@ export class Boid {
 	// use estimate=true if you want a cost value returned instead of the actual movement 
 	ActivateMotor( i, amount /* -1..1 */, delta, estimate = false ) {
 		// sometimes neataptic can output nan and infinities. 
-		if ( Number.isNaN(amount) || !Number.isFinite(amount) ) { return; }
+		if ( Number.isNaN(amount) || !Number.isFinite(amount) ) { return 0; }
 		let m = this.motors[i];
 		if ( m ) {
 			// shift amount to halfway point for wheel motors
 			if ( m.wheel ) { amount = (amount - 0.5) * 2; } 
 			// check for minimum activation
-			if ( m.t==0 && m.min_act && (m.wheel ? Math.abs(amount) : amount) < m.min_act ) { return 0; }
+			if ( m.t==0 && m.min_act && (m.wheel ? Math.abs(amount) : amount) < m.min_act ) { 
+				m.last_amount = 0;
+				m.this_stoke_time = 0;
+				return 0; 
+				}
 			// sanity check
 			amount = utils.clamp(amount,-1,1);
 			// if we decided to activate a new stroke, record the power it was
@@ -469,6 +471,16 @@ export class Boid {
 			}
 			if ( linear ) { motor.linear = linear; }
 			if ( angular ) { motor.angular = angular; }
+			// certain stroke functions alter the power to make sure things do go bonkers
+			if ( strokefunc == 'burst' || strokefunc == 'spring' ) {
+				if ( motor.linear ) { motor.linear *= 3; }
+				if ( motor.angular ) { motor.angular *= 3; }
+			}
+			if ( strokefunc == 'constant' ) {
+				if ( motor.linear ) { motor.linear *= 0.64; }
+				if ( motor.angular ) { motor.angular *= 0.64; }
+			}
+			// naming
 			motor.name = (motor.linear && motor.angular) ? 'Combo' : (motor.linear ? 'Linear' : 'Angular');
 			if ( motor.wheel ) { motor.name += ' Wheel'; }
 			b.motors.push( motor );

@@ -8,10 +8,10 @@ import Chart from 'chart.js/auto';
 // https://www.chartjs.org/docs/latest/getting-started/integration.html
 import * as utils from '../util/utils.js'
 import Tank from '../classes/class.Tank.js'
-import Rock from '../classes/class.Rock.js'
 import { AvoidEdgesSimulation, TurningSimulation, FoodChaseSimulation, BasicTravelSimulation } from '../classes/class.Simulation.js'
 import BrainGraph from '../classes/class.BrainGraph.js'
 import { BoidFactory, Boid } from '../classes/class.Boids.js'
+import PubSub from 'pubsub-js'
 
 const { architect, Network } = neataptic;
 
@@ -53,6 +53,12 @@ export default class Vectorcosm {
 		this.width = 0;
 		this.height = 0;
 		this.scale = 1;
+		
+		// subscriptions to critical events
+		// this.frameUpdateSubscription = PubSub.subscribe('frame-update', (msg,data) => {
+    	// 	console.log( msg, data );
+		// });
+		
 	}
 	
 	Init() {
@@ -68,16 +74,6 @@ export default class Vectorcosm {
 		this.tank = new Tank( this.width, this.height );
 		this.tank.MakeBackground();
 		
-		// add rocks
-		// this.tank.obstacles.push(
-		// 	// new Rock( utils.RandomInt(0,1800), utils.RandomInt(0,1000), utils.RandomInt(150,400), utils.RandomInt(100,300) ),
-		// 	// new Rock( utils.RandomInt(0,1800), utils.RandomInt(0,1000), utils.RandomInt(150,400), utils.RandomInt(100,300) ),
-		// 	// new Rock( utils.RandomInt(0,1800), utils.RandomInt(0,1000), utils.RandomInt(150,400), utils.RandomInt(100,300) ),
-		// 	new Rock( utils.RandomInt(0,1800), utils.RandomInt(0,1000), utils.RandomInt(150,400), utils.RandomInt(100,300) ),
-		// 	new Rock( utils.RandomInt(0,1800), utils.RandomInt(0,1000), utils.RandomInt(150,400), utils.RandomInt(100,300) ),
-		// 	new Rock( utils.RandomInt(0,1800), utils.RandomInt(0,1000), utils.RandomInt(150,400), utils.RandomInt(100,300) ),
-		// );
-		
 		// default screen scaling based on user window
 		if ( this.two.width < 500 ) { this.SetViewScale(0.4); }
 		else if ( this.two.width < 1200 ) { this.SetViewScale(0.6); }
@@ -88,17 +84,17 @@ export default class Vectorcosm {
 		this.sim_queue = [
 			// new AvoidEdgesSimulation(this.tank,{
 			// 	name: 'Dont hit rocks',
-			// 	num_boids: 1,
-			// 	time: 35,
-			// 	punishment: 0.5,
+			// 	num_boids: 60,
+			// 	time: 20,
+			// 	punishment: 0.05,
 			// 	max_segment_spread: 70,
 			// 	segments: 7,
 			// 	max_mutation: 8,
 			// 	num_rocks: 2,
-			// 	angle_spread: 0.1,
-			// 	food_proximity_bonus: 0,
-			// 	// tunnel: true,
-			// 	spiral:true,
+			// 	angle_spread: 0.3,
+			// 	food_proximity_bonus: 100,
+			// 	tunnel: true,
+			// 	// spiral:true,
 			// 	end: {
 			// 		// avg_score:400,
 			// 		// avg_score_rounds: 10,
@@ -112,11 +108,11 @@ export default class Vectorcosm {
 				random_food_pos: true,
 				time: 30,
 				// min_score: 5,
-				max_mutation: 6,
-				num_rocks: 5,
+				max_mutation: 8,
+				num_rocks: 2,
 				target_spread: 800,
-				num_foods: 6,
-				food_speed: 100,
+				num_foods: 4,
+				food_speed: 62,
 				species:'random',
 				cullpct: 0.2,
 				end: {
@@ -256,6 +252,9 @@ export default class Vectorcosm {
 				// this.renderLayers['tank'].position.y = 0;
 			}
 		}
+		
+		PubSub.publish('frame-update', 'hello world!');
+		// PubSub.publishSync('frame-update', 'hello world!');
 										
 	}		
 
@@ -274,7 +273,7 @@ export default class Vectorcosm {
 			if ( this.tank.boids.length ) {	
 				let target = this.focus_object || this.tank.boids.sort( (a,b) => b.total_fitness_score - a.total_fitness_score )[0];
 				this.TrackObject(target);
-				this.braingraph =  this.braingraph ?? new BrainGraph(target);
+				this.braingraph =  this.braingraph ?? new BrainGraph(target, this.two);
 				this.braingraph.setTarget(target);
 				this.braingraph.Draw();
 			}

@@ -1,20 +1,21 @@
 import * as utils from '../util/utils.js'
 
 export default class BrainGraph {
-	constructor(target) { 
+	constructor(target, context) { 
+		this.context = context;
 		this.target = target;
-		this.brain = target.brain;
+		this.brain = target ? target.brain : null;
 		this.draw_conns = true;
 		this.draw_nodes = true;
-		this.geo = window.two.makeGroup();
+		this.geo = this.context.makeGroup();
 		this.conns_geo = null;
 		this.nodes_geo = null;
 		this.window_resize_cb = event => this.onScreenSizeChange();
-		window.vc.AddShapeToRenderLayer(this.geo,'ui'); // UI layer
-		window.addEventListener("resize", this.window_resize_cb );
+		// window.vc.AddShapeToRenderLayer(this.geo,'ui'); // UI layer
+		// window.addEventListener("resize", this.window_resize_cb );
 	}
 	Kill() {
-		window.removeEventListener("resize", this.window_resize_cb );
+		// window.removeEventListener("resize", this.window_resize_cb );
 		this.geo.remove();
 	}
 	onScreenSizeChange() {
@@ -30,18 +31,20 @@ export default class BrainGraph {
 	setTarget(t) {
 		if ( this.target != t ) { 
 			this.target = t;
+			this.brain = t.brain;
 			this.onScreenSizeChange();
 		}
 	}
 	Draw() {
+		if ( !this.target || !this.brain ) { return; }
 		// make sure the target hasn't changed
 		if ( this.brain != this.target.brain ) {
 			this.brain = this.target.brain;
 			this.onScreenSizeChange();
 		}
-		let x = window.vc.width / 2;
-		let y = window.vc.height / 2;
-		let r = Math.min( window.vc.width, window.vc.height ) / 2.25;
+		let x = this.context.width / 2;
+		let y = this.context.height / 2;
+		let r = Math.min( this.context.width, this.context.height ) / 2.25;
 		let a = (Math.PI * 2) /  this.brain.nodes.length;
 		let node_r = 25;
 		// update node positions in the ring
@@ -58,12 +61,12 @@ export default class BrainGraph {
 			// 	this.conns_geo = null;
 			// }
 			if ( !this.conns_geo ) { 
-				this.conns_geo = window.two.makeGroup(); 
+				this.conns_geo = this.context.makeGroup(); 
 				this.geo.add(this.conns_geo);
 				// this.conns_geo = two.makeGroup();
 				// draw direct connections as lines
 				for ( let c of this.brain.connections ) {
-					let line = window.two.makeLine(c.from.my_x, c.from.my_y, c.to.my_x, c.to.my_y);
+					let line = this.context.makeLine(c.from.my_x, c.from.my_y, c.to.my_x, c.to.my_y);
 					let v = Math.trunc( Math.abs( utils.clamp(c.weight,-10,10) ) * 256 ); // scales 0..0.1 to 0..256
 					v = utils.clamp(v,64,255); // minimum color for visibility
 					line.stroke = (c.weight > 0 ? '#FFFFFF' : '#DD1111') + utils.DecToHex(v);
@@ -75,7 +78,7 @@ export default class BrainGraph {
 				for ( let c of this.brain.selfconns ) {
 					// self connection draws a circle
 					let ring_r = utils.clamp(c.from.bias*2,-3,3) + 2;
-					let line = window.two.makeCircle(c.from.my_x, c.from.my_y, ring_r);
+					let line = this.context.makeCircle(c.from.my_x, c.from.my_y, ring_r);
 					let v = Math.trunc( Math.abs( utils.clamp(c.weight,-10,10) ) * 256 ); // scales 0..0.1 to 0..256
 					v = utils.clamp(v,64,255); // minimum color for visibility
 					line.stroke = (c.weight > 0 ? '#FFFFFF' : '#DD1111') + utils.DecToHex(v);
@@ -92,7 +95,7 @@ export default class BrainGraph {
 				this.nodes_geo.remove(); 
 				this.nodes_geo = null;
 			}
-			this.nodes_geo = window.two.makeGroup();
+			this.nodes_geo = this.context.makeGroup();
 			this.geo.add(this.nodes_geo);
 			let output_i = 0;
 			let input_i = 0;
@@ -102,21 +105,21 @@ export default class BrainGraph {
 				let activation_label = node.activation.toFixed(2);
 				let rect = null;
 				if ( node.type == 'input' ) {
-					rect = window.two.makePolygon(node.my_x, node.my_y, node_r, 3);
-					let text = window.two.makeText( input_labels[input_i++] + ' ' + activation_label, node.my_x, node.my_y, { fill: '#FFF' } );
+					rect = this.context.makePolygon(node.my_x, node.my_y, node_r, 3);
+					let text = this.context.makeText( input_labels[input_i++] + ' ' + activation_label, node.my_x, node.my_y, { fill: '#FFF' } );
 					text.position.y -= node_r + 8;
 					this.nodes_geo.add(text);
 				}
 				else if ( node.type == 'output' ) {
-					rect = window.two.makePolygon(node.my_x, node.my_y, node_r, 4);
-					let text = window.two.makeText( this.target.motors[output_i++].name + ' / ' + node.squash.name + ' ' + activation_label, node.my_x, node.my_y, { fill: '#FFF' } );
+					rect = this.context.makePolygon(node.my_x, node.my_y, node_r, 4);
+					let text = this.context.makeText( this.target.motors[output_i++].name + ' / ' + node.squash.name + ' ' + activation_label, node.my_x, node.my_y, { fill: '#FFF' } );
 					text.position.y -= node_r + 8;
 					this.nodes_geo.add(text);
 				}
 				else {
 					node_r += utils.clamp(node.bias*2,-3,3);
-					rect = window.two.makeCircle(node.my_x, node.my_y, node_r);
-					let text = window.two.makeText( node.squash.name + ' ' + activation_label, node.my_x, node.my_y, { fill: '#FFF' } );
+					rect = this.context.makeCircle(node.my_x, node.my_y, node_r);
+					let text = this.context.makeText( node.squash.name + ' ' + activation_label, node.my_x, node.my_y, { fill: '#FFF' } );
 					text.position.y -= node_r + 8;
 					this.nodes_geo.add(text);
 				}
