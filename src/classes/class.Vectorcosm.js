@@ -44,6 +44,7 @@ export default class Vectorcosm {
 		this.braingraph = null; // move me some day
 		
 		// world settings
+		this.animate_boids = false;
 		this.show_collision_detection = false;
 		this.show_ui = false;
 		this.show_brainmap = false;

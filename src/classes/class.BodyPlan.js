@@ -48,8 +48,9 @@ export default class BodyPlan {
 			let py = utils.RandomFloat( 0 /* -this.width/8 */, this.width/2 );
 			pts.push([px,py]);
 		}
+		// sorting gives a cleaner look which is sometimes wanted, but not always
+		if ( Math.random() > 0.7 ) { pts.sort( (a,b) => b[0] - a[0] ); }
 		// make complimentary points on other side of body
-		pts.sort( (a,b) => b[0] - a[0] );
 		let new_pts = pts.map( p => [ p[0], -p[1] ] );
 		// random chance for extra point in the back
 		if ( Math.random() > 0.5 ) { 
@@ -98,6 +99,10 @@ export default class BodyPlan {
 			bp.stroke = utils.RandomColor( true, false, true );
 			bp.fill =  utils.RandomColor( true, false, false ) + 'AA'; // don't need bright interiors if we also have line
 		}
+		
+		// let stops = [ new Two.Stop(0, '#000'), new Two.Stop(1, '#FFF') ];
+		// bp.stroke = window.two.makeRadialGradient(0, 0, 30, ...stops );
+		// bp.stroke.units = 'userSpaceOnUse'; // super important
 		
 		// points
 		bp.RandomizePoints(); // includes update

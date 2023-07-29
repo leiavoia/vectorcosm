@@ -119,6 +119,10 @@ body.addEventListener("keydown", function(event) {
 		event.preventDefault();
 		vc.LoadLeader();
 	}
+	else if ( event.which == 53 ) {  // `5` 
+		event.preventDefault();
+		vc.animate_boids = !vc.animate_boids;
+	}
 	else if ( event.which == 57 ) {  // `9` 
 		event.preventDefault();
 		vc.SavePopulation();
@@ -211,8 +215,10 @@ function ClickMap( event ) {
 	}
 	else {
 		vc.StopTrackObject();
-		braingraph.Kill();
-		braingraph = null;
+		if ( braingraph ) { 
+			braingraph.Kill();
+			braingraph = null;
+		}
 	}
 }
 
@@ -234,8 +240,10 @@ function ClickMap( event ) {
 			<div id="braingraph"  style="width:100%; height: 100%;"></div>
 		</section>
 		<section class="boid-detail" v-if="focus_boid_data">
-			<div id="boidviewer"  style="width:12em; height: 12em; background:transparent; border-radius:0.5em; float:right; margin: 0 0 1em 1em; box-sizing: border-box;"></div>
-			<p><b>{{focus_boid_data.species.toUpperCase()}}</b></p>
+			<h2 style="text-align:center;">{{focus_boid_data.species.toUpperCase()}}</h2>
+			<br/>
+			<!-- <div id="boidviewer"  style="width:12em; height: 12em; background:transparent; border-radius:0.5em; float:right; margin: 0 0 1em 1em; box-sizing: border-box;"></div> -->
+			<div id="boidviewer"  style="width:100%; aspect-ratio:1;"></div>
 			<br/>
 			<p>ID: {{focus_boid_data.id}}</p>
 			<p>GENERATION: {{focus_boid_data.generation}}</p>
@@ -255,11 +263,13 @@ function ClickMap( event ) {
 				&nbsp; Energy {{focus_boid_data.energy.toFixed(0)}} / {{focus_boid_data.max_energy.toFixed(0)}}
 			</p>
 			
-			<h2>Brain</h2>
+			<!-- <h2>Brain</h2>
 			<p class="brain">
 				<span :class="n.type" :style="{backgroundColor:n.color}" v-for="n of focus_boid_data.brainnodes">{{n.symbol}}</span>
-			</p>
+			</p> -->
 			
+		</section>
+		<section class="boid-motors" v-if="focus_boid_data">			
 			<h2>Motors</h2>
 			<div v-for="m of focus_boid_data.motors">
 				<!-- <progress :value="m.this_stoke_time ? (m.strokepow * (1-(m.t / m.this_stoke_time))) : 0"></progress> -->
@@ -270,11 +280,15 @@ function ClickMap( event ) {
 				{{m.name}}, <i>{{m.strokefunc}}</i>, &gt;{{m.min_act.toFixed(2)}}
 			</div>
 			
+		</section>
+		<section class="boid-sensors" v-if="focus_boid_data">			
 			<h2>Sensors</h2>
 			<div v-for="i of focus_boid_data.sensors">
 				<progress :value="i.val"></progress> &nbsp; {{i.name}}
 			</div>
 			
+		</section>
+		<section class="boid-brain-output" v-if="focus_boid_data">			
 			<h2>NN Outputs</h2>
 			<div v-for="o of focus_boid_data.outputs">
 				<progress :value="o.val"></progress> &nbsp; {{o.name}}
@@ -295,7 +309,7 @@ function ClickMap( event ) {
 		visibility: visible;		
 		/* border: 1px solid white; */
 		display:grid;
-		grid-template-columns: 10rem 1.35fr 30em;
+		grid-template-columns: 10rem 0.65fr 0.65fr 30em;
 		grid-template-rows: 1fr 1fr;
 		gap: 1rem;
 	}
@@ -310,11 +324,11 @@ function ClickMap( event ) {
 	}
 	.boid-detail {
 		grid-row: 1 / 3;
-		grid-column: 3 / 4;
+		grid-column: 4 / 5;
 		
 	}
 	.boid-braingraph-panel {
-		grid-row: 1 / 3;
+		grid-row: 1 / 2;
 		grid-column: 2 / 3;
 		backdrop-filter: blur(4px);
 	}

@@ -5,6 +5,7 @@ import Rock from '../classes/class.Rock.js'
 import * as utils from '../util/utils.js'
 import {Circle, Polygon, Result} from 'collisions';
 const { architect, Network } = neataptic;
+import Two from "two.js";
 
 export function BoidFactory( type, x, y, tank ) {
 	return Boid.Random(x, y, tank);
@@ -165,6 +166,45 @@ export class Boid {
 		else {
 			for ( let i=0; i < this.motors.length; i++ ) {
 				this.ActivateMotor( i, 0, delta );
+			}
+		}
+		
+		// [!]EXPERIMENTAL - Animate geometry - proof of concept
+		// There is just enough here to be amusing, but its not accurate and needs improvement
+		if ( window.vc.animate_boids ) {
+			for ( let m=0; m < this.motors.length; m++ ) {
+				if ( m >= this.bodyplan.geo.vertices.length ) { break; }
+				// effect based on stroke power
+				const effect1 = ( this.motors[m].this_stoke_time && this.motors[m].last_amount )
+					? (this.motors[m].this_stoke_time ? this.motors[m].last_amount : 0)
+					: 0;
+				// effect based on stroke time (smoother but less accurate)
+				const effect2 = this.motors[m].this_stoke_time 
+					? (Math.sin(((this.motors[m].t||0)/this.motors[m].this_stoke_time) * Math.PI))
+					: 0;
+				// blended result
+				const effect = (effect1 + effect2) / 2;
+				
+				let v = this.bodyplan.geo.vertices[m];
+				if ( !v.origin ) { 
+					v.origin = new Two.Vector().copy(v); 
+					v.xoff = (0.1 + Math.random()) * 0.25 * this.length;
+					v.yoff = (0.1 + Math.random()) * 0.25 * this.width;
+				}
+				v.x = v.origin.x + v.xoff * effect;
+				// do opposing vertex
+				const oppo_index = this.bodyplan.OppositePoint(m, this.bodyplan.geo.vertices.length);
+				if ( oppo_index !== m ) { 
+					v.y = v.origin.y + v.yoff * effect;
+					const v2 = this.bodyplan.geo.vertices[oppo_index]; 
+					if ( !v2.origin ) { 
+						v2.origin = new Two.Vector().copy(v2); 
+						v2.xoff = v.xoff;
+						v2.yoff = -v.yoff;
+					}
+					v2.x = v2.origin.x + v2.xoff * effect;
+					v2.y = v2.origin.y + v2.yoff * effect;
+				}
 			}
 		}
 		
@@ -506,7 +546,7 @@ export class Boid {
 		b.brain_complexity = utils.BiasedRand(0.5,5,2,0.8);
 		let middle_nodes = utils.BiasedRandInt(0,12,3,0.3);
 		let connections = Math.trunc(  b.brain_complexity * ( b.sensors.length + middle_nodes + b.motors.length ) );
-		let network_type = 'perceptron'; // Math.random() > 0.65 ? 'perceptron' : 'random';
+		let network_type = Math.random() > 0.5 ? 'perceptron' : 'random';
 		b.MakeBrain( b.sensors.length, middle_nodes, b.motors.length, connections, network_type );
 		// crazytown
 		for ( let n=0; n< 50; n++ ) {
