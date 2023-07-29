@@ -443,7 +443,9 @@ export class Boid {
 		}
 		
 		// motors
-		const num_motors = utils.BiasedRandInt(1,8,3,0.5);
+		const num_motors = utils.BiasedRandInt(1,8,3,0.5) * ( Math.random() > 0.99 ? 2 : 1 ) ;
+		let has_linear = false;
+		let has_angular = false;
 		for ( let n=0; n < num_motors; n++ ) {
 			let strokefunc = Math.random();
 			let wheel = Math.random() > 0.75 ? true : false;
@@ -463,14 +465,14 @@ export class Boid {
 			let angular = utils.BiasedRandInt( 1, 100, 20, 0.5 );
 			if ( Math.random() > 0.65 ) { linear = -linear; }
 			if ( Math.random() > 0.65 ) { angular = -angular; }
-			// if we roll a 1, it MUST be a combo
+			// all organisms must have ability to move forward and turn
 			if ( num_motors > 1 ) {
 				const combo_chance = Math.random();
-				if ( combo_chance > 0.75 ) { linear = 0; }
-				else if ( combo_chance < 0.25 ) { angular = 0; }
+				if ( combo_chance > 0.75 && ( n < num_motors-1 || has_linear ) ) { linear = 0; }
+				else if ( combo_chance < 0.25 && ( n < num_motors-1 || has_angular ) ) { angular = 0; }
 			}
-			if ( linear ) { motor.linear = linear; }
-			if ( angular ) { motor.angular = angular; }
+			if ( linear ) { motor.linear = linear; has_linear = true; }
+			if ( angular ) { motor.angular = angular; has_angular = true; }
 			// certain stroke functions alter the power to make sure things do go bonkers
 			if ( strokefunc == 'burst' || strokefunc == 'spring' ) {
 				if ( motor.linear ) { motor.linear *= 3; }
