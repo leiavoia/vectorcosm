@@ -15,6 +15,7 @@ export default class Tank {
 		this.foods = [];
 		this.threats = [];
 		this.obstacles = [];
+		this.plants = [];
 		this.grid = new SpaceGrid(w,h,200);
 	}
 	
@@ -29,6 +30,7 @@ export default class Tank {
 	MakeBackground() {
 		if ( this.bg ) { this.bg.remove(); }
 		this.bg = window.two.makeGroup();
+		// return;
 		let bgnumpts = Math.trunc(Math.random() * 200) + 10;
 		let bgpts = [];
 		bgpts.push( [0, 0] );
@@ -100,6 +102,7 @@ export default class Tank {
 	}
 	
 	ScaleBackground() {
+		// return;
 		// scale the background until it covers the scene - should look static
 		this.bg.scale = 1; // reset to one
 		const rect = this.bg.getBoundingClientRect(true);

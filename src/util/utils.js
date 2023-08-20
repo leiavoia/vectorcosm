@@ -139,9 +139,10 @@ export function RandomInt( min, max ) {
 // http://stackoverflow.com/questions/29325069/how-to-generate-random-numbers-biased-towards-one-value-in-a-range
 export function BiasedRand(min, max, bias, influence /* 0.0..1.0 more influence = less range */) {
 	let rnd = Math.random() * (max - min) + min;   // random in range
-	let mix = 1 - ( Math.random() * influence );   // random mixer - higher influence number means more spread
+	let mix = Math.random() * influence;   // random mixer - higher influence number means more spread
 	return rnd * (1 - mix) + bias * mix;           // mix full range and bias
 	}
+	
 export function BiasedRandInt(min, max, bias, influence) {
 	return Math.floor( BiasedRand(min, max+0.99999, bias, influence) );
 	}
@@ -302,4 +303,37 @@ export function RandomName(maxlength = 10) {
 	}
 	return str;
 }
+
+
+// BASE64 codec - For 32 bit ints: -2147483648 to 2147483647 (inclusive).
+// SEE: https://stackoverflow.com/questions/6213227/fastest-way-to-convert-a-number-to-radix-64-in-javascript
+const digitsStr = 
+//   0       8       16      24      32      40      48      56     63
+//   v       v       v       v       v       v       v       v      v
+	"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz+/";
+const digits = digitsStr.split('');
+const digitsMap = {};
+for (var i = 0; i < digits.length; i++) {
+	digitsMap[digits[i]] = i;
+}
 	
+export function NumberToBase64( int32 ) {
+	var result = '';
+	while (true) {
+		result = digits[int32 & 0x3f] + result;
+		int32 >>>= 6;
+		if (int32 === 0)
+			break;
+	}
+	return result;
+}
+
+export function Base64ToNumber( digitsStr ) {
+	var result = 0;
+	var digits = digitsStr.split('');
+	for (var i = 0; i < digits.length; i++) {
+		result = (result << 6) + digitsMap[digits[i]];
+	}
+	return result;
+
+}

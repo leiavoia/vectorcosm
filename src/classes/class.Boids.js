@@ -212,6 +212,29 @@ export class Boid {
 		// [!]EXPERIMENTAL - Animate geometry - proof of concept
 		// There is just enough here to be amusing, but its not accurate and needs improvement
 		if ( window.vc.animate_boids ) {
+		
+			// for ( let m of this.motors ) {
+			// 	if ( m.anim.index < 0 || m.anim.index >= this.bodyplan.geo.vertices.length ) { break; }
+				
+			// 	// effect based on stroke power
+			// 	const effect1 = ( m.this_stoke_time && m.last_amount )
+			// 		? (m.this_stoke_time ? m.last_amount : 0)
+			// 		: 0;
+			// 	// effect based on stroke time (smoother but less accurate)
+			// 	const effect2 = m.this_stoke_time 
+			// 		? (Math.sin(((m.t||0)/m.this_stoke_time) * Math.PI))
+			// 		: 0;
+			// 	// blended result
+			// 	const effect = (effect1 + effect2) / 2;
+				
+			// 	let v = this.bodyplan.geo.vertices[m.anim.index];
+			// 	if ( !v.origin ) { 
+			// 		v.origin = new Two.Vector().copy(v); 
+			// 	}
+			// 	v.x = v.origin.x + m.anim.xval * effect;
+			// 	v.y = v.origin.y + m.anim.yval * effect;
+			// }
+			
 			for ( let m=0; m < this.motors.length; m++ ) {
 				if ( m >= this.bodyplan.geo.vertices.length ) { break; }
 				// effect based on stroke power
@@ -235,7 +258,7 @@ export class Boid {
 				// do opposing vertex
 				const oppo_index = this.bodyplan.OppositePoint(m, this.bodyplan.geo.vertices.length);
 				if ( oppo_index !== m ) { 
-					v.y = v.origin.y + v.yoff * effect;
+					v.y = v.origin.y + v.yoff * effect2;
 					const v2 = this.bodyplan.geo.vertices[oppo_index]; 
 					if ( !v2.origin ) { 
 						v2.origin = new Two.Vector().copy(v2); 
@@ -243,7 +266,7 @@ export class Boid {
 						v2.yoff = -v.yoff;
 					}
 					v2.x = v2.origin.x + v2.xoff * effect;
-					v2.y = v2.origin.y + v2.yoff * effect;
+					v2.y = v2.origin.y + v2.yoff * effect2;
 				}
 			}
 		}
@@ -524,7 +547,7 @@ export class Boid {
 		}
 		
 		// motors
-		const num_motors = utils.BiasedRandInt(1,8,3,0.5) * ( Math.random() > 0.99 ? 2 : 1 ) ;
+		const num_motors = utils.BiasedRandInt(1,6,3,0.65) * ( Math.random() > 0.995 ? 2 : 1 ) ;
 		let has_linear = false;
 		let has_angular = false;
 		for ( let n=0; n < num_motors; n++ ) {
@@ -542,8 +565,8 @@ export class Boid {
 			else if ( strokefunc < 0.84 ) { strokefunc = 'spring'; }
 			else { strokefunc = 'constant'; }
 			let motor = { min_act, cost, stroketime, t:0, strokefunc, wheel };
-			let linear = utils.BiasedRandInt( 10, 2000, 800, 0.4 );
-			let angular = utils.BiasedRandInt( 1, 100, 20, 0.5 );
+			let linear = utils.BiasedRandInt( 10, 1800, 600, 0.6 );
+			let angular = utils.BiasedRandInt( 1, 100, 16, 0.5 );
 			if ( Math.random() > 0.65 ) { linear = -linear; }
 			if ( Math.random() > 0.65 ) { angular = -angular; }
 			// all organisms must have ability to move forward and turn
@@ -554,15 +577,23 @@ export class Boid {
 			}
 			if ( linear ) { motor.linear = linear; has_linear = true; }
 			if ( angular ) { motor.angular = angular; has_angular = true; }
-			// certain stroke functions alter the power to make sure things do go bonkers
+			// certain stroke functions alter the power to make sure things dont go bonkers
 			if ( strokefunc == 'burst' || strokefunc == 'spring' ) {
-				if ( motor.linear ) { motor.linear *= 3; }
-				if ( motor.angular ) { motor.angular *= 3; }
+				if ( motor.linear ) { motor.linear *= 2.5; }
+				if ( motor.angular ) { motor.angular *= 2.5; }
 			}
 			if ( strokefunc == 'constant' ) {
-				if ( motor.linear ) { motor.linear *= 0.64; }
-				if ( motor.angular ) { motor.angular *= 0.64; }
+				if ( motor.linear ) { motor.linear *= 0.6; }
+				if ( motor.angular ) { motor.angular *= 0.6; }
 			}
+			// animation
+			motor.anim = {
+				index:b.motors.length, // to be changed after body plan is created
+				xval: 10 + Math.random() * 25, 
+				yval: 10 + Math.random() * 25,
+				xfunc: Math.random() > 0.5 ? 'time' : 'blend',
+				yfunc: Math.random() > 0.5 ? 'time' : 'blend',
+			};
 			// naming
 			motor.name = (motor.linear && motor.angular) ? 'Combo' : (motor.linear ? 'Linear' : 'Angular');
 			if ( motor.wheel ) { motor.name += ' Wheel'; }
@@ -573,7 +604,11 @@ export class Boid {
 				motor2.angular = -motor.angular;
 				motor2.name = motor.name + ' B';
 				motor.name = motor.name + ' A';
+				motor2.anim = Object.assign( {}, motor.anim );
+				motor2.anim.yval = -motor2.anim.yval;
 				b.motors.push(motor2);
+				motor.sym = b.motors.length - 1; // index links to each partner
+				motor2.sym = b.motors.length - 2;
 			} 
 		}
 			
@@ -583,6 +618,30 @@ export class Boid {
 		b.bodyplan.complexity_factor = utils.Clamp( b.bodyplan.complexity_factor, 0, 1 ); 
 		b.bodyplan.RandomizePoints();
 			
+		// // connect motor animations to specific points
+		// let leftside_motors = b.motors.filter( m => typeof(m.sym)=='undefined' || m.sym < b.motors[m.sym].sym );
+		// for ( let i=0; i < leftside_motors.length; i++ ) {
+		// 	const m = leftside_motors[i];
+		// 	const p = i+1;
+		// 	// not enough points to give each one a different motor
+		// 	if ( p >= Math.trunc((b.bodyplan.points.length)/2) ) {
+		// 		m.anim.index = -1;
+		// 	}
+		// 	// assign the motor to the next point on the body
+		// 	else {
+		// 		// if there is a twin, assign that to the symmetrical point
+		// 		if ( m.sym ) {
+		// 			m.anim.index = p;
+		// 			const opp = b.bodyplan.OppositePoint(p, b.bodyplan.points.length);
+		// 			b.motors[m.sym].anim.index = opp; 
+		// 		}
+		// 		// singles use the nose or toe point
+		// 		else {
+		// 			m.anim.index = 0;
+		// 		}
+		// 	}
+		// }
+					
 		// neuro stuff
 		b.brain_complexity = utils.BiasedRand(0.5,5,2,0.8);
 		let middle_nodes = utils.BiasedRandInt(0,12,3,0.3);
