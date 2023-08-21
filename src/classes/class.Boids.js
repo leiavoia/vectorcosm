@@ -514,7 +514,8 @@ export class Boid {
 				let sy = 0;
 				let r = utils.RandomInt(min_sensor_radius, max_sensor_radius) * (detect=='obstacles' ? 0.6 : 1.0);
 				let d = utils.RandomInt(min_sensor_radius, max_sensor_radius);
-				let a = Math.random() * Math.PI * 2;
+				// prefer sensors in front
+				let a = ( utils.BiasedRand(0, Math.PI * 2, Math.PI, 0.5) + Math.PI ) % (Math.PI * 2);
 				// TODO: update b when we revise body plan symmetry
 				// decide if sensor is going to be axially aligned or symmetrical
 				// axial / symmetry = 0
