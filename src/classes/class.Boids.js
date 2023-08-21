@@ -386,8 +386,7 @@ export class Boid {
 			const dx = Math.abs(food.x - this.x);
 			const dy = Math.abs(food.y - this.y);
 			const d = Math.sqrt(dx*dx + dy*dy);
-			let r = Math.max( this.body.width, this.body.length );
-			if ( d <= r + food.r ) { 
+			if ( d <= this.collision.radius + food.r ) { 
 				if ( food.IsEdibleBy(this) ) {
 					food.Eat(delta*5);  
 				}

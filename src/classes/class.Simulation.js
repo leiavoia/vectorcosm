@@ -318,7 +318,7 @@ export class FoodChaseSimulation extends Simulation {
 		for ( let s of b.sensors ) {
 			if ( s.detect=='food' ) { 
 				score_div++;
-				b.fitness_score += s.val * ( 20 / Math.max( b.width, b.length ) ); // bigger creatures get less score
+				b.fitness_score += s.val * ( 20 / Math.max( b.body.width, b.body.length ) ); // bigger creatures get less score
 			}
 		}
 		b.fitness_score /= score_div;
@@ -327,16 +327,16 @@ export class FoodChaseSimulation extends Simulation {
 			const dx = Math.abs(food.x - b.x);
 			const dy = Math.abs(food.y - b.y);
 			const d = Math.sqrt(dx*dx + dy*dy);
-			let r = Math.max( b.width, b.length );
+			let r = Math.max( b.body.width, b.body.length ) / 2;
 			let touching = r + food.r;
 			const margin = 150;
 			if ( d < touching + margin && food.IsEdibleBy(b) ) {
 				// small bonus for getting close
 				let score = ( margin - ( d - touching ) ) / margin ;
-				b.fitness_score += score * ( 20 / Math.max( b.width, b.length ) );  // bigger creatures get less score
+				b.fitness_score += score * ( 20 / Math.max( b.body.width, b.body.length ) );  // bigger creatures get less score
 				// big points if touching
 				if ( d <= touching ) { 
-					b.fitness_score += 5 * ( 20 / Math.max( b.width, b.length ) );  // bigger creatures get less score
+					b.fitness_score += 5 * ( 20 / Math.max( b.body.width, b.body.length ) );  // bigger creatures get less score
 				}
 			}
 						
