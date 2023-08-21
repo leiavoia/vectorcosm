@@ -190,8 +190,8 @@ function ClickMap( event ) {
 			boidviewer.clear();
 			let elem = document.getElementById('boidviewer');
 			boidviewer.appendTo(elem);
-			let geo = closest.bodyplan.geo.clone();
-			geo.dashes = closest.bodyplan.geo.dashes;
+			let geo = closest.body.geo.clone();
+			geo.dashes = closest.body.geo.dashes;
 			console.log(geo);
 			geo.position.x = boidviewer.width * 0.5;
 			geo.position.y = boidviewer.height * 0.5;

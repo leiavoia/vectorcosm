@@ -9,8 +9,12 @@ export default class BodyPlan {
 			Object.assign(this,points);
 		}
 		else {
-			this.length = 30; // default you can override
-			this.width = 20; // default you can override
+			this.length = 30; // collision size, must fit inside genomic boundary
+			this.width = 20; // collision size, must fit inside genomic boundary
+			this.max_length = 30; // genomic boundary
+			this.max_width = 20; // genomic boundary
+			this.min_length = 30; // genomic boundary
+			this.min_width = 20; // genomic boundary
 			this.points = points;
 			this.linewidth = 2;
 			this.stroke = "#AEA";
@@ -28,6 +32,10 @@ export default class BodyPlan {
 		let bp = new BodyPlan( this.points.map( x => [ x[0], x[1] ] ) );
 		bp.length = this.length;
 		bp.width = this.width;		
+		bp.max_length = this.max_length;
+		bp.max_width = this.max_width;		
+		bp.min_length = this.min_length;
+		bp.min_width = this.min_width;		
 		bp.linewidth = this.linewidth;
 		bp.stroke = this.stroke;
 		bp.fill = this.fill;
@@ -60,6 +68,7 @@ export default class BodyPlan {
 		// standard forward nose point required for all body plans
 		pts.unshift( [this.length/2, 0] );
 		this.points = pts;
+		this.RescaleShape();
 		this.UpdateGeometry();
 	}
 	
@@ -71,6 +80,10 @@ export default class BodyPlan {
 		bp.complexity_factor = utils.Clamp( complexity||0.1, 0, 1 );
 		bp.length = utils.BiasedRandInt(8,100,20,0.9);
 		bp.width = utils.BiasedRandInt(8,60,14,0.9);
+		bp.max_length = bp.length * utils.BiasedRand(1,1.5,1.1,0.3);
+		bp.max_width = bp.width * utils.BiasedRand(1,1.5,1.1,0.3);
+		bp.min_length = bp.length * utils.BiasedRand(0.6,1,0.9,0.3);
+		bp.min_width = bp.width * utils.BiasedRand(0.6,1,0.9,0.3);
 		bp.max_jitter_pct = utils.BiasedRand(0,0.2,0.05,0.8);
 		bp.augmentation_pct = utils.BiasedRand(0,0.04,0.01,0.9);
 		bp.curved = Math.random() > 0.7;
@@ -112,20 +125,6 @@ export default class BodyPlan {
 	
 	UpdateGeometry() {
 		if ( this.points ) {
-			let anchors = this.points.map( p => new Two.Anchor( p[0], p[1] ) );
-			if ( !this.geo ) { 
-				this.geo = window.two.makePath(anchors);
-			}
-			else {
-				// technical: two.js has update hooks connected to splice function
-				this.geo.vertices.splice(0, this.geo.vertices.length, ...anchors);
-			}
-			this.geo.linewidth = this.linewidth;
-			this.geo.stroke = this.stroke;
-			this.geo.fill = this.fill;
-			this.geo.curved = this.curved;
-			this.geo.dashes = this.dashes;
-			this.geo.center(); // not sure if this does anything useful
 			// recenter the vertices
 			let minx = null; // do not start at zero!
 			let maxx = null; // do not start at zero!
@@ -145,6 +144,20 @@ export default class BodyPlan {
 				p[0] += x_adj;
 				p[1] += y_adj;
 			}
+			// build the shape
+			let anchors = this.points.map( p => new Two.Anchor( p[0], p[1] ) );
+			if ( !this.geo ) { 
+				this.geo = window.two.makePath(anchors);
+			}
+			else {
+				// technical: two.js has update hooks connected to splice function
+				this.geo.vertices.splice(0, this.geo.vertices.length, ...anchors);
+			}
+			this.geo.linewidth = this.linewidth;
+			this.geo.stroke = this.stroke;
+			this.geo.fill = this.fill;
+			this.geo.curved = this.curved;
+			this.geo.dashes = this.dashes;
 		}
 	}
 	
@@ -213,7 +226,18 @@ export default class BodyPlan {
 		else {
 			this.JitterPoints();	
 		}
-		this.RescaleShape(this.length, this.width); // TODO: EXTERNALIZE
+		// Rescaling on mutation keeps the organism within a safe bounding box.
+		// Remove this if you want to let nature take its course (and spiral out of control).
+		// random chance to alter genomic shape
+		this.max_length *= 1 + 0.01 * Math.random();
+		this.max_width *= 1 + 0.01 * Math.random();
+		this.min_length *= 1 + 0.01 * Math.random();
+		this.min_width *= 1 + 0.01 * Math.random();
+		this.max_length = utils.Clamp( this.max_length, this.min_length, 300 ); // sanity
+		this.max_width = utils.Clamp( this.max_width, this.min_width, 300 );		
+		this.min_length = utils.Clamp( this.min_length, 5, this.max_length );
+		this.min_width = utils.Clamp( this.min_width, 5, this.max_width );	
+		this.RescaleShape();
 		this.UpdateGeometry();
 	}
 	
@@ -246,18 +270,28 @@ export default class BodyPlan {
 		return Math.abs(max - min);
 	}
 	
-	RescaleShape(maxw, maxh) {
-		let scalex = maxw / this.ShapeWidth();
-		let scaley = maxh / this.ShapeHeight();
+	RescaleShape() {
+		let shape_w = this.ShapeWidth();
+		let shape_h = this.ShapeHeight();
+		let maxscalex = this.max_length / shape_w; // be careful - not a typo
+		let maxscaley = this.max_width / shape_h; 
+		let minscalex = this.min_length / shape_w;
+		let minscaley = this.min_width / shape_h;
+		
 		// scale up to fill the box
-		let scale = Math.min(scaley,scalex);
-		// if either scale is overflowing the max, scale both down
-		if ( scalex < 1 || scaley < 1 ) {
-			scale = Math.min(scaley,scalex);
+		let xscale = 1;
+		let yscale = 1;
+		if ( shape_w > this.max_length ) { xscale = this.max_length / shape_w; }
+		else if ( shape_w < this.min_length ) { xscale = this.min_length / shape_w; }
+		if ( shape_h > this.max_width ) { yscale = this.max_width / shape_h; }
+		else if ( shape_h < this.min_width ) { yscale = this.min_width / shape_h; }
+		if ( xscale !== 1 || yscale !== 1 ) {
+			for ( let p of this.points ) {
+				p[0] *= xscale;
+				p[1] *= yscale;
+			}
 		}
-		for ( let p of this.points ) {
-			p[0] *= scale;
-			p[1] *= scale;
-		}
+		this.width = this.ShapeHeight(); // terminology mismatch, but actually correct
+		this.length = this.ShapeWidth();
 	}
 }		

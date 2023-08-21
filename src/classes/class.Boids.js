@@ -95,8 +95,6 @@ export class Boid {
 		this.maxspeed = 2000; // these are global maximum speeds to prevent collision detection from breaking in fringe cases
 		this.maxrot = 20;
 		this.angle = Math.random()*Math.PI*2;
-		this.length = 30;
-		this.width = 15;
 		this.inertia = 0; // forward motion power, can be negative
 		this.angmo = 0; // angular momentum / rotational inertia
 		this.energy_cost = 0.15;
@@ -124,10 +122,10 @@ export class Boid {
 		// rehydrate objects from JSON if supplied
 		if ( json && typeof json === 'object' ) {
 			Object.assign(this,json);
-			this.collision.radius = Math.max(this.length,this.width);
 			this.brain = neataptic.Network.fromJSON(this.brain);
-			this.bodyplan = new BodyPlan(this.bodyplan);
-			this.container.add([this.bodyplan.geo]);
+			this.body = new BodyPlan(this.body);
+			this.collision.radius = Math.max(this.body.length, this.body.width) / 2;
+			this.container.add([this.body.geo]);
 			this.sensors = this.sensors.map( s => new Sensor(s,this) );
 			this.MakeSensors(); // adds geometry and stuff
 		}
@@ -214,7 +212,7 @@ export class Boid {
 		if ( window.vc.animate_boids ) {
 		
 			// for ( let m of this.motors ) {
-			// 	if ( m.anim.index < 0 || m.anim.index >= this.bodyplan.geo.vertices.length ) { break; }
+			// 	if ( m.anim.index < 0 || m.anim.index >= this.body.geo.vertices.length ) { break; }
 				
 			// 	// effect based on stroke power
 			// 	const effect1 = ( m.this_stoke_time && m.last_amount )
@@ -227,7 +225,7 @@ export class Boid {
 			// 	// blended result
 			// 	const effect = (effect1 + effect2) / 2;
 				
-			// 	let v = this.bodyplan.geo.vertices[m.anim.index];
+			// 	let v = this.body.geo.vertices[m.anim.index];
 			// 	if ( !v.origin ) { 
 			// 		v.origin = new Two.Vector().copy(v); 
 			// 	}
@@ -236,7 +234,7 @@ export class Boid {
 			// }
 			
 			for ( let m=0; m < this.motors.length; m++ ) {
-				if ( m >= this.bodyplan.geo.vertices.length ) { break; }
+				if ( m >= this.body.geo.vertices.length ) { break; }
 				// effect based on stroke power
 				const effect1 = ( this.motors[m].this_stoke_time && this.motors[m].last_amount )
 					? (this.motors[m].this_stoke_time ? this.motors[m].last_amount : 0)
@@ -248,18 +246,18 @@ export class Boid {
 				// blended result
 				const effect = (effect1 + effect2) / 2;
 				
-				let v = this.bodyplan.geo.vertices[m];
+				let v = this.body.geo.vertices[m];
 				if ( !v.origin ) { 
 					v.origin = new Two.Vector().copy(v); 
-					v.xoff = (0.1 + Math.random()) * 0.25 * this.length * (Math.random() > 0.5 ? 1 : -1 );
-					v.yoff = (0.1 + Math.random()) * 0.25 * this.width * (Math.random() > 0.5 ? 1 : -1 );
+					v.xoff = (0.1 + Math.random()) * 0.25 * this.body.length * (Math.random() > 0.5 ? 1 : -1 );
+					v.yoff = (0.1 + Math.random()) * 0.25 * this.body.width * (Math.random() > 0.5 ? 1 : -1 );
 				}
 				v.x = v.origin.x + v.xoff * effect;
 				// do opposing vertex
-				const oppo_index = this.bodyplan.OppositePoint(m, this.bodyplan.geo.vertices.length);
+				const oppo_index = this.body.OppositePoint(m, this.body.geo.vertices.length);
 				if ( oppo_index !== m ) { 
 					v.y = v.origin.y + v.yoff * effect2;
-					const v2 = this.bodyplan.geo.vertices[oppo_index]; 
+					const v2 = this.body.geo.vertices[oppo_index]; 
 					if ( !v2.origin ) { 
 						v2.origin = new Two.Vector().copy(v2); 
 						v2.xoff = v.xoff;
@@ -356,7 +354,7 @@ export class Boid {
 		
 		// collision detection with obstacles
 		// things i might collide with:
-		let my_radius = Math.max(this.length, this.width) * 0.5;
+		let my_radius = Math.max(this.body.length, this.body.width) * 0.5;
 		let candidates = this.tank.grid.GetObjectsByBox( 
 			this.x - my_radius,
 			this.y - my_radius,
@@ -378,7 +376,7 @@ export class Boid {
 				this.inertia *= 0.75; // what a drag
 				this.container.position.x = this.x;
 				this.container.position.y = this.y;
-				// this.bodyplan.geo.fill = '#D11';
+				// this.body.geo.fill = '#D11';
 				this.collision.contact_obstacle = true;
 			}
 		}
@@ -388,7 +386,7 @@ export class Boid {
 			const dx = Math.abs(food.x - this.x);
 			const dy = Math.abs(food.y - this.y);
 			const d = Math.sqrt(dx*dx + dy*dy);
-			let r = Math.max( this.width, this.length );
+			let r = Math.max( this.body.width, this.body.length );
 			if ( d <= r + food.r ) { 
 				if ( food.IsEdibleBy(this) ) {
 					food.Eat(delta*5);  
@@ -476,7 +474,7 @@ export class Boid {
 		}
 	}
 	Kill() {
-		this.bodyplan.geo.remove();
+		this.body.geo.remove();
 		this.sensors.forEach(x=> x?.geo ? x.geo.remove() : null );
 		this.container.remove();
 		this.dead = true;
@@ -495,19 +493,16 @@ export class Boid {
 		b.energy = b.max_energy;
 		b.maxspeed = 600;
 		b.maxrot = 20;
-		b.collision.radius = Math.max(b.length, b.width) / 2;
 		b.energy_cost = 0.15;
 		b.diet = Math.random();
 		b.diet_range = Math.max( Math.random()*0.5, 0.05 );
-		b.bodyplan = BodyPlan.Random();
-		b.container.add([b.bodyplan.geo]);
-		// [!]temporary?:
-		b.length = b.bodyplan.length;
-		b.width = b.bodyplan.width;
+		b.body = BodyPlan.Random();
+		b.container.add([b.body.geo]);
+		b.collision.radius = Math.max(b.body.length, b.body.width) / 2;
 		
 		// sensors:
 		// food and obstacle sensors are mandatory - its just a matter of how many
-		const my_max_dim = Math.max( b.length, b.width );
+		const my_max_dim = Math.max( b.body.length, b.body.width );
 		const max_sensor_distance = Math.sqrt(my_max_dim) * 40;
 		const max_sensor_radius = Math.sqrt(my_max_dim) * 35;
 		const min_sensor_distance = Math.min( my_max_dim, max_sensor_distance );
@@ -614,9 +609,9 @@ export class Boid {
 			
 		// make the body complexity loosely match ability
 		let complexity_variance = Math.random() * 0.2 - 0.1;
-		b.bodyplan.complexity_factor = complexity_variance + ( (b.sensors.length + b.motors.length) / 30 ); // magic numbers
-		b.bodyplan.complexity_factor = utils.Clamp( b.bodyplan.complexity_factor, 0, 1 ); 
-		b.bodyplan.RandomizePoints();
+		b.body.complexity_factor = complexity_variance + ( (b.sensors.length + b.motors.length) / 30 ); // magic numbers
+		b.body.complexity_factor = utils.Clamp( b.body.complexity_factor, 0, 1 ); 
+		b.body.RandomizePoints();
 			
 		// // connect motor animations to specific points
 		// let leftside_motors = b.motors.filter( m => typeof(m.sym)=='undefined' || m.sym < b.motors[m.sym].sym );
@@ -624,7 +619,7 @@ export class Boid {
 		// 	const m = leftside_motors[i];
 		// 	const p = i+1;
 		// 	// not enough points to give each one a different motor
-		// 	if ( p >= Math.trunc((b.bodyplan.points.length)/2) ) {
+		// 	if ( p >= Math.trunc((b.body.points.length)/2) ) {
 		// 		m.anim.index = -1;
 		// 	}
 		// 	// assign the motor to the next point on the body
@@ -632,7 +627,7 @@ export class Boid {
 		// 		// if there is a twin, assign that to the symmetrical point
 		// 		if ( m.sym ) {
 		// 			m.anim.index = p;
-		// 			const opp = b.bodyplan.OppositePoint(p, b.bodyplan.points.length);
+		// 			const opp = b.body.OppositePoint(p, b.body.points.length);
 		// 			b.motors[m.sym].anim.index = opp; 
 		// 		}
 		// 		// singles use the nose or toe point
@@ -662,13 +657,13 @@ export class Boid {
 	Copy( mutate=false ) {
 		let b = new Boid(this.x, this.y, this.tank);
 		// POD we can just copy over
-		let datakeys = ['species','max_energy','energy','maxspeed','maxrot','length','width','energy_cost','brain_complexity','diet','diet_range','dna'];
+		let datakeys = ['species','max_energy','energy','maxspeed','maxrot','energy_cost','brain_complexity','diet','diet_range','dna'];
 		for ( let k of datakeys ) { b[k] = this[k]; }
 		b.collision.radius = this.collision.radius;
 		// body plan stuff
-		if ( b?.bodyplan?.geo ) b.bodyplan.geo.remove(); // out with the old
-		b.bodyplan = this.bodyplan.Copy(); // in with the new
-		b.container.add([b.bodyplan.geo]);
+		if ( b?.body?.geo ) b.body.geo.remove(); // out with the old
+		b.body = this.body.Copy(); // in with the new
+		b.container.add([b.body.geo]);
 		b.sensors = this.sensors.map( s => {
 			let data = JSON.parse( JSON.stringify(s,['x','y','r','l','a','angle','detect','name']) );
 			return new Sensor(data,b);
@@ -677,9 +672,11 @@ export class Boid {
 		b.motors = JSON.parse( JSON.stringify(this.motors) );
 		b.brain = neataptic.Network.fromJSON(this.brain.toJSON());
 		if ( mutate ) {
-			b.bodyplan.Mutate();
+			b.body.Mutate();
+			b.collision.radius = Math.max(b.body.length, b.body.width) / 2;
 		}
 		b.generation = this.generation + 1;
+	
 		return b;
 	}
 			
@@ -688,8 +685,8 @@ export class Boid {
 		// POD we can just copy over
 		let datakeys = ['id','x','y','species','max_energy','energy','maxspeed','maxrot','length','width','energy_cost','brain_complexity','generation','diet','diet_range','dna'];
 		for ( let k of datakeys ) { b[k] = this[k]; }
-		b.bodyplan = {};
-		for ( let k of Object.keys(this.bodyplan).filter( _ => !['geo'].includes(_) ) ) { b.bodyplan[k] = this.bodyplan[k]; }
+		b.body = {};
+		for ( let k of Object.keys(this.body).filter( _ => !['geo'].includes(_) ) ) { b.body[k] = this.body[k]; }
 		b.sensors = this.sensors.map( s => {
 			return JSON.parse( JSON.stringify(s,['x','y','r','l','a','angle','detect','name']) );
 		} );
@@ -701,6 +698,65 @@ export class Boid {
 			output = JSON.stringify(b).replace(/\d+\.\d+/g, x => parseFloat(x).toPrecision(6) );
 		}
 		return output;
+	}
+	
+	// For debugging collision and bodyplan stuff
+	DrawBounds( on=true ) {
+		if ( this.bounds1 ) { this.bounds1.remove(); this.bounds1 = null; }
+		if ( this.bounds2 ) { this.bounds2.remove(); this.bounds2 = null; }
+		if ( this.bounds3 ) { this.bounds3.remove(); this.bounds3 = null; }
+		if ( this.bounds4 ) { this.bounds4.remove(); this.bounds4 = null; }
+		
+		if ( on ) {
+			// actual shape size
+			let pts = [
+				[ -this.body.length/2, this.body.width/2 ],
+				[ this.body.length/2, this.body.width/2 ],
+				[ this.body.length/2, -this.body.width/2 ],
+				[ -this.body.length/2, -this.body.width/2 ],
+			];
+			let anchors = pts.map( p => new Two.Anchor( p[0], p[1] ) );
+			this.bounds1 = window.two.makePath(anchors);
+			this.bounds1.linewidth = 1;
+			this.bounds1.stroke = 'pink';
+			this.bounds1.fill = 'transparent';
+			this.container.add([this.bounds1]);
+			
+			// max genomic size
+			let pts2 = [
+				[ -this.body.max_length/2, this.body.max_width/2 ],
+				[ this.body.max_length/2, this.body.max_width/2 ],
+				[ this.body.max_length/2, -this.body.max_width/2 ],
+				[ -this.body.max_length/2, -this.body.max_width/2 ],
+			];
+			let anchors2 = pts2.map( p => new Two.Anchor( p[0], p[1] ) );
+			this.bounds2 = window.two.makePath(anchors2);
+			this.bounds2.linewidth = 1;
+			this.bounds2.stroke = 'lime';
+			this.bounds2.fill = 'transparent';
+			this.container.add([this.bounds2]);
+					
+			// min genomic size				
+			let pts3 = [
+				[ -this.body.min_length/2, this.body.min_width/2 ],
+				[ this.body.min_length/2, this.body.min_width/2 ],
+				[ this.body.min_length/2, -this.body.min_width/2 ],
+				[ -this.body.min_length/2, -this.body.min_width/2 ],
+			];
+			let anchors3 = pts3.map( p => new Two.Anchor( p[0], p[1] ) );
+			this.bounds3 = window.two.makePath(anchors3);
+			this.bounds3.linewidth = 1;
+			this.bounds3.stroke = 'cyan';
+			this.bounds3.fill = 'transparent';
+			this.container.add([this.bounds3]);
+			
+			// collision circle
+			this.bounds4 = window.two.makeCircle(0,0,Math.max(this.body.length,this.body.width)/2);
+			this.bounds4.linewidth = 1;
+			this.bounds4.stroke = 'red';
+			this.bounds4.fill = 'transparent';
+			this.container.add([this.bounds4]);
+		}
 	}
 	
 };
