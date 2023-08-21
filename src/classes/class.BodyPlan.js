@@ -226,17 +226,18 @@ export default class BodyPlan {
 		else {
 			this.JitterPoints();	
 		}
+		// random chance to alter genomic shape.
+		// NOTE: this tends to promote gigantism unless there is environmental pressure against it.
+		// 	this.max_length *= 1 + 0.01 * Math.random();
+		// 	this.max_width *= 1 + 0.01 * Math.random();
+		// 	this.min_length *= 1 + 0.01 * Math.random();
+		// 	this.min_width *= 1 + 0.01 * Math.random();
+		// 	this.max_length = utils.Clamp( this.max_length, this.min_length, 300 ); // sanity
+		// 	this.max_width = utils.Clamp( this.max_width, this.min_width, 300 );		
+		// 	this.min_length = utils.Clamp( this.min_length, 5, this.max_length );
+		// 	this.min_width = utils.Clamp( this.min_width, 5, this.max_width );	
 		// Rescaling on mutation keeps the organism within a safe bounding box.
 		// Remove this if you want to let nature take its course (and spiral out of control).
-		// random chance to alter genomic shape
-		this.max_length *= 1 + 0.01 * Math.random();
-		this.max_width *= 1 + 0.01 * Math.random();
-		this.min_length *= 1 + 0.01 * Math.random();
-		this.min_width *= 1 + 0.01 * Math.random();
-		this.max_length = utils.Clamp( this.max_length, this.min_length, 300 ); // sanity
-		this.max_width = utils.Clamp( this.max_width, this.min_width, 300 );		
-		this.min_length = utils.Clamp( this.min_length, 5, this.max_length );
-		this.min_width = utils.Clamp( this.min_width, 5, this.max_width );	
 		this.RescaleShape();
 		this.UpdateGeometry();
 	}
