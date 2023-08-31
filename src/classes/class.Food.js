@@ -78,13 +78,10 @@ export default class Food {
 	// returns the amount eaten
 	Eat(amount) { 
 		if ( this.dead || !this.value ) { return 0; }
-		let eaten = Math.min( this.value, amount );
+		const eaten = Math.min( this.value, amount );
 		this.value -= eaten;
-		if ( this.value <= 0 ) { 
-			this.Kill();
-			return true;
-		}
-		return 0;
+		if ( this.value <= 0 ) { this.Kill(); }
+		return eaten;
 	}
 	Kill() {
 		this.geo.remove();

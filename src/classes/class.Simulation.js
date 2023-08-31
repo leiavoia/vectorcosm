@@ -26,22 +26,6 @@ export default class Simulation {
 			// 	avg_score_rounds: 5
 			// },
 			species: 'Boid',
-			mutation_options: [
-				[ neataptic.methods.mutation.ADD_NODE, 			16 ],
-				[ neataptic.methods.mutation.SUB_NODE, 			20 ],
-				[ neataptic.methods.mutation.ADD_CONN, 			34 ],
-				[ neataptic.methods.mutation.SUB_CONN, 			40 ],
-				[ neataptic.methods.mutation.MOD_WEIGHT, 		1000 ],
-				[ neataptic.methods.mutation.MOD_BIAS, 			500 ],
-				[ neataptic.methods.mutation.MOD_ACTIVATION, 	15 ],
-				[ neataptic.methods.mutation.ADD_GATE, 			10 ],
-				[ neataptic.methods.mutation.SUB_GATE, 			10 ],
-				[ neataptic.methods.mutation.ADD_SELF_CONN, 	10 ],
-				[ neataptic.methods.mutation.SUB_SELF_CONN, 	10 ],
-				[ neataptic.methods.mutation.ADD_BACK_CONN, 	10 ],
-				[ neataptic.methods.mutation.SUB_BACK_CONN, 	10 ],
-				[ neataptic.methods.mutation.SWAP_NODES, 		12 ],
-			],
 		};
 		if ( settings ) {
 			this.settings = Object.assign(this.settings, settings);
@@ -68,7 +52,6 @@ export default class Simulation {
 		this.onUpdate = null;
 		this.onRound = null;
 		this.onComplete = null; // not implemented
-		this.mutationOptionPicker = new utils.RandomPicker( this.settings.mutation_options );
 	}
 	
 	Sterilize() {
@@ -159,10 +142,7 @@ export default class Simulation {
 					let species = parent ? parent.species : this.settings?.species;
 					let b = parent ? parent.Copy(true) : BoidFactory( species, 0, 0, this.tank );
 					if ( parent ) {
-						for ( let j=0; j < this.settings.max_mutation; j++ ) { 
-							let option = this.mutationOptionPicker.Pick();
-							b.brain.mutate(option);
-						}
+						b.MutateBrain( utils.BiasedRandInt( 0, this.settings.max_mutation, this.settings.max_mutation, 0.8 ) );
 					}
 					// if no survivors, it automatically has a randomly generated brain
 					this.tank.boids.push(b);
@@ -249,6 +229,7 @@ export class FoodChaseSimulation extends Simulation {
 			b.total_fitness_score = 0;
 			b.fitness_score = 0;
 			b.total_movement_cost = 0;
+			b.stomach_contents = 0;
 		}
 		// respawn food
 		this.tank.foods.forEach( x => x.Kill() );

@@ -7,6 +7,9 @@ import {Circle, Polygon, Result} from 'collisions';
 const { architect, Network } = neataptic;
 import Two from "two.js";
 
+neataptic.methods.mutation.MOD_ACTIVATION.mutateOutput = false;
+neataptic.methods.mutation.SWAP_NODES.mutateOutput = false;
+
 export function BoidFactory( type, x, y, tank ) {
 	return Boid.Random(x, y, tank);
 }
@@ -81,9 +84,17 @@ export class Boid {
 		this.energy = this.max_energy;
 		this.x = x;
 		this.y = y;
+		this.lifespan = 120; // in seconds
+		this.age = 0; // in seconds
 		// diet
+		this.stomach_size = 100;
+		this.stomach_contents = 0;
+		this.bite_rate = 15; // food per second
+		this.digestion_rate = 1; // food per second
+		this.energy_per_food = 10; // energy per food
 		this.diet = 0; // 0..1
 		this.diet_range = 0.5; // 0..1
+		this.rest_metabolism = 0.2; // energy per second
 		// collision
 		this.collision = {
 			shape: 'circle',
@@ -157,12 +168,45 @@ export class Boid {
 			}
 		}
 	}
+	
+	MutateBrain( mutations=1 ) {
+		mutations = utils.Clamp(mutations,0,1000);
+		for ( let n=0; n < mutations; n++ ) {
+			this.brain.mutate( Boid.mutationOptionPicker.Pick() );
+		}
+		// this resets output node bias to zero. 
+		// letting it run amok can lead to "locked in" brain outputs that never change. 
+		// you might specifically want it back someday
+		this.brain.nodes.filter(n=>n.type=='output').forEach(n => n.bias = 0 );
+	}
+	
 	Update( delta ) {
 	
 		const frame_skip = 0; // [!]EXPERIMENTAL TODO: make this a game setting
 		
 		if ( !delta ) { return; }
 		
+		// aging out
+		this.age += delta;
+		if ( this.age > this.lifespan ) {
+			this.Kill();
+			return;
+		}
+		
+		// metabolism
+		this.energy -= this.rest_metabolism * delta;
+		const morcel_size = Math.min( delta * this.digestion_rate, this.stomach_contents );
+		if ( morcel_size > 0 ) {
+			this.stomach_contents -= morcel_size;
+			this.energy += morcel_size * this.energy_per_food;
+			// excess food is wasted! no fat storage system. would this be good someday?
+			this.energy = Math.min( this.energy, this.max_energy );
+		}
+		if ( this.energy <= 0 ) {
+			this.Kill();
+			return;
+		}
+
 		this.collision.contact_obstacle = false;
 		
 		// sensor collision detection				
@@ -174,11 +218,6 @@ export class Boid {
 		if ( this.sensor_group.visible != window.vc.show_collision_detection ) {
 			this.sensor_group.visible = window.vc.show_collision_detection;
 		}
-		
-		// energy generation
-		// TODO: metabolize food
-		this.energy += delta + Math.random() * delta;
-		this.energy = Math.min( this.energy, this.max_energy || 100 );
 		
 		// CPU optimization: we don't need to run AI every frame
 		if ( !frame_skip || window.two.frameCount % frame_skip === 0 ) {
@@ -382,13 +421,17 @@ export class Boid {
 		}
 		
 		// [!]HACK to make food work - eat the food you stupid llama
-		for ( let food of this.tank.foods ) { 
-			const dx = Math.abs(food.x - this.x);
-			const dy = Math.abs(food.y - this.y);
-			const d = Math.sqrt(dx*dx + dy*dy);
-			if ( d <= this.collision.radius + food.r ) { 
-				if ( food.IsEdibleBy(this) ) {
-					food.Eat(delta*5);  
+		if ( this.stomach_contents / this.stomach_size < 0.98 ) { // prevents wasteful eating
+			for ( let food of this.tank.foods ) { 
+				const dx = Math.abs(food.x - this.x);
+				const dy = Math.abs(food.y - this.y);
+				const d = Math.sqrt(dx*dx + dy*dy);
+				if ( d <= this.collision.radius + food.r ) { 
+					if ( food.IsEdibleBy(this) ) {
+						const morcel = food.Eat(delta*this.bite_rate);
+						this.stomach_contents = Math.min( this.stomach_contents + morcel, this.stomach_size );
+						break; // one bite only!
+					}
 				}
 			}
 		}
@@ -644,9 +687,7 @@ export class Boid {
 		let network_type = Math.random() > 0.5 ? 'perceptron' : 'random';
 		b.MakeBrain( b.sensors.length, middle_nodes, b.motors.length, connections, network_type );
 		// crazytown
-		for ( let n=0; n< 50; n++ ) {
-			b.brain.mutate( Boid.mutationOptionPicker.Pick() );
-		}
+		b.MutateBrain( 50 );
 		for ( let n=0; n< 50; n++ ) {
 			b.brain.mutate( neataptic.methods.mutation.MOD_WEIGHT );
 		}
@@ -654,10 +695,13 @@ export class Boid {
 		return b;
 	}
 			
-	Copy( mutate=false ) {
+	Copy( mutate_body=false ) {
 		let b = new Boid(this.x, this.y, this.tank);
 		// POD we can just copy over
-		let datakeys = ['species','max_energy','energy','maxspeed','maxrot','energy_cost','brain_complexity','diet','diet_range','dna'];
+		let datakeys = ['species','max_energy','energy','maxspeed','maxrot',
+			'energy_cost','brain_complexity','diet','diet_range','dna',
+			'lifespan','age','stomach_size','stomach_contents','bite_rate','digestion_rate','energy_per_food','rest_metabolism'
+		];
 		for ( let k of datakeys ) { b[k] = this[k]; }
 		b.collision.radius = this.collision.radius;
 		// body plan stuff
@@ -671,7 +715,7 @@ export class Boid {
 		b.MakeSensors();
 		b.motors = JSON.parse( JSON.stringify(this.motors) );
 		b.brain = neataptic.Network.fromJSON(this.brain.toJSON());
-		if ( mutate ) {
+		if ( mutate_body ) {
 			b.body.Mutate();
 			b.collision.radius = Math.max(b.body.length, b.body.width) / 2;
 		}
@@ -683,7 +727,10 @@ export class Boid {
 	Export( as_JSON=false ) {
 		let b = {};
 		// POD we can just copy over
-		let datakeys = ['id','x','y','species','max_energy','energy','maxspeed','maxrot','length','width','energy_cost','brain_complexity','generation','diet','diet_range','dna'];
+		let datakeys = ['id','x','y','species','max_energy','energy','maxspeed','maxrot',
+			'energy_cost','brain_complexity','diet','diet_range','dna',
+			'lifespan','age','stomach_size','stomach_contents','bite_rate','digestion_rate','energy_per_food','rest_metabolism'
+		];		
 		for ( let k of datakeys ) { b[k] = this[k]; }
 		b.body = {};
 		for ( let k of Object.keys(this.body).filter( _ => !['geo'].includes(_) ) ) { b.body[k] = this.body[k]; }

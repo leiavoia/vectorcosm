@@ -39,7 +39,7 @@ export default class Sensor {
 				let sx = this.owner.x + ((this.x * cosAngle) - (this.y * sinAngle));
 				let sy = this.owner.y + ((this.x * sinAngle) + (this.y * cosAngle));
 				// find objects that are detected by this sensor
-				let objs = this.owner.tank.foods;
+				let objs = this.owner.tank.foods; // TODO: USE COLLISION DETECTION SYSTEM INSTEAD OF ITERATING ENTIRE LIST
 				for ( let obj of objs ) { 
 					const dx = Math.abs(obj.x - sx);
 					const dy = Math.abs(obj.y - sy);

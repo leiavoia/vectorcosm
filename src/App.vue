@@ -39,7 +39,7 @@ let frameUpdateSubscription = PubSub.subscribe('frame-update', (msg,data) => {
 	if ( vc.focus_object ) {
 		if ( !focus_boid_data.value ) { focus_boid_data.value = {}; }
 		for ( let i of ['id','species','generation','max_energy','energy','diet','diet_range',
-			'length','width','inertia','angmo','energy_cost','total_fitness_score'] ) {
+			'length','width','inertia','angmo','energy_cost','total_fitness_score','stomach_contents','stomach_size'] ) {
 			focus_boid_data.value[i] = vc.focus_object[i];
 		}
 		focus_boid_data.value.sensors = vc.focus_object.sensors.map(s => ({name:s.name||s.detect, val:s.val}) );
@@ -259,6 +259,8 @@ function ClickMap( event ) {
 			
 			<h2>Vitals</h2>
 			<p>
+				<progress :value="focus_boid_data.stomach_contents / focus_boid_data.stomach_size"></progress> 
+				&nbsp; Stomach {{focus_boid_data.stomach_contents.toFixed(0)}} / {{focus_boid_data.stomach_size.toFixed(0)}}
 				<progress :value="focus_boid_data.energy / focus_boid_data.max_energy"></progress> 
 				&nbsp; Energy {{focus_boid_data.energy.toFixed(0)}} / {{focus_boid_data.max_energy.toFixed(0)}}
 			</p>
