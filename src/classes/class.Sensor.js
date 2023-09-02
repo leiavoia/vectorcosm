@@ -54,6 +54,10 @@ export default class Sensor {
 				// this.geo.fill = this.val ? ('#AAEEAA'+utils.DecToHex(Math.trunc(this.val*128))) : 'transparent';
 				break;
 			}
+			case 'energy' : {
+				this.val = this.owner.energy / this.owner.max_energy;
+				break;
+			} 
 			case 'inertia' : {
 				this.val = (this.owner.inertia + this.owner.maxspeed) / (2*this.owner.maxspeed)
 				break;

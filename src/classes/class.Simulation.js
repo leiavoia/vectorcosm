@@ -140,7 +140,7 @@ export default class Simulation {
 						? parent_selection[ utils.BiasedRandInt(0,parent_selection.length-1,parent_selection.length-1,0.8) ] 
 						: null;
 					let species = parent ? parent.species : this.settings?.species;
-					let b = parent ? parent.Copy(true) : BoidFactory( species, 0, 0, this.tank );
+					let b = parent ? parent.Copy(true,true) : BoidFactory( species, 0, 0, this.tank );
 					if ( parent ) {
 						b.MutateBrain( utils.BiasedRandInt( 0, this.settings.max_mutation, this.settings.max_mutation, 0.8 ) );
 					}
@@ -219,17 +219,13 @@ export class FoodChaseSimulation extends Simulation {
 				spawn_x = Math.random() * this.tank.width; 
 				spawn_y = Math.random() * this.tank.height; 			
 			}
-			b.total_fitness_score = 0;
+			b.Reset();
 			b.angle = new_angle;
 			b.x = spawn_x;
 			b.y = spawn_y;
-			b.angmo = 0;
-			b.inertia = 0;
-			b.energy = b.max_energy;
 			b.total_fitness_score = 0;
 			b.fitness_score = 0;
 			b.total_movement_cost = 0;
-			b.stomach_contents = 0;
 		}
 		// respawn food
 		this.tank.foods.forEach( x => x.Kill() );
@@ -361,12 +357,10 @@ export class BasicTravelSimulation extends Simulation {
 		for ( let b of this.tank.boids ) {
 			let angle_spread = this.settings?.angle_spread || 0;
 			let angle = 0 + (Math.random()*angle_spread*2 - angle_spread);
+			b.Reset();
 			b.angle = angle;
 			b.x = spawn_x;
 			b.y = spawn_y;
-			b.angmo = 0;
-			b.inertia = 0;
-			b.energy = b.max_energy;
 			b.total_fitness_score = this.tank.width; // golf!
 			b.fitness_score = 0;
 			b.total_movement_cost = 0;
@@ -428,12 +422,10 @@ export class TurningSimulation extends Simulation {
 		let spawn_y = 0.5 * this.tank.height; 	
 		let angle = Math.random() * Math.PI * 2;
 		for ( let b of this.tank.boids ) {
+			b.Reset();
 			b.angle = angle;
 			b.x = spawn_x;
 			b.y = spawn_y;
-			b.angmo = 0;
-			b.inertia = 0;
-			b.energy = b.max_energy;
 			b.total_fitness_score = 10000; // golf!
 			b.fitness_score = 0;
 			b.total_movement_cost = 0;
@@ -495,12 +487,10 @@ export class AvoidEdgesSimulation extends Simulation {
 		for ( let b of this.tank.boids ) {
 			let angle_spread = this.settings?.angle_spread || 0;
 			let angle = 0 + (Math.random()*angle_spread*2 - angle_spread);
+			b.Reset();
 			b.angle = angle;
 			b.x = spawn_x;
 			b.y = spawn_y;
-			b.angmo = 0;
-			b.inertia = 0;
-			b.energy = b.max_energy;
 			b.total_fitness_score = this.tank.width; // golf!
 			b.fitness_score = 0;
 			b.total_movement_cost = 0;

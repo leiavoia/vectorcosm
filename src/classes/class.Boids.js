@@ -73,6 +73,24 @@ export class Boid {
 		return Math.floor( this.BiasedRandFromDNA(min, max+0.99999, bias, influence, i, length, z) );
 	}
 	
+	Reset() {
+		this.x = 0;
+		this.y = 0;
+		this.energy = this.max_energy;
+		this.age = 0; // in seconds
+		this.stomach_contents = 0;
+		this.angle = Math.random()*Math.PI*2;
+		this.inertia = 0; // forward motion power, can be negative
+		this.angmo = 0; // angular momentum / rotational inertia
+		// zero out all motor timing
+		for ( const m of this.motors ) {
+			m.t = 0;
+			m.last_amount = 0;
+			m.this_stoke_time = 0;
+			m.strokepow = 0; 
+		}				
+	}
+	
 	constructor( x=0, y=0, tank=null, json=null ) {
 		this.id = Math.random();
 		this.dna = ''; // Boid.RandomDNA();
@@ -86,6 +104,7 @@ export class Boid {
 		this.y = y;
 		this.lifespan = 120; // in seconds
 		this.age = 0; // in seconds
+		this.maturity_age = this.lifespan * 0.5;
 		// diet
 		this.stomach_size = 100;
 		this.stomach_contents = 0;
@@ -443,6 +462,10 @@ export class Boid {
 		if ( Number.isNaN(amount) || !Number.isFinite(amount) ) { return 0; }
 		let m = this.motors[i];
 		if ( m ) {
+			// age restricted
+			if ( m.hasOwnProperty('min_age') && this.age < m.min_age ) { return 0; }
+			// start a timer if there isnt one
+			if ( !m.hasOwnProperty('t') ) { m.t = 0; }
 			// shift amount to halfway point for wheel motors
 			if ( m.wheel ) { amount = (amount - 0.5) * 2; } 
 			// check for minimum activation
@@ -474,7 +497,7 @@ export class Boid {
 			delta = Math.min( delta, m.this_stoke_time - m.t ); 
 			// increase stroke time
 			m.t = utils.clamp(m.t+delta, 0, m.this_stoke_time); 
-			// cost of doing business
+			// cost of doing business // FIXME
 			let cost = m.cost * delta; 
 			if ( estimate ) { return cost; }
 			this.energy -= cost;
@@ -487,9 +510,8 @@ export class Boid {
 				case 'step_down' : amount = (m.t < m.this_stoke_time*0.5) ? amount : 0 ; break;
 				case 'burst' : amount = (m.t >= m.this_stoke_time*0.8) ? amount : 0 ; break;
 				case 'spring' : amount = (m.t < m.this_stoke_time*0.2) ? amount : 0 ; break;
-				// constant-time output
-				// default: amount = amount * 0.64; // magic number to keep inline with others
-				// ^ feels weird to use magic numbers. TODO: instead increase cost of 100% output by 1/0.64 
+				// case 'complete' : ;;  // alias for 'constant', but no results until it completes
+				// default: ;; // the default is constant time output
 			}
 			m.last_amount = amount; // mostly for UI and animation
 			// apply power
@@ -512,6 +534,20 @@ export class Boid {
 				let c = utils.HexColorToRGBArray(this.path.stroke);
 				this.path.fill = `rgba(${c[0]},${c[1]},${c[2]},${utils.clamp(amount,0,1)})`;
 			}
+			if ( m.hasOwnProperty('mitosis') && m.t >= m.this_stoke_time ) {
+				if ( this.tank.boids.length < 100 ) { // SANITY CAP. TODO: make a global setting
+					for ( let n=0; n < m.mitosis; n++ ) { 
+						let offspring = this.Copy(true,true); // mutate body and reset state variables
+						offspring.x = this.x;
+						offspring.y = this.y;
+						offspring.angle = utils.RandomFloat(0, Math.PI*2);
+						offspring.energy = this.max_energy / ( m.mitosis + 1 ); // good luck, kid
+						// TODO: brain mutate based on some kind of parameter - simulation or DNA
+						offspring.MutateBrain(6);
+						this.tank.boids.push(offspring);
+					}
+				}
+			}
 			if ( m.t >= m.this_stoke_time ) { m.t = 0; } // reset stroke
 		}
 	}
@@ -532,6 +568,8 @@ export class Boid {
 		b.dna = Boid.RandomDNA();
 		b.species = utils.RandomName(12);
 		b.max_energy = Math.random() * 500 + 100;
+		b.lifespan = utils.RandomInt( 60, 600 );
+		b.maturity_age = utils.BiasedRandInt( 0.1 * b.lifespan, 0.9 * b.lifespan, 0.25 * b.lifespan, 0.8 );
 		b.energy = b.max_energy;
 		b.maxspeed = 600;
 		b.maxrot = 20;
@@ -576,7 +614,8 @@ export class Boid {
 		}
 		b.MakeSensors();
 		// random chance to get any of the non-collision sensors	
-		const non_coll_sensors = ['inertia', 'spin', 'angle-sin', 'angle-cos', 'edges', 'world-x', 'world-y', 'chaos', 'friends', 'enemies'];
+		const non_coll_sensors = ['energy', 'inertia', 'spin', 'angle-sin', 'angle-cos', 
+			'edges', 'world-x', 'world-y', 'chaos', 'friends', 'enemies'];
 		const num_non_coll_sensors = utils.RandomInt(0, non_coll_sensors.length, non_coll_sensors.length / 3, 0.3 ); 
 		for ( let n=0; n < num_non_coll_sensors; n++ ) {
 			const i = Math.floor( Math.random() * non_coll_sensors.length );
@@ -656,6 +695,20 @@ export class Boid {
 		b.body.complexity_factor = utils.Clamp( b.body.complexity_factor, 0, 1 ); 
 		b.body.RandomizePoints();
 			
+		// reproductive motors
+		const mitosis_num = utils.BiasedRandInt(1,5,1,0.95);
+		const stroketime = utils.BiasedRandInt(5,30,15,0.5) * mitosis_num;
+		b.motors.push({
+			mitosis: mitosis_num, // number of new organisms
+			min_act: utils.BiasedRand(0.51,0.99,0.8,0.5),
+			cost: ( b.max_energy * utils.BiasedRand(0.51,1,0.65,0.5) ) / stroketime, 
+			stroketime: stroketime, 
+			strokefunc: 'complete', 
+			name: 'mitosis',
+			min_age: b.maturity_age,
+			// brake: 1
+		});
+					
 		// // connect motor animations to specific points
 		// let leftside_motors = b.motors.filter( m => typeof(m.sym)=='undefined' || m.sym < b.motors[m.sym].sym );
 		// for ( let i=0; i < leftside_motors.length; i++ ) {
@@ -695,11 +748,11 @@ export class Boid {
 		return b;
 	}
 			
-	Copy( mutate_body=false ) {
+	Copy( mutate_body=false, reset=false ) {
 		let b = new Boid(this.x, this.y, this.tank);
 		// POD we can just copy over
 		let datakeys = ['species','max_energy','energy','maxspeed','maxrot',
-			'energy_cost','brain_complexity','diet','diet_range','dna',
+			'energy_cost','brain_complexity','diet','diet_range','dna','maturity_age',
 			'lifespan','age','stomach_size','stomach_contents','bite_rate','digestion_rate','energy_per_food','rest_metabolism'
 		];
 		for ( let k of datakeys ) { b[k] = this[k]; }
@@ -720,7 +773,7 @@ export class Boid {
 			b.collision.radius = Math.max(b.body.length, b.body.width) / 2;
 		}
 		b.generation = this.generation + 1;
-	
+		if ( reset ) { b.Reset(); }
 		return b;
 	}
 			
@@ -728,7 +781,7 @@ export class Boid {
 		let b = {};
 		// POD we can just copy over
 		let datakeys = ['id','x','y','species','max_energy','energy','maxspeed','maxrot',
-			'energy_cost','brain_complexity','diet','diet_range','dna',
+			'energy_cost','brain_complexity','diet','diet_range','dna','maturity_age',
 			'lifespan','age','stomach_size','stomach_contents','bite_rate','digestion_rate','energy_per_food','rest_metabolism'
 		];		
 		for ( let k of datakeys ) { b[k] = this[k]; }
@@ -737,7 +790,7 @@ export class Boid {
 		b.sensors = this.sensors.map( s => {
 			return JSON.parse( JSON.stringify(s,['x','y','r','l','a','angle','detect','name']) );
 		} );
-		b.motors = this.motors;
+		b.motors = JSON.parse( JSON.stringify(this.motors) );
 		b.brain = this.brain.toJSON(); // misnomor, its not actually JSON, its POD object
 		let output = b;
 		// trim insignificant digits to save space

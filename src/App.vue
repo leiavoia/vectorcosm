@@ -39,7 +39,8 @@ let frameUpdateSubscription = PubSub.subscribe('frame-update', (msg,data) => {
 	if ( vc.focus_object ) {
 		if ( !focus_boid_data.value ) { focus_boid_data.value = {}; }
 		for ( let i of ['id','species','generation','max_energy','energy','diet','diet_range',
-			'length','width','inertia','angmo','energy_cost','total_fitness_score','stomach_contents','stomach_size'] ) {
+			'length','width','inertia','angmo','energy_cost','total_fitness_score','stomach_contents','stomach_size',
+			'age', 'lifespan', 'maturity_age' ] ) {
 			focus_boid_data.value[i] = vc.focus_object[i];
 		}
 		focus_boid_data.value.sensors = vc.focus_object.sensors.map(s => ({name:s.name||s.detect, val:s.val}) );
@@ -252,17 +253,25 @@ function ClickMap( event ) {
 			<p>DIET_RANGE: {{focus_boid_data.diet_range.toFixed(2)}}</p>
 			<p>INERTIA: {{focus_boid_data.inertia.toFixed(1)}}</p>
 			<p>ANGULAR: {{focus_boid_data.angmo.toFixed(1)}}</p>
-			<p>ENERGY_COST: {{focus_boid_data.energy_cost}}</p>
+			<p>LIFESPAN: {{focus_boid_data.lifespan}}</p>
+			<p>MATURITY AGE: {{focus_boid_data.maturity_age}}</p>
 			<!-- <p>ENERGY: {{focus_boid_data.energy.toFixed(1)}}</p> -->
 			<!-- <p>MAX_ENERGY: {{focus_boid_data.max_energy.toFixed(1)}}</p> -->
 			<p>SCORE: {{focus_boid_data.total_fitness_score.toFixed(1)}}</p>
 			
 			<h2>Vitals</h2>
 			<p>
+				<progress :value="focus_boid_data.age / focus_boid_data.lifespan"></progress> 
+				&nbsp; Age {{focus_boid_data.age.toFixed(0)}} / {{focus_boid_data.lifespan.toFixed(0)}}
+				<br />
+				
 				<progress :value="focus_boid_data.stomach_contents / focus_boid_data.stomach_size"></progress> 
 				&nbsp; Stomach {{focus_boid_data.stomach_contents.toFixed(0)}} / {{focus_boid_data.stomach_size.toFixed(0)}}
+				<br />
+				
 				<progress :value="focus_boid_data.energy / focus_boid_data.max_energy"></progress> 
 				&nbsp; Energy {{focus_boid_data.energy.toFixed(0)}} / {{focus_boid_data.max_energy.toFixed(0)}}
+				<br />
 			</p>
 			
 			<!-- <h2>Brain</h2>
