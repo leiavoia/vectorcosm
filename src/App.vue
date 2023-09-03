@@ -24,6 +24,7 @@ let vc = new Vectorcosm; // the app, proper
 window.vc = vc; 
 window.vc.onSimulationChange = new_sim => { sim.value = new_sim; }
 
+let dragging = false;
 
 let boidviewer = new Two({ fitted: true, type: 'SVGRenderer' }); 
 let braingraph_context = new Two({ fitted: true, type: 'SVGRenderer' }); 
@@ -31,132 +32,200 @@ let braingraph = null;
 
 let focus_boid_data = ref();
 
-// subscriptions to critical events
-let frameUpdateSubscription = PubSub.subscribe('frame-update', (msg,data) => {
-	// copy data from boid in focus. 
-	// it would nice to just reactify the boid itself, 
-	// but its considered high performance data and we need to stay hands off
-	if ( vc.focus_object ) {
-		if ( !focus_boid_data.value ) { focus_boid_data.value = {}; }
-		for ( let i of ['id','species','generation','max_energy','energy','diet','diet_range',
-			'length','width','inertia','angmo','energy_cost','total_fitness_score','stomach_contents','stomach_size',
-			'age', 'lifespan', 'maturity_age' ] ) {
-			focus_boid_data.value[i] = vc.focus_object[i];
-		}
-		focus_boid_data.value.sensors = vc.focus_object.sensors.map(s => ({name:s.name||s.detect, val:s.val}) );
-		focus_boid_data.value.outputs = vc.focus_object.brain.nodes
-			.filter(n => n.type=='output')
-			.map(n => ({val:n.activation.toFixed(2)}) );
-		focus_boid_data.value.outputs.forEach( (n,i) => n.name = vc.focus_object.motors[i].name );
-		focus_boid_data.value.motors = vc.focus_object.motors.map( m => ({
-			name: m.name,
-			strokefunc: (m.strokefunc || 'constant'),
-			t: m.t,
-			min_act: m.min_act,
-			linear: m.linear,
-			angular: m.angular,
-			wheel: m.wheel,
-			stroketime: m.stroketime,
-			this_stoke_time: (m.this_stoke_time||0),
-			strokepow: (m.strokepow||0),
-			cost: m.cost,
-			last_amount: (m.last_amount||0)
-		}) );
-		focus_boid_data.value.brainnodes = vc.focus_object.brain.nodes.map( n => {
-			let hexval = utils.DecToHex( Math.round(Math.abs(utils.clamp(n.activation,-1,1)) * 255) );
-			return {
-				symbol: (n.type=='input' ? 'I' : ( n.type=='output' ? 'O' : n.squash.name.charAt(0) ) ),
-				color: ( n.activation >= 0 ? ('#00' + hexval + '00') : ('#' + hexval + '0000') ),
-				type: n.type
-			};
-		});
-		if ( braingraph ) { 
-			braingraph.setTarget(vc.focus_object);
-			braingraph.Draw();
-			braingraph_context.update();		
-		}
-	}
-	else if ( focus_boid_data.value ) {
-		focus_boid_data.value = null;
-	}
-});
+// // subscriptions to critical events
+// let frameUpdateSubscription = PubSub.subscribe('frame-update', (msg,data) => {
+// 	// copy data from boid in focus. 
+// 	// it would nice to just reactify the boid itself, 
+// 	// but its considered high performance data and we need to stay hands off
+// 	if ( vc.focus_object ) {
+// 		if ( !focus_boid_data.value ) { focus_boid_data.value = {}; }
+// 		for ( let i of ['id','species','generation','max_energy','energy','diet','diet_range',
+// 			'length','width','inertia','angmo','energy_cost','total_fitness_score','stomach_contents','stomach_size',
+// 			'age', 'lifespan', 'maturity_age' ] ) {
+// 			focus_boid_data.value[i] = vc.focus_object[i];
+// 		}
+// 		focus_boid_data.value.sensors = vc.focus_object.sensors.map(s => ({name:s.name||s.detect, val:s.val}) );
+// 		focus_boid_data.value.outputs = vc.focus_object.brain.nodes
+// 			.filter(n => n.type=='output')
+// 			.map(n => ({val:n.activation.toFixed(2)}) );
+// 		focus_boid_data.value.outputs.forEach( (n,i) => n.name = vc.focus_object.motors[i].name );
+// 		focus_boid_data.value.motors = vc.focus_object.motors.map( m => ({
+// 			name: m.name,
+// 			strokefunc: (m.strokefunc || 'constant'),
+// 			t: m.t,
+// 			min_act: m.min_act,
+// 			linear: m.linear,
+// 			angular: m.angular,
+// 			wheel: m.wheel,
+// 			stroketime: m.stroketime,
+// 			this_stoke_time: (m.this_stoke_time||0),
+// 			strokepow: (m.strokepow||0),
+// 			cost: m.cost,
+// 			last_amount: (m.last_amount||0)
+// 		}) );
+// 		focus_boid_data.value.brainnodes = vc.focus_object.brain.nodes.map( n => {
+// 			let hexval = utils.DecToHex( Math.round(Math.abs(utils.clamp(n.activation,-1,1)) * 255) );
+// 			return {
+// 				symbol: (n.type=='input' ? 'I' : ( n.type=='output' ? 'O' : n.squash.name.charAt(0) ) ),
+// 				color: ( n.activation >= 0 ? ('#00' + hexval + '00') : ('#' + hexval + '0000') ),
+// 				type: n.type
+// 			};
+// 		});
+// 		if ( braingraph ) { 
+// 			braingraph.setTarget(vc.focus_object);
+// 			braingraph.Draw();
+// 			braingraph_context.update();		
+// 		}
+// 	}
+// 	else if ( focus_boid_data.value ) {
+// 		focus_boid_data.value = null;
+// 	}
+// });
 
 
-// Handle key down events
+// input events
+
 const body = document.querySelector("body");
+const zoompct = 0.07;
+
 body.addEventListener("touchstart", function(event) {
 	event.preventDefault();
 	if ( !vc.show_ui ) { vc.ToggleUI(); }
 });
-body.addEventListener("keydown", function(event) {
-	if ( event.which == 80 || event.which == 19 ) {  // `Pause` 
-		vc.TogglePause();
+
+body.addEventListener("wheel", function(event) {
+	if ( event.deltaY > 0 ) {
+		const newscale = vc.scale * (1/(1 + zoompct));
+		const scalediff = Math.abs( vc.scale - newscale );
+		const [prev_x, prev_y] = ScreenToWorldCoord( event.clientX, event.clientY );
+		vc.MoveCamera( 0, 0, -scalediff );
+		const [x, y] = ScreenToWorldCoord( event.clientX, event.clientY );
+		vc.MoveCamera( x - prev_x, y - prev_y );
 	}
-	else if ( event.keyCode == 37 ) {  // `left arrow` 
-		event.preventDefault();
-		vc.ShiftFocusTarget(-1);
-	}
-	else if ( event.keyCode == 39 ) {  // `right arrow` 
-		event.preventDefault();
-		vc.ShiftFocusTarget();
-	}
-	else if ( event.which == 49 ) {  // `1` 
-		event.preventDefault();
-		vc.ToggleShowSensors();
-	}
-	else if ( event.which == 50 ) {  // `2` 
-		event.preventDefault();
-		vc.ToggleUI()
-	}
-	else if ( event.which == 66 ) {  // `B` 
-		event.preventDefault();
-		vc.ToggleShowBrainmap()
-	}
-	else if ( event.which == 51 ) {  // `3` 
-		event.preventDefault();
-		vc.SaveLeader();
-	}
-	else if ( event.which == 52 ) {  // `4` 
-		event.preventDefault();
-		vc.LoadLeader();
-	}
-	else if ( event.which == 53 ) {  // `5` 
-		event.preventDefault();
-		vc.animate_boids = !vc.animate_boids;
-	}
-	else if ( event.which == 57 ) {  // `9` 
-		event.preventDefault();
-		vc.SavePopulation();
-	}
-	else if ( event.which == 48 ) {  // `0` 
-		event.preventDefault();
-		vc.LoadPopulation();
-	}
-	else if ( event.which == 70 || event.which == 35 ) {  // `END` 
-		event.preventDefault();
-		vc.ToggleSimulatorFF();
-	}
-	else if ( event.which == 84 ) {  // `T` 
-		event.preventDefault();
-		if ( vc.focus_object ) { vc.StopTrackObject(); }
-		else {
-			const b = vc.tank.boids.sort( (a,b) => b.total_fitness_score - a.total_fitness_score )[0];
-			vc.TrackObject(b);
-		}
-	}
-	else if ( event.which == 76 ) {  // `L` 
-		event.preventDefault();
-		const b = vc.tank.boids.sort( (a,b) => b.total_fitness_score - a.total_fitness_score )[0];
-		if ( b ) console.log(b);
+	else {
+		const newscale = vc.scale * ((1 + zoompct)/1);
+		const scalediff = Math.abs( vc.scale - newscale );
+		const [prev_x, prev_y] = ScreenToWorldCoord( event.clientX, event.clientY );
+		vc.MoveCamera( 0, 0, scalediff );
+		const [x, y] = ScreenToWorldCoord( event.clientX, event.clientY );
+		vc.MoveCamera( x - prev_x, y - prev_y );
 	}
 });
+
+const keyFunctionMap = {
+	'Pause': _ => {
+			vc.TogglePause();
+		},
+	'_': _ => {
+			const diff = Math.abs( vc.scale - (vc.scale * (1/(1 + zoompct))) );
+			vc.MoveCamera( 0, 0, -diff );
+		},
+	'-': _ => {
+			const diff = Math.abs( vc.scale - (vc.scale * (1/(1 + zoompct))) );
+			vc.MoveCamera( 0, 0, -diff );
+		},
+	'=': _ => {
+			const diff = Math.abs( vc.scale - (vc.scale * ((1 + zoompct)/1)) );
+			vc.MoveCamera( 0, 0, diff );
+		},
+	'+': _ => {
+			const diff = Math.abs( vc.scale - (vc.scale * ((1 + zoompct)/1)) );
+			vc.MoveCamera( 0, 0, diff );
+		},
+	';': _ => {
+			// fill screen with entire tank
+			const scalex = vc.width / vc.tank.width;
+			const scaley = vc.height / vc.tank.height;
+			const scale = Math.min(scalex,scaley); // min = contain, max = cover
+			vc.PointCameraAt( vc.tank.width*0.5, vc.tank.height*0.5, scale );
+		},
+	'ArrowLeft': _ => {
+			vc.MoveCamera( 100, 0, 0 );
+		},
+	'ArrowRight': _ => {
+			vc.MoveCamera( -100, 0, 0 );
+		},
+	'ArrowUp': _ => {
+			vc.MoveCamera( 0, 100, 0 );
+		},
+	'ArrowDown': _ => {
+			vc.MoveCamera( 0, -100, 0 );
+		},
+	'PageUp': _ => {
+			vc.ShiftFocusTarget();
+		},
+	'PageDown': _ => {
+			vc.ShiftFocusTarget(-1);
+		},
+	'ScrollLock': _ => {
+			vc.ResizeTankToWindow();
+		},
+	'1': _ => {
+			vc.ToggleShowSensors();
+		},
+	'2': _ => {
+			vc.ToggleUI()
+		},
+	'b': _ => {
+			vc.ToggleShowBrainmap()
+		},
+	'3': _ => {
+			vc.SaveLeader();
+		},
+	'4': _ => {
+			vc.LoadLeader();
+		},
+	'5': _ => {
+			vc.animate_boids = !vc.animate_boids;
+		},
+	'9': _ => {
+			vc.SavePopulation();
+		},
+	'0': _ => {
+			vc.LoadPopulation();
+		},
+	'End': _ => {
+			vc.ToggleSimulatorFF();
+		},
+	't': _ => {
+			if ( vc.focus_object ) { vc.StopTrackObject(); }
+			else {
+				const b = vc.tank.boids.sort( (a,b) => b.total_fitness_score - a.total_fitness_score )[0];
+				vc.TrackObject(b);
+			}
+		},
+	'l': _ => {
+			const b = vc.tank.boids.sort( (a,b) => b.total_fitness_score - a.total_fitness_score )[0];
+			if ( b ) console.log(b);
+		},
+}
+
+body.addEventListener("keydown", function(event) {
+	if ( event.key in keyFunctionMap ) {
+		event.preventDefault();
+		keyFunctionMap[event.key]();
+	}
+});
+		
+function MouseDown(event) {
+	dragging = true;
+}
+function MouseUp(event) {
+	// let ClickMap handle it instead to avoid phantom clicks on objects
+	dragging = false;
+}
+function MouseMove(event) {
+	if ( dragging ) {
+		vc.MoveCamera( event.movementX, event.movementY );
+	}
+}
 			
 window.addEventListener("resize", function (event) {
 	vc.height = window.innerHeight;
 	vc.width = window.innerWidth;
 	vc.two.fit();
 	vc.SetViewScale( vc.scale ); // trigger update, even though scale hasent changed
-	if ( vc.tank ) { vc.tank.Resize(vc.width, vc.height); } // [!]HACK - move this 
+	vc.ResizeTankToWindow(); // not a permanent place to put this. needs a "responsive" game settings
 });
 				
 
@@ -165,14 +234,24 @@ onMounted(() => {
 	vc.Play();
 }) 
 
+function ScreenToWorldCoord( x, y ) {
+	x = ( x - vc.renderLayers['tank'].position.x ) / vc.scale;
+	y = ( y - vc.renderLayers['tank'].position.y ) / vc.scale;
+	return [x,y];
+}
 
 function ClickMap( event ) {
-	console.log(event);
-	// todo convert mouse click from screen space to world space
-	const x = event.clientX;
-	const y = event.clientY;
+	// if ( dragging ) { 
+	// 	dragging = false;
+	// 	return false; 
+	// }
+	const [x,y] = ScreenToWorldCoord( event.clientX, event.clientY );
+	if ( event.button > 0 ) { 
+		vc.PointCameraAt( x, y, null );
+		return false;
+	}
 	// find objects near pointer click
-	const r = 30;
+	const r = 30 * (1/vc.scale);
 	let objs = vc.tank.grid.GetObjectsByBox( x-r, y-r, x+r, y+y, Boid );
 	// find the closest object
 	const min_dist = r*r*2 + r*r*2;
@@ -187,32 +266,32 @@ function ClickMap( event ) {
 	}
 	if ( closest ) {
 		vc.TrackObject(closest);
-		let timeout = setTimeout( _ => {
-			boidviewer.clear();
-			let elem = document.getElementById('boidviewer');
-			boidviewer.appendTo(elem);
-			let geo = closest.body.geo.clone();
-			geo.dashes = closest.body.geo.dashes;
-			console.log(geo);
-			geo.position.x = boidviewer.width * 0.5;
-			geo.position.y = boidviewer.height * 0.5;
-			geo.rotation = -Math.PI * 0.5;
-			const bounds = geo.getBoundingClientRect();
-			geo.scale = Math.max(boidviewer.width, boidviewer.height) / Math.max( bounds.height, bounds.width );
-			geo.scale *= 0.90; // whitespace
-			// geo.center();
-			boidviewer.add(geo);
-			boidviewer.update();
+		// let timeout = setTimeout( _ => {
+		// 	boidviewer.clear();
+		// 	let elem = document.getElementById('boidviewer');
+		// 	boidviewer.appendTo(elem);
+		// 	let geo = closest.body.geo.clone();
+		// 	geo.dashes = closest.body.geo.dashes;
+		// 	console.log(geo);
+		// 	geo.position.x = boidviewer.width * 0.5;
+		// 	geo.position.y = boidviewer.height * 0.5;
+		// 	geo.rotation = -Math.PI * 0.5;
+		// 	const bounds = geo.getBoundingClientRect();
+		// 	geo.scale = Math.max(boidviewer.width, boidviewer.height) / Math.max( bounds.height, bounds.width );
+		// 	geo.scale *= 0.90; // whitespace
+		// 	// geo.center();
+		// 	boidviewer.add(geo);
+		// 	boidviewer.update();
 			
-			// braingraphing
-			braingraph_context.clear();
-			let braingraph_elem = document.getElementById('braingraph');
-			braingraph_context.appendTo(braingraph_elem);
-			braingraph = new BrainGraph(null,braingraph_context);
-			braingraph.setTarget(closest);
-			braingraph.Draw();
-			braingraph_context.update();
-		}, 100 );
+		// 	// braingraphing
+		// 	braingraph_context.clear();
+		// 	let braingraph_elem = document.getElementById('braingraph');
+		// 	braingraph_context.appendTo(braingraph_elem);
+		// 	braingraph = new BrainGraph(null,braingraph_context);
+		// 	braingraph.setTarget(closest);
+		// 	braingraph.Draw();
+		// 	braingraph_context.update();
+		// }, 100 );
 	}
 	else {
 		vc.StopTrackObject();
@@ -232,7 +311,13 @@ function ClickMap( event ) {
     <div class="ui" id="ui_container" style="visibility:hidden;"  v-if="sim">
 		<simulator-controls :sim="sim"></simulator-controls>
     </div>
-    <main @click="ClickMap($event)">
+    <main 
+		@click="ClickMap($event)" 
+		@contextmenu.prevent="ClickMap($event)" 
+		@mousemove="MouseMove($event)"
+		@mousedown="MouseDown($event)"
+		@mouseup="MouseUp($event)"
+		>
 		<section class="iconmenu" v-if="focus_boid_data" style="display:flex; flex-flow: column;">
 			<button style="width:100%; padding:0.5em; margin: 0 0 0.25em; display:block;">Exit</button>
 			<button style="width:100%; padding:0.5em; margin: 0 0 0.25em; display:block;">Save Specimen</button>

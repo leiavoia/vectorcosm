@@ -104,18 +104,18 @@ export default class Vectorcosm {
 			// }),	
 			new FoodChaseSimulation(this.tank,{
 				name: 'Dont hit rocks',
-				num_boids: 50,
+				num_boids: 30,
 				random_boid_pos: true,
 				random_food_pos: true,
-				time: 30,
+				time: 25,
 				// min_score: 5,
 				max_mutation: 8,
-				num_rocks: 2,
+				num_rocks: 1,
 				target_spread: 800,
-				num_foods: 4,
+				num_foods: 9,
 				food_speed: 62,
 				species:'random',
-				cullpct: 0.2,
+				cullpct: 0.3,
 				end: {
 					// avg_score:400,
 					// avg_score_rounds: 10,
@@ -175,15 +175,26 @@ export default class Vectorcosm {
 	}
 
 	SetViewScale( scale ) {
-		this.scale = utils.clamp( scale, 0.1, 10 );
+		const prev_scale = this.renderLayers['tank'].scale;
 		this.width = two.width;
 		this.height = two.height;
-		if ( this.tank && this.tank.responsive ) {
-			this.tank.Resize(this.width / this.scale, this.height / this.scale);
-		}
+		this.scale = utils.clamp( scale, 0.1, 10 );
 		this.renderLayers['tank'].scale = this.scale;
+		// small adjustment to keep screen centered
+		const xdiff = ( this.width * prev_scale ) - ( this.width * this.scale );
+		this.renderLayers['tank'].position.x += xdiff * 0.5;
+		const ydiff = ( this.height * prev_scale ) - ( this.height * this.scale );
+		this.renderLayers['tank'].position.y += ydiff * 0.5;
 		if ( this.braingraph ) {
 			this.braingraph.onScreenSizeChange();
+		}
+	}
+	
+	ResizeTankToWindow() {
+		if ( this.tank ) {
+			this.tank.Resize(this.width / this.scale, this.height / this.scale);
+			this.renderLayers['tank'].position.x = 0;
+			this.renderLayers['tank'].position.y = 0;
 		}
 	}
 
@@ -193,7 +204,7 @@ export default class Vectorcosm {
 		
 		// fix delta supplied in ms
 		if ( delta && delta > 1 ) { delta /= 1000; }
-		delta = Math.min( (delta || this.two.timeDelta/1000), 0.25); // beware of spikes from pausing
+		delta = Math.min( (delta || this.two.timeDelta/1000), 0.1); // beware of spikes from pausing
 		
 		// update simulation		
 		if ( this.simulation ) {
@@ -208,7 +219,7 @@ export default class Vectorcosm {
 		
 		// update all boids
 		for ( let b of this.tank.boids ) {
-			// b.bodyplan.geo.fill = '#AEA9';
+			// b.body.geo.fill = '#AEA9';
 			b.collision.contact_obstacle = false;
 			b.Update(delta);
 		}
@@ -234,24 +245,25 @@ export default class Vectorcosm {
 		if ( this.focus_object ) { this.TrackObject(this.focus_object); }
 		// ease out
 		else {
-			let target_scale = this.scale;
-			let scale = this.renderLayers['tank'].scale;
-			if ( scale != target_scale ) { 
-				let scale_step = 1/30; // TODO: tween
-				if ( scale < target_scale ) { scale = Math.min( scale+scale_step, target_scale ); }
-				if ( scale > target_scale ) { scale = Math.max( scale-scale_step, target_scale ); }
-				let max_x = (this.tank.width*scale) - (this.width);
-				if ( this.renderLayers['tank'].position.x > 0 ) { this.renderLayers['tank'].position.x = 0; }  
-				if ( this.renderLayers['tank'].position.x < -max_x ) { this.renderLayers['tank'].position.x = -max_x; }  
-				let max_y = (this.tank.height*scale) - (this.height);
-				if ( this.renderLayers['tank'].position.y > 0 ) { this.renderLayers['tank'].position.y = 0; }  
-				if ( this.renderLayers['tank'].position.y < -max_y ) { this.renderLayers['tank'].position.y = -max_y; }  			
-				this.renderLayers['tank'].scale = scale;
-				// or just snap:
-				// this.renderLayers['tank'].scale = target_scale;
-				// this.renderLayers['tank'].position.x = 0;
-				// this.renderLayers['tank'].position.y = 0;
-			}
+			// this.PointCameraAt( this.tank.width*0.5, this.tank.height*0.5, null );
+			// let target_scale = this.scale;
+			// let scale = this.renderLayers['tank'].scale;
+			// if ( scale != target_scale ) { 
+			// 	let scale_step = 1/30; // TODO: tween
+			// 	if ( scale < target_scale ) { scale = Math.min( scale+scale_step, target_scale ); }
+			// 	if ( scale > target_scale ) { scale = Math.max( scale-scale_step, target_scale ); }
+			// 	let max_x = (this.tank.width*scale) - (this.width);
+			// 	if ( this.renderLayers['tank'].position.x > 0 ) { this.renderLayers['tank'].position.x = 0; }  
+			// 	if ( this.renderLayers['tank'].position.x < -max_x ) { this.renderLayers['tank'].position.x = -max_x; }  
+			// 	let max_y = (this.tank.height*scale) - (this.height);
+			// 	if ( this.renderLayers['tank'].position.y > 0 ) { this.renderLayers['tank'].position.y = 0; }  
+			// 	if ( this.renderLayers['tank'].position.y < -max_y ) { this.renderLayers['tank'].position.y = -max_y; }  			
+			// 	this.renderLayers['tank'].scale = scale;
+			// 	// or just snap:
+			// 	// this.renderLayers['tank'].scale = target_scale;
+			// 	// this.renderLayers['tank'].position.x = 0;
+			// 	// this.renderLayers['tank'].position.y = 0;
+			// }
 		}
 		
 		PubSub.publish('frame-update', 'hello world!');
@@ -307,41 +319,42 @@ export default class Vectorcosm {
 		else {
 			this.focus_geo.position.x = this.focus_object.x;
 			this.focus_geo.position.y = this.focus_object.y;
-			// track the "camera" by pan/zoom of the tank layer.
-			let target_scale = 1;
-			let scale_step = 1/30; // TODO: tween
-			let scale = this.renderLayers['tank'].scale;
-			if ( scale != target_scale ) { 
-				if ( scale < target_scale ) { scale = Math.min( scale+scale_step, target_scale ); }
-				if ( scale > target_scale ) { scale = Math.max( scale-scale_step, target_scale ); }
-			}
-			this.renderLayers['tank'].scale = scale;
-			// to avoid motion sickness, dont pan unless object is outside safety margin
-			let margin_pct = 0.3;
-			let margin_x = this.width * margin_pct;
-			let margin_y = this.height * margin_pct;
-			let xoff = -(this.focus_object.x * scale) + (this.width/2);
-			let yoff = -(this.focus_object.y * scale) + (this.height/2);
-			let min_world_x = xoff - ( this.width - margin_x / scale );
-			let min_world_y = yoff - ( this.height - margin_y / scale );
-			let max_world_x = xoff + ( margin_x / scale );
-			let max_world_y = yoff + ( margin_y / scale );
-			// console.log(min_world_x, min_world_y, max_world_x, max_world_y);
-			if ( 
-				this.focus_geo.position.x < min_world_x || 
-				this.focus_geo.position.x > max_world_x ||
-				this.focus_geo.position.y < min_world_y || 
-				this.focus_geo.position.y > max_world_y 
-			) {
-				this.renderLayers['tank'].position.x = xoff;
-				this.renderLayers['tank'].position.y = yoff;
-				let max_x = (this.tank.width*scale) - (this.width);
-				if ( this.renderLayers['tank'].position.x > 0 ) { this.renderLayers['tank'].position.x = 0; }  
-				if ( this.renderLayers['tank'].position.x < -max_x ) { this.renderLayers['tank'].position.x = -max_x; }  
-				let max_y = (this.tank.height*scale) - (this.height);
-				if ( this.renderLayers['tank'].position.y > 0 ) { this.renderLayers['tank'].position.y = 0; }  
-				if ( this.renderLayers['tank'].position.y < -max_y ) { this.renderLayers['tank'].position.y = -max_y; }  
-			}
+			this.PointCameraAt( this.focus_object.x, this.focus_object.y, null );
+			
+			// // track the "camera" by pan/zoom of the tank layer.
+			// let target_scale = 1;
+			// let scale_step = 1/30; // TODO: tween
+			// let scale = this.renderLayers['tank'].scale;
+			// if ( scale != target_scale ) { 
+			// 	if ( scale < target_scale ) { scale = Math.min( scale+scale_step, target_scale ); }
+			// 	if ( scale > target_scale ) { scale = Math.max( scale-scale_step, target_scale ); }
+			// }
+			// this.renderLayers['tank'].scale = scale;
+			// // to avoid motion sickness, dont pan unless object is outside safety margin
+			// let margin_pct = 0.3;
+			// let margin_x = this.width * margin_pct;
+			// let margin_y = this.height * margin_pct;
+			// let xoff = -(this.focus_object.x * scale) + (this.width/2);
+			// let yoff = -(this.focus_object.y * scale) + (this.height/2);
+			// let min_world_x = xoff - ( this.width - margin_x / scale );
+			// let min_world_y = yoff - ( this.height - margin_y / scale );
+			// let max_world_x = xoff + ( margin_x / scale );
+			// let max_world_y = yoff + ( margin_y / scale );
+			// // console.log(min_world_x, min_world_y, max_world_x, max_world_y);
+			// if ( 
+			// 	this.focus_geo.position.x < min_world_x || 
+			// 	this.focus_geo.position.x > max_world_x ||
+			// 	this.focus_geo.position.y < min_world_y || 
+			// 	this.focus_geo.position.y > max_world_y 
+			// ) {
+			// 	this.PointCameraAt( x, y, z );
+			// 	let max_x = (this.tank.width*scale) - (this.width);
+			// 	if ( this.renderLayers['tank'].position.x > 0 ) { this.renderLayers['tank'].position.x = 0; }  
+			// 	if ( this.renderLayers['tank'].position.x < -max_x ) { this.renderLayers['tank'].position.x = -max_x; }  
+			// 	let max_y = (this.tank.height*scale) - (this.height);
+			// 	if ( this.renderLayers['tank'].position.y > 0 ) { this.renderLayers['tank'].position.y = 0; }  
+			// 	if ( this.renderLayers['tank'].position.y < -max_y ) { this.renderLayers['tank'].position.y = -max_y; }  
+			// }
 		}
 	}
 	
@@ -375,10 +388,96 @@ export default class Vectorcosm {
 		}
 	}
 
-	ChangeViewScale() {
-		SetViewScale(this.scale);
+	// put camera at a specific point in world space / zoom
+	PointCameraAt( x, y, z=null ) {
+		if ( z ) this.SetViewScale( z );
+		const margin = 0.0001;
+		const target_x = -( x * this.scale ) + ( 0.5 * this.width );
+		const target_y = -( y * this.scale ) + ( 0.5 * this.height );
+		const max_x = -margin + (this.tank.width * this.scale) - (this.width);
+		const max_y = -margin + (this.tank.height * this.scale) - (this.height);
+		
+		if ( this.scale * this.tank.width < this.width ) { this.renderLayers['tank'].position.x = -max_x / 2; }
+		else if ( target_x > 0 ) { this.renderLayers['tank'].position.x = 0; }  
+		else if ( target_x < -max_x ) { this.renderLayers['tank'].position.x = -max_x; }  
+		else { this.renderLayers['tank'].position.x = target_x; }
+		
+		if ( this.scale * this.tank.height < this.height ) { this.renderLayers['tank'].position.y = -max_y / 2; }
+		else if ( target_y > 0 ) { this.renderLayers['tank'].position.y = 0; }  
+		else if ( target_y < -max_y ) { this.renderLayers['tank'].position.y = -max_y; }
+		else { this.renderLayers['tank'].position.y = target_y; }
+		
+			// track the "camera" by pan/zoom of the tank layer.
+			// let target_scale = 1;
+			// let scale_step = 1/30; // TODO: tween
+			// let scale = this.renderLayers['tank'].scale;
+			// if ( scale != target_scale ) { 
+			// 	if ( scale < target_scale ) { scale = Math.min( scale+scale_step, target_scale ); }
+			// 	if ( scale > target_scale ) { scale = Math.max( scale-scale_step, target_scale ); }
+			// }
+			// this.renderLayers['tank'].scale = scale;
+			
+			// // to avoid motion sickness, dont pan unless object is outside safety margin
+			// let margin_pct = 0.3;
+			// let margin_x = this.width * margin_pct;
+			// let margin_y = this.height * margin_pct;
+			// let xoff = -(this.focus_object.x * this.scale) + (this.width/2);
+			// let yoff = -(this.focus_object.y * this.scale) + (this.height/2);
+			// let min_world_x = xoff - ( this.width - margin_x / this.scale );
+			// let min_world_y = yoff - ( this.height - margin_y / this.scale );
+			// let max_world_x = xoff + ( margin_x / this.scale );
+			// let max_world_y = yoff + ( margin_y / this.scale );
+			
+			// // console.log(min_world_x, min_world_y, max_world_x, max_world_y);
+			// if ( x < min_world_x || x > max_world_x || y < min_world_y || y > max_world_y ) {
+			// 	this.PointCameraAt( x, y, z );
+			// 	let max_x = (this.tank.width*this.scale) - (this.width);
+			// 	if ( this.renderLayers['tank'].position.x > 0 ) { this.renderLayers['tank'].position.x = 0; }  
+			// 	if ( this.renderLayers['tank'].position.x < -max_x ) { this.renderLayers['tank'].position.x = -max_x; }  
+			// 	let max_y = (this.tank.height*this.scale) - (this.height);
+			// 	if ( this.renderLayers['tank'].position.y > 0 ) { this.renderLayers['tank'].position.y = 0; }  
+			// 	if ( this.renderLayers['tank'].position.y < -max_y ) { this.renderLayers['tank'].position.y = -max_y; }  
+			// }
+			
+			
+					
 	}
-
+	
+	// for adjusting camera position in smaller increments.
+	// x and y are screen pixel units
+	// z is a zoom amount (not a percentage)
+	MoveCamera( x, y, z=null ) {
+		if ( x ) this.renderLayers['tank'].position.x += x;
+		if ( y ) this.renderLayers['tank'].position.y += y;
+		if ( z ) this.SetViewScale( this.scale + z );
+		
+		const margin = 0.0001;
+		const target_x = this.renderLayers['tank'].position.x;
+		const target_y = this.renderLayers['tank'].position.y;
+		const max_x = -margin + (this.tank.width * this.scale) - (this.width);
+		const max_y = -margin + (this.tank.height * this.scale) - (this.height);
+		
+		// entire tank is smaller than screen
+		if ( this.scale * this.tank.width < this.width && this.scale * this.tank.height < this.height ) { 
+			const scalex = this.width / this.tank.width;
+			const scaley = this.height / this.tank.height;
+			const scale = Math.min(scalex,scaley); // min = contain, max = cover
+			this.PointCameraAt( this.tank.width*0.5, this.tank.height*0.5, scale );
+			return;
+			}
+		
+		if ( this.scale * this.tank.width < this.width ) { this.renderLayers['tank'].position.x = -max_x / 2; }
+		else if ( target_x > 0 ) { this.renderLayers['tank'].position.x = 0; }  
+		else if ( target_x < -max_x ) { this.renderLayers['tank'].position.x = -max_x; }  
+		else { this.renderLayers['tank'].position.x = target_x; }
+		
+		if ( this.scale * this.tank.height < this.height ) { this.renderLayers['tank'].position.y = -max_y / 2; }
+		else if ( target_y > 0 ) { this.renderLayers['tank'].position.y = 0; }  
+		else if ( target_y < -max_y ) { this.renderLayers['tank'].position.y = -max_y; }
+		else { this.renderLayers['tank'].position.y = target_y; }
+				
+	}
+	
 	SetShowUI(x) {
 		this.show_ui = !!x;
 		let el = document.getElementById('ui_container');

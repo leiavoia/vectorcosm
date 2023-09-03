@@ -8,8 +8,8 @@ export default class Tank {
 	constructor( w, h ) {
 		this.width = w;
 		this.height = h;
-		this.scale_to_window = 1; // helpful for UI
-		this.responsive = true; // snap to window size on resize events
+		// this.responsive = true; // snap to window size on resize events
+		this.responsive = false; // snap to window size on resize events
 		this.viscosity = 0.5;
 		this.boids = [];
 		this.foods = [];
@@ -17,6 +17,7 @@ export default class Tank {
 		this.obstacles = [];
 		this.plants = [];
 		this.grid = new SpaceGrid(w,h,200);
+		// this.CreateDebugBoundaryRectangle();
 	}
 	
 	Resize(w,h) {
@@ -24,6 +25,19 @@ export default class Tank {
 		this.height = h;
 		this.grid = new SpaceGrid(w,h,200);
 		this.ScaleBackground();
+		// this.CreateDebugBoundaryRectangle();
+	}
+	
+	CreateDebugBoundaryRectangle() {
+		if ( this.debug_rect ) {
+			this.debug_rect.remove();
+			delete this.debug_rect;
+		}
+		this.debug_rect = window.two.makeRectangle(this.width/2, this.height/2, this.width, this.height );
+		this.debug_rect.stroke = "orange";
+		this.debug_rect.linewidth = '2';
+		this.debug_rect.fill = 'transparent';		
+		window.vc.AddShapeToRenderLayer(this.debug_rect, -2);	
 	}
 	
 	// background layer
@@ -94,6 +108,7 @@ export default class Tank {
 			t.stroke = c;
 			this.bg.add(t);
 		}		
+		// this.bg.add( bounds );		
 		// let randscale = Math.cbrt( Math.random() * 99 + 1 ); // TODO: weighted random
 		// let xory = Math.random() > 0.5;
 		// this.bg.scale = new Two.Vector( xory ? randscale : 1.5, xory ? 1.5 : randscale );
