@@ -11,6 +11,8 @@ export default class Food {
 		this.vy = Math.random() * 100 - 50;
 		this.value = 80;
 		this.r = this.value * 0.25;
+		this.age = 0;
+		this.lifespan = 60 + Math.random() * 120;
 		this.hue = Math.random();
 		this.colorval = Math.random();
 		this.edibility = Math.random() * 0.5;
@@ -30,12 +32,16 @@ export default class Food {
 		this.collision = { radius: this.r }	;
 	}
 	Update(delta) {
-		// const margin = 300;
-		const margin = 10;
 		if ( !delta ) { return; }
 		if ( delta > 1 ) { delta /= 1000; }
+		this.age += delta;
+		if ( this.age > this.lifespan ) {
+			this.Kill();
+			return;
+		}
 		this.x += this.vx * delta;
 		this.y += this.vy * delta;
+		const margin = 10;
 		if ( this.x < margin ) { this.vx = -this.vx; }
 		if ( this.y < margin ) { this.vy = -this.vy; }
 		if ( this.x > window.vc.tank.width-margin ) { this.vx = -this.vx; }
