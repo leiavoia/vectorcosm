@@ -239,7 +239,7 @@ export class FoodChaseSimulation extends Simulation {
 			let food_speed = this.settings?.food_speed || 100;
 			food.vx = Math.random() * food_speed - (food_speed*0.5);
 			food.vy = Math.random() * food_speed - (food_speed*0.5);
-			food.edibility = 1; // universal edibility
+			food.edibility = this.settings?.edibility ?? food.edibility;
 			this.tank.foods.push(food);
 		}
 		// randomize rocks
@@ -247,7 +247,7 @@ export class FoodChaseSimulation extends Simulation {
 		this.tank.obstacles.length = 0;	
 		this.tank.plants.forEach( x => x.Kill() );
 		this.tank.plants.length = 0;
-		let num_rocks = this.settings?.num_rocks || 1;
+		let num_rocks = this.settings?.num_rocks || 0;
 		let margin = 200;
 		for ( let i =0; i < num_rocks; i++ ) {
 			let rock = new Rock( {
@@ -337,7 +337,7 @@ export class FoodChaseSimulation extends Simulation {
 				let food_speed = this.settings?.food_speed || 100;
 				food.vx = Math.random() * food_speed - (food_speed*0.5);
 				food.vy = Math.random() * food_speed - (food_speed*0.5);
-				// food.edibility = 1; // universal edibility
+				food.edibility = this.settings?.edibility ?? food.edibility;
 				this.tank.foods.push(food);
 			}	
 		}	 
