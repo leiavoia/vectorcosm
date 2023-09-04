@@ -20,11 +20,6 @@ export default class Sensor {
 			this.detect = 'food'; // what to sense
 		}
 		this.val = 0; // output value of sensation, 0..1, used as input for neural networks
-		// this can be differentiated by geometry type later. just circles for now.
-		this.geo = window.two.makeCircle(this.x, this.y, this.r);
-		this.geo.fill = 'transparent';
-		this.geo.linewidth = 1;
-		this.geo.stroke = this.detect=='obstacles' ? '#FF22BB77' : '#AAEEAA77';
 	}
 	// does sensor checks and puts detected values into this.val
 	Sense() {
@@ -77,18 +72,18 @@ export default class Sensor {
 			case 'edges' : {
 				const margin = 150;
 				this.val += this.owner.x < margin ? (margin - this.owner.x) : 0;
-				this.val += this.owner.x > (window.vc.width-margin) ? (margin-(window.vc.width - this.owner.x)) : 0;
+				this.val += this.owner.x > (window.vc.tank.width-margin) ? (margin-(window.vc.tank.width - this.owner.x)) : 0;
 				this.val += this.owner.y < margin ? (margin - this.owner.y ) : 0;
-				this.val += this.owner.y > (window.vc.height-margin) ? (margin-(window.vc.height - this.owner.y)) : 0;
+				this.val += this.owner.y > (window.vc.tank.height-margin) ? (margin-(window.vc.tank.height - this.owner.y)) : 0;
 				this.val /= margin*2;
 				break;
 			} 
 			case 'world-x' : {
-				this.val = this.owner.x / window.vc.width;
+				this.val = this.owner.x / window.vc.tank.width;
 				break;
 			} 
 			case 'world-y' : {
-				this.val = this.owner.y / window.vc.height;
+				this.val = this.owner.y / window.vc.tank.height;
 				break;
 			} 
 			case 'chaos' : {
@@ -151,5 +146,13 @@ export default class Sensor {
 			}
 		}
 		return this.val;
+	}
+	CreateGeometry() {
+		// this can be differentiated by geometry type later. just circles for now.
+		let geo = window.two.makeCircle(this.x, this.y, this.r);
+		geo.fill = 'transparent';
+		geo.linewidth = 1;
+		geo.stroke = this.detect=='obstacles' ? '#FF22BB77' : '#AAEEAA77';	
+		return geo;
 	}
 }

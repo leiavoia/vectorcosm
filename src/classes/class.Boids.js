@@ -108,7 +108,7 @@ export class Boid {
 		// diet
 		this.stomach_size = 100;
 		this.stomach_contents = 0;
-		this.bite_rate = 15; // food per second
+		this.bite_rate = 20; // food per second
 		this.digestion_rate = 1; // food per second
 		this.energy_per_food = 10; // energy per food
 		this.diet = 0; // 0..1
@@ -163,14 +163,8 @@ export class Boid {
 	}
 	MakeGeometry() { }
 	MakeMotors() {}
-	// inherit this function, then call super.MakeSensors to do the geometry visualization stuff.
-	MakeSensors() { 
-		// visualization	
-		this.sensor_group = window.two.makeGroup();
-		this.sensor_group.add( this.sensors.filter( s => s.detect=='food' || s.detect=='obstacles' ).map( i => i.geo ) );
-		this.sensor_group.visible = window.vc.show_collision_detection;
-		this.container.add(this.sensor_group);
-	}
+	// inherit this function
+	MakeSensors() { }
 	MakeBrain( inputs, middles, outputs, connections=null, type='random' ) {	
 		if ( type=='perceptron' ) {
 			this.brain = architect.Perceptron(inputs, middles||1, outputs);			
@@ -234,8 +228,14 @@ export class Boid {
 		}
 		
 		// UI: toggle collision detection geometry UI
-		if ( this.sensor_group.visible != window.vc.show_collision_detection ) {
-			this.sensor_group.visible = window.vc.show_collision_detection;
+		if ( ( window.vc.show_collision_detection || this.show_sensors ) && !this.sensor_group ) {
+			this.sensor_group = window.two.makeGroup();
+			this.sensor_group.add( this.sensors.filter( s => s.detect=='food' || s.detect=='obstacles' ).map( i => i.CreateGeometry() ) );
+			this.container.add(this.sensor_group);
+		}
+		else if ( !( window.vc.show_collision_detection || this.show_sensors ) && this.sensor_group ) {
+			this.sensor_group.remove();
+			this.sensor_group = null;
 		}
 		
 		// CPU optimization: we don't need to run AI every frame
@@ -553,7 +553,6 @@ export class Boid {
 	}
 	Kill() {
 		this.body.geo.remove();
-		this.sensors.forEach(x=> x?.geo ? x.geo.remove() : null );
 		this.container.remove();
 		this.dead = true;
 	}
