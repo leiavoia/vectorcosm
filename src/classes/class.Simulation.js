@@ -64,8 +64,12 @@ export default class Simulation {
 		this.tank.plants.length = 0;
 	}
 	
+	// inherit me	
 	Setup() {
-		// inherit me	
+		if ( this.settings?.scale ) {
+			window.vc.SetViewScale( this.settings.scale );
+			window.vc.ResizeTankToWindow();
+		}	
 	}
 	
 	Reset() {
@@ -199,14 +203,6 @@ export class FoodChaseSimulation extends Simulation {
 			// b.angle = 0;
 			this.tank.boids.push(b);
 		}
-		// // make dinner
-		// for ( let i=this.tank.foods.length; i < this.settings.num_foods; i++ ) {
-		// 	let food = new Food( this.tank.width - spawn_x, this.tank.height - spawn_y );
-		// 	let food_speed = this.settings?.food_speed || 100;
-		// 	food.vx = Math.random() * food_speed - (food_speed*0.5);
-		// 	food.vy = Math.random() * food_speed - (food_speed*0.5);
-		// 	this.tank.foods.push(food);
-		// }
 		this.Reset();
 	}
 	Reset() {
@@ -245,8 +241,6 @@ export class FoodChaseSimulation extends Simulation {
 		// randomize rocks
 		this.tank.obstacles.forEach( x => x.Kill() );
 		this.tank.obstacles.length = 0;	
-		this.tank.plants.forEach( x => x.Kill() );
-		this.tank.plants.length = 0;
 		let num_rocks = this.settings?.num_rocks || 0;
 		let margin = 200;
 		for ( let i =0; i < num_rocks; i++ ) {
@@ -258,16 +252,22 @@ export class FoodChaseSimulation extends Simulation {
 				complexity: 2
 			})
 			this.tank.obstacles.push(rock);
-			// novelty plants for testing - REMOVE WHEN YOU GET BORED WITH PLANTS
-			// const num_plants = utils.BiasedRandInt(0,3,2,0.5);
-			// for ( let n=0; n < num_plants; n++ ) {
-			// 	const p = rock.pts.pickRandom(); 
-			// 	// const plant = new PendantLettuce( rock.x+p[0], rock.y+p[1] );
-			// 	const type = Math.random() < 0.2 ? PendantLettuce : VectorGrass;
-			// 	const plant = new type( rock.x+p[0], rock.y+p[1] );
-			// 	this.tank.plants.push(plant);
-			// 	window.vc.AddShapeToRenderLayer( plant.geo, /* Math.random() > 0.5 ? '+1' : */ '-2' );
-			// }
+		}
+		// plants
+		this.tank.plants.forEach( x => x.Kill() );
+		this.tank.plants.length = 0;
+		const num_plants = this.settings?.num_plants;
+		if ( num_plants > 0 ) {
+			for ( let n=0; n < num_plants; n++ ) {
+				const rock = this.tank.obstacles.pickRandom();
+				if ( rock ) {
+					const p = rock.pts.pickRandom(); 
+					const type = Math.random() < 0.30 ? PendantLettuce : VectorGrass;
+					const plant = new type( rock.x+p[0], rock.y+p[1] );
+					this.tank.plants.push(plant);
+					window.vc.AddShapeToRenderLayer( plant.geo, /* Math.random() > 0.5 ? '+1' : */ '-2' );
+				}
+			}
 		}			
 	}	
 	ScoreBoidPerFrame(b) {
