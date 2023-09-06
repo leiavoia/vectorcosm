@@ -44,7 +44,7 @@ export default class Vectorcosm {
 		this.braingraph = null; // move me some day
 		
 		// world settings
-		this.animate_boids = false;
+		this.animate_boids = true;
 		this.show_collision_detection = false;
 		this.show_ui = false;
 		this.show_brainmap = false;
@@ -54,6 +54,7 @@ export default class Vectorcosm {
 		this.width = 0;
 		this.height = 0;
 		this.scale = 1;
+		this.cinema_mode = false;
 		
 		// subscriptions to critical events
 		// this.frameUpdateSubscription = PubSub.subscribe('frame-update', (msg,data) => {
@@ -103,20 +104,22 @@ export default class Vectorcosm {
 			// 	},
 			// }),	
 			new FoodChaseSimulation(this.tank,{
-				name: 'Dont hit rocks',
-				num_boids: 30,
+				name: 'Food Chase',
+				num_boids: 100,
 				random_boid_pos: true,
 				random_food_pos: true,
-				time: 25,
+				time: 60,
 				// min_score: 5,
 				max_mutation: 8,
-				num_rocks: 0,
+				num_rocks: 18,
+				num_plants: 50,
 				target_spread: 800,
-				num_foods: 3,
-				food_speed: 62,
+				num_foods: 20,
+				food_speed: 50,
 				species:'random',
 				cullpct: 0.4,
 				edibility: 1,
+				scale: 0.4,
 				end: {
 					// avg_score:400,
 					// avg_score_rounds: 10,
@@ -134,8 +137,51 @@ export default class Vectorcosm {
 		
 		// draw screen
 		this.two.update();
+		
+		this.CinemaMode(true);
 	}
 
+	CinemaMode( x ) { 
+		this.cinema_mode = x;
+		if ( x ) {
+			this.StopTrackObject();
+			// random chance to do a few basic options
+			const zoom = utils.RandomFloat( 0.9, 1.8, 1.2 );
+			const r = Math.random();
+			// focus on boid
+			if ( r < 0.5 ) {
+				const b = this.tank.boids.pickRandom();
+				if ( b ) { this.TrackObject(b); }
+				this.SetViewScale(zoom);
+			}
+			// focus on random point
+			else if ( r < 0.8 ) {
+				this.PointCameraAt( this.tank.width*Math.random(), this.tank.height*Math.random(), zoom );	
+			}
+			// whole scene
+			else {
+				this.ResetCameraZoom();
+			}
+			// prime the next view change
+			const timing = utils.RandomInt(5000,12000);
+			this.cinema_mode_timeout = setTimeout( _ => {
+				this.CinemaMode(true); 
+			}, timing ); 
+		}
+		else {
+			clearTimeout(this.cinema_mode_timeout);
+			this.cinema_mode_timeout = null; 
+			this.StopTrackObject();
+		}
+	}
+	
+	ResetCameraZoom() {
+		const scalex = this.width / this.tank.width;
+		const scaley = this.height / this.tank.height;
+		const scale = Math.min(scalex,scaley); // min = contain, max = cover
+		this.PointCameraAt( this.tank.width*0.5, this.tank.height*0.5, scale );	
+	}
+	
 	LoadStartingPopulationFromFile(file) {
 		return fetch( file, { headers: { 'Accept': 'application/json' } } )
 		.then(response => response.json())
@@ -309,6 +355,10 @@ export default class Vectorcosm {
 			if ( this.focus_object == o ) { this.StopTrackObject(); }
 			return;
 		}
+		// o.show_sensors = true;
+		// if ( this.focus_object && this.focus_object !== o ) { 
+		// 	delete this.focus_object.show_sensors;
+		// }
 		this.focus_object = o;
 		if ( !this.focus_geo ) {
 			this.focus_geo = this.two.makeCircle(this.focus_object.x, this.focus_object.y, 50);
@@ -361,6 +411,7 @@ export default class Vectorcosm {
 	
 	StopTrackObject() {
 		if ( !this.focus_object ) { return ; }
+		delete this.focus_object.show_sensors;
 		this.focus_object = null;
 		if ( this.focus_geo ) {
 			this.focus_geo.remove();

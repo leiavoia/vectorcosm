@@ -134,11 +134,7 @@ const keyFunctionMap = {
 			vc.MoveCamera( 0, 0, diff );
 		},
 	';': _ => {
-			// fill screen with entire tank
-			const scalex = vc.width / vc.tank.width;
-			const scaley = vc.height / vc.tank.height;
-			const scale = Math.min(scalex,scaley); // min = contain, max = cover
-			vc.PointCameraAt( vc.tank.width*0.5, vc.tank.height*0.5, scale );
+			vc.ResetCameraZoom();
 		},
 	'ArrowLeft': _ => {
 			vc.MoveCamera( 100, 0, 0 );
@@ -193,6 +189,9 @@ const keyFunctionMap = {
 		},
 	'End': _ => {
 			vc.ToggleSimulatorFF();
+		},
+	'c': _ => {
+			vc.CinemaMode( !vc.cinema_mode );
 		},
 	'Escape': _ => {
 			if ( show_boid_details.value ) { show_boid_details.value = false; }
