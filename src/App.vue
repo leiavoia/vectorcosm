@@ -399,7 +399,7 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 				<!-- <progress :value="m.this_stoke_time ? m.strokepow : 0"></progress>				 -->
 				<progress :value="m.this_stoke_time ? m.last_amount : 0"></progress>
 				&nbsp;
-				{{m.name}}, <i>{{m.strokefunc}}</i>, &gt;{{m.min_act.toFixed(2)}}, t{{m.stroketime.toFixed(2)}}, ${{m.cost.toFixed(2)}}
+				{{m.name}}, <i>{{m.strokefunc}}</i>, &gt;{{m.min_act.toFixed(2)}}, t{{m.t.toFixed(2)}}/{{m.stroketime.toFixed(2)}}, ${{m.cost.toFixed(2)}}
 				
 			</div>
 			

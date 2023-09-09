@@ -81,6 +81,9 @@ export default class Vectorcosm {
 		else if ( this.two.width < 1200 ) { this.SetViewScale(0.6); }
 		else if ( this.two.width < 1900 ) { this.SetViewScale(1); }
 		else { this.SetViewScale(1); }
+		this.ResizeTankToWindow();
+		this.ResetCameraZoom();
+		
 		
 		// set up simulations so we have something to watch
 		this.sim_queue = [
@@ -108,22 +111,22 @@ export default class Vectorcosm {
 				num_boids: 100,
 				random_boid_pos: true,
 				random_food_pos: true,
-				time: 60,
+				time: 5000,
 				// min_score: 5,
 				max_mutation: 8,
-				num_rocks: 18,
-				num_plants: 50,
+				num_rocks: 14,
+				num_plants: 14,
 				target_spread: 800,
-				num_foods: 20,
+				num_foods: 0,
 				food_speed: 50,
 				species:'random',
-				cullpct: 0.4,
-				edibility: 1,
-				scale: 0.4,
+				cullpct: 0.3,
+				// edibility: 1,
+				scale: 0.5,
 				end: {
 					// avg_score:400,
 					// avg_score_rounds: 10,
-					rounds:10000
+					rounds:100000
 				},
 			}),	
 		];
@@ -138,7 +141,7 @@ export default class Vectorcosm {
 		// draw screen
 		this.two.update();
 		
-		this.CinemaMode(true);
+		// this.CinemaMode(true);
 	}
 
 	CinemaMode( x ) { 
@@ -265,10 +268,22 @@ export default class Vectorcosm {
 		for ( let f of this.tank.foods ) { this.tank.grid.Add(f); }
 		
 		// update all boids
-		for ( let b of this.tank.boids ) {
-			// b.body.geo.fill = '#AEA9';
-			b.collision.contact_obstacle = false;
+		for ( let i = this.tank.boids.length-1; i >= 0; i-- ) {
+			const b = this.tank.boids[i];
 			b.Update(delta);
+			// b.collision.contact_obstacle = false;
+			if ( b.dead ) {
+				this.tank.boids.splice(i,1);
+			}
+		}
+		
+		// update plants
+		for ( let i = this.tank.plants.length-1; i >= 0; i-- ) {
+			const plant = this.tank.plants[i];
+			plant.Update(delta);
+			if ( plant.dead ) {
+				this.tank.plants.splice(i,1);
+			}
 		}
 		
 		// update food

@@ -4,18 +4,19 @@ import {Circle, Polygon, Result} from 'collisions';
 import Rock from '../classes/class.Rock.js'
 
 export default class Food {
-	constructor(x=0,y=0) {
+	constructor(x=0,y=0,params) {
 		this.x = x;
 		this.y = y;
 		this.vx = Math.random() * 10 - 5;
 		this.vy = Math.random() * 100 - 50;
 		this.value = 80;
-		this.r = this.value * 0.25;
 		this.age = 0;
 		this.lifespan = 60 + Math.random() * 120;
 		this.hue = Math.random();
 		this.colorval = Math.random();
 		this.edibility = Math.random() * 0.5;
+		Object.assign( this, params );
+		this.r = this.value * 0.25;
 		this.geo = window.two.makeCircle(this.x,this.y,this.r);
 		// this.geo.linewidth=2;
 		// this.geo.stroke = 'white';
@@ -50,9 +51,6 @@ export default class Food {
 		this.y = utils.clamp( this.y, margin, window.vc.tank.height-margin );
 		// update the object in space
 		this.r = this.value * 0.25;
-		this.geo.radius = Math.max(this.r,5);
-		this.geo.position.x = this.x;
-		this.geo.position.y = this.y;
 		this.collision.radius = this.r;
 		// collision detection with obstacles
 		// things i might collide with:
@@ -73,12 +71,16 @@ export default class Food {
 			if ( gotcha ) {
 				this.x -= result.overlap * result.overlap_x;
 				this.y -= result.overlap * result.overlap_y;
-				this.vx = -this.vx;
-				this.vy = -this.vy;
-				this.geo.position.x = this.x;
-				this.geo.position.y = this.y;
+				this.vx = utils.Clamp( -this.vx + utils.RandomFloat(-this.vx*0.5,this.vx*0.5), -300, 300 );
+				this.vy = utils.Clamp( -this.vy + utils.RandomFloat(-this.vy*0.5,this.vy*0.5), -300, 300 );
 			}
 		}
+		// drawing
+		// if ( !window.vc?.simulation?.turbo ) {
+			this.geo.radius = Math.max(this.r,5);
+			this.geo.position.x = this.x;
+			this.geo.position.y = this.y;
+		// }
 			
 	}
 	// returns the amount eaten

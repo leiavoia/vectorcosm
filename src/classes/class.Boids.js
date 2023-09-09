@@ -110,7 +110,7 @@ export class Boid {
 		this.stomach_contents = 0;
 		this.bite_rate = 20; // food per second
 		this.digestion_rate = 1; // food per second
-		this.energy_per_food = 10; // energy per food
+		this.energy_per_food = 15; // energy per food
 		this.diet = 0; // 0..1
 		this.diet_range = 0.5; // 0..1
 		this.rest_metabolism = 0.2; // energy per second
@@ -267,7 +267,7 @@ export class Boid {
 		
 		// [!]EXPERIMENTAL - Animate geometry - proof of concept
 		// There is just enough here to be amusing, but its not accurate and needs improvement
-		if ( window.vc.animate_boids ) {
+		if ( window.vc.animate_boids && !window.vc?.simulation?.turbo ) {
 		
 			// for ( let m of this.motors ) {
 			// 	if ( m.anim.index < 0 || m.anim.index >= this.body.geo.vertices.length ) { break; }
@@ -394,10 +394,6 @@ export class Boid {
 		// stay inside world bounds
 		this.x = utils.clamp( this.x, 0, this.tank.width );
 		this.y = utils.clamp( this.y, 0, this.tank.height );
-		// update drawing geometry
-		this.container.position.x = this.x;
-		this.container.position.y = this.y;
-		this.container.rotation = this.angle;
 		// viscosity slows down inertia over time
 		this.inertia *= (1 - ( this.tank.viscosity * delta * 10 ) );
 		this.angmo *= (1 - ( this.tank.viscosity * delta * 10 ) );
@@ -432,12 +428,19 @@ export class Boid {
 				this.x -= result.overlap * result.overlap_x;
 				this.y -= result.overlap * result.overlap_y;
 				this.inertia *= 0.75; // what a drag
-				this.container.position.x = this.x;
-				this.container.position.y = this.y;
 				// this.body.geo.fill = '#D11';
 				this.collision.contact_obstacle = true;
 			}
 		}
+		
+		// update drawing geometry
+		// optimization: if turbo is enabled, draw nothing
+		// if ( !window.vc?.simulation?.turbo ) {
+			this.container.position.x = this.x;
+			this.container.position.y = this.y;
+			this.container.rotation = this.angle;
+		// }
+				
 		
 		// [!]HACK to make food work - eat the food you stupid llama
 		if ( this.stomach_contents / this.stomach_size < 0.98 ) { // prevents wasteful eating
@@ -546,6 +549,8 @@ export class Boid {
 						offspring.MutateBrain(6);
 						this.tank.boids.push(offspring);
 					}
+				}
+				else {
 				}
 			}
 			if ( m.t >= m.this_stoke_time ) { m.t = 0; } // reset stroke
@@ -696,10 +701,10 @@ export class Boid {
 			
 		// reproductive motors
 		const mitosis_num = utils.BiasedRandInt(1,5,1,0.95);
-		const stroketime = utils.BiasedRandInt(5,30,15,0.5) * mitosis_num;
+		const stroketime = utils.BiasedRandInt(mitosis_num*5,mitosis_num*30,mitosis_num*15,0.5) * mitosis_num;
 		b.motors.push({
 			mitosis: mitosis_num, // number of new organisms
-			min_act: utils.BiasedRand(0.51,0.99,0.8,0.5),
+			min_act: utils.BiasedRand(0.35,0.9,0.6,0.5),
 			cost: ( b.max_energy * utils.BiasedRand(0.51,1,0.65,0.5) ) / stroketime, 
 			stroketime: stroketime, 
 			strokefunc: 'complete', 
