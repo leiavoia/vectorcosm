@@ -1,6 +1,7 @@
 import * as utils from '../util/utils.js'
 import { Boid } from '../classes/class.Boids.js'
 import Rock from '../classes/class.Rock.js'
+import Food from '../classes/class.Food.js'
 import {Circle, Polygon, Result} from 'collisions';
 
 export default class Sensor {
@@ -34,7 +35,9 @@ export default class Sensor {
 				let sx = this.owner.x + ((this.x * cosAngle) - (this.y * sinAngle));
 				let sy = this.owner.y + ((this.x * sinAngle) + (this.y * cosAngle));
 				// find objects that are detected by this sensor
-				let objs = this.owner.tank.foods; // TODO: USE COLLISION DETECTION SYSTEM INSTEAD OF ITERATING ENTIRE LIST
+				let objs = this.owner.tank.foods.length < 50 // runs faster on small sets
+					? this.owner.tank.foods
+					: this.owner.tank.grid.GetObjectsByBox( sx - this.r, sy - this.r, sx + this.r, sy + this.r, Food );
 				for ( let obj of objs ) { 
 					const dx = Math.abs(obj.x - sx);
 					const dy = Math.abs(obj.y - sy);

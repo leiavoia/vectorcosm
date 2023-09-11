@@ -2,6 +2,7 @@ import neataptic from "neataptic";
 import BodyPlan from '../classes/class.BodyPlan.js'
 import Sensor from '../classes/class.Sensor.js'
 import Rock from '../classes/class.Rock.js'
+import Food from '../classes/class.Food.js'
 import * as utils from '../util/utils.js'
 import {Circle, Polygon, Result} from 'collisions';
 const { architect, Network } = neataptic;
@@ -441,19 +442,20 @@ export class Boid {
 			this.container.rotation = this.angle;
 		// }
 				
-		
-		// [!]HACK to make food work - eat the food you stupid llama
+		// eat food
 		if ( this.stomach_contents / this.stomach_size < 0.98 ) { // prevents wasteful eating
-			for ( let food of this.tank.foods ) { 
+			const r = this.collision.radius;
+			let foods = this.tank.foods.length < 50 // runs faster on small sets
+				? this.tank.foods			
+				: this.tank.grid.GetObjectsByBox( this.x - r, this.y - r, this.x + r, this.y + r, Food );				
+			for ( let food of foods ) { 
 				const dx = Math.abs(food.x - this.x);
 				const dy = Math.abs(food.y - this.y);
 				const d = Math.sqrt(dx*dx + dy*dy);
-				if ( d <= this.collision.radius + food.r ) { 
-					if ( food.IsEdibleBy(this) ) {
-						const morcel = food.Eat(delta*this.bite_rate);
-						this.stomach_contents = Math.min( this.stomach_contents + morcel, this.stomach_size );
-						break; // one bite only!
-					}
+				if ( d <= this.collision.radius + food.r && food.IsEdibleBy(this) ) { 
+					const morcel = food.Eat(delta*this.bite_rate);
+					this.stomach_contents = Math.min( this.stomach_contents + morcel, this.stomach_size );
+					break; // one bite only!
 				}
 			}
 		}
@@ -469,10 +471,10 @@ export class Boid {
 			if ( m.hasOwnProperty('min_age') && this.age < m.min_age ) { return 0; }
 			// start a timer if there isnt one
 			if ( !m.hasOwnProperty('t') ) { m.t = 0; }
-			// shift amount to halfway point for wheel motors
+			// shift amount to halfway point for wheel motors (0..1 becomes -1..1)
 			if ( m.wheel ) { amount = (amount - 0.5) * 2; } 
 			// check for minimum activation
-			if ( m.t==0 && m.min_act && (m.wheel ? Math.abs(amount) : amount) < m.min_act ) { 
+			if ( m.t==0 && m.min_act && Math.abs(amount) < m.min_act ) { 
 				m.last_amount = 0;
 				m.this_stoke_time = 0;
 				return 0; 
