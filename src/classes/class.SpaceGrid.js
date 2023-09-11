@@ -55,9 +55,7 @@ export default class SpaceGrid {
 		}
 		// now do the actual insertion
 		let cells = this.GetCellsByBox( x1, y1, x2, y2 );
-		// console.log( x1, y1, x2, y2, cells );
 		for ( let cell of cells ) { cell.push(o); }
-		// console.log('adding objects to ' + cells.length, cells );
 		return cells;
 	}
 	
@@ -68,8 +66,10 @@ export default class SpaceGrid {
 	}
 	
 	GetCellFromCoords( x, y ) {
-		let cell_x = Math.trunc( x / this.cellsize ).clamp( 0, this.cells_x );
-		let cell_y = Math.trunc( y / this.cellsize ).clamp( 0, this.cells_y );
+		// x = x.clamp( 0, this.cells_x * this.cellsize );
+		// y = y.clamp( 0, this.cells_y * this.cellsize );
+		let cell_x = Math.trunc( x / this.cellsize ).clamp( 0, this.cells_x-1 );
+		let cell_y = Math.trunc( y / this.cellsize ).clamp( 0, this.cells_y-1 );
 		return cell_x + ( cell_y * this.cells_x );
 	}
 	
