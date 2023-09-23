@@ -109,7 +109,7 @@ export class Boid {
 		// diet
 		this.stomach_size = 100;
 		this.stomach_contents = 0;
-		this.bite_rate = 20; // food per second
+		this.bite_rate = 100; // food per second
 		this.digestion_rate = 1; // food per second
 		this.energy_per_food = 15; // energy per food
 		this.diet = 0; // 0..1
@@ -540,7 +540,7 @@ export class Boid {
 				this.path.fill = `rgba(${c[0]},${c[1]},${c[2]},${utils.clamp(amount,0,1)})`;
 			}
 			if ( m.hasOwnProperty('mitosis') && m.t >= m.this_stoke_time ) {
-				if ( this.tank.boids.length < 100 ) { // SANITY CAP. TODO: make a global setting
+				if ( this.tank.boids.length < (window.vc?.simulation?.settings?.num_boids || 100) ) { // SANITY CAP. TODO: make a global setting
 					for ( let n=0; n < m.mitosis; n++ ) { 
 						let offspring = this.Copy(true,true); // mutate body and reset state variables
 						offspring.x = this.x;
@@ -548,7 +548,7 @@ export class Boid {
 						offspring.angle = utils.RandomFloat(0, Math.PI*2);
 						offspring.energy = this.max_energy / ( m.mitosis + 1 ); // good luck, kid
 						// TODO: brain mutate based on some kind of parameter - simulation or DNA
-						offspring.MutateBrain(6);
+						offspring.MutateBrain( window.vc?.simulation?.settings?.max_mutation || 3 );
 						this.tank.boids.push(offspring);
 					}
 				}

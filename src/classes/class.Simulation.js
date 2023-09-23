@@ -244,11 +244,13 @@ export class FoodChaseSimulation extends Simulation {
 		let num_rocks = this.settings?.num_rocks || 0;
 		let margin = 200;
 		for ( let i =0; i < num_rocks; i++ ) {
+			const xscale = utils.RandomFloat(0.2,1.0);
+			const yscale = utils.RandomFloat(0.2,1.0);
 			let rock = new Rock( {
 				x: utils.RandomInt(margin,this.tank.width-margin)-200, 
 				y: utils.RandomInt(margin,this.tank.height-margin)-150, 
-				w: utils.RandomInt(150,800), 
-				h: utils.RandomInt(100,600),
+				w: xscale * Math.sqrt( utils.BiasedRandInt(150,this.tank.width*0.5, 400, 0.9) * utils.BiasedRandInt(150,this.tank.width*0.5, 400, 0.9) ), 
+				h: yscale * Math.sqrt( utils.BiasedRandInt(150,this.tank.height*0.5, 400, 0.9) * utils.BiasedRandInt(150,this.tank.height*0.5, 400, 0.9) ), 
 				complexity: 2
 			})
 			this.tank.obstacles.push(rock);
