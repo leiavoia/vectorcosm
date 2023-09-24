@@ -78,6 +78,18 @@ export default class Tank {
 			['#07290C','#001B04','#0C1F01'], // mossgarden
 			['#001C41','#001C41','#00355e','#05080f','#001C41','#001C41','#00355e','#05080f','#004b9b'], // moonlight
 		];
+		
+		// randomized color schemes 
+		for ( let n=0; n < 5; n++ ) {
+			const colors = [];
+			const num_colors = utils.RandomInt(2,5,3,0.5);
+			for ( let c=0; c < num_colors; c++ ){
+				const color = utils.RandomColor( true, false, false, true );
+				colors.push(color);
+			}
+			color_schemes.push(colors);
+		}
+		
 		const delaunay = Delaunator.from(bgpts);
 		let triangles = delaunay.triangles;
 		let bgcolors = color_schemes[ Math.trunc( Math.random() * color_schemes.length ) ];

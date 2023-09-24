@@ -247,7 +247,7 @@ export class RandomPicker {
 // 	];
 // Civ.colors.shuffle();
 
-export function RandomColor( as_hex=true, inc_transp=false, bright=false ) {
+export function RandomColor( as_hex=true, inc_transp=false, bright=false, dark=false ) {
 	let c = [ 
 		RandomInt(0,255),
 		RandomInt(0,255),
@@ -257,6 +257,12 @@ export function RandomColor( as_hex=true, inc_transp=false, bright=false ) {
 		while ( c[0] + c[1] + c[2] < 600 ) {
 			const i = RandomInt(0,2);
 			c[i] += Math.min( 20, 255 - c[i] );
+		}
+	}
+	else if ( dark ) {
+		while ( c[0] + c[1] + c[2] > 100 ) {
+			const i = RandomInt(0,2);
+			c[i] = Math.round( c[i] * 0.65 );
 		}
 	}
 	if ( inc_transp ) { c.push( RandomInt(0,255) ); }
