@@ -209,8 +209,8 @@ export class FoodChaseSimulation extends Simulation {
 		// reset entire population
 		let spawn_x = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.width; 
 		let spawn_y = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.height; 			
+		let new_angle = Math.random() * Math.PI * 2;
 		for ( let b of this.tank.boids ) {
-			let new_angle = Math.random() * Math.PI * 2;
 			if ( this.settings?.random_boid_pos ) {
 				spawn_x = Math.random() * this.tank.width; 
 				spawn_y = Math.random() * this.tank.height; 			
@@ -343,6 +343,13 @@ export class FoodChaseSimulation extends Simulation {
 				this.tank.foods.push(food);
 			}	
 		}	 
+		const margin = this.settings?.food_bounce_margin || 250;
+		for ( const f of this.tank.foods ) {
+			if ( f.x < margin ) { f.vx = -f.vx; }
+			if ( f.y < margin ) { f.vy = -f.vy; }
+			if ( f.x > this.tank.width-margin ) { f.vx = -f.vx; }
+			if ( f.y > this.tank.height-margin ) { f.vy = -f.vy; }
+		}
 	}	
 }
 

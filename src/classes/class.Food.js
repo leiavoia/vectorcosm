@@ -9,14 +9,14 @@ export default class Food {
 		this.y = y;
 		this.vx = Math.random() * 10 - 5;
 		this.vy = Math.random() * 100 - 50;
-		this.value = 80;
+		this.value = 300;
 		this.age = 0;
 		this.lifespan = 60 + Math.random() * 120;
 		this.hue = Math.random();
 		this.colorval = Math.random();
 		this.edibility = Math.random() * 0.5;
 		Object.assign( this, params );
-		this.r = this.value * 0.25;
+		this.r = Math.sqrt( 2 * this.value / Math.PI );
 		this.geo = window.two.makeCircle(this.x,this.y,this.r);
 		// this.geo.linewidth=2;
 		// this.geo.stroke = 'white';
@@ -50,7 +50,7 @@ export default class Food {
 		this.x = utils.clamp( this.x, margin, window.vc.tank.width-margin );
 		this.y = utils.clamp( this.y, margin, window.vc.tank.height-margin );
 		// update the object in space
-		this.r = this.value * 0.25;
+		this.r = Math.sqrt( 2 * this.value / Math.PI );
 		this.collision.radius = this.r;
 		// collision detection with obstacles
 		// things i might collide with:
