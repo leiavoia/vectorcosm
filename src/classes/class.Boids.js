@@ -121,8 +121,8 @@ export class Boid {
 			fixed: false,
 			radius: 15 // TODO: update
 		};
-		// this.momentum_x = 0; // use momentum with the momentum_based code in Update()
-		// this.momentum_y = 0;
+		this.momentum_x = 0; // use momentum with the momentum_based code in Update()
+		this.momentum_y = 0;
 		this.maxspeed = 2000; // these are global maximum speeds to prevent collision detection from breaking in fringe cases
 		this.maxrot = 20;
 		this.angle = Math.random()*Math.PI*2;
@@ -337,74 +337,81 @@ export class Boid {
 		// To use, make sure boids have .momentum_x and .momentum_y members.
 		// Uncomment the block below and comment out the current physics code
 		// Momentum is physically more accurate in outer space, but looks weird
-		// for "underwater" feel we are going for. Using the simpler intertia/angle
+		// for "underwater" feel we are going for. Using the simpler inertia/angle
 		// system looks more like what you expect from a hydrodynamic system.
 		
 		// adjust pointing angle based on spin (angular momentum)
-		// this.angle += (delta * this.angmo) % Math.PI;
-		// // apply current inertia to our momentum
-		// sinAngle = Math.sin(this.angle);
-		// cosAngle = Math.cos(this.angle);
-		// this.momentum_x += delta * this.inertia * cosAngle;
-		// this.momentum_y += delta * this.inertia * sinAngle;
-		// // translate position based on momentum
-		// this.x += delta * this.momentum_x;
-		// this.y += delta * this.momentum_y;
-		// // dragging on walls kill momentum / intertia
-		// if ( this.x < 0 ) { this.inertia *= 0.75; this.momentum_x = 0; }
-		// if ( this.y < 0 ) { this.inertia *= 0.75; this.momentum_y = 0; }
-		// if ( this.x > window.vc.width ) { this.inertia *= 0.75; this.momentum_x = 0; }
-		// if ( this.y > window.vc.height ) { this.inertia *= 0.75; this.momentum_y = 0; }	
-		// // stay inside window.vc bounds			
-		// this.x = utils.clamp( this.x, 0, window.vc.width );
-		// this.y = utils.clamp( this.y, 0, window.vc.height );
-		// // viscosity slows down inertia over time
-		// const drag = (1 - ( this.tank.viscosity * delta * 10 ) );
-		// this.momentum_x *= drag;
-		// this.momentum_y *= drag;
-		// this.inertia *= drag;
-		// this.angmo *= drag;
-		// // max speed caps
-		// const absolute_max_speed = 2000;
-		// if ( this.momentum_x > absolute_max_speed ) { this.momentum_x = absolute_max_speed; }
-		// if ( this.momentum_x < -absolute_max_speed ) { this.momentum_x = -absolute_max_speed; }
-		// if ( this.momentum_y > absolute_max_speed ) { this.momentum_y = absolute_max_speed; }
-		// if ( this.momentum_y < -absolute_max_speed ) { this.momentum_y = -absolute_max_speed; }
-		// if ( this.inertia > this.maxspeed ) { this.inertia = this.maxspeed; }
-		// if ( this.inertia < -this.maxspeed ) { this.inertia = -this.maxspeed; }
-		// if ( this.inertia > -5 && this.inertia < 5 ) { this.inertia = 0; } // come to a stop before end of universe
-		// if ( this.angmo > this.maxrot ) { this.angmo = this.maxrot; }
-		// if ( this.angmo < -this.maxrot ) { this.angmo = -this.maxrot; }
-		// if ( this.angmo > -0.05 && this.angmo < 0.05 ) { this.angmo = 0; }
-		
-		// INERTIA-BASED MOVEMENT: ignores momentum physics
-		
-		// update pointing angle based on spin
-		let sinAngle = Math.sin(this.angle);
-		let cosAngle = Math.cos(this.angle);
-		// [!]TECHNICAL: Javascript `%` operator is NOT mathematically strict modulus and behaves badly on negative numbers!
 		this.angle = utils.mod( this.angle + (delta * this.angmo), 2*Math.PI );
-		// move forward or backward
-		this.x += delta * this.inertia * cosAngle;
-		this.y += delta * this.inertia * sinAngle;
-		// hitting walls causes artificial drag
-		if ( this.x < 0 ) { this.inertia *= 0.75; }
-		if ( this.y < 0 ) { this.inertia *= 0.75; }
-		if ( this.x > this.tank.width ) { this.inertia *= 0.75; }
-		if ( this.y > this.tank.height ) { this.inertia *= 0.75; }				
-		// stay inside world bounds
+		// apply current inertia to our momentum
+		const sinAngle = Math.sin(this.angle);
+		const cosAngle = Math.cos(this.angle);		
+		this.momentum_x += delta * this.inertia * cosAngle;
+		this.momentum_y += delta * this.inertia * sinAngle;
+		// translate position based on momentum
+		this.x += this.momentum_x;
+		this.y += this.momentum_y;
+		// dragging on walls kill momentum / inertia
+		if ( this.x < 0 ) { this.inertia *= 0.75; this.momentum_x = 0; }
+		if ( this.y < 0 ) { this.inertia *= 0.75; this.momentum_y = 0; }
+		if ( this.x > this.tank.width ) { this.inertia *= 0.75; this.momentum_x = 0; }
+		if ( this.y > this.tank.height ) { this.inertia *= 0.75; this.momentum_y = 0; }	
+		// stay inside tank			
 		this.x = utils.clamp( this.x, 0, this.tank.width );
 		this.y = utils.clamp( this.y, 0, this.tank.height );
-		// viscosity slows down inertia over time
-		this.inertia *= (1 - ( this.tank.viscosity * delta * 10 ) );
-		this.angmo *= (1 - ( this.tank.viscosity * delta * 10 ) );
-		// speed caps
+		// drag slows us down
+		let drag = ( 
+			this.tank.viscosity +
+			( Math.min(Math.abs(this.inertia),200) / 200 ) +
+			( Math.min(this.body.width,100) / 100 )
+		) / 3;
+		drag *= Math.pow( delta, 0.12 ); // magic tuning number
+		drag = 1 - drag;
+		this.momentum_x *= drag;
+		this.momentum_y *= drag;
+		this.inertia *= drag;
+		this.angmo *= drag;
+		// max speed caps
+		const absolute_max_speed = 2000;
+		if ( this.momentum_x > absolute_max_speed ) { this.momentum_x = absolute_max_speed; }
+		if ( this.momentum_x < -absolute_max_speed ) { this.momentum_x = -absolute_max_speed; }
+		if ( this.momentum_y > absolute_max_speed ) { this.momentum_y = absolute_max_speed; }
+		if ( this.momentum_y < -absolute_max_speed ) { this.momentum_y = -absolute_max_speed; }
 		if ( this.inertia > this.maxspeed ) { this.inertia = this.maxspeed; }
 		if ( this.inertia < -this.maxspeed ) { this.inertia = -this.maxspeed; }
 		if ( this.inertia > -5 && this.inertia < 5 ) { this.inertia = 0; } // come to a stop before end of universe
 		if ( this.angmo > this.maxrot ) { this.angmo = this.maxrot; }
 		if ( this.angmo < -this.maxrot ) { this.angmo = -this.maxrot; }
 		if ( this.angmo > -0.05 && this.angmo < 0.05 ) { this.angmo = 0; }
+		
+			
+		// INERTIA-BASED MOVEMENT: ignores momentum physics
+		
+		// // update pointing angle based on spin
+		// let sinAngle = Math.sin(this.angle);
+		// let cosAngle = Math.cos(this.angle);
+		// // [!]TECHNICAL: Javascript `%` operator is NOT mathematically strict modulus and behaves badly on negative numbers!
+		// this.angle = utils.mod( this.angle + (delta * this.angmo), 2*Math.PI );
+		// // move forward or backward
+		// this.x += delta * this.inertia * cosAngle;
+		// this.y += delta * this.inertia * sinAngle;
+		// // hitting walls causes artificial drag
+		// if ( this.x < 0 ) { this.inertia *= 0.75; }
+		// if ( this.y < 0 ) { this.inertia *= 0.75; }
+		// if ( this.x > this.tank.width ) { this.inertia *= 0.75; }
+		// if ( this.y > this.tank.height ) { this.inertia *= 0.75; }				
+		// // stay inside world bounds
+		// this.x = utils.clamp( this.x, 0, this.tank.width );
+		// this.y = utils.clamp( this.y, 0, this.tank.height );
+		// // viscosity slows down inertia over time
+		// this.inertia *= (1 - ( this.tank.viscosity * delta * 10 ) );
+		// this.angmo *= (1 - ( this.tank.viscosity * delta * 10 ) );
+		// // speed caps
+		// if ( this.inertia > this.maxspeed ) { this.inertia = this.maxspeed; }
+		// if ( this.inertia < -this.maxspeed ) { this.inertia = -this.maxspeed; }
+		// if ( this.inertia > -5 && this.inertia < 5 ) { this.inertia = 0; } // come to a stop before end of universe
+		// if ( this.angmo > this.maxrot ) { this.angmo = this.maxrot; }
+		// if ( this.angmo < -this.maxrot ) { this.angmo = -this.maxrot; }
+		// if ( this.angmo > -0.05 && this.angmo < 0.05 ) { this.angmo = 0; }
 		
 		
 		// collision detection with obstacles
