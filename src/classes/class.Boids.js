@@ -342,14 +342,14 @@ export class Boid {
 		
 		// adjust pointing angle based on spin (angular momentum)
 		this.angle = utils.mod( this.angle + (delta * this.angmo), 2*Math.PI );
-		// apply current inertia to our momentum
+		// apply current forward power to our momentum
 		const sinAngle = Math.sin(this.angle);
 		const cosAngle = Math.cos(this.angle);		
-		this.momentum_x += delta * this.inertia * cosAngle;
-		this.momentum_y += delta * this.inertia * sinAngle;
+		this.momentum_x += this.inertia * cosAngle; // don't factor in delta here, motor functions have already applied it
+		this.momentum_y += this.inertia * sinAngle; // don't factor in delta here, motor functions have already applied it
 		// translate position based on momentum
-		this.x += this.momentum_x;
-		this.y += this.momentum_y;
+		this.x += this.momentum_x * delta;
+		this.y += this.momentum_y * delta;
 		// dragging on walls kill momentum / inertia
 		if ( this.x < 0 ) { this.inertia *= 0.75; this.momentum_x = 0; }
 		if ( this.y < 0 ) { this.inertia *= 0.75; this.momentum_y = 0; }
@@ -372,15 +372,11 @@ export class Boid {
 		this.angmo *= drag;
 		// max speed caps
 		const absolute_max_speed = 2000;
-		if ( this.momentum_x > absolute_max_speed ) { this.momentum_x = absolute_max_speed; }
-		if ( this.momentum_x < -absolute_max_speed ) { this.momentum_x = -absolute_max_speed; }
-		if ( this.momentum_y > absolute_max_speed ) { this.momentum_y = absolute_max_speed; }
-		if ( this.momentum_y < -absolute_max_speed ) { this.momentum_y = -absolute_max_speed; }
-		if ( this.inertia > this.maxspeed ) { this.inertia = this.maxspeed; }
-		if ( this.inertia < -this.maxspeed ) { this.inertia = -this.maxspeed; }
+		this.momentum_x = utils.Clamp( this.momentum_x, -absolute_max_speed, absolute_max_speed );
+		this.momentum_y = utils.Clamp( this.momentum_y, -absolute_max_speed, absolute_max_speed );
+		this.inertia = utils.Clamp( this.inertia, -absolute_max_speed, absolute_max_speed );
+		this.angmo = utils.Clamp( this.angmo, -this.maxrot, this.maxrot );
 		if ( this.inertia > -5 && this.inertia < 5 ) { this.inertia = 0; } // come to a stop before end of universe
-		if ( this.angmo > this.maxrot ) { this.angmo = this.maxrot; }
-		if ( this.angmo < -this.maxrot ) { this.angmo = -this.maxrot; }
 		if ( this.angmo > -0.05 && this.angmo < 0.05 ) { this.angmo = 0; }
 		
 			

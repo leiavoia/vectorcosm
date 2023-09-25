@@ -331,25 +331,42 @@ export class FoodChaseSimulation extends Simulation {
 	}	
 	Update(delta) {
 		super.Update(delta);
+		const food_friction = typeof(this.settings?.food_friction) === 'boolean' ? this.settings.food_friction : false;
 		// keep the food coming
 		if ( this.tank.foods.length < this.settings.num_foods ) {
 			let diff = this.settings.num_foods - this.tank.foods.length;
 			for ( let i=0; i < diff; i++ ) {
 				let food = new Food( this.tank.width * Math.random(), this.tank.height * Math.random() );
-				let food_speed = this.settings?.food_speed || 100;
+				let food_speed = this.settings?.food_speed ?? 100;
 				food.vx = Math.random() * food_speed - (food_speed*0.5);
 				food.vy = Math.random() * food_speed - (food_speed*0.5);
 				food.edibility = this.settings?.edibility ?? food.edibility;
+				food.frictionless = !food_friction;
 				this.tank.foods.push(food);
 			}	
 		}	 
-		const margin = this.settings?.food_bounce_margin || 250;
-		for ( const f of this.tank.foods ) {
+		const margin = this.settings?.food_bounce_margin ?? 250;
+		for ( let f of this.tank.foods ) {
 			if ( f.x < margin ) { f.vx = -f.vx; }
 			if ( f.y < margin ) { f.vy = -f.vy; }
 			if ( f.x > this.tank.width-margin ) { f.vx = -f.vx; }
 			if ( f.y > this.tank.height-margin ) { f.vy = -f.vy; }
+			f.frictionless = !food_friction;
 		}
+		// river current
+		if ( this.settings?.current ) { 
+			for ( const b of this.tank.boids ) {
+				b.momentum_x -= Math.pow( ( 1-(b.y / this.tank.height) ), 3 ) * delta * this.settings.current;
+				if ( b.x <= 5 ) { b.Kill(); } // left edge death
+			}
+			for ( const b of this.tank.foods ) {
+				if ( !b.frictionless ) { 
+					b.vx -= Math.pow( ( 1-(b.y / this.tank.height) ), 3 ) * delta * this.settings.current;
+				}
+				if ( b.x <= b.r ) { b.Kill(); } // left edge death
+			}
+		}
+		
 	}	
 }
 
