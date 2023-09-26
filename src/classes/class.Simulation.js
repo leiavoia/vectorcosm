@@ -354,16 +354,35 @@ export class FoodChaseSimulation extends Simulation {
 			f.frictionless = !food_friction;
 		}
 		// river current
-		if ( this.settings?.current ) { 
+		if ( this.settings?.river_current ) { 
 			for ( const b of this.tank.boids ) {
-				b.momentum_x -= Math.pow( ( 1-(b.y / this.tank.height) ), 3 ) * delta * this.settings.current;
+				b.momentum_x -= Math.pow( ( 1-(b.y / this.tank.height) ), 3 ) * delta * this.settings.river_current;
 				if ( b.x <= 5 ) { b.Kill(); } // left edge death
 			}
 			for ( const b of this.tank.foods ) {
 				if ( !b.frictionless ) { 
-					b.vx -= Math.pow( ( 1-(b.y / this.tank.height) ), 3 ) * delta * this.settings.current;
+					b.vx -= Math.pow( ( 1-(b.y / this.tank.height) ), 3 ) * delta * this.settings.river_current;
 				}
 				if ( b.x <= b.r ) { b.Kill(); } // left edge death
+			}
+		}
+		// circular current
+		if ( this.settings?.circular_current ) { 
+			for ( const b of this.tank.boids ) {
+				const cell = this.tank.datagrid.CellAt(b.x,b.y);
+				if ( cell ) { 
+					b.momentum_x -= cell.current_x * delta;
+					b.momentum_y -= cell.current_y * delta;
+				}
+			}
+			for ( const b of this.tank.foods ) {
+				if ( !b.frictionless ) { 
+					const cell = this.tank.datagrid.CellAt(b.x,b.y);
+					if ( cell ) { 
+						b.vx -= cell.current_x * delta;
+						b.vy -= cell.current_y * delta;
+					}
+				}
 			}
 		}
 		

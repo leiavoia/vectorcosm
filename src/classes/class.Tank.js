@@ -2,6 +2,7 @@ import Two from "two.js";
 import Delaunator from 'delaunator';
 import * as utils from '../util/utils.js'
 import SpaceGrid from '../classes/class.SpaceGrid.js'
+import DataGrid from '../classes/class.DataGrid.js'
 
 export default class Tank {
 
@@ -16,14 +17,40 @@ export default class Tank {
 		this.threats = [];
 		this.obstacles = [];
 		this.plants = [];
-		this.grid = new SpaceGrid(w,h,200);
+		this.grid = new SpaceGrid(w,h,300);
+		this.CreateDataGrid(w,h);
 		// this.CreateDebugBoundaryRectangle();
+	}
+	
+	CreateDataGrid(w,h) {
+		const gridsize = 300;
+		this.datagrid = new DataGrid(w,h,gridsize);
+		const center_x = w * 0.5;
+		const center_y = h * 0.5;
+		const current_base_strength = 500;
+		for ( let x=0; x < w; x += gridsize ) {
+			for ( let y=0; y < h; y += gridsize ) {
+				const cell = this.datagrid.CellAt(x,y);
+				const cell_x = x + gridsize * 0.5;
+				const cell_y = y + gridsize * 0.5;
+				const diff_x = center_x - cell_x;
+				const diff_y = center_y - cell_y;
+				const arctan = Math.atan( diff_y / diff_x ) + ( diff_x < 0 ? Math.PI : 0 );
+				// note: use 0.5 for a perfectly circular current. Use 0.5..1.0 for a whirlpool effect.
+				const angle = ( arctan + Math.PI * 0.52 ) % ( Math.PI * 2 );
+				const dist = Math.sqrt( diff_x * diff_x + diff_y * diff_y ); 
+				cell.current_x = Math.cos(angle) * Math.pow( dist / (w*0.5), 0.35 ) * current_base_strength * utils.RandomFloat(0.7,1.3);
+				cell.current_y = Math.sin(angle) * Math.pow( dist / (h*0.5), 0.35 ) * current_base_strength * utils.RandomFloat(0.7,1.3);
+			}
+		}
+		// console.log(this.datagrid);
 	}
 	
 	Resize(w,h) {
 		this.width = w;
 		this.height = h;
-		this.grid = new SpaceGrid(w,h,200);
+		this.grid = new SpaceGrid(w,h,300);
+		this.CreateDataGrid(w,h);
 		this.ScaleBackground();
 		// this.CreateDebugBoundaryRectangle();
 	}
