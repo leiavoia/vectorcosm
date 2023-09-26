@@ -353,13 +353,13 @@ export class FoodChaseSimulation extends Simulation {
 			if ( f.y > this.tank.height-margin ) { f.vy = -f.vy; }
 			f.frictionless = !food_friction;
 		}
-		// river current
+		// // river current
 		if ( this.settings?.river_current ) { 
-			for ( const b of this.tank.boids ) {
+			for ( let b of this.tank.boids ) {
 				b.momentum_x -= Math.pow( ( 1-(b.y / this.tank.height) ), 3 ) * delta * this.settings.river_current;
 				if ( b.x <= 5 ) { b.Kill(); } // left edge death
 			}
-			for ( const b of this.tank.foods ) {
+			for ( let b of this.tank.foods ) {
 				if ( !b.frictionless ) { 
 					b.vx -= Math.pow( ( 1-(b.y / this.tank.height) ), 3 ) * delta * this.settings.river_current;
 				}
@@ -368,14 +368,14 @@ export class FoodChaseSimulation extends Simulation {
 		}
 		// circular current
 		if ( this.settings?.circular_current ) { 
-			for ( const b of this.tank.boids ) {
+			for ( let b of this.tank.boids ) {
 				const cell = this.tank.datagrid.CellAt(b.x,b.y);
 				if ( cell ) { 
 					b.momentum_x -= cell.current_x * delta;
 					b.momentum_y -= cell.current_y * delta;
 				}
 			}
-			for ( const b of this.tank.foods ) {
+			for ( let b of this.tank.foods ) {
 				if ( !b.frictionless ) { 
 					const cell = this.tank.datagrid.CellAt(b.x,b.y);
 					if ( cell ) { 
@@ -385,7 +385,37 @@ export class FoodChaseSimulation extends Simulation {
 				}
 			}
 		}
-		
+		// tide
+		if ( this.settings?.tide ) {
+			const tide_freq = this.settings.tide;
+			const tide_duration = 3;
+			const wave_reps = 5;
+			if ( (tide_freq/2 + this.stats.round.time) % tide_freq < tide_duration * wave_reps ) {
+				const tidal_force = this.tank.height * Math.random() + this.tank.height * Math.random() + this.tank.height * Math.random();
+				const t = (tide_freq/2 + this.stats.round.time) % tide_freq;
+				const scale = Math.sin( (t * Math.PI) / (tide_duration * wave_reps) );
+				for ( let b of this.tank.boids ) {
+					const y_off = b.y / this.tank.height;
+					const x_off = b.x / this.tank.width;
+					let wave = ( t * Math.PI * 2 ) / ( tide_duration );
+					wave *= x_off;
+					wave = Math.sin(wave);
+					b.momentum_y -= wave * scale * tidal_force * delta;
+					b.momentum_x -= wave * scale * tidal_force * delta * 0.2;
+				}
+				for ( let b of this.tank.foods ) {
+					if ( !b.frictionless ) { 
+						const y_off = b.y / this.tank.height;
+						const x_off = b.x / this.tank.width;
+						let wave = ( t * Math.PI * 2 ) / ( tide_duration );
+						wave *= x_off;
+						wave = Math.sin(wave);
+						b.vy -= wave * scale * tidal_force * delta;
+						b.vx -= wave * scale * tidal_force * delta * 0.2;
+					}
+				}
+			}		
+		}
 	}	
 }
 

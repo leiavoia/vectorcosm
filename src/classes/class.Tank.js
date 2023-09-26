@@ -39,8 +39,10 @@ export default class Tank {
 				// note: use 0.5 for a perfectly circular current. Use 0.5..1.0 for a whirlpool effect.
 				const angle = ( arctan + Math.PI * 0.52 ) % ( Math.PI * 2 );
 				const dist = Math.sqrt( diff_x * diff_x + diff_y * diff_y ); 
-				cell.current_x = Math.cos(angle) * Math.pow( dist / (w*0.5), 0.35 ) * current_base_strength * utils.RandomFloat(0.7,1.3);
-				cell.current_y = Math.sin(angle) * Math.pow( dist / (h*0.5), 0.35 ) * current_base_strength * utils.RandomFloat(0.7,1.3);
+				const turbulence = Math.random();
+				const dist_pow_scaler = 0.35;
+				cell.current_x = Math.cos(angle) * Math.pow( dist / (w*0.5), dist_pow_scaler ) * current_base_strength * utils.RandomFloat( 1-turbulence, 1+turbulence);
+				cell.current_y = Math.sin(angle) * Math.pow( dist / (h*0.5), dist_pow_scaler ) * current_base_strength * utils.RandomFloat( 1-turbulence, 1+turbulence);
 			}
 		}
 		// console.log(this.datagrid);
