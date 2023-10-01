@@ -520,7 +520,11 @@ export default class Vectorcosm {
 	MoveCamera( x, y, z=null ) {
 		if ( x ) this.renderLayers['tank'].position.x += x;
 		if ( y ) this.renderLayers['tank'].position.y += y;
-		if ( z ) this.SetViewScale( this.scale + z );
+		if ( z ) {
+			// center position when zooming
+			const [world_x, world_y] = this.ScreenToWorldCoord(this.width * 0.5, this.height * 0.5);
+			this.PointCameraAt( world_x, world_y, this.scale + z );
+		}
 		
 		const margin = 0.0001;
 		const target_x = this.renderLayers['tank'].position.x;
@@ -547,6 +551,12 @@ export default class Vectorcosm {
 		else if ( target_y < -max_y ) { this.renderLayers['tank'].position.y = -max_y; }
 		else { this.renderLayers['tank'].position.y = target_y; }
 				
+	}
+	
+	ScreenToWorldCoord( x, y ) {
+		x = ( x - this.renderLayers['tank'].position.x ) / this.scale;
+		y = ( y - this.renderLayers['tank'].position.y ) / this.scale;
+		return [x,y];
 	}
 	
 	SetShowUI(x) {

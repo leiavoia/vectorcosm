@@ -41,8 +41,8 @@ let frameUpdateSubscription = PubSub.subscribe('frame-update', (msg,data) => {
 	if ( vc.focus_object ) {
 		if ( !focus_boid_data.value ) { focus_boid_data.value = {}; }
 		for ( let i of ['id','species','generation','max_energy','energy','diet','diet_range',
-			'length','width','inertia','angmo','energy_cost','total_fitness_score','stomach_contents','stomach_size',
-			'age', 'lifespan', 'maturity_age' ] ) {
+			'length','width','inertia','angmo','total_fitness_score','stomach_contents','stomach_size',
+			'age', 'lifespan', 'maturity_age', 'allometry', 'scale' ] ) {
 			focus_boid_data.value[i] = vc.focus_object[i];
 		}
 		focus_boid_data.value.sensors = vc.focus_object.sensors.map(s => ({name:s.name||s.detect, val:s.val}) );
@@ -62,7 +62,7 @@ let frameUpdateSubscription = PubSub.subscribe('frame-update', (msg,data) => {
 			this_stoke_time: (m.this_stoke_time||0),
 			strokepow: (m.strokepow||0),
 			cost: m.cost,
-			last_amount: (m.last_amount||0)
+			last_amount: Math.abs(m.last_amount||0)
 		}) );
 		focus_boid_data.value.brainnodes = vc.focus_object.brain.nodes.map( n => {
 			let hexval = utils.DecToHex( Math.round(Math.abs(utils.clamp(n.activation,-1,1)) * 255) );
@@ -87,7 +87,7 @@ let frameUpdateSubscription = PubSub.subscribe('frame-update', (msg,data) => {
 // input events
 
 const body = document.querySelector("body");
-const zoompct = 0.07;
+const zoompct = 0.25;
 
 body.addEventListener("touchstart", function(event) {
 	event.preventDefault();
@@ -98,18 +98,18 @@ body.addEventListener("wheel", function(event) {
 	if ( event.deltaY > 0 ) {
 		const newscale = vc.scale * (1/(1 + zoompct));
 		const scalediff = Math.abs( vc.scale - newscale );
-		const [prev_x, prev_y] = ScreenToWorldCoord( event.clientX, event.clientY );
+		const [prev_x, prev_y] = vc.ScreenToWorldCoord( event.clientX, event.clientY );
 		vc.MoveCamera( 0, 0, -scalediff );
-		const [x, y] = ScreenToWorldCoord( event.clientX, event.clientY );
-		vc.MoveCamera( x - prev_x, y - prev_y );
+		const [x, y] = vc.ScreenToWorldCoord( event.clientX, event.clientY );
+		vc.MoveCamera( (x - prev_x) * newscale, (y - prev_y) * newscale );
 	}
 	else {
 		const newscale = vc.scale * ((1 + zoompct)/1);
 		const scalediff = Math.abs( vc.scale - newscale );
-		const [prev_x, prev_y] = ScreenToWorldCoord( event.clientX, event.clientY );
+		const [prev_x, prev_y] = vc.ScreenToWorldCoord( event.clientX, event.clientY );
 		vc.MoveCamera( 0, 0, scalediff );
-		const [x, y] = ScreenToWorldCoord( event.clientX, event.clientY );
-		vc.MoveCamera( x - prev_x, y - prev_y );
+		const [x, y] = vc.ScreenToWorldCoord( event.clientX, event.clientY );
+		vc.MoveCamera( (x - prev_x) * newscale, (y - prev_y) * newscale );
 	}
 });
 
@@ -134,6 +134,9 @@ const keyFunctionMap = {
 			vc.MoveCamera( 0, 0, diff );
 		},
 	';': _ => {
+			vc.ResetCameraZoom();
+		},
+	'Home': _ => {
 			vc.ResetCameraZoom();
 		},
 	'ArrowLeft': _ => {
@@ -255,18 +258,12 @@ onMounted(() => {
 	vc.Play();
 }) 
 
-function ScreenToWorldCoord( x, y ) {
-	x = ( x - vc.renderLayers['tank'].position.x ) / vc.scale;
-	y = ( y - vc.renderLayers['tank'].position.y ) / vc.scale;
-	return [x,y];
-}
-
 function ClickMap( event ) {
 	// if ( dragging ) { 
 	// 	dragging = false;
 	// 	return false; 
 	// }
-	const [x,y] = ScreenToWorldCoord( event.clientX, event.clientY );
+	const [x,y] = vc.ScreenToWorldCoord( event.clientX, event.clientY );
 	if ( event.button > 0 ) { 
 		vc.PointCameraAt( x, y, null );
 		return false;
@@ -359,7 +356,9 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 			<br/>
 			<p>ID: {{focus_boid_data.id}}</p>
 			<p>GENERATION: {{focus_boid_data.generation}}</p>
-			<p>SIZE: {{focus_boid_data.length}} x {{focus_boid_data.width}}</p>
+			<p>SIZE: {{focus_boid_data.length.toFixed(0)}} x {{focus_boid_data.width.toFixed(0)}}</p>
+			<p>ALLOMETRY: {{focus_boid_data.allometry.toFixed(2)}}</p>
+			<p>SCALE: {{focus_boid_data.scale.toFixed(2)}}</p>
 			<p>DIET: {{focus_boid_data.diet.toFixed(2)}}</p>
 			<p>DIET_RANGE: {{focus_boid_data.diet_range.toFixed(2)}}</p>
 			<p>INERTIA: {{focus_boid_data.inertia.toFixed(1)}}</p>
@@ -376,12 +375,12 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 				&nbsp; Age {{focus_boid_data.age.toFixed(0)}} / {{focus_boid_data.lifespan.toFixed(0)}}
 				<br />
 				
-				<progress :value="focus_boid_data.stomach_contents / focus_boid_data.stomach_size"></progress> 
-				&nbsp; Stomach {{focus_boid_data.stomach_contents.toFixed(0)}} / {{focus_boid_data.stomach_size.toFixed(0)}}
+				<progress :value="focus_boid_data.stomach_contents / (focus_boid_data.stomach_size * focus_boid_data.scale )"></progress> 
+				&nbsp; Stomach {{focus_boid_data.stomach_contents.toFixed(0)}} / {{(focus_boid_data.stomach_size * focus_boid_data.scale).toFixed(0)}}
 				<br />
 				
-				<progress :value="focus_boid_data.energy / focus_boid_data.max_energy"></progress> 
-				&nbsp; Energy {{focus_boid_data.energy.toFixed(0)}} / {{focus_boid_data.max_energy.toFixed(0)}}
+				<progress :value="focus_boid_data.energy / ( focus_boid_data.max_energy * focus_boid_data.allometry )"></progress> 
+				&nbsp; Energy {{focus_boid_data.energy.toFixed(0)}} / {{(focus_boid_data.max_energy * focus_boid_data.allometry).toFixed(0)}}
 				<br />
 			</p>
 			
