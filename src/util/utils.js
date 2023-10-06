@@ -128,7 +128,7 @@ export function Clamp( n, min, max ) {
 export function RandomFloat( min, max ) { 
 	min = Number.parseFloat(min);
 	max = Number.parseFloat(max);
-	return (Math.random() * ((max+1)-min) ) + min;
+	return (Math.random() * (max-min) ) + min;
 	}
 export function RandomInt( min, max ) { 
 	min = Number.parseInt(min);
