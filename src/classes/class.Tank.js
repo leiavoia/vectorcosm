@@ -25,27 +25,42 @@ export default class Tank {
 	CreateDataGrid(w,h) {
 		const gridsize = 300;
 		this.datagrid = new DataGrid(w,h,gridsize);
-		const center_x = w * 0.5;
-		const center_y = h * 0.5;
-		const current_base_strength = 500;
+		const current_base_strength = 3000;
+		const dist_pow_scaler = 0.35;
+		const largest_dim = Math.max( w, h );
+		// create a few whirlpool points
+		const num_whirls = utils.RandomInt(1,5);
+		const whirls = [];
+		for ( let n=0; n < num_whirls; n++ ) {
+			whirls.push( [ 
+				w * Math.random(), 
+				h * Math.random(),
+				current_base_strength * Math.random(),
+				(Math.random() > 0.5) ? 1 : 0 
+			] );
+		}
 		for ( let x=0; x < w; x += gridsize ) {
 			for ( let y=0; y < h; y += gridsize ) {
 				const cell = this.datagrid.CellAt(x,y);
+				cell.current_x = 0;
+				cell.current_y = 0;
 				const cell_x = x + gridsize * 0.5;
 				const cell_y = y + gridsize * 0.5;
-				const diff_x = center_x - cell_x;
-				const diff_y = center_y - cell_y;
-				const arctan = Math.atan( diff_y / diff_x ) + ( diff_x < 0 ? Math.PI : 0 );
-				// note: use 0.5 for a perfectly circular current. Use 0.5..1.0 for a whirlpool effect.
-				const angle = ( arctan + Math.PI * 0.52 ) % ( Math.PI * 2 );
-				const dist = Math.sqrt( diff_x * diff_x + diff_y * diff_y ); 
-				const turbulence = Math.random();
-				const dist_pow_scaler = 0.35;
-				cell.current_x = Math.cos(angle) * Math.pow( dist / (w*0.5), dist_pow_scaler ) * current_base_strength * utils.RandomFloat( 1-turbulence, 1+turbulence);
-				cell.current_y = Math.sin(angle) * Math.pow( dist / (h*0.5), dist_pow_scaler ) * current_base_strength * utils.RandomFloat( 1-turbulence, 1+turbulence);
+				for ( let n=0; n < num_whirls; n++ ) {
+					const diff_x = whirls[n][0] - cell_x;
+					const diff_y = whirls[n][1] - cell_y;
+					const arctan = Math.atan( diff_y / diff_x ) + ( diff_x < 0 ? Math.PI : 0 );
+					// note: use 0.5 for a perfectly circular current. Use 0.5..1.0 for a whirlpool effect.
+					const deflection = utils.RandomFloat(0.3, 0.7);
+					const angle = ( arctan + Math.PI * deflection ) % ( Math.PI * 2 );
+					const dist = Math.sqrt( diff_x * diff_x + diff_y * diff_y ); 
+					cell.current_x += (whirls[n][3] ? 1 : -1) * Math.cos(angle) * ( 1 - Math.pow( dist / largest_dim, dist_pow_scaler ) ) * whirls[n][2];
+					cell.current_y += (whirls[n][3] ? 1 : -1) * Math.sin(angle) * ( 1 - Math.pow( dist / largest_dim, dist_pow_scaler ) ) * whirls[n][2];
+				}
+				cell.current_x /= num_whirls;
+				cell.current_y /= num_whirls;
 			}
 		}
-		// console.log(this.datagrid);
 	}
 	
 	Resize(w,h) {
