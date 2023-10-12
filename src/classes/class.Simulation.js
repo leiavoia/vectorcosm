@@ -252,7 +252,7 @@ export class FoodChaseSimulation extends Simulation {
 				y: utils.RandomInt(margin,this.tank.height-margin)-150, 
 				w: xscale * Math.sqrt( utils.BiasedRandInt(150,this.tank.width*0.5, 400, 0.9) * utils.BiasedRandInt(150,this.tank.width*0.5, 400, 0.9) ), 
 				h: yscale * Math.sqrt( utils.BiasedRandInt(150,this.tank.height*0.5, 400, 0.9) * utils.BiasedRandInt(150,this.tank.height*0.5, 400, 0.9) ), 
-				complexity: 2
+				complexity: utils.RandomInt(0,3)
 			})
 			this.tank.obstacles.push(rock);
 		}

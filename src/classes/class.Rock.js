@@ -77,7 +77,7 @@ export default class Rock {
 		}
 		this.collision.hull.reverse(); // reverse for collision compatibility
 		// create random set of points INSIDE the hull
-		let complexity = !params.complexity ? utils.RandomInt(1,7) : Math.max( 1, params.complexity );
+		let complexity = !params.hasOwnProperty('complexity') ? utils.RandomInt(0,7) : Math.max( 0, params.complexity );
 		for ( let n=0; n < complexity; n++ ) {
 			let attempts = 0;
 			while ( attempts < 10 ) {
