@@ -106,6 +106,16 @@ export class Boid {
 		this.lifespan = 120; // in seconds
 		this.age = 0; // in seconds
 		this.maturity_age = this.lifespan * 0.5;
+		this.mass = 1; // requires body plan info later
+		this.scale = 1; // current mass over body plan mature mass
+		this.length = 1; 
+		this.width = 1; 
+		this.min_mass = 1; // size of organism when starting baby 
+		this.base_energy = 1; // max energy per mass
+		this.base_rest_metabolism = 0.006; // energy per second per mass
+		this.base_digestion_rate = 0.003; // food per second per mass
+		this.base_bite_rate = 0.5; // food per second per mass
+		this.base_stomach_size = 0.3; // food per mass
 		// diet
 		this.stomach_size = 100;
 		this.stomach_contents = 0;
@@ -128,7 +138,6 @@ export class Boid {
 		this.angle = Math.random()*Math.PI*2;
 		this.inertia = 0; // forward motion power, can be negative
 		this.angmo = 0; // angular momentum / rotational inertia
-		this.energy_cost = 0.15;
 		// drawing stuff
 		this.outline_color = utils.RandomColor( true, false, true ) + 'AA';
 		this.fill_color = utils.RandomColor( true, false, true ) + 'AA';
@@ -155,7 +164,7 @@ export class Boid {
 			Object.assign(this,json);
 			this.brain = neataptic.Network.fromJSON(this.brain);
 			this.body = new BodyPlan(this.body);
-			this.collision.radius = Math.max(this.body.length, this.body.width) / 2;
+			this.collision.radius = Math.max(this.length, this.width) / 2;
 			this.container.add([this.body.geo]);
 			this.sensors = this.sensors.map( s => new Sensor(s,this) );
 			this.MakeSensors(); // adds geometry and stuff
@@ -213,17 +222,22 @@ export class Boid {
 		if ( morcel_size > 0 ) {
 			this.stomach_contents -= morcel_size;
 			this.energy += morcel_size * this.energy_per_food;
-			// excess food is wasted! no fat storage system. would this be good someday?
+			// eat food, grow big!
+			if ( this.mass < this.body.mass && this.energy > this.max_energy ) {
+				const excess_food = (this.energy - this.max_energy) / this.energy_per_food;
+				this.mass += excess_food * 500; // conversion rate would be meaningful?
+				if ( this.mass >= this.body.mass ) { this.mass = this.body.mass; }
+				this.ScaleBoidByMass();
+			}
 			this.energy = Math.min( this.energy, this.max_energy );
 		}
 		if ( this.energy <= 0 ) {
 			this.Kill();
 			return;
 		}
-
-		this.collision.contact_obstacle = false;
 		
 		// sensor collision detection				
+		this.collision.contact_obstacle = false;
 		if ( !frame_skip || window.two.frameCount % frame_skip === 0 ) {
 			for ( let s of this.sensors ) { s.Sense(); }
 		}
@@ -358,13 +372,15 @@ export class Boid {
 		// stay inside tank			
 		this.x = utils.clamp( this.x, 0, this.tank.width );
 		this.y = utils.clamp( this.y, 0, this.tank.height );
-		// drag slows us down
+		// drag slows us down.
+		// REFERENCE: Real world drag formula (which we don't actually use) :
+		// drag = 0.5 * coefficient * face_area * fluid_density * speed^2
 		let drag = ( 
 			this.tank.viscosity +
 			( Math.min(Math.abs(this.inertia),200) / 200 ) +
-			( Math.min(this.body.width,100) / 100 )
+			( Math.min(this.width,100) / 100 )
 		) / 3;
-		drag *= Math.pow( delta, 0.12 ); // magic tuning number
+		drag *= Math.pow( delta, 0.08 ); // magic tuning number
 		drag = 1 - drag;
 		this.momentum_x *= drag;
 		this.momentum_y *= drag;
@@ -412,7 +428,7 @@ export class Boid {
 		
 		// collision detection with obstacles
 		// things i might collide with:
-		let my_radius = Math.max(this.body.length, this.body.width) * 0.5;
+		let my_radius = Math.max(this.length, this.width) * 0.5;
 		let candidates = this.tank.grid.GetObjectsByBox( 
 			this.x - my_radius,
 			this.y - my_radius,
@@ -422,7 +438,6 @@ export class Boid {
 		);
 		for ( let o of candidates ) {
 			// narrow phase collision detection
-			// debugger;
 			const circle  = new Circle(this.x, this.y, my_radius);
 			const polygon = new Polygon(o.x, o.y, o.collision.hull);
 			const result  = new Result();
@@ -446,8 +461,9 @@ export class Boid {
 		// }
 				
 		// eat food
-		if ( this.stomach_contents / this.stomach_size < 0.98 ) { // prevents wasteful eating
-			const r = this.collision.radius;
+		if ( this.stomach_contents / ( this.stomach_size * this.scale ) < 0.98 ) { // prevents wasteful eating
+			const grace = 4;
+			const r = this.collision.radius + grace;
 			let foods = this.tank.foods.length < 50 // runs faster on small sets
 				? this.tank.foods			
 				: this.tank.grid.GetObjectsByBox( this.x - r, this.y - r, this.x + r, this.y + r, Food );				
@@ -456,8 +472,8 @@ export class Boid {
 				const dy = Math.abs(food.y - this.y);
 				const d = Math.sqrt(dx*dx + dy*dy);
 				if ( d <= this.collision.radius + food.r && food.IsEdibleBy(this) ) { 
-					const morcel = food.Eat(delta*this.bite_rate);
-					this.stomach_contents = Math.min( this.stomach_contents + morcel, this.stomach_size );
+					const morcel = food.Eat(delta*this.bite_rate*this.scale);
+					this.stomach_contents = Math.min( this.stomach_contents + morcel, this.stomach_size * this.scale );
 					break; // one bite only!
 				}
 			}
@@ -470,23 +486,40 @@ export class Boid {
 		if ( Number.isNaN(amount) || !Number.isFinite(amount) ) { return 0; }
 		let m = this.motors[i];
 		if ( m ) {
-			// age restricted
-			if ( m.hasOwnProperty('min_age') && this.age < m.min_age ) { return 0; }
 			// start a timer if there isnt one
 			if ( !m.hasOwnProperty('t') ) { m.t = 0; }
 			// shift amount to halfway point for wheel motors (0..1 becomes -1..1)
 			if ( m.wheel ) { amount = (amount - 0.5) * 2; } 
-			// check for minimum activation
-			if ( m.t==0 && m.min_act && Math.abs(amount) < m.min_act ) { 
-				m.last_amount = 0;
-				m.this_stoke_time = 0;
-				return 0; 
-				}
 			// sanity check
 			amount = utils.clamp(amount,-1,1);
-			// if we decided to activate a new stroke, record the power it was
-			//  activated with instead of using a varying stroke each frame.
+			// new stroke
 			if ( m.t==0 ) { 
+				// check for minimum activation
+				if ( m.min_act && Math.abs(amount) < m.min_act ) { 
+					m.last_amount = 0;
+					m.this_stoke_time = 0;
+					return 0; 
+				}
+				// age restricted
+				if ( m.hasOwnProperty('min_age') && this.age < m.min_age ) { 
+					m.last_amount = 0;
+					m.this_stoke_time = 0;
+					return 0; 
+				}
+				// you must be this tall to enter
+				if ( m.hasOwnProperty('min_scale') && this.scale < m.min_scale ) { 
+					m.last_amount = 0;
+					m.this_stoke_time = 0;
+					return 0; 
+				}
+				// tank capacity sanity cap
+				if ( m.hasOwnProperty('mitosis') && this.tank.boids.length >= (window.vc?.simulation?.settings?.num_boids || 100) ) {
+					m.last_amount = 0;
+					m.this_stoke_time = 0;
+					return 0; 
+				}
+				// if we decided to activate a new stroke, record the power it was
+				// activated with instead of using a varying stroke each frame.
 				m.strokepow = amount; 
 				// use this if you want the stroke time to coordinate with the power
 				// i.e. a quick flick versus a hard push
@@ -503,13 +536,15 @@ export class Boid {
 			}
 			// don't allow overtaxing
 			delta = Math.min( delta, m.this_stoke_time - m.t ); 
+			// cost of doing business
+			let cost = ( m.cost * Math.abs(m.strokepow) * delta * this.mass ) / 800;
+			// if they just want an cost estimate, return now
+			if ( estimate ) { return cost; }
+			// otherwise commit to the motion
+			this.energy -= cost;
 			// increase stroke time
 			m.t = utils.clamp(m.t+delta, 0, m.this_stoke_time); 
-			// cost of doing business // FIXME
-			let cost = m.cost * delta; 
-			if ( estimate ) { return cost; }
-			this.energy -= cost;
-			// stroke power function
+			// stroke power function modifies the power withdrawn per frame
 			switch ( m.strokefunc ) {
 				case 'linear_down' : amount *= (m.this_stoke_time - m.t) / m.this_stoke_time; break;
 				case 'linear_up' : amount *= 1 - ((m.this_stoke_time - m.t) / m.this_stoke_time); break;
@@ -521,8 +556,11 @@ export class Boid {
 				// case 'complete' : ;;  // alias for 'constant', but no results until it completes
 				// default: ;; // the default is constant time output
 			}
-			m.last_amount = amount; // mostly for UI and animation
-			// apply power
+			// record how much power was activated this stroke - mostly for UI and animation
+			m.last_amount = amount;
+			// adjust for body size - larger organisms provide more power
+			amount *= Math.pow( this.mass / 800, 0.75 ); 
+			// apply power for this frame
 			amount *= delta;
 			if ( m.hasOwnProperty('linear') ) {
 				this.inertia += m.linear * amount;
@@ -534,32 +572,49 @@ export class Boid {
 				let v = (this.inertia > 0)
 					? utils.clamp(-amount*m.brake,-this.inertia,0)
 					: utils.clamp(amount*m.brake,0,-this.inertia);
-				// console.log(`braking: i = ${this.inertia}, v= ${v}, a = ${amount}`);
 				this.inertia += v;
-				// this.angmo *= (1-amount);
 			}
 			if ( m.hasOwnProperty('color') ) {
 				let c = utils.HexColorToRGBArray(this.path.stroke);
 				this.path.fill = `rgba(${c[0]},${c[1]},${c[2]},${utils.clamp(amount,0,1)})`;
 			}
 			if ( m.hasOwnProperty('mitosis') && m.t >= m.this_stoke_time ) {
-				if ( this.tank.boids.length < (window.vc?.simulation?.settings?.num_boids || 100) ) { // SANITY CAP. TODO: make a global setting
-					for ( let n=0; n < m.mitosis; n++ ) { 
-						let offspring = this.Copy(true,true); // mutate body and reset state variables
-						offspring.x = this.x;
-						offspring.y = this.y;
-						offspring.angle = utils.RandomFloat(0, Math.PI*2);
-						offspring.energy = this.max_energy / ( m.mitosis + 1 ); // good luck, kid
-						// TODO: brain mutate based on some kind of parameter - simulation or DNA
-						offspring.MutateBrain( window.vc?.simulation?.settings?.max_mutation || 3 );
-						this.tank.boids.push(offspring);
-					}
+				for ( let n=0; n < m.mitosis; n++ ) { 
+					let offspring = this.Copy(true,true); // mutate body and reset state variables
+					offspring.x = this.x;
+					offspring.y = this.y;
+					offspring.angle = utils.RandomFloat(0, Math.PI*2);
+					offspring.mass = offspring.body.mass / ( m.mitosis + 1 );
+					offspring.ScaleBoidByMass();
+					//offspring.energy = this.max_energy / ( m.mitosis + 1 ); // good luck, kid
+					// TODO: brain mutate based on some kind of parameter - simulation or DNA
+					offspring.MutateBrain( window.vc?.simulation?.settings?.max_mutation || 3 );
+					this.tank.boids.push(offspring);
 				}
-				else {
-				}
+				// babies aren't free. we just lost a lot of mass.
+				this.mass /= ( m.mitosis + 1 );
+				this.ScaleBoidByMass();
 			}
-			if ( m.t >= m.this_stoke_time ) { m.t = 0; } // reset stroke
+			// reset stroke when complete
+			if ( m.t >= m.this_stoke_time ) { 
+				m.t = 0; 
+				m.this_stoke_time = 0;
+			} 
 		}
+	}
+	ScaleBoidByMass() {
+		this.scale = this.mass / this.body.mass; // square scale
+		this.length = Math.sqrt(this.scale) * this.body.length;
+		this.width = Math.sqrt(this.scale) * this.body.width;	
+		this.body.geo.scale = this.length / this.body.length; // linear scale
+		this.stomach_size = this.base_stomach_size * this.mass;
+		this.bite_rate = this.base_bite_rate * this.mass;
+		this.digestion_rate = this.base_digestion_rate * this.mass;
+		this.rest_metabolism = Math.pow( this.base_rest_metabolism * this.mass, 0.75 ); // discount for large organisms 
+		this.max_energy = this.base_energy * this.mass;
+		if ( this.energy > this.max_energy ) { this.energy = this.max_energy; }
+		if ( this.stomach_contents > this.stomach_size ) { this.stomach_contents = this.stomach_size; }
+		this.collision.radius = Math.max(this.length, this.width) / 2;
 	}
 	Kill() {
 		this.body.geo.remove();
@@ -579,21 +634,31 @@ export class Boid {
 		b.max_energy = Math.random() * 500 + 100;
 		b.lifespan = utils.RandomInt( 60, 600 );
 		b.maturity_age = utils.BiasedRandInt( 0.1 * b.lifespan, 0.9 * b.lifespan, 0.25 * b.lifespan, 0.8 );
+		b.age = utils.RandomInt( 0, b.lifespan * 0.5 );
 		b.energy = b.max_energy;
 		b.maxspeed = 600;
 		b.maxrot = 20;
-		b.energy_cost = 0.15;
 		b.diet = Math.random();
-		b.diet_range = Math.max( Math.random()*0.5, 0.05 );
+		b.diet_range = Math.max( Math.random()*0.5, 0.1 );
 		b.body = BodyPlan.Random();
+		b.min_mass = b.body.mass * 0.3;
+		b.mass = b.body.mass; // random boids start adult size
+		// base rates per unit of mass - grows as organism grows
+		b.base_energy = utils.RandomFloat( 0.25, 2.0 ); // max energy per mass
+		b.base_rest_metabolism = utils.RandomFloat( 0.004, 0.008 ); // energy per second per mass
+		b.base_digestion_rate = utils.RandomFloat( 0.003, 0.008 ); // food per second per mass
+		b.base_bite_rate = utils.RandomFloat( 0.3, 0.8 ); // food per second per mass
+		b.base_stomach_size = utils.RandomFloat( 0.1, 0.5 ); // food per mass;		
+		b.ScaleBoidByMass();
+		// drawing and collisions data
 		b.container.add([b.body.geo]);
-		b.collision.radius = Math.max(b.body.length, b.body.width) / 2;
+		b.collision.radius = Math.max(b.length, b.width) / 2;
 		
 		// sensors:
 		// food and obstacle sensors are mandatory - its just a matter of how many
 		const my_max_dim = Math.max( b.body.length, b.body.width );
-		const max_sensor_distance = Math.sqrt(my_max_dim) * 40;
-		const max_sensor_radius = Math.sqrt(my_max_dim) * 35;
+		const max_sensor_distance = Math.sqrt(my_max_dim) * 65;
+		const max_sensor_radius = Math.sqrt(my_max_dim) * 50;
 		const min_sensor_distance = Math.min( my_max_dim, max_sensor_distance );
 		const min_sensor_radius = Math.min( my_max_dim, max_sensor_radius );
 		for ( let detect of ['food','obstacles'] ) {
@@ -639,7 +704,7 @@ export class Boid {
 		for ( let n=0; n < num_motors; n++ ) {
 			let strokefunc = Math.random();
 			let wheel = Math.random() > 0.75 ? true : false;
-			const cost = utils.BiasedRand(0.05, 5.0, 0.25, 0.6);
+			// let cost = utils.BiasedRand(0.05, 5.0, 0.25, 0.6);
 			const stroketime = utils.BiasedRand(0.1, 3.5, 1, 0.6); 
 			const min_act = utils.BiasedRand(0,0.9,0.1,0.6);
 			if ( strokefunc < 0.4 ) { strokefunc = 'linear_down'; }
@@ -650,7 +715,7 @@ export class Boid {
 			else if ( strokefunc < 0.78 ) { strokefunc = 'burst'; }
 			else if ( strokefunc < 0.84 ) { strokefunc = 'spring'; }
 			else { strokefunc = 'constant'; }
-			let motor = { min_act, cost, stroketime, t:0, strokefunc, wheel };
+			let motor = { min_act, stroketime, t:0, strokefunc, wheel };
 			let linear = utils.BiasedRandInt( 10, 1800, 600, 0.6 );
 			let angular = utils.BiasedRandInt( 1, 100, 16, 0.5 );
 			if ( Math.random() > 0.65 ) { linear = -linear; }
@@ -672,6 +737,9 @@ export class Boid {
 				if ( motor.linear ) { motor.linear *= 0.6; }
 				if ( motor.angular ) { motor.angular *= 0.6; }
 			}
+			// cost of motor: baseline scales with body mass. random element to represent unique adaptation.
+			motor.cost = (Math.abs(motor.linear||0) / 1800) + (Math.abs(motor.angular||0) / 100);
+			motor.cost += ( motor.cost * Math.random() ) - (motor.cost * 0.5);
 			// animation
 			motor.anim = {
 				index:b.motors.length, // to be changed after body plan is created
@@ -703,18 +771,22 @@ export class Boid {
 		b.body.complexity_factor = complexity_variance + ( (b.sensors.length + b.motors.length) / 30 ); // magic numbers
 		b.body.complexity_factor = utils.Clamp( b.body.complexity_factor, 0, 1 ); 
 		b.body.RandomizePoints();
+		b.min_mass = b.body.mass * 0.3;
+		b.mass = b.body.mass;
+		b.ScaleBoidByMass();
 			
 		// reproductive motors
 		const mitosis_num = utils.BiasedRandInt(1,5,1,0.95);
-		const stroketime = utils.BiasedRandInt(mitosis_num*5,mitosis_num*30,mitosis_num*15,0.5) * mitosis_num;
+		const stroketime = utils.BiasedRandInt(mitosis_num*b.lifespan*0.02,mitosis_num*b.lifespan*0.06,mitosis_num*b.lifespan*0.04,0.5) * mitosis_num;
 		b.motors.push({
 			mitosis: mitosis_num, // number of new organisms
-			min_act: utils.BiasedRand(0.35,0.9,0.6,0.5),
+			min_act: utils.BiasedRand(0.22,0.9,0.6,0.5),
 			cost: ( b.max_energy * utils.BiasedRand(0.51,1,0.65,0.5) ) / stroketime, 
 			stroketime: stroketime, 
 			strokefunc: 'complete', 
 			name: 'mitosis',
 			min_age: b.maturity_age,
+			min_scale: 0.65, // prevents infinite subdivision
 			// brake: 1
 		});
 					
@@ -761,8 +833,11 @@ export class Boid {
 		let b = new Boid(this.x, this.y, this.tank);
 		// POD we can just copy over
 		let datakeys = ['species','max_energy','energy','maxspeed','maxrot',
-			'energy_cost','brain_complexity','diet','diet_range','dna','maturity_age',
-			'lifespan','age','stomach_size','stomach_contents','bite_rate','digestion_rate','energy_per_food','rest_metabolism'
+			'brain_complexity','diet','diet_range','dna','maturity_age',
+			'lifespan','age','stomach_size','stomach_contents','bite_rate','digestion_rate','energy_per_food','rest_metabolism',
+			'mass', 'scale', 'length', 'width', 'min_mass',
+			'base_energy', 'base_rest_metabolism', 'base_digestion_rate', 'base_energy', 'base_bite_rate', 'base_stomach_size',
+			'generation',
 		];
 		for ( let k of datakeys ) { b[k] = this[k]; }
 		b.collision.radius = this.collision.radius;
@@ -790,8 +865,11 @@ export class Boid {
 		let b = {};
 		// POD we can just copy over
 		let datakeys = ['id','x','y','species','max_energy','energy','maxspeed','maxrot',
-			'energy_cost','brain_complexity','diet','diet_range','dna','maturity_age',
-			'lifespan','age','stomach_size','stomach_contents','bite_rate','digestion_rate','energy_per_food','rest_metabolism'
+			'brain_complexity','diet','diet_range','dna','maturity_age',
+			'lifespan','age','stomach_size','stomach_contents','bite_rate','digestion_rate','energy_per_food','rest_metabolism',
+			'mass', 'scale', 'length', 'width', 'min_mass',
+			'base_energy', 'base_rest_metabolism', 'base_digestion_rate', 'base_energy', 'base_bite_rate', 'base_stomach_size',
+			'generation',
 		];		
 		for ( let k of datakeys ) { b[k] = this[k]; }
 		b.body = {};
@@ -819,11 +897,11 @@ export class Boid {
 		if ( on ) {
 			// actual shape size
 			let pts = [
-				[ -this.body.length/2, this.body.width/2 ],
-				[ this.body.length/2, this.body.width/2 ],
-				[ this.body.length/2, -this.body.width/2 ],
-				[ -this.body.length/2, -this.body.width/2 ],
-			];
+				[ -this.length/2, this.width/2 ],
+				[ this.length/2, this.width/2 ],
+				[ this.length/2, -this.width/2 ],
+				[ -this.length/2, -this.width/2 ],
+			]			
 			let anchors = pts.map( p => new Two.Anchor( p[0], p[1] ) );
 			this.bounds1 = window.two.makePath(anchors);
 			this.bounds1.linewidth = 1;
@@ -860,7 +938,7 @@ export class Boid {
 			this.container.add([this.bounds3]);
 			
 			// collision circle
-			this.bounds4 = window.two.makeCircle(0,0,Math.max(this.body.length,this.body.width)/2);
+			this.bounds4 = window.two.makeCircle(0,0,Math.max(this.length,this.width)/2);
 			this.bounds4.linewidth = 1;
 			this.bounds4.stroke = 'red';
 			this.bounds4.fill = 'transparent';

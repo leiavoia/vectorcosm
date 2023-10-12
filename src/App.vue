@@ -42,7 +42,9 @@ let frameUpdateSubscription = PubSub.subscribe('frame-update', (msg,data) => {
 		if ( !focus_boid_data.value ) { focus_boid_data.value = {}; }
 		for ( let i of ['id','species','generation','max_energy','energy','diet','diet_range',
 			'length','width','inertia','angmo','total_fitness_score','stomach_contents','stomach_size',
-			'age', 'lifespan', 'maturity_age', 'allometry', 'scale' ] ) {
+			'age', 'lifespan', 'maturity_age', 'scale',
+			'base_bite_rate', 'base_energy', 'base_rest_metabolism', 'base_digestion_rate', 'base_stomach_size',
+			] ) {
 			focus_boid_data.value[i] = vc.focus_object[i];
 		}
 		focus_boid_data.value.sensors = vc.focus_object.sensors.map(s => ({name:s.name||s.detect, val:s.val}) );
@@ -204,6 +206,7 @@ const keyFunctionMap = {
 			if ( vc.focus_object ) {
 				show_boid_details.value = !show_boid_details.value;
 				if ( show_boid_details.value ) {
+					b.show_sensors = true;
 					RefreshBoidDetailsDynamicObjects( vc.focus_object );
 				}
 			}
@@ -298,30 +301,34 @@ function ClickMap( event ) {
 
 function RefreshBoidDetailsDynamicObjects(obj) {
 	setTimeout( _ => {
-		boidviewer.clear();
+		// boid portrait
 		let elem = document.getElementById('boidviewer');
-		boidviewer.appendTo(elem);
-		let geo = obj.body.geo.clone();
-		geo.dashes = obj.body.geo.dashes;
-		console.log(geo);
-		geo.position.x = boidviewer.width * 0.5;
-		geo.position.y = boidviewer.height * 0.5;
-		geo.rotation = -Math.PI * 0.5;
-		const bounds = geo.getBoundingClientRect();
-		geo.scale = Math.max(boidviewer.width, boidviewer.height) / Math.max( bounds.height, bounds.width );
-		geo.scale *= 0.90; // whitespace
-		// geo.center();
-		boidviewer.add(geo);
-		boidviewer.update();
-			
+		if ( elem ) {
+			boidviewer.clear();
+			boidviewer.appendTo(elem);
+			let geo = obj.body.geo.clone();
+			geo.dashes = obj.body.geo.dashes;
+			console.log(geo);
+			geo.position.x = boidviewer.width * 0.5;
+			geo.position.y = boidviewer.height * 0.5;
+			geo.rotation = -Math.PI * 0.5;
+			const bounds = geo.getBoundingClientRect();
+			geo.scale = Math.max(boidviewer.width, boidviewer.height) / Math.max( bounds.height, bounds.width );
+			geo.scale *= 0.90; // whitespace
+			// geo.center();
+			boidviewer.add(geo);
+			boidviewer.update();
+		}
 		// braingraphing
-		braingraph_context.clear();
 		let braingraph_elem = document.getElementById('braingraph');
-		braingraph_context.appendTo(braingraph_elem);
-		braingraph = new BrainGraph(null,braingraph_context);
-		braingraph.setTarget(obj);
-		braingraph.Draw();
-		braingraph_context.update();
+		if ( braingraph_elem ) {
+			braingraph_context.clear();
+			braingraph_context.appendTo(braingraph_elem);
+			braingraph = new BrainGraph(null,braingraph_context);
+			braingraph.setTarget(obj);
+			braingraph.Draw();
+			braingraph_context.update();
+		}
 	}, 100 );
 }
 
@@ -341,81 +348,101 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 		@mousedown="MouseDown($event)"
 		@mouseup="MouseUp($event)"
 		>
-		<section class="iconmenu" v-if="show_boid_details && focus_boid_data" style="display:flex; flex-flow: column;">
+		<!-- <section class="iconmenu" v-if="show_boid_details && focus_boid_data" style="display:flex; flex-flow: column;">
 			<button style="width:100%; padding:0.5em; margin: 0 0 0.25em; display:block;">Exit</button>
 			<button style="width:100%; padding:0.5em; margin: 0 0 0.25em; display:block;">Save Specimen</button>
-		</section>
+		</section> -->
+		<!--
 		<section class="boid-braingraph-panel" v-if="show_boid_details && focus_boid_data">
 			<div id="braingraph"  style="width:100%; height: 100%;"></div>
 		</section>
+		-->
 		<section class="boid-detail" v-if="show_boid_details && focus_boid_data">
 			<h2 style="text-align:center;">{{focus_boid_data.species.toUpperCase()}}</h2>
-			<br/>
-			<!-- <div id="boidviewer"  style="width:12em; height: 12em; background:transparent; border-radius:0.5em; float:right; margin: 0 0 1em 1em; box-sizing: border-box;"></div> -->
-			<div id="boidviewer"  style="width:10em; aspect-ratio:1; margin: 0 auto"></div>
-			<br/>
-			<p>ID: {{focus_boid_data.id}}</p>
-			<p>GENERATION: {{focus_boid_data.generation}}</p>
-			<p>SIZE: {{focus_boid_data.length.toFixed(0)}} x {{focus_boid_data.width.toFixed(0)}}</p>
-			<p>ALLOMETRY: {{focus_boid_data.allometry.toFixed(2)}}</p>
-			<p>SCALE: {{focus_boid_data.scale.toFixed(2)}}</p>
-			<p>DIET: {{focus_boid_data.diet.toFixed(2)}}</p>
-			<p>DIET_RANGE: {{focus_boid_data.diet_range.toFixed(2)}}</p>
-			<p>INERTIA: {{focus_boid_data.inertia.toFixed(1)}}</p>
-			<p>ANGULAR: {{focus_boid_data.angmo.toFixed(1)}}</p>
-			<p>LIFESPAN: {{focus_boid_data.lifespan}}</p>
-			<p>MATURITY AGE: {{focus_boid_data.maturity_age}}</p>
-			<!-- <p>ENERGY: {{focus_boid_data.energy.toFixed(1)}}</p> -->
-			<!-- <p>MAX_ENERGY: {{focus_boid_data.max_energy.toFixed(1)}}</p> -->
-			<p>SCORE: {{focus_boid_data.total_fitness_score.toFixed(1)}}</p>
+			<!-- <br/> -->
+			<!-- <div id="boidviewer"  style="width:10em; aspect-ratio:1; margin: 0 auto"></div> -->
+			<!-- <br/> -->
+			<p>ID: <output>{{focus_boid_data.id}}</output></p>
+			<p>GENERATION:<output>{{focus_boid_data.generation}}</output></p>
+			<p>SIZE: <output>{{focus_boid_data.length.toFixed(0)}} x {{focus_boid_data.width.toFixed(0)}}</output></p>
+			<p>SCALE: <output>{{focus_boid_data.scale.toFixed(2)}}</output></p>
+			<p>DIET: <output>{{focus_boid_data.diet.toFixed(2)}} (R:{{focus_boid_data.diet_range.toFixed(2)}})</output></p>
+			<!-- <p>INERTIA: {{focus_boid_data.inertia.toFixed(1)}}</p> -->
+			<!-- <p>ANGULAR: {{focus_boid_data.angmo.toFixed(1)}}</p> -->
+			<p>LIFESPAN: <output>{{focus_boid_data.lifespan}}</output></p>
+			<p>MATURITY AGE: <output>{{focus_boid_data.maturity_age}}</output></p>
+			<p>BITE: <output>{{focus_boid_data.base_bite_rate.toFixed(5)}}</output></p>
+			<p>BASE ENERGY: <output>{{focus_boid_data.base_energy.toFixed(5)}}</output></p>
+			<p>BASE METAB: <output>{{focus_boid_data.base_rest_metabolism.toFixed(5)}}</output></p>
+			<p>BASE DIGEST: <output>{{focus_boid_data.base_digestion_rate.toFixed(5)}}</output></p>
+			<p>BASE STOMACH: <output>{{focus_boid_data.base_stomach_size.toFixed(5)}}</output></p>
 			
 			<h2>Vitals</h2>
 			<p>
+				<progress :value="focus_boid_data.scale"></progress> 
+				&nbsp; Scale <output>{{(focus_boid_data.scale*100).toFixed(0)}}%</output>
+				<br />
+				
 				<progress :value="focus_boid_data.age / focus_boid_data.lifespan"></progress> 
-				&nbsp; Age {{focus_boid_data.age.toFixed(0)}} / {{focus_boid_data.lifespan.toFixed(0)}}
+				&nbsp; Age <output>{{focus_boid_data.age.toFixed(0)}} / {{focus_boid_data.lifespan.toFixed(0)}}</output>
+				&nbsp; <output v-if="focus_boid_data.age >= focus_boid_data.maturity_age">&#10004;</output>
 				<br />
 				
 				<progress :value="focus_boid_data.stomach_contents / (focus_boid_data.stomach_size * focus_boid_data.scale )"></progress> 
-				&nbsp; Stomach {{focus_boid_data.stomach_contents.toFixed(0)}} / {{(focus_boid_data.stomach_size * focus_boid_data.scale).toFixed(0)}}
+				&nbsp; Stomach <output>{{focus_boid_data.stomach_contents.toFixed(0)}} / {{(focus_boid_data.stomach_size * focus_boid_data.scale).toFixed(0)}}</output>
 				<br />
 				
-				<progress :value="focus_boid_data.energy / ( focus_boid_data.max_energy * focus_boid_data.allometry )"></progress> 
-				&nbsp; Energy {{focus_boid_data.energy.toFixed(0)}} / {{(focus_boid_data.max_energy * focus_boid_data.allometry).toFixed(0)}}
+				<progress :value="focus_boid_data.energy / ( focus_boid_data.max_energy )"></progress> 
+				&nbsp; Energy <output>{{focus_boid_data.energy.toFixed(0)}} / {{(focus_boid_data.max_energy ).toFixed(0)}}</output>
 				<br />
 			</p>
 			
-			<!-- <h2>Brain</h2>
+			<h2>Brain</h2>
 			<p class="brain">
 				<span :class="n.type" :style="{backgroundColor:n.color}" v-for="n of focus_boid_data.brainnodes">{{n.symbol}}</span>
-			</p> -->
+			</p>
 			
+			<h2>Motors</h2>
+			<div v-for="m of focus_boid_data.motors">			
+				<progress :value="m.this_stoke_time ? m.last_amount : 0"></progress>
+				&nbsp;
+				<span :title="`${m.strokefunc}, &gt;${m.min_act.toFixed(2)}, t${m.t.toFixed(2)}/${m.stroketime.toFixed(2)}, \$${m.cost.toFixed(2)}`">
+					{{m.name}}
+				</span>
+			</div>
+					
+			<h2>Sensors</h2>
+			<div v-for="i of focus_boid_data.sensors">
+				<progress :value="i.val"></progress> &nbsp; {{i.name}}
+			</div>
+						
 		</section>
+		
+		<!--
 		<section class="boid-motors" v-if="show_boid_details && focus_boid_data">			
 			<h2>Motors</h2>
-			<div v-for="m of focus_boid_data.motors">
-				<!-- <progress :value="m.this_stoke_time ? (m.strokepow * (1-(m.t / m.this_stoke_time))) : 0"></progress> -->
-				<!-- <progress :value="m.this_stoke_time ? (1-(m.t / m.this_stoke_time)) : 0"></progress> -->
-				<!-- <progress :value="m.this_stoke_time ? m.strokepow : 0"></progress>				 -->
+			<div v-for="m of focus_boid_data.motors">			
 				<progress :value="m.this_stoke_time ? m.last_amount : 0"></progress>
 				&nbsp;
 				{{m.name}}, <i>{{m.strokefunc}}</i>, &gt;{{m.min_act.toFixed(2)}}, t{{m.t.toFixed(2)}}/{{m.stroketime.toFixed(2)}}, ${{m.cost.toFixed(2)}}
-				
 			</div>
-			
 		</section>
+		
 		<section class="boid-sensors" v-if="show_boid_details && focus_boid_data">			
 			<h2>Sensors</h2>
 			<div v-for="i of focus_boid_data.sensors">
 				<progress :value="i.val"></progress> &nbsp; {{i.name}}
 			</div>
-			
 		</section>
+		
 		<section class="boid-brain-output" v-if="show_boid_details && focus_boid_data">			
 			<h2>NN Outputs</h2>
 			<div v-for="o of focus_boid_data.outputs">
 				<progress :value="o.val"></progress> &nbsp; {{o.name}}
 			</div>
-		</section>
+		</section> 
+		-->
+		
 	</main>
 </template>
 
@@ -431,15 +458,15 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 		visibility: visible;		
 		/* border: 1px solid white; */
 		display:grid;
-		grid-template-columns: 10rem 0.65fr 0.65fr 28em;
+		grid-template-columns: 10rem 0.65fr 0.65fr 17em;
 		grid-template-rows: 1fr 1fr;
 		gap: 1rem;
 	}
 	main > section {
 		background: #0005;
-		backdrop-filter: blur(10px);
+		backdrop-filter: blur(2px);
 		border-radius: 1rem;
-		padding: 1rem 2rem;
+		padding: 0.5rem 1rem;
 	}
 	.iconmenu {
 		grid-row: 1 /3;
@@ -447,7 +474,7 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 	.boid-detail {
 		grid-row: 1 / 3;
 		grid-column: 4 / 5;
-		
+		font-size: 80%;
 	}
 	.boid-braingraph-panel {
 		grid-row: 1 / 2;
@@ -477,6 +504,10 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 	.brain SPAN.input {
 		border-top-right-radius:50%;	
 		border-bottom-right-radius:50%;	
+	}
+	OUTPUT {
+		color: #80D4FF;
+		font-weight:bold;
 	}
 	
 </style>

@@ -11,6 +11,7 @@ export default class BodyPlan {
 		else {
 			this.length = 30; // collision size, must fit inside genomic boundary
 			this.width = 20; // collision size, must fit inside genomic boundary
+			this.mass = this.length * this.width;
 			this.max_length = 30; // genomic boundary
 			this.max_width = 20; // genomic boundary
 			this.min_length = 30; // genomic boundary
@@ -31,7 +32,8 @@ export default class BodyPlan {
 	Copy() {
 		let bp = new BodyPlan( this.points.map( x => [ x[0], x[1] ] ) );
 		bp.length = this.length;
-		bp.width = this.width;		
+		bp.width = this.width;
+		bp.mass = bp.mass;
 		bp.max_length = this.max_length;
 		bp.max_width = this.max_width;		
 		bp.min_length = this.min_length;
@@ -78,8 +80,9 @@ export default class BodyPlan {
 		let bp = new BodyPlan();
 		complexity = utils.Clamp( complexity||Math.random(), 0, 1 );
 		bp.complexity_factor = utils.Clamp( complexity||0.1, 0, 1 );
-		bp.length = utils.BiasedRandInt(8,100,20,0.9);
-		bp.width = utils.BiasedRandInt(8,60,14,0.9);
+		bp.length = utils.BiasedRandInt(8,120,25,0.9);
+		bp.width = utils.BiasedRandInt(8,70,17,0.9);
+		bp.mass = bp.length * bp.width;
 		bp.max_length = bp.length * utils.BiasedRand(1,1.5,1.1,0.3);
 		bp.max_width = bp.width * utils.BiasedRand(1,1.5,1.1,0.3);
 		bp.min_length = bp.length * utils.BiasedRand(0.6,1,0.9,0.3);
@@ -294,5 +297,6 @@ export default class BodyPlan {
 		}
 		this.width = this.ShapeHeight(); // terminology mismatch, but actually correct
 		this.length = this.ShapeWidth();
+		this.mass = this.length * this.width;
 	}
 }		

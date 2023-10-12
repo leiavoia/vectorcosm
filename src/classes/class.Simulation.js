@@ -233,6 +233,7 @@ export class FoodChaseSimulation extends Simulation {
 			}
 			let food = new Food( this.tank.width - spawn_x, this.tank.height - spawn_y );
 			let food_speed = this.settings?.food_speed || 100;
+			food.value = 2000;
 			food.vx = Math.random() * food_speed - (food_speed*0.5);
 			food.vy = Math.random() * food_speed - (food_speed*0.5);
 			food.edibility = this.settings?.edibility ?? food.edibility;
@@ -338,6 +339,7 @@ export class FoodChaseSimulation extends Simulation {
 			for ( let i=0; i < diff; i++ ) {
 				let food = new Food( this.tank.width * Math.random(), this.tank.height * Math.random() );
 				let food_speed = this.settings?.food_speed ?? 100;
+				food.value = 2000;
 				food.vx = Math.random() * food_speed - (food_speed*0.5);
 				food.vy = Math.random() * food_speed - (food_speed*0.5);
 				food.edibility = this.settings?.edibility ?? food.edibility;
@@ -516,6 +518,7 @@ export class TurningSimulation extends Simulation {
 		food.vx = 0;
 		food.vy = 0;
 		food.edibility = 1; // universal edibility
+		food.value = 1000;
 		this.tank.foods.push(food);
 	}	
 	ScoreBoidPerFrame(b) {
@@ -534,7 +537,7 @@ export class TurningSimulation extends Simulation {
 	Update(delta) {
 		super.Update(delta);
 		// keep the food coming
-		this.tank.foods[0].value = 80; // artificially inflate the food instead of respawning new ones.
+		this.tank.foods[0].value = 1000; // artificially inflate the food instead of respawning new ones.
 		if ( !this.tank.foods.length ) {
 			let r = 100 + Math.random() * 200;
 			let angle = Math.random() * Math.PI * 2;
