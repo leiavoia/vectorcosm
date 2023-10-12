@@ -548,7 +548,7 @@ export class Boid {
 			switch ( m.strokefunc ) {
 				case 'linear_down' : amount *= (m.this_stoke_time - m.t) / m.this_stoke_time; break;
 				case 'linear_up' : amount *= 1 - ((m.this_stoke_time - m.t) / m.this_stoke_time); break;
-				case 'bell' : amount = amount * (Math.sin((m.t/m.this_stoke_time) * Math.PI)); break;
+				case 'bell' : amount *= 0.5 * Math.sin( (m.t/m.this_stoke_time) * Math.PI * 2 + Math.PI * 1.5 ) + 0.5; break;
 				case 'step_up' : amount = (m.t >= m.this_stoke_time*0.5) ? amount : 0 ; break;
 				case 'step_down' : amount = (m.t < m.this_stoke_time*0.5) ? amount : 0 ; break;
 				case 'burst' : amount = (m.t >= m.this_stoke_time*0.8) ? amount : 0 ; break;
