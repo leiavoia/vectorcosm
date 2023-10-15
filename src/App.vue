@@ -12,6 +12,7 @@ import Simulation from './classes/class.Simulation.js'
 import BrainGraph from './classes/class.BrainGraph.js'
 import { Boid } from './classes/class.Boids.js'
 import SimulatorControls from './components/SimulatorControls.vue'
+import TankStats from './components/TankStats.vue'
 // import Plant from './classes/class.Plant.js'
 // import Poison from './classes/class.Poison.js'
 import { onMounted, ref, reactive, markRaw, shallowRef, shallowReactive } from 'vue'
@@ -26,6 +27,7 @@ window.vc.onSimulationChange = new_sim => { sim.value = new_sim; }
 
 let dragging = false;
 let show_boid_details = ref(false);
+let show_ui = ref(false);
 
 let boidviewer = new Two({ fitted: true, type: 'SVGRenderer' }); 
 let braingraph_context = new Two({ fitted: true, type: 'SVGRenderer' }); 
@@ -91,10 +93,14 @@ let frameUpdateSubscription = PubSub.subscribe('frame-update', (msg,data) => {
 const body = document.querySelector("body");
 const zoompct = 0.25;
 
-body.addEventListener("touchstart", function(event) {
-	event.preventDefault();
-	if ( !vc.show_ui ) { vc.ToggleUI(); }
-});
+// body.addEventListener("touchstart", function(event) {
+// 	event.preventDefault();
+// 	if ( !vc.show_ui ) { vc.ToggleUI(); }
+// });
+
+function ToggleUI() {
+	show_ui.value = !show_ui.value;
+}
 
 body.addEventListener("wheel", function(event) {
 	if ( event.deltaY > 0 ) {
@@ -172,7 +178,7 @@ const keyFunctionMap = {
 			vc.ToggleShowSensors();
 		},
 	'2': _ => {
-			vc.ToggleUI()
+			ToggleUI();
 		},
 	'b': _ => {
 			vc.ToggleShowBrainmap()
@@ -338,9 +344,6 @@ function RefreshBoidDetailsDynamicObjects(obj) {
     <div class="shape-container">
       <div id="draw-shapes"></div>
     </div>
-    <div class="ui" id="ui_container" style="visibility:hidden;"  v-if="sim">
-		<simulator-controls :sim="sim"></simulator-controls>
-    </div>
     <main 
 		@click="ClickMap($event)" 
 		@contextmenu.prevent="ClickMap($event)" 
@@ -357,6 +360,11 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 			<div id="braingraph"  style="width:100%; height: 100%;"></div>
 		</section>
 		-->
+		<section v-if="sim" v-show="show_ui">
+			<simulator-controls :sim="sim" @close="ToggleUI()" ></simulator-controls>
+			<tank-stats :sim="sim"></tank-stats>
+		</section>	
+		
 		<section class="boid-detail" v-if="show_boid_details && focus_boid_data">
 			<h2 style="text-align:center;">{{focus_boid_data.species.toUpperCase()}}</h2>
 			<!-- <br/> -->
@@ -446,7 +454,25 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 	</main>
 </template>
 
-<style scoped>
+<style>
+	
+	INPUT[type=range] { 
+		margin-right:0.5em; 
+	}
+	
+	LABEL {
+		width: 4em;
+		display:inline-block;
+		text-align:left;
+	}	
+	
+	OUTPUT {
+		color: #80D4FF; 
+		font-weight:bold;
+	}
+	
+	P { margin-bottom: 0; margin-top: 0; }
+
 	main {
 		color:white; 
 		position: fixed; 
@@ -458,7 +484,7 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 		visibility: visible;		
 		/* border: 1px solid white; */
 		display:grid;
-		grid-template-columns: 10rem 0.65fr 0.65fr 17em;
+		grid-template-columns: 21rem 0.65fr 0.65fr 17em;
 		grid-template-rows: 1fr 1fr;
 		gap: 1rem;
 	}
@@ -505,9 +531,14 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 		border-top-right-radius:50%;	
 		border-bottom-right-radius:50%;	
 	}
-	OUTPUT {
-		color: #80D4FF;
-		font-weight:bold;
+
+	#draw-shapes {
+		width: 100vw;
+		height: 100vh;
 	}
 	
+	#shape-container {
+		width: 100vw;
+		height: 100vh;
+	}
 </style>

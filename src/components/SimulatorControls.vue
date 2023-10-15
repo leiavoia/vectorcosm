@@ -175,10 +175,6 @@
 		window.vc.ToggleShowBrainmap();
 	}
 	
-	function ToggleUI() {
-		window.vc.ToggleUI();
-	}
-	
 	function SavePopulation() {
 		window.vc.SavePopulation();
 	}
@@ -194,14 +190,14 @@
 
 		<button @click="TogglePause()" id="pause_button">Pause</button>
 		<button @click="ToggleSimulatorFF()" id="fast_forward_button">FF</button>
-		<button @click="ToggleUI()" id="hide_ui_button">UI</button>
+		<button @click="$emit('close')" id="hide_ui_button">UI</button>
 		<button @click="ToggleShowSensors()" id="show_sensors_button">Sensors</button>
 		<button @click="ToggleShowBrainmap()" id="show_brainmap_button">Brain</button>
 		<button @click="SavePopulation()" id="save_leader_button">Save</button>
 		<button @click="LoadPopulation()" id="load_leader_button">Load</button>
 		
 		<br />
-		
+		<br/>
 
 		<label for="world_scale_slider">Scale</label>
 		<input v-model.number="vars.scale" @change="updateScale()" type="range" min="0.1" max="2" step="0.1" style="margin-bottom:-0.25em;" id="world_scale_slider" />
@@ -239,7 +235,7 @@
 		<output for="round_time_slider" id="round_time_slider_output">{{vars.time}}</output>
 
 		<br/>
-
+		<br/>
 
 		Round: <output id="round_output">{{vars.round.num}}</output> | 
 		Best: <output id="best_score_output">{{vars.round.best_score.toFixed()}}</output> | 
@@ -257,12 +253,8 @@
 		FPS: <output id="fps_output">{{vars.fps}}</output> 
 
 		<br/>
-		<canvas id="simulatorChart" style="width: 12em; height: 4em;"></canvas> 
+		<canvas id="simulatorChart" style="width: 100%; height: 6em;"></canvas> 
 	</div>
 	  
 			  
 </template>
-
-<style>
-
-</style>
