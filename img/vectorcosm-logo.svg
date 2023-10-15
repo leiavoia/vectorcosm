@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="150.84578mm"
+   height="41.605202mm"
+   viewBox="0 0 150.84578 41.605202"
+   version="1.1"
+   id="svg5"
+   inkscape:version="1.1.2 (0a00cf5339, 2022-02-04)"
+   sodipodi:docname="vectorcosm-logo-wide-v.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview7"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     showgrid="true"
+     inkscape:zoom="1.1893044"
+     inkscape:cx="261.91781"
+     inkscape:cy="3.3633105"
+     inkscape:window-width="1920"
+     inkscape:window-height="1111"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1"
+     inkscape:pageshadow="2"
+     fit-margin-top="0"
+     fit-margin-left="0"
+     fit-margin-right="0"
+     fit-margin-bottom="0">
+    <inkscape:grid
+       type="xygrid"
+       id="grid11317"
+       originx="-52.921161"
+       originy="-26.539088" />
+  </sodipodi:namedview>
+  <defs
+     id="defs2" />
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-52.921163,-26.539085)">
+    <path
+       id="path8802"
+       style="font-size:50.8px;font-family:'Labtop Secundo';-inkscape-font-specification:'Labtop Secundo';fill:#aaeeaa;stroke-width:94.19;stroke-linejoin:round;stroke-opacity:0;paint-order:stroke markers fill"
+       d="m 52.921163,26.894483 8.168506,40.843501 h 1.972102 l 8.168508,-40.843501 c -6.177734,0 -11.364969,0.02776 -18.309116,0 z m 16.099949,1.530144 -6.844027,35.07537 -7.014548,-35.07331 c 2.154929,0.008 4.783669,0.01179 6.938612,0.0093 2.01101,-0.0026 4.910313,-0.0086 6.921319,-0.01141 z"
+       sodipodi:nodetypes="ccccccccccc" />
+    <path
+       d="m 84.031714,67.737885 h -10.3632 v -40.8432 h 10.3632 v 1.3716 h -8.636 v 15.2908 h 8.636 v 1.27 h -8.636 v 21.59 h 8.636 z"
+       style="font-size:50.8px;font-family:'Labtop Secundo';-inkscape-font-specification:'Labtop Secundo';fill:#aaeeaa;stroke-width:80;stroke-linejoin:round;stroke-opacity:0;paint-order:stroke markers fill"
+       id="path8804" />
+    <path
+       d="m 97.290513,61.946685 q 0,6.1976 -5.283199,6.1976 -5.2324,0 -5.2324,-6.1976 v -29.2608 q 0,-6.1468 5.2324,-6.1468 5.283199,0 5.283199,6.1468 v 2.9464 h -1.7272 v -3.048 q 0,-4.7244 -3.555999,-4.7244 -3.556,0 -3.556,4.7244 v 29.464 q 0,4.826 3.556,4.826 3.555999,0 3.555999,-4.826 v -3.2512 h 1.7272 z"
+       style="font-size:50.8px;font-family:'Labtop Secundo';-inkscape-font-specification:'Labtop Secundo';fill:#aaeeaa;stroke-width:80;stroke-linejoin:round;stroke-opacity:0;paint-order:stroke markers fill"
+       id="path8806" />
+    <path
+       d="m 111.71769,28.317085 h -5.53721 v 39.4208 h -1.7272 v -39.4208 h -5.740399 v -1.4224 h 13.004809 z"
+       style="font-size:50.8px;font-family:'Labtop Secundo';-inkscape-font-specification:'Labtop Secundo';fill:#aaeeaa;stroke-width:80;stroke-linejoin:round;stroke-opacity:0;paint-order:stroke markers fill"
+       id="path8808" />
+    <path
+       d="m 123.85877,61.946685 q 0,6.1976 -5.28321,6.1976 -5.2324,0 -5.2324,-6.1976 v -29.2608 q 0,-6.1468 5.2324,-6.1468 5.28321,0 5.28321,6.1468 z m -1.7272,0.1016 v -29.464 q 0,-4.7244 -3.55601,-4.7244 -3.556,0 -3.556,4.7244 v 29.464 q 0,4.826 3.556,4.826 3.55601,0 3.55601,-4.826 z"
+       style="font-size:50.8px;font-family:'Labtop Secundo';-inkscape-font-specification:'Labtop Secundo';fill:#aaeeaa;stroke-width:80;stroke-linejoin:round;stroke-opacity:0;paint-order:stroke markers fill"
+       id="path8810" />
+    <path
+       d="m 138.53996,67.737885 h -1.6256 v -17.8816 q 0,-2.4892 -0.8636,-3.4036 -1.016,-1.1176 -3.302,-1.1176 h -2.9464 v 22.4028 h -1.7272 v -40.8432 h 5.1308 q 3.302,0 4.4196,1.6256 0.9144,1.27 0.9144,4.7244 v 6.1976 q 0,4.1148 -2.8956,4.9276 2.8956,1.0668 2.8956,5.2832 z m -1.6256,-28.448 v -6.604 q 0,-2.54 -0.8636,-3.4544 -0.8128,-0.9144 -3.302,-0.9144 h -2.9464 v 15.4432 h 2.9464 q 2.4892,0 3.4036,-1.016 0.762,-0.9144 0.762,-3.4544 z"
+       style="font-size:50.8px;font-family:'Labtop Secundo';-inkscape-font-specification:'Labtop Secundo';fill:#aaeeaa;stroke-width:80;stroke-linejoin:round;stroke-opacity:0;paint-order:stroke markers fill"
+       id="path8812" />
+    <path
+       d="m 153.47508,61.946685 q 0,6.1976 -5.2832,6.1976 -5.2324,0 -5.2324,-6.1976 v -29.2608 q 0,-6.1468 5.2324,-6.1468 5.2832,0 5.2832,6.1468 v 2.9464 h -1.7272 v -3.048 q 0,-4.7244 -3.556,-4.7244 -3.556,0 -3.556,4.7244 v 29.464 q 0,4.826 3.556,4.826 3.556,0 3.556,-4.826 v -3.2512 h 1.7272 z"
+       style="font-size:50.8px;font-family:'Labtop Secundo';-inkscape-font-specification:'Labtop Secundo';fill:#aaeeaa;stroke-width:80;stroke-linejoin:round;stroke-opacity:0;paint-order:stroke markers fill"
+       id="path8814" />
+    <path
+       d="m 166.93705,61.946685 q 0,6.1976 -5.2832,6.1976 -5.2324,0 -5.2324,-6.1976 v -29.2608 q 0,-6.1468 5.2324,-6.1468 5.2832,0 5.2832,6.1468 z m -1.7272,0.1016 v -29.464 q 0,-4.7244 -3.556,-4.7244 -3.556,0 -3.556,4.7244 v 29.464 q 0,4.826 3.556,4.826 3.556,0 3.556,-4.826 z"
+       style="font-size:50.8px;font-family:'Labtop Secundo';-inkscape-font-specification:'Labtop Secundo';fill:#aaeeaa;stroke-width:80;stroke-linejoin:round;stroke-opacity:0;paint-order:stroke markers fill"
+       id="path8816" />
+    <path
+       d="m 180.90704,61.946685 q 0,6.1976 -5.1816,6.1976 -5.334,0 -5.334,-6.1976 v -2.8956 h 1.778 v 2.9972 q 0,4.7244 3.556,4.7244 3.556,0 3.556,-4.7244 v -13.1572 q 0,-3.81 -3.556,-3.81 -5.334,0 -5.334,-6.2484 v -6.1468 q 0,-6.1468 5.334,-6.1468 5.1816,0 5.1816,6.1468 v 3.2004 h -1.6256 v -3.302 q 0,-4.7752 -3.556,-4.7752 -3.556,0 -3.556,4.7752 v 6.4008 q 0,4.826 3.556,4.826 4.6736,0 5.1308,4.5212 h 0.0508 z"
+       style="font-size:50.8px;font-family:'Labtop Secundo';-inkscape-font-specification:'Labtop Secundo';fill:#aaeeaa;stroke-width:80;stroke-linejoin:round;stroke-opacity:0;paint-order:stroke markers fill"
+       id="path8818" />
+    <path
+       d="m 203.76695,67.737885 h -1.6764 v -34.2392 l -7.366,31.75 h -1.3716 l -7.0612,-31.3436 v 33.8328 h -1.7272 v -40.8432 h 1.778 l 7.6708,34.4932 7.9756,-34.4932 h 1.778 z"
+       style="font-size:50.8px;font-family:'Labtop Secundo';-inkscape-font-specification:'Labtop Secundo';fill:#aaeeaa;stroke-width:80;stroke-linejoin:round;stroke-opacity:0;paint-order:stroke markers fill"
+       id="path8820" />
+  </g>
+</svg>
