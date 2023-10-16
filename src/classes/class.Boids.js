@@ -518,6 +518,10 @@ export class Boid {
 					m.this_stoke_time = 0;
 					return 0; 
 				}
+				// mitosis and other triggers must use the full amount, regardless of activation
+				if ( m.hasOwnProperty('use_max') ) {
+					amount = 1; 
+				}
 				// if we decided to activate a new stroke, record the power it was
 				// activated with instead of using a varying stroke each frame.
 				m.strokepow = amount; 
@@ -716,8 +720,8 @@ export class Boid {
 			else if ( strokefunc < 0.84 ) { strokefunc = 'spring'; }
 			else { strokefunc = 'constant'; }
 			let motor = { min_act, stroketime, t:0, strokefunc, wheel };
-			let linear = utils.BiasedRandInt( 10, 1800, 600, 0.6 );
-			let angular = utils.BiasedRandInt( 1, 100, 16, 0.5 );
+			let linear = utils.BiasedRandInt( 80, 1800, 600, 0.6 );
+			let angular = utils.BiasedRandInt( 3, 100, 20, 0.5 );
 			if ( Math.random() > 0.65 ) { linear = -linear; }
 			if ( Math.random() > 0.65 ) { angular = -angular; }
 			// all organisms must have ability to move forward and turn
@@ -787,6 +791,7 @@ export class Boid {
 			name: 'mitosis',
 			min_age: b.maturity_age,
 			min_scale: 0.65, // prevents infinite subdivision
+			use_max: true // prevents cheating on time
 			// brake: 1
 		});
 					
