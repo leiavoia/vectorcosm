@@ -51,9 +51,9 @@ export class PendantLettuce extends Plant {
 		// make the main body shape
 		const lw = utils.BiasedRandInt( 1, 6, 2, 0.95 );
 		let shape = window.two.makePath( pts.map( p => new Two.Anchor( p[0], p[1] ) ) );
-		// shape.fill = "#AEA7";
-		let stops = [ new Two.Stop(0, '#174D1F'), new Two.Stop(1, '#23682D') ];
-		// shape.fill = new Two.RadialGradient(0, 0, r, new Two.Stop(0, '#181'), new Two.Stop(1, '#AEA') );
+		// leaf coloring
+		const tip_color = `hsl(${this.fruit_hue*255},85%,75%)`;
+		const stops = [ new Two.Stop(0, '#174D1F'), new Two.Stop(1, '#23682D')/* , new Two.Stop(1, tip_color) */ ];
 		shape.fill = window.two.makeRadialGradient(0, 0, r, ...stops );
 		shape.fill.units = 'userSpaceOnUse'; // super important
 		shape.linewidth = lw;
@@ -67,10 +67,12 @@ export class PendantLettuce extends Plant {
 			dashes.push( utils.RandomInt(lw*0,lw*10) );
 		}			
 		// make the veins
+		const vein_stops = [ new Two.Stop(0, tip_color), new Two.Stop(1, '#66997799'), ];
+		const vein_grad = window.two.makeRadialGradient(0, 0, r, ...vein_stops );
 		for ( let p of pts ) { 
 			const l = window.two.makeLine( 0, 0, p[0], p[1] );
-			l.stroke = "#697";
-			// l.stroke = '#C4D';
+			l.stroke = vein_grad; //tip_color;
+			l.stroke.units = 'userSpaceOnUse'; // super important
 			l.linewidth = lw;
 			if ( dashes.length ) { l.dashes = dashes; }
 			// l.cap = 'round';
@@ -104,12 +106,17 @@ export class VectorGrass extends Plant {
 		super(x,y);
 		this.fruit_interval = utils.RandomInt(20,30);
 		this.next_fruit = this.fruit_interval;
-		this.fruit_hue = utils.RandomFloat(0.6,0.8);
+		this.fruit_hue = utils.RandomFloat(0.55,0.8);
+		// leaf coloring
+		const tip_color = `hsl(${this.fruit_hue*255},85%,75%)`;
+		const stops = [ new Two.Stop(0, '#697'), new Two.Stop(0.68, '#697'), new Two.Stop(1, tip_color) ];		
+		const grad = window.two.makeLinearGradient(0, 1, 0, 0, ...stops );
 		// make the unique shape		
 		const n = utils.BiasedRandInt( 1, 5, 3, 0.8 );
 		const r = utils.BiasedRandInt( 100, 500, 180, 0.6);
 		const max_variance = r*0.3; 
-		const spread = 0.3 * Math.PI; 
+		const spread = 0.25 * Math.PI; 
+		// const dashes = [20,20];
 		const dashes = [2,2];
 		this.blades = [];
 		for ( let i=0; i < n; i++ ) {
@@ -118,9 +125,11 @@ export class VectorGrass extends Plant {
 			const blade = { x1: 0, y1: 0, x2: l * Math.cos(a), y2: l * Math.sin(a) };
 			this.blades.push(blade);
 			const line = window.two.makeLine( blade.x1, blade.y1, blade.x2, blade.y2 );
-			line.stroke = '#697';
+			line.stroke = grad;
+			line.stroke.units = 'objectBoundingBox'; // super important
 			line.linewidth = r * utils.BiasedRand( 0.04, 0.2, 0.08, 0.5 );
 			line.fill = 'transparent';
+			// line.cap = 'round';
 			if ( dashes.length ) { line.dashes = dashes; }
 			this.geo.add(line);
 		}
@@ -131,7 +140,7 @@ export class VectorGrass extends Plant {
 		// make berries
 		if ( this.age > this.next_fruit ) {
 			this.next_fruit += this.fruit_interval;
-			if ( window.vc.tank.foods.length < 100 ) {
+			if ( window.vc.tank.foods.length < 200 ) {
 				for ( const b of this.blades ) {
 					const f = new Food( 
 						this.x + b.x2, 
