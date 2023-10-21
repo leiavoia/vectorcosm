@@ -27,6 +27,7 @@
 	function copyPropsFromSim() {
 		// settings
 		vars.scale = window.vc.scale;
+		vars.current = props.sim.settings?.current || 0;
 		vars.max_mutation = props.sim.settings.max_mutation;
 		vars.num_boids = props.sim.settings.num_boids;
 		vars.cullpct = props.sim.settings.cullpct;
@@ -60,6 +61,10 @@
 
 	function updateViscosity() {
 		props.sim.tank.viscosity = vars.viscosity;
+	}
+
+	function updateCurrent() {
+		props.sim.settings.current = vars.current || 0;
 	}
 
 	function updateTimeout() {
@@ -215,6 +220,12 @@
 		<label for="viscosity_slider">Viscosity</label>
 		<input v-model.number="vars.viscosity" @change="updateViscosity()" type="range" min="0" max="1" step="0.01" style="margin-bottom:-0.25em;" id="viscosity_slider"/>
 		<output for="viscosity_slider" id="viscosity_slider_output">{{vars.viscosity}}</output>
+
+		<br/>		
+
+		<label for="current_slider">Current</label>
+		<input v-model.number="vars.current" @change="updateCurrent()" type="range" min="0" max="5000" step="50" style="margin-bottom:-0.25em;" id="current_slider"/>
+		<output for="current_slider" id="current_slider_output">{{vars.current}}</output>
 
 		<br/>		
 

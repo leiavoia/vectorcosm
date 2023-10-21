@@ -17,50 +17,66 @@ export default class Tank {
 		this.threats = [];
 		this.obstacles = [];
 		this.plants = [];
+		this.whirls = []; // defined later for generating currents
 		this.grid = new SpaceGrid(w,h,300);
 		this.CreateDataGrid(w,h);
-		// this.CreateDebugBoundaryRectangle();
 	}
 	
 	CreateDataGrid(w,h) {
 		const gridsize = 300;
 		this.datagrid = new DataGrid(w,h,gridsize);
-		const current_base_strength = 3000;
-		const dist_pow_scaler = 0.35;
 		const largest_dim = Math.max( w, h );
 		// create a few whirlpool points
-		const num_whirls = utils.RandomInt(1,5);
-		const whirls = [];
-		for ( let n=0; n < num_whirls; n++ ) {
-			whirls.push( [ 
-				w * Math.random(), 
-				h * Math.random(),
-				current_base_strength * Math.random(),
-				(Math.random() > 0.5) ? 1 : 0 
-			] );
-		}
-		for ( let x=0; x < w; x += gridsize ) {
-			for ( let y=0; y < h; y += gridsize ) {
-				const cell = this.datagrid.CellAt(x,y);
+		// if ( !this.whirls.length ) { // don't make new ones
+			const num_whirls = utils.RandomInt(1,5);
+			this.whirls = [];
+			for ( let n=0; n < num_whirls; n++ ) {
+				this.whirls.push( { 
+					x: w * Math.random(),
+					y: h * Math.random(),
+					strength: Math.random(),
+					dir: (Math.random() > 0.5) ? 1 : 0, // direction CW / CCW 
+					locality: utils.RandomFloat(0.18, 0.80, 0.5, 0.5 ), // locality exponent (smaller is more local effect)
+					// note: use 0.5 for a perfectly circular current. Use 0.5..1.0 for a whirlpool effect.
+					pull: utils.RandomFloat(0.3, 0.7) // 0.5=neutral, <0.5=inward, >0.5=outward
+				} );
+			}
+		// }
+		// create vector field
+		for ( let x=0; x < this.datagrid.cells_x; x++ ) {
+			for ( let y=0; y < this.datagrid.cells_y; y++ ) {
+				const cell = this.datagrid.CellAt(x*this.datagrid.cellsize, y*this.datagrid.cellsize) ;
 				cell.current_x = 0;
 				cell.current_y = 0;
-				const cell_x = x + gridsize * 0.5;
-				const cell_y = y + gridsize * 0.5;
-				for ( let n=0; n < num_whirls; n++ ) {
-					const diff_x = whirls[n][0] - cell_x;
-					const diff_y = whirls[n][1] - cell_y;
+				const cell_x = x * gridsize + gridsize * 0.5;
+				const cell_y = y * gridsize + gridsize * 0.5;
+				for ( let n=0; n < this.whirls.length; n++ ) {
+					const diff_x = this.whirls[n].x - cell_x;
+					const diff_y = this.whirls[n].y - cell_y;
 					const arctan = Math.atan( diff_y / diff_x ) + ( diff_x < 0 ? Math.PI : 0 );
-					// note: use 0.5 for a perfectly circular current. Use 0.5..1.0 for a whirlpool effect.
-					const deflection = utils.RandomFloat(0.3, 0.7);
+					// const deflection = ( this.whirls[n].pull + utils.RandomFloat(0.3, 0.7) ) / 2; // local jitter
+					const deflection = utils.RandomFloat(0.3, 0.7); // local jitter
 					const angle = ( arctan + Math.PI * deflection ) % ( Math.PI * 2 );
 					const dist = Math.sqrt( diff_x * diff_x + diff_y * diff_y ); 
-					cell.current_x += (whirls[n][3] ? 1 : -1) * Math.cos(angle) * ( 1 - Math.pow( dist / largest_dim, dist_pow_scaler ) ) * whirls[n][2];
-					cell.current_y += (whirls[n][3] ? 1 : -1) * Math.sin(angle) * ( 1 - Math.pow( dist / largest_dim, dist_pow_scaler ) ) * whirls[n][2];
+					cell.current_x += (this.whirls[n].dir ? 1 : -1) * Math.cos(angle) * ( 1 - Math.pow( dist / largest_dim, this.whirls[n].locality ) ) * this.whirls[n].strength;
+					cell.current_y += (this.whirls[n].dir ? 1 : -1) * Math.sin(angle) * ( 1 - Math.pow( dist / largest_dim, this.whirls[n].locality ) ) * this.whirls[n].strength;
 				}
-				cell.current_x /= num_whirls;
-				cell.current_y /= num_whirls;
 			}
 		}
+		// normalize the vectors
+		let max = 0;
+		this.datagrid.cells.forEach( cell => { // some would say this is bad OOP
+			const length = Math.sqrt( cell.current_x * cell.current_x + cell.current_y * cell.current_y );
+			max = Math.max(length,max);
+		} );
+		this.datagrid.cells.forEach( cell => {
+			const length = Math.sqrt( cell.current_x * cell.current_x + cell.current_y * cell.current_y );
+			const ratio = max ? ( length / max ) : 1;
+			const angle = Math.atan2(-cell.current_y, -cell.current_x);
+			cell.current_x = Math.cos(angle) * ratio;
+			cell.current_y = Math.sin(angle) * ratio;
+		} );
+		
 	}
 	
 	Resize(w,h) {
@@ -69,26 +85,68 @@ export default class Tank {
 		this.grid = new SpaceGrid(w,h,300);
 		this.CreateDataGrid(w,h);
 		this.ScaleBackground();
-		// this.CreateDebugBoundaryRectangle();
 	}
 	
-	CreateDebugBoundaryRectangle() {
-		if ( this.debug_rect ) {
-			this.debug_rect.remove();
-			delete this.debug_rect;
+	DrawDebugBoundaryRectangle( on = true ) {
+		if ( this.debug_geo ) {
+			this.debug_geo.remove();
+			delete this.debug_geo;
 		}
-		this.debug_rect = window.two.makeRectangle(this.width/2, this.height/2, this.width, this.height );
-		this.debug_rect.stroke = "orange";
-		this.debug_rect.linewidth = '2';
-		this.debug_rect.fill = 'transparent';		
-		window.vc.AddShapeToRenderLayer(this.debug_rect, -2);	
+		if ( !on ) { return; }
+		this.debug_geo = window.two.makeGroup();
+		window.vc.AddShapeToRenderLayer(this.debug_geo, +2);	
+		// boundary rectangle
+		const debug_rect = window.two.makeRectangle(this.width/2, this.height/2, this.width, this.height );
+		debug_rect.stroke = "orange";
+		debug_rect.linewidth = '2';
+		debug_rect.fill = 'transparent';		
+		this.debug_geo.add( debug_rect );
+		// current flow / vector field
+		if ( this.datagrid?.cells?.length ) {
+			const max_line_length = 0.75 * this.datagrid.cellsize;
+			for ( let x=0; x < this.datagrid.cells_x; x++ ) {
+				for ( let y=0; y < this.datagrid.cells_y; y++ ) {
+					const center_x = x * this.datagrid.cellsize + (this.datagrid.cellsize * 0.5);
+					const center_y = y * this.datagrid.cellsize + (this.datagrid.cellsize * 0.5);
+					const cell = this.datagrid.CellAt(center_x,center_y);			
+					if ( cell ) {
+						// center post
+						const rect_w = this.datagrid.cellsize / 20;
+						const rect = window.two.makeRectangle(center_x, center_y, rect_w, rect_w);
+						rect.stroke = "lime";
+						rect.linewidth = '2';
+						rect.fill = 'transparent';
+						rect.rotation = Math.PI / 4; // diamonds are kool
+						this.debug_geo.add( rect );
+						// magnitude line
+						const target_x = center_x + -cell.current_x * max_line_length;
+						const target_y = center_y + -cell.current_y * max_line_length;
+						const line = window.two.makeLine(center_x, center_y, target_x, target_y);
+						line.stroke = "lime";
+						line.linewidth = '2';
+						line.fill = 'transparent';
+						this.debug_geo.add( line );
+					}
+				}
+			}
+		}
+		// whirls
+		if ( this.whirls.length ) {
+			for ( let w of this.whirls ) {
+				const c = window.two.makeCircle( w.x, w.y, w.locality*1000 );
+				c.stroke = "orange";
+				c.linewidth = w.strength * 10;
+				c.fill = 'transparent';
+				this.debug_geo.add( c );
+			}
+		}
 	}
 	
 	// background layer
 	MakeBackground() {
+		// return;
 		if ( this.bg ) { this.bg.remove(); }
 		this.bg = window.two.makeGroup();
-		// return;
 		let bgnumpts = Math.trunc(Math.random() * 200) + 10;
 		let bgpts = [];
 		bgpts.push( [0, 0] );
@@ -107,6 +165,16 @@ export default class Tank {
 			bgpts.push( [ Math.trunc(Math.random() * this.width), Math.trunc(Math.random() * this.height)] );
 		}
 
+		// random edge gravity
+		// const x_strength = Math.random() * 2 -1;
+		// const y_strength = Math.random() * 2 -1;
+		// const x_focus = this.width * 0.5; // ( Math.random() * 0.9 + 0.05 );
+		// const y_focus = this.height * 0.5; // ( Math.random() * 0.9 + 0.05 );
+		// for ( let p of bgpts ) {
+		// 	p[0] = utils.SigMap( p[0], 0, this.width, 0, this.width, x_focus, x_strength );
+		// 	p[1] = utils.SigMap( p[1], 0, this.height, 0, this.height, y_focus, y_strength );
+		// }
+		
 		let color_schemes = [
 			['#352619','#2E1D06','#2E2A1D','#473120','#2c0b04','#492f05','#6c7471','transparent','transparent'
 			,'transparent','transparent','transparent','transparent','transparent','transparent'], // shipwreck
@@ -164,21 +232,21 @@ export default class Tank {
 			t.stroke = c;
 			this.bg.add(t);
 		}		
-		// this.bg.add( bounds );		
-		// let randscale = Math.cbrt( Math.random() * 99 + 1 ); // TODO: weighted random
-		// let xory = Math.random() > 0.5;
-		// this.bg.scale = new Two.Vector( xory ? randscale : 1.5, xory ? 1.5 : randscale );
 		window.vc.AddShapeToRenderLayer(this.bg, -2);
 		this.ScaleBackground();
 	}
 	
 	ScaleBackground() {
-		// return;
 		// scale the background until it covers the scene - should look static
-		this.bg.scale = 1; // reset to one
-		const rect = this.bg.getBoundingClientRect(true);
-		const to_scale = 1 / Math.min(  rect.width / this.width, rect.height / this.height );
-		this.bg.scale = to_scale;
+		if ( this.bg ) { 
+			this.bg.scale = 1; // reset to one
+			const rect = this.bg.getBoundingClientRect(true);
+			const to_scale = 1 / Math.min(  rect.width / this.width, rect.height / this.height );
+			this.bg.scale = to_scale;
+		}
+		if ( this.debug_geo ) {			
+			this.DrawDebugBoundaryRectangle();
+		}
 	}
 
 

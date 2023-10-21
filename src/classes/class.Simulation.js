@@ -369,20 +369,20 @@ export class FoodChaseSimulation extends Simulation {
 			}
 		}
 		// circular current
-		if ( this.settings?.circular_current ) { 
+		if ( this.settings?.current ) { 
 			for ( let b of this.tank.boids ) {
 				const cell = this.tank.datagrid.CellAt(b.x,b.y);
 				if ( cell ) { 
-					b.momentum_x -= cell.current_x * delta;
-					b.momentum_y -= cell.current_y * delta;
+					b.momentum_x -= cell.current_x * this.settings.current * delta;
+					b.momentum_y -= cell.current_y * this.settings.current * delta;
 				}
 			}
 			for ( let b of this.tank.foods ) {
 				if ( !b.frictionless ) { 
 					const cell = this.tank.datagrid.CellAt(b.x,b.y);
 					if ( cell ) { 
-						b.vx -= cell.current_x * delta;
-						b.vy -= cell.current_y * delta;
+						b.vx -= cell.current_x * this.settings.current * delta;
+						b.vy -= cell.current_y * this.settings.current * delta;
 					}
 				}
 			}

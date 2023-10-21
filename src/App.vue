@@ -28,6 +28,7 @@ window.vc.onSimulationChange = new_sim => { sim.value = new_sim; }
 let dragging = false;
 let show_boid_details = ref(false);
 let show_ui = ref(false);
+let show_tank_debug = ref(false);
 
 let boidviewer = new Two({ fitted: true, type: 'SVGRenderer' }); 
 let braingraph_context = new Two({ fitted: true, type: 'SVGRenderer' }); 
@@ -100,6 +101,13 @@ const zoompct = 0.25;
 
 function ToggleUI() {
 	show_ui.value = !show_ui.value;
+}
+
+function ToggleTankDebug() {
+	show_tank_debug.value = !show_tank_debug.value;
+	if ( vc?.tank ) {
+		vc.tank.DrawDebugBoundaryRectangle( show_tank_debug.value );
+	}
 }
 
 body.addEventListener("wheel", function(event) {
@@ -191,6 +199,9 @@ const keyFunctionMap = {
 		},
 	'5': _ => {
 			vc.animate_boids = !vc.animate_boids;
+		},
+	'7': _ => {
+			ToggleTankDebug();
 		},
 	'9': _ => {
 			vc.SavePopulation();
