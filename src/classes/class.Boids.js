@@ -3,6 +3,7 @@ import BodyPlan from '../classes/class.BodyPlan.js'
 import Sensor from '../classes/class.Sensor.js'
 import Rock from '../classes/class.Rock.js'
 import Food from '../classes/class.Food.js'
+import DNA from '../classes/class.DNA.js'
 import * as utils from '../util/utils.js'
 import {Circle, Polygon, Result} from 'collisions';
 const { architect, Network } = neataptic;
@@ -33,46 +34,6 @@ export class Boid {
 		[ neataptic.methods.mutation.SUB_BACK_CONN, 	10 ],
 		[ neataptic.methods.mutation.SWAP_NODES, 		12 ],
 	] );
-
-	static RandomDNA( chars=64 ) {
-		// const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz+/';
-		const alphabet = '0123456789ABCDEF';
-		let str = '';
-		for ( let i=0; i < chars; i++ ) {
-			str += alphabet.charAt( utils.RandomInt(0,15) );			
-		}
-		return str;
-	}
-		
-	// `z` causes the reading to skip characters if "2" or higher or go backwards ("-1").
-	ReadDNA( i, length=4, to_min=null, to_max=null, z=1 ) {
-		z = z ? z : 1;
-		length = utils.Clamp( length, 1, 16 ); // needs to fit into a 64bit Number data type
-		if ( to_max < to_min ) { [to_min,to_max] = [to_max,to_min] ; }
-		let str = '';
-		for ( let n=0; n < length; n++ ) {
-			str += this.dna.charAt( utils.mod(i+n*z, this.dna.length) ); 
-		}
-		let n= parseInt(str, 16);
-		if ( to_min !== null && to_max !== null ) {
-			const range_min = 0;
-			const range_max = Math.pow( 16, length );
-			n = (to_max-to_min) * Math.abs( (n-range_min) / (range_max-range_min) ) + to_min;
-		}
-		return n;
-	}
-		
-	BiasedRandFromDNA( min, max, bias, influence, i, length=4, z=0  /* 0.0..1.0 more influence = less range */) {
-		const r1 = this.ReadDNA( i, length, 0, 1, z );
-		const r2 = this.ReadDNA( i+length, length, 0, 1, z );
-		let rnd = r1 * (max - min) + min;   // random in range
-		let mix = r2 * influence;   // random mixer - higher influence number means more spread
-		return rnd * (1 - mix) + bias * mix;// mix full range and bias
-	}
-		
-	BiasedRandIntFromDNA( min, max, bias, influence, i, length=4, z=0 ) {
-		return Math.floor( this.BiasedRandFromDNA(min, max+0.99999, bias, influence, i, length, z) );
-	}
 	
 	Reset() {
 		this.x = 0;
@@ -94,7 +55,7 @@ export class Boid {
 	
 	constructor( x=0, y=0, tank=null, json=null ) {
 		this.id = Math.random();
-		this.dna = ''; // Boid.RandomDNA();
+		this.dna = '';
 		this.generation = 1;
 		this.tank = tank;
 		this.species = 'unknown';
@@ -633,7 +594,7 @@ export class Boid {
 	}	
 	static Random(x,y,tank) {
 		let b = new Boid(x,y,tank);
-		b.dna = Boid.RandomDNA();
+		b.dna = DNA.Random();
 		b.species = utils.RandomName(12);
 		b.max_energy = Math.random() * 500 + 100;
 		b.lifespan = utils.RandomInt( 60, 600 );
