@@ -124,19 +124,25 @@ export default class DNA {
 
 	}
 	
-	shapedNumber( genes, min=0, max=0, bias=0.5, influence=0 ) {
+	shapedNumber( genes, min=0, max=1, bias=0.5, influence=0 ) {
 		let x = this.mix( genes, 0, 1 );
-		// map the bias number to 0..1
-		bias = bias.clamp( 0, 1 );
-		bias = utils.MapToRange( bias, min, max, 0, 1 );
-		// crunch through shaping function
-		influence = influence.clamp( 0, 1 );
-		x = utils.AdjustableSigmoid( x, bias, influence );
+		// if ( influence ) { 
+		// 	// map the bias number to 0..1
+		// 	bias = bias.clamp( 0, 1 );
+		// 	bias = utils.MapToRange( bias, min, max, 0, 1 );
+		// 	// crunch through shaping function
+		// 	influence = influence.clamp( 0, 1 );
+		// 	x = utils.AdjustableSigmoid( x, bias, influence );
+		// }
 		// map back to desired range
 		if ( min !== 0 || max !== 1 ) {
 			x = utils.MapToRange( x, 0, 1, min, max );
 		}
 		return x;
+	}
+	
+	shapedInt( genes, min=0, max=0, bias=0.5, influence=0 ) {
+		return Math.round( this.shapedNumber( genes, min, max, bias, influence ) ); 
 	}
 	
 	biasedRand( gene, min, max, bias, influence ) {
@@ -150,6 +156,18 @@ export default class DNA {
 		
 	biasedRandInt( gene, min, max, bias, influence ) {
 		return Math.floor( this.biasedRand(gene, min, max+0.99999, bias, influence) );
+	}
+	
+	// returns string of a single gene created by hashing any arbitrary string
+	// Useage: 
+	// 	let gene = dna.geneFor('likes pie'); // returns 0xABC123
+	geneFor( str, as_str=false ) {
+		// use the same seed for the entire game
+		// using a different seed per organism creates wild results if seed changes.
+		// const seed = parseInt( this.str.substring(0,7), 16 );
+		let n = utils.murmurhash3_32_gc( str, 0x600DF00D );
+		n = n & 0xFFFFFF; utils.MapToRange( n, 0, 0xFFFFFFFF, 0, 0xFFFFFF );
+		return as_str ? n.toString(16) : n;
 	}
 	
 	mutate( num_mutations=1 ) {
