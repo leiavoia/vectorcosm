@@ -560,16 +560,12 @@ export class Boid {
 		
 		b.RehydrateFromDNA();
 		
-		b.body = BodyPlan.Random();
 		b.min_mass = b.body.mass * 0.3;
 		b.mass = b.body.mass; // random boids start adult size			
 		b.ScaleBoidByMass();		
 							
 		// make the body complexity loosely match ability
-		let complexity_variance = b.dna.shapedNumber([0x95e601, 0xa02573],0,1) * 0.2 - 0.1;
-		b.body.complexity_factor = complexity_variance + ( (b.sensors.length + b.motors.length) / 30 ); // magic numbers
-		b.body.complexity_factor = utils.Clamp( b.body.complexity_factor, 0, 1 ); 
-		b.body.RandomizePoints();
+
 		b.min_mass = b.body.mass * 0.3;
 		b.mass = b.body.mass;
 		b.ScaleBoidByMass();
@@ -594,6 +590,9 @@ export class Boid {
 	
 	// fill traits based on values mined from our DNA
 	RehydrateFromDNA() {
+	
+		this.body = new BodyPlan( this.dna );
+		
 		this.max_energy = this.dna.shapedInt( [0x4a941a, 0xca54b9], 100, 600 );
 		this.lifespan = this.dna.shapedInt( [0x3640cd, 0xb94e0b], 60, 600 );
 		this.maturity_age = this.dna.shapedInt( [0xdc6877, 0x50e979], 0.1 * this.lifespan, 0.9 * this.lifespan, 0.25 * this.lifespan, 0.8 );
@@ -611,7 +610,7 @@ export class Boid {
 		// sensors:
 		// food and obstacle sensors are mandatory - its just a matter of how many
 		this.sensors = [];
-		const my_max_dim = 100; // FIXME Math.max( this.body.length, this.body.width );
+		const my_max_dim = Math.max( this.body.length, this.body.width );
 		const max_sensor_distance = Math.sqrt(my_max_dim) * 65;
 		const max_sensor_radius = Math.sqrt(my_max_dim) * 50;
 		const min_sensor_distance = Math.min( my_max_dim, max_sensor_distance );
@@ -814,18 +813,13 @@ export class Boid {
 		let datakeys = ['species','generation']
 		for ( let k of datakeys ) { b[k] = this[k]; }
 		b.dna = new DNA( this.dna.str );
-		
-		// body plan stuff
 		if ( b?.body?.geo ) b.body.geo.remove(); // out with the old
-		b.body = this.body.Copy(); // in with the new
-		b.container.add([b.body.geo]);
 		b.brain = neataptic.Network.fromJSON(this.brain.toJSON());
 		if ( mutate_body ) {
 			b.dna.mutate( utils.RandomInt(1,4) ); // TODO: introduce mutation rate
-			b.body.Mutate();
-			b.collision.radius = Math.max(b.body.length, b.body.width) / 2;
 		}
 		b.RehydrateFromDNA();
+		b.container.add([b.body.geo]);
 		b.collision.radius = this.collision.radius;
 		b.generation = this.generation + 1;
 		if ( reset ) { b.Reset(); }
@@ -835,20 +829,8 @@ export class Boid {
 	Export( as_JSON=false ) {
 		let b = {};
 		// POD we can just copy over
-		let datakeys = ['id','x','y','species','max_energy','energy',
-			'brain_complexity','diet','diet_range','dna','maturity_age',
-			'lifespan','age','stomach_size','stomach_contents','bite_rate','digestion_rate','energy_per_food','rest_metabolism',
-			'mass', 'scale', 'length', 'width', 'min_mass',
-			'base_energy', 'base_rest_metabolism', 'base_digestion_rate', 'base_energy', 'base_bite_rate', 'base_stomach_size',
-			'generation',
-		];		
+		let datakeys = ['id','x','y','species','dna','age','stomach_contents', 'mass', 'scale', 'length', 'width', 'generation' ];		
 		for ( let k of datakeys ) { b[k] = this[k]; }
-		b.body = {};
-		for ( let k of Object.keys(this.body).filter( _ => !['geo'].includes(_) ) ) { b.body[k] = this.body[k]; }
-		b.sensors = this.sensors.map( s => {
-			return JSON.parse( JSON.stringify(s,['x','y','r','l','a','angle','detect','name']) );
-		} );
-		b.motors = JSON.parse( JSON.stringify(this.motors) );
 		b.brain = this.brain.toJSON(); // misnomor, its not actually JSON, its POD object
 		let output = b;
 		// trim insignificant digits to save space

@@ -57,11 +57,11 @@ export default class Sensor {
 				break;
 			} 
 			case 'inertia' : {
-				this.val = (this.owner.inertia + this.owner.maxspeed) / (2*this.owner.maxspeed)
+				this.val = (this.owner.inertia + Boid.maxspeed) / (2*Boid.maxspeed)
 				break;
 			} 
 			case 'spin' : {
-				this.val = (this.owner.angmo + this.owner.maxrot) / (2*this.owner.maxrot);
+				this.val = (this.owner.angmo + Boid.maxrot) / (2*Boid.maxrot);
 				break;
 			} 
 			case 'angle-cos' : {

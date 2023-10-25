@@ -3,129 +3,140 @@ import * as utils from '../util/utils.js'
 
 export default class BodyPlan {
 
-	constructor( points ) {
-		// param is actually JSON to rehydrate
-		if ( typeof points === 'object' && 'points' in points ) {
-			Object.assign(this,points);
-		}
-		else {
-			this.length = 30; // collision size, must fit inside genomic boundary
-			this.width = 20; // collision size, must fit inside genomic boundary
-			this.mass = this.length * this.width;
-			this.max_length = 30; // genomic boundary
-			this.max_width = 20; // genomic boundary
-			this.min_length = 30; // genomic boundary
-			this.min_width = 20; // genomic boundary
-			this.points = points;
-			this.linewidth = 2;
-			this.stroke = "#AEA";
-			this.fill = 'transparent'; // "#AEA";
+	constructor( dna ) {
+		// sane defaults
+		this.length = 30; // collision size, must fit inside genomic boundary
+		this.width = 20; // collision size, must fit inside genomic boundary
+		this.mass = this.length * this.width;
+		this.max_length = 30; // genomic boundary
+		this.max_width = 20; // genomic boundary
+		this.min_length = 30; // genomic boundary
+		this.min_width = 20; // genomic boundary
+		this.points = [];
+		this.linewidth = 2;
+		this.stroke = "#AEA";
+		this.fill = 'transparent'; // "#AEA";
+		this.dashes = [];
+		this.curved = false;
+		
+		// setup
+		this.length = dna.biasedRandInt( 0xe89263, 8,120,25,0.9);
+		this.width = dna.biasedRandInt( 0x940ae4, 8,70,17,0.9);
+		this.mass = this.length * this.width;
+		this.max_length = this.length * dna.biasedRand( 0x9df776, 1,1.5,1.1,0.3);
+		this.max_width = this.width * dna.biasedRand( 0x846088, 1,1.5,1.1,0.3);
+		this.min_length = this.length * dna.biasedRand( 0xd0ad99, 0.6,1,0.9,0.3);
+		this.min_width = this.width * dna.biasedRand( 0x00df8d, 0.6,1,0.9,0.3);
+		this.curved = dna.biasedRand( 0x657e52, 0,1,0.5,0.1) > 0.7;
+		if ( dna.biasedRand( 0x1db614, 0,1,0.4,0.1) > 0.92 ) {
 			this.dashes = [];
-			this.complexity_factor = 0.3; // 0..1
-			this.max_jitter_pct = 0.1; // max deviation percentage from current width/height
-			this.augmentation_pct = 0.1; // chance of adding and removing points
-			this.curved = false;
+			this.dashes.push( dna.biasedRandInt( 0x8187f3, 0,10, 4, 0.5) );
+			this.dashes.push( dna.biasedRandInt( 0x0b914c, 0,10, 4, 0.5) );	
 		}
-		this.UpdateGeometry();
-	}
-	
-	Copy() {
-		let bp = new BodyPlan( this.points.map( x => [ x[0], x[1] ] ) );
-		bp.length = this.length;
-		bp.width = this.width;
-		bp.mass = bp.mass;
-		bp.max_length = this.max_length;
-		bp.max_width = this.max_width;		
-		bp.min_length = this.min_length;
-		bp.min_width = this.min_width;		
-		bp.linewidth = this.linewidth;
-		bp.stroke = this.stroke;
-		bp.fill = this.fill;
-		bp.dashes = this.dashes;
-		bp.complexity_factor = this.complexity_factor;
-		bp.max_jitter_pct = this.max_jitter_pct;
-		bp.augmentation_pct = this.augmentation_pct;
-		bp.curved = this.curved;
-		bp.UpdateGeometry();
-		return bp;
-	}
-	
-	RandomizePoints() {
-		let num_extra_pts = Math.ceil( this.complexity_factor * 5 );
+		
+		// colors
+		// TODO: we want to guarantee bright colors on all lines and fill-only's 
+		const colors = [
+			'#' + Math.trunc( dna.shapedNumber( [0x9e44cb, 0xa92a5b, 0x57f286], 0, 0xFFFFFF) ).toString(16).padStart(6,0), // line
+			'#' + Math.trunc( dna.shapedNumber( [0x84e854, 0xcdc4df, 0x689812], 0, 0xFFFFFF) ).toString(16).padStart(6,0), // fill
+			'#' + Math.trunc( dna.shapedNumber( [0x03c2cb, 0xe10b1f, 0x8cd170], 0, 0xFFFFFF) ).toString(16).padStart(6,0), // TBD
+			'#' + Math.trunc( dna.shapedNumber( [0xe9a196, 0x39a170, 0x0ef975], 0, 0xFFFFFF) ).toString(16).padStart(6,0), // TBD
+			'#' + Math.trunc( dna.shapedNumber( [0x0a9f17, 0x79993e, 0x480be7], 0, 0xFFFFFF) ).toString(16).padStart(6,0), // TBD
+		];
+
+		// chance for transparency
+		if ( dna.biasedRand( 0x5b9440, 0, 1, 0.5, 0.5) > 0.65 ) {
+			// one or the other but not both
+			const i = ( dna.biasedRand( 0xb7897e, 0, 1, 0.5, 0.5) > 0.5 ) ? 1 : 0;
+			colors[i] = 'transparent';
+		}
+		this.linewidth = dna.biasedRandInt( 0x614030, 2,8,2,0.8);
+		this.stroke = colors[0];
+		this.fill = colors[1]==='transparent' ? colors[1] : `${colors[1]}AA`;
+			
+		// chance for gradients
+		if ( colors[0] !== 'transparent' && dna.biasedRand(0xe60639, 0, 1, 0.5, 0.5) > 0.85 ) {
+			const index = dna.biasedRandInt(0xe60639, 0, 4, 2, 0.5);
+			const stops = [ new Two.Stop(0, colors[0]), new Two.Stop(1, colors[index]) ];
+			this.stroke = window.two.makeRadialGradient(0, 0, this.length/2, ...stops );
+			this.stroke.units = 'userSpaceOnUse'; // super important		
+		}
+		if ( colors[1] !== 'transparent' && dna.biasedRand(0x27267a, 0, 1, 0.5, 0.5) > 0.85 ) {
+			const index = dna.biasedRandInt(0xbb80b4, 0, 4, 2, 0.5);
+			const stops = [ new Two.Stop(0, colors[1]), new Two.Stop(1, colors[index]) ];
+			this.fill = window.two.makeRadialGradient(0, 0, this.length/2, ...stops );
+			this.fill.units = 'userSpaceOnUse'; // super important		
+		}
+		
+		// colors
+		// const color_roll = Math.random();
+		// if ( color_roll < 0.33 ) { // just line
+		// 	this.linewidth = Math.random() > 0.5 ? utils.BiasedRandInt(2,8,2,0.8) : 2;
+		// 	this.stroke = utils.RandomColor( true, false, true );
+		// 	this.fill = 'transparent';
+		// }
+		// else if ( color_roll > 0.67 ) { // just fill
+		// 	this.linewidth = 0;
+		// 	this.stroke = 'transparent';
+		// 	this.fill =  utils.RandomColor( true, false, true ) + 'AA';
+		// }
+		// else { // line and fill
+		// 	this.linewidth = Math.random() > 0.5 ? utils.BiasedRandInt(2,8,2,0.8) : 2;
+		// 	this.stroke = utils.RandomColor( true, false, true );
+		// 	this.fill =  utils.RandomColor( true, false, false ) + 'AA'; // don't need bright interiors if we also have line
+		// }
+		
+		// Gradients
+		// let stops = [ new Two.Stop(0, '#000'), new Two.Stop(1, '#FFF') ];
+		// this.stroke = window.two.makeRadialGradient(0, 0, 30, ...stops );
+		// this.stroke.units = 'userSpaceOnUse'; // super important
+		
+		
+		// path points
 		let pts = []; 
-		for ( let n=0; n < num_extra_pts; n++ ) {
-			let px = utils.RandomFloat( -this.length/2, this.length/2 );
-			let py = utils.RandomFloat( 0 /* -this.width/8 */, this.width/2 );
+		for ( let n=0; n < 7; n++ ) {
+			// first point is guaranteed. everything else has random chance to shoot a blank
+			if ( n > 0 ) {
+				const blank = dna.shapedNumber( [dna.geneFor(`body point ${n} blank`)], 0, 1 );
+				if ( blank < 0.75 ) { continue; }
+			}
+			const geneX1A = dna.geneFor(`body point ${n} x 1 A`);
+			const geneX2A = dna.geneFor(`body point ${n} x 2 A`);
+			const geneY1A = dna.geneFor(`body point ${n} y 1 A`);
+			const geneY2A = dna.geneFor(`body point ${n} y 2 A`);
+			const geneX1B = dna.geneFor(`body point ${n} x 1 B`);
+			const geneX2B = dna.geneFor(`body point ${n} x 2 B`);
+			const geneY1B = dna.geneFor(`body point ${n} y 1 B`);
+			const geneY2B = dna.geneFor(`body point ${n} y 2 B`);
+			let x1 = dna.shapedNumber( [geneX1A, geneX1B], -this.length/2, this.length/2 );
+			let x2 = 0.25 * dna.shapedNumber( [geneX2A, geneX2B], -this.length/2, this.length/2 );
+			let px = x1 + x2;
+			let y1 = dna.shapedNumber( [geneY1A, geneY1B], 0, this.width/2 );
+			let y2 = dna.shapedNumber( [geneY2A, geneY2B], 0, this.width/2 );
+			let py = y1 + y2;
 			pts.push([px,py]);
 		}
 		// sorting gives a cleaner look which is sometimes wanted, but not always
-		if ( Math.random() > 0.7 ) { pts.sort( (a,b) => b[0] - a[0] ); }
+		if ( dna.shapedNumber( [0x0F4343], 0, 1 ) > 0.7 ) { pts.sort( (a,b) => b[0] - a[0] ); }
 		// make complimentary points on other side of body
 		let new_pts = pts.map( p => [ p[0], -p[1] ] );
 		// random chance for extra point in the back
-		if ( Math.random() > 0.5 ) { 
+		if ( dna.shapedNumber( [0x0F6017], 0, 1 ) > 0.5 ) { 
 			new_pts.push( [ utils.RandomFloat( -this.length/2, 0 ), 0] );
 		}
 		pts.push( ...new_pts.reverse() );
 		// standard forward nose point required for all body plans
 		pts.unshift( [this.length/2, 0] );
 		this.points = pts;
-		this.RescaleShape();
+		
+		this.RescaleShape();		
 		this.UpdateGeometry();
 	}
 	
-	// 0..1, basically corresponds to num_points = complexity * 20
-	static Random( complexity=null ) {
-		// setup
-		let bp = new BodyPlan();
-		complexity = utils.Clamp( complexity||Math.random(), 0, 1 );
-		bp.complexity_factor = utils.Clamp( complexity||0.1, 0, 1 );
-		bp.length = utils.BiasedRandInt(8,120,25,0.9);
-		bp.width = utils.BiasedRandInt(8,70,17,0.9);
-		bp.mass = bp.length * bp.width;
-		bp.max_length = bp.length * utils.BiasedRand(1,1.5,1.1,0.3);
-		bp.max_width = bp.width * utils.BiasedRand(1,1.5,1.1,0.3);
-		bp.min_length = bp.length * utils.BiasedRand(0.6,1,0.9,0.3);
-		bp.min_width = bp.width * utils.BiasedRand(0.6,1,0.9,0.3);
-		bp.max_jitter_pct = utils.BiasedRand(0,0.2,0.05,0.8);
-		bp.augmentation_pct = utils.BiasedRand(0,0.04,0.01,0.9);
-		bp.curved = Math.random() > 0.7;
-		if ( Math.random() > 0.92 ) {
-			bp.dashes = [];
-			let num_dashes = utils.RandomInt(2,7);
-			for ( let n=0; n < num_dashes; n++ ) {
-				bp.dashes.push( utils.RandomInt(0,10) );
-			}		
-		}
-		
-		// colors
-		const color_roll = Math.random();
-		if ( color_roll < 0.33 ) { // just line
-			bp.linewidth = Math.random() > 0.5 ? utils.BiasedRandInt(2,8,2,0.8) : 2;
-			bp.stroke = utils.RandomColor( true, false, true );
-			bp.fill = 'transparent';
-		}
-		else if ( color_roll > 0.67 ) { // just fill
-			bp.linewidth = 0;
-			bp.stroke = 'transparent';
-			bp.fill =  utils.RandomColor( true, false, true ) + 'AA';
-		}
-		else { // line and fill
-			bp.linewidth = Math.random() > 0.5 ? utils.BiasedRandInt(2,8,2,0.8) : 2;
-			bp.stroke = utils.RandomColor( true, false, true );
-			bp.fill =  utils.RandomColor( true, false, false ) + 'AA'; // don't need bright interiors if we also have line
-		}
-		
-		// let stops = [ new Two.Stop(0, '#000'), new Two.Stop(1, '#FFF') ];
-		// bp.stroke = window.two.makeRadialGradient(0, 0, 30, ...stops );
-		// bp.stroke.units = 'userSpaceOnUse'; // super important
-		
-		// points
-		bp.RandomizePoints(); // includes update
-		
-		return bp;
+	OppositePoint(i, num_points) {
+		return i==0 ? 0 : (num_points - i);
 	}
-	
+		
 	UpdateGeometry() {
 		if ( this.points ) {
 			// recenter the vertices
@@ -164,96 +175,6 @@ export default class BodyPlan {
 		}
 	}
 	
-	JitterPoints() {
-		let i1 = this.PickJitterPoint();
-		let i2 = this.OppositePoint(i1,this.points.length);
-		let max_jitter_dist = Math.max( this.ShapeWidth(), this.ShapeHeight() );
-		let jitter_dist = max_jitter_dist * this.max_jitter_pct * Math.random();
-		let angle = utils.RandomFloat(0,Math.PI*2);
-		let jitter_x = Math.cos(angle) * jitter_dist;
-		let jitter_y = Math.sin(angle) * jitter_dist;
-		this.points[i1][0] += jitter_x;
-		// maintain symmetry on reflected nodes
-		if ( i1 != i2 ) {
-			this.points[i1][1] += jitter_y;
-			this.points[i2][0] += jitter_x;
-			this.points[i2][1] += -jitter_y;
-		}
-	}
-
-	PickJitterPoint() {
-		return utils.RandomInt(0, Math.trunc((this.points.length)/2));
-	}
-	
-	OppositePoint(i, num_points) {
-		return i==0 ? 0 : (num_points - i);
-	}
-	
-	SplitSegments() {
-		let i1 = this.PickJitterPoint();
-		// we can't start on the center point of odd-numbers collections
-		if ( i1 == this.points.length/2 ) { i1--; }
-		let i2 = i1 + 1;
-		// split first segment
-		let p1x = this.points[i1][0]; 
-		let p1y = this.points[i1][1]; 
-		let p2x = this.points[i2][0]; 
-		let p2y = this.points[i2][1]; 
-		let p3x = (p2x + p1x)/2;
-		let p3y = (p2y + p1y)/2;
-		// maintain symmetry on two opposing segments
-		if ( i2 <= this.points.length/2 ) {
-			let i3 = this.OppositePoint(i2, this.points.length);
-			let i4 = this.OppositePoint(i1, this.points.length);
-			let p4x = this.points[i3][0]; 
-			let p4y = this.points[i3][1]; 
-			let p5x = this.points[i4][0]; 
-			let p5y = this.points[i4][1]; 
-			let p6x = (p5x + p4x)/2;
-			let p6y = (p5y + p4y)/2;
-			this.points.splice( i3+1, 0, [p6x,p6y]); // insert second point
-		}
-		this.points.splice( i1+1, 0, [p3x,p3y]); // insert first point
-	}
-
-	Mutate() {
-		let x = Math.random();
-		let jitter_chance = 1 - this.augmentation_pct;
-		let delete_chance = this.augmentation_pct * (this.points.length / (this.complexity_factor*20)) * 0.5; // magic numbers for balance
-		if ( x < delete_chance ) {
-			this.DeletePoints();	
-		}
-		else if ( x < this.augmentation_pct ) {
-			this.SplitSegments();
-		}
-		else {
-			this.JitterPoints();	
-		}
-		// random chance to alter genomic shape.
-		// NOTE: this tends to promote gigantism unless there is environmental pressure against it.
-		// 	this.max_length *= 1 + 0.01 * Math.random();
-		// 	this.max_width *= 1 + 0.01 * Math.random();
-		// 	this.min_length *= 1 + 0.01 * Math.random();
-		// 	this.min_width *= 1 + 0.01 * Math.random();
-		// 	this.max_length = utils.Clamp( this.max_length, this.min_length, 300 ); // sanity
-		// 	this.max_width = utils.Clamp( this.max_width, this.min_width, 300 );		
-		// 	this.min_length = utils.Clamp( this.min_length, 5, this.max_length );
-		// 	this.min_width = utils.Clamp( this.min_width, 5, this.max_width );	
-		// Rescaling on mutation keeps the organism within a safe bounding box.
-		// Remove this if you want to let nature take its course (and spiral out of control).
-		this.RescaleShape();
-		this.UpdateGeometry();
-	}
-	
-	DeletePoints() {
-		if ( this.points.length <= 4 ) { return; }
-		let i1 = this.PickJitterPoint();
-		if ( i1===0 ) { i1++; } // weird stuff happens when you delete the zero
-		let i2 = this.OppositePoint(i1,this.points.length);
-		if ( i1 != i2 ) { this.points.splice( i2, 1 ); }
-		this.points.splice( i1, 1 );
-	}
-
 	ShapeWidth() {
 		let min = null; // do not start at zero!
 		let max = null; // do not start at zero!
@@ -277,11 +198,6 @@ export default class BodyPlan {
 	RescaleShape() {
 		let shape_w = this.ShapeWidth();
 		let shape_h = this.ShapeHeight();
-		let maxscalex = this.max_length / shape_w; // be careful - not a typo
-		let maxscaley = this.max_width / shape_h; 
-		let minscalex = this.min_length / shape_w;
-		let minscaley = this.min_width / shape_h;
-		
 		// scale up to fill the box
 		let xscale = 1;
 		let yscale = 1;
