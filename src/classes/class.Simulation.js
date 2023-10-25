@@ -145,9 +145,6 @@ export default class Simulation {
 						: null;
 					let species = parent ? parent.species : this.settings?.species;
 					let b = parent ? parent.Copy(true,true) : BoidFactory( species, 0, 0, this.tank );
-					if ( parent ) {
-						b.MutateBrain( utils.BiasedRandInt( 0, this.settings.max_mutation, this.settings.max_mutation, 0.8 ) );
-					}
 					// if no survivors, it automatically has a randomly generated brain
 					this.tank.boids.push(b);
 				}			

@@ -135,21 +135,114 @@ export class Boid {
 	MakeGeometry() { }
 	MakeMotors() {}
 	// inherit this function
-	MakeBrain( inputs, middles, outputs, connections=null, type='random' ) {	
-		if ( type=='perceptron' ) {
-			this.brain = architect.Perceptron(inputs, middles||1, outputs);			
+	MakeBrain( inputs, middles, outputs, connections=null, type='random' ) {
+		inputs = inputs || 1;
+		outputs = outputs || 1;
+		
+		const act_picker = new utils.RandomPicker( [
+			[neataptic.methods.activation.LOGISTIC, 200],
+			[neataptic.methods.activation.TANH, 50],
+			[neataptic.methods.activation.IDENTITY, 2],
+			[neataptic.methods.activation.STEP, 5],
+			[neataptic.methods.activation.RELU, 150],
+			[neataptic.methods.activation.SOFTSIGN, 10],
+			[neataptic.methods.activation.SINUSOID, 8],
+			[neataptic.methods.activation.GAUSSIAN, 8],
+			[neataptic.methods.activation.BENT_IDENTITY, 2],
+			[neataptic.methods.activation.BIPOLAR, 4],
+			[neataptic.methods.activation.BIPOLAR_SIGMOID, 6],
+			[neataptic.methods.activation.HARD_TANH, 8],
+			[neataptic.methods.activation.ABSOLUTE, 2],
+			[neataptic.methods.activation.INVERSE, 2],
+			[neataptic.methods.activation.SELU, 20],
+		]);
+		
+		const num_node_threshold = utils.Clamp( this.dna.mix( [0x3e0a3d, 0xad7144, 0x1aa1cb], 0, 1 ),  0.1, 0.4 );
+		const connectivity = utils.Clamp( this.dna.mix( [0x3e0a3d, 0xad7144, 0x1aa1cb], 0, 1 ),  0.3, 0.55 );
+		
+		const hasNode = gene_str => {
+			const gene1 = this.dna.geneFor(gene_str + ' g1');
+			const gene2 = this.dna.geneFor(gene_str + ' g2');
+			const gene3 = this.dna.geneFor(gene_str + ' g3');
+			return this.dna.mix( [gene1, gene2, gene3], 0, 1 ) < num_node_threshold;
+		};
+		const geneConnect = gene_str => {
+			const gene = this.dna.geneFor(gene_str);
+			return this.dna.read( gene, 0, 1 ) > connectivity;
+		};
+		const geneWeight = gene_str => {
+			const gene = this.dna.geneFor(gene_str);
+			return this.dna.read( gene, -1, 1 );
+		};
+		
+		let output_nodes = [];
+		let input_nodes = [];
+		let middle_nodes = [];
+		for ( let i=0; i < inputs; i++ ) {
+			input_nodes.push( new neataptic.Node('input') );
 		}
-		else {
-			this.brain = architect.Random(inputs, middles, outputs);			
+		for ( let i=0; i < outputs; i++ ) {
+			output_nodes.push( new neataptic.Node('output') );
 		}
-		// prune out default connections that Neataptic likes to set up.
-		// NOTE: this could be optimized by building network from scratch.
-		if ( connections > 0 ) {
-			let sanity = 100; 
-			while ( this.brain.connections.length > connections && --sanity ) {
-				this.brain.mutate( neataptic.methods.mutation.SUB_CONN );
+		for ( let i=0; i < 20; i++ ) { // MAGIC
+			if ( hasNode(`has m node ${i}`) ) {
+				let n = new neataptic.Node('hidden');
+				n.squash = act_picker.Pick( this.dna.biasedRand( this.dna.geneFor(`m node ${i} act`) ) );
+				n.bias = geneWeight(`m node ${i} bias`);
+				middle_nodes.push( n );
 			}
 		}
+		for ( let [i_index, i] of input_nodes.entries() ) {
+			for ( let [m_index, m] of middle_nodes.entries() ) {
+				if ( geneConnect(`conn i${i_index}-m${m_index}`) ) {
+					i.connect(m, geneWeight(`conn i${i_index}-m${m_index} weight`) );	
+				}
+			}
+			for ( let [o_index, o] of output_nodes.entries() ) {
+				if ( geneConnect(`conn i${i_index}-o${o_index}`) ) {
+					i.connect(o, geneWeight(`conn i${i_index}-o${o_index} weight`) );	
+				}
+			}
+		}
+		for ( let [m_index, m] of middle_nodes.entries() ) {
+			for ( let [o_index, o] of output_nodes.entries() ) {
+				if ( geneConnect(`conn m${m_index}-o${o_index}`) ) {
+					m.connect(o, geneWeight(`conn m${m_index}-o${o_index} weight`) );	
+				}
+			}
+		}
+		// connect middle nodes that are not well connected
+		for ( let i=middle_nodes.length-1; i>=0; i-- ) {
+			if ( !middle_nodes[i].connections.in.length ) {
+				middle_nodes[i].connect(input_nodes[ i % input_nodes.length ], geneWeight(`conn i${i} makeup weight`));
+			}
+			if ( !middle_nodes[i].connections.out.length ) {
+				middle_nodes[i].connect(output_nodes[ i % output_nodes.length ], geneWeight(`conn i${i} makeup weight`));
+			}
+		}
+		// connect inputs and outputs that are not well connected
+		for ( let i=input_nodes.length-1; i>=0; i-- ) {
+			if ( !input_nodes[i].connections.out.length ) {
+				for ( let [m_index, m] of middle_nodes.entries() ) {
+					input_nodes[i].connect(m, geneWeight(`conn i${i}-m${m_index} weight`) );	
+				}			
+				for ( let [o_index, o] of output_nodes.entries() ) {
+					input_nodes[i].connect(o, geneWeight(`conn i${i}-o${o_index} weight`) );	
+				}			
+			}
+		}
+		for ( let o=output_nodes.length-1; o>=0; o-- ) {
+			if ( !output_nodes[o].connections.in.length ) {
+				for ( let [m_index, m] of middle_nodes.entries() ) {
+					output_nodes[o].connect(m, geneWeight(`conn o${o}-m${m_index} weight`) );	
+				}			
+				for ( let [i_index, i] of input_nodes.entries() ) {
+					output_nodes[o].connect(i, geneWeight(`conn o${o}-i${i_index} weight`) );	
+				}			
+			}
+		}
+		
+		this.brain = architect.Construct( input_nodes.concat( middle_nodes, output_nodes ) );
 	}
 	
 	MutateBrain( mutations=1 ) {
@@ -228,7 +321,7 @@ export class Boid {
 			// activate all motors at once, even if it seems contradictory
 			if ( this.energy >= cost ) {
 				for ( let i=0; i < brain_outputs.length; i++ ) {
-					this.ActivateMotor( i, Math.tanh(brain_outputs[i]), delta );
+					this.ActivateMotor( i, Math.tanh(brain_outputs[i]), delta ); // FIXME tanh?
 				}
 			}
 			this.last_movement_cost = cost; // helps training functions
@@ -512,8 +605,6 @@ export class Boid {
 					offspring.mass = offspring.body.mass / ( m.mitosis + 1 );
 					offspring.ScaleBoidByMass();
 					//offspring.energy = this.max_energy / ( m.mitosis + 1 ); // good luck, kid
-					// TODO: brain mutate based on some kind of parameter - simulation or DNA
-					offspring.MutateBrain( window.vc?.simulation?.settings?.max_mutation || 3 );
 					this.tank.boids.push(offspring);
 				}
 				// babies aren't free. we just lost a lot of mass.
@@ -557,34 +648,13 @@ export class Boid {
 		b.dna = new DNA();
 		b.species = utils.RandomName(12);
 		b.age = utils.RandomInt( 0, b.lifespan * 0.5 );
-		
 		b.RehydrateFromDNA();
-		
 		b.min_mass = b.body.mass * 0.3;
 		b.mass = b.body.mass; // random boids start adult size			
 		b.ScaleBoidByMass();		
-							
-		// make the body complexity loosely match ability
-
-		b.min_mass = b.body.mass * 0.3;
-		b.mass = b.body.mass;
-		b.ScaleBoidByMass();
-		
 		// drawing and collisions data
 		b.container.add([b.body.geo]);
 		b.collision.radius = Math.max(b.length, b.width) / 2;
-						
-		// neuro stuff
-		let middle_nodes = b.dna.biasedRandInt( 0x94e123, 0,12,3,0.3);
-		let connections = Math.trunc(  b.brain_complexity * ( b.sensors.length + middle_nodes + b.motors.length ) );
-		let network_type = b.dna.shapedNumber([0x219e5b, 0xd65ecc],0,1) > 0.5 ? 'perceptron' : 'random';
-		b.MakeBrain( b.sensors.length, middle_nodes, b.motors.length, connections, network_type );
-		// crazytown
-		b.MutateBrain( 50 );
-		for ( let n=0; n< 50; n++ ) {
-			b.brain.mutate( neataptic.methods.mutation.MOD_WEIGHT );
-		}
-		
 		return b;
 	}
 	
@@ -593,19 +663,21 @@ export class Boid {
 	
 		this.body = new BodyPlan( this.dna );
 		
+		this.min_mass = this.body.mass * 0.3; // ???
 		this.max_energy = this.dna.shapedInt( [0x4a941a, 0xca54b9], 100, 600 );
 		this.lifespan = this.dna.shapedInt( [0x3640cd, 0xb94e0b], 60, 600 );
 		this.maturity_age = this.dna.shapedInt( [0xdc6877, 0x50e979], 0.1 * this.lifespan, 0.9 * this.lifespan, 0.25 * this.lifespan, 0.8 );
 		this.energy = this.max_energy;
 		this.diet = this.dna.shapedNumber( [0x8c9f32, 0xfa8d41] );
 		this.diet_range = Math.max( this.dna.shapedNumber( [0x6fa82d, 0xaed144], 0, 0.5 ), 0.1 );
-		
 		// base rates per unit of mass - grows as organism grows
 		this.base_energy = this.dna.shapedNumber( [0xc65977, 0x8fab90], 0.25, 2.0 ); // max energy per mass
 		this.base_rest_metabolism = this.dna.shapedNumber( [0x44a99b, 0xe25273], 0.004, 0.008 ); // energy per second per mass
 		this.base_digestion_rate = this.dna.shapedNumber( [0xbbfc40, 0x3030c1], 0.003, 0.008 ); // food per second per mass
 		this.base_bite_rate = this.dna.shapedNumber( [0x96fa3a, 0x34c19f], 0.3, 0.8 ); // food per second per mass
 		this.base_stomach_size = this.dna.shapedNumber( [0x328415, 0xdb1c34], 0.1, 0.5 ); // food per mass;		
+
+		this.ScaleBoidByMass();
 
 		// sensors:
 		// food and obstacle sensors are mandatory - its just a matter of how many
@@ -678,7 +750,7 @@ export class Boid {
 			const hasMotorGene2 = this.dna.geneFor(`has motor ${n} 2`);
 			const hasMotorGene3 = this.dna.geneFor(`has motor ${n} 3`);
 			const has_motor = this.dna.shapedNumber([hasMotorGene1, hasMotorGene2, hasMotorGene3], 0, 1);
-			if ( has_motor < 0.5 ) { continue; }
+			if ( has_motor < 0.5 || !n ) { continue; }
 			num_motors++;
 			
 			const strokeFuncGene =  this.dna.geneFor(`motor stroke function ${n}`);
@@ -691,7 +763,7 @@ export class Boid {
 			const stroketime = this.dna.shapedNumber([stroketimeGene],0.1, 3.5, 1, 0.6); 
 			
 			const minActGene =  this.dna.geneFor(`motor min_act chance ${n}`);
-			const min_act = this.dna.shapedNumber([minActGene],0,0.9,0.1,0.6);
+			const min_act = this.dna.shapedNumber([minActGene],0,0.9,0.1,0.6) * 0.4; // FIXME remove crutch number
 			if ( strokefunc < 0.4 ) { strokefunc = 'linear_down'; }
 			else if ( strokefunc < 0.5 ) { strokefunc = 'linear_up'; }
 			else if ( strokefunc < 0.65 ) { strokefunc = 'bell'; }
@@ -715,7 +787,7 @@ export class Boid {
 			if ( this.dna.shapedNumber([angularFlipGene],0,1) > 0.65 ) { angular = -angular; }
 			
 			// all organisms must have ability to move forward and turn
-			if ( num_motors > 1 ) { // TODO: this probably creates combo motors for everyone. Not what we want.
+			if ( num_motors > 1 ) { // FIXME TODO: this probably creates combo motors for everyone. Not what we want.
 				const comboChanceGene =  this.dna.geneFor(`motor combo_chance ${n}`);
 				const combo_chance = this.dna.shapedNumber([comboChanceGene],0,1)
 				if ( combo_chance > 0.75 && ( n < num_motors-1 || has_linear ) ) { linear = 0; }
@@ -802,9 +874,12 @@ export class Boid {
 		// 	}
 		// }
 				
-		// mental complexity can shift over time.
-		// It gives direction for neuro mutation later.
-		this.brain_complexity = this.dna.biasedRand( 0xf660d4, 0.5,5,2,0.8);				
+		// neuro stuff
+		const brain_complexity = this.dna.biasedRand( 0xf660d4, 0.5,5,2,0.8);	
+		const middle_nodes = this.dna.biasedRandInt( 0x94e123, 0,12,3,0.3);
+		const connections = Math.trunc(  brain_complexity * ( this.sensors.length + middle_nodes + this.motors.length ) );
+		const network_type = this.dna.shapedNumber([0x219e5b, 0xd65ecc],0,1) > 0.5 ? 'perceptron' : 'random';
+		this.MakeBrain( this.sensors.length, middle_nodes, this.motors.length, connections, network_type );					
 	}
 			
 	Copy( mutate_body=false, reset=false ) {
@@ -814,11 +889,13 @@ export class Boid {
 		for ( let k of datakeys ) { b[k] = this[k]; }
 		b.dna = new DNA( this.dna.str );
 		if ( b?.body?.geo ) b.body.geo.remove(); // out with the old
-		b.brain = neataptic.Network.fromJSON(this.brain.toJSON());
 		if ( mutate_body ) {
 			b.dna.mutate( utils.RandomInt(1,4) ); // TODO: introduce mutation rate
 		}
 		b.RehydrateFromDNA();
+		b.min_mass = b.body.mass * 0.3;
+		b.mass = b.body.mass; // random boids start adult size			
+		b.ScaleBoidByMass();			
 		b.container.add([b.body.geo]);
 		b.collision.radius = this.collision.radius;
 		b.generation = this.generation + 1;
