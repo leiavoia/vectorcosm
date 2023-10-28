@@ -157,8 +157,8 @@ export class Boid {
 			[neataptic.methods.activation.SELU, 20],
 		]);
 		
-		const num_node_threshold = utils.Clamp( this.dna.mix( [0x3e0a3d, 0xad7144, 0x1aa1cb], 0, 1 ),  0.1, 0.4 );
-		const connectivity = utils.Clamp( this.dna.mix( [0x3e0a3d, 0xad7144, 0x1aa1cb], 0, 1 ),  0.3, 0.55 );
+		const num_node_threshold = utils.Clamp( this.dna.mix( [0x3E0A3D, 0xAD7144, 0x1AA1CB], 0, 1 ),  0.1, 0.4 );
+		const connectivity = utils.Clamp( this.dna.mix( [0x3E0A3D, 0xAD7144, 0x1AA1CB], 0, 1 ),  0.3, 0.55 );
 		
 		const hasNode = gene_str => {
 			const gene1 = this.dna.geneFor(gene_str + ' g1');
@@ -244,18 +244,7 @@ export class Boid {
 		
 		this.brain = architect.Construct( input_nodes.concat( middle_nodes, output_nodes ) );
 	}
-	
-	MutateBrain( mutations=1 ) {
-		mutations = utils.Clamp(mutations,0,1000);
-		for ( let n=0; n < mutations; n++ ) {
-			this.brain.mutate( Boid.mutationOptionPicker.Pick() );
-		}
-		// this resets output node bias to zero. 
-		// letting it run amok can lead to "locked in" brain outputs that never change. 
-		// you might specifically want it back someday
-		this.brain.nodes.filter(n=>n.type=='output').forEach(n => n.bias = 0 );
-	}
-	
+		
 	Update( delta ) {
 	
 		const frame_skip = 0; // [!]EXPERIMENTAL TODO: make this a game setting
@@ -664,18 +653,18 @@ export class Boid {
 		this.body = new BodyPlan( this.dna );
 		
 		this.min_mass = this.body.mass * 0.3; // ???
-		this.max_energy = this.dna.shapedInt( [0x4a941a, 0xca54b9], 100, 600 );
-		this.lifespan = this.dna.shapedInt( [0x3640cd, 0xb94e0b], 60, 600 );
-		this.maturity_age = this.dna.shapedInt( [0xdc6877, 0x50e979], 0.1 * this.lifespan, 0.9 * this.lifespan, 0.25 * this.lifespan, 0.8 );
+		this.max_energy = this.dna.shapedInt( [0x4A41941A, 0xCA3254B9], 100, 600 );
+		this.lifespan = this.dna.shapedInt( [0x306440CD, 0xB949E20B], 60, 600 );
+		this.maturity_age = this.dna.shapedInt( [0xDC615877, 0x5016E979], 0.1 * this.lifespan, 0.9 * this.lifespan, 0.25 * this.lifespan, 0.8 );
 		this.energy = this.max_energy;
-		this.diet = this.dna.shapedNumber( [0x8c9f32, 0xfa8d41] );
-		this.diet_range = Math.max( this.dna.shapedNumber( [0x6fa82d, 0xaed144], 0, 0.5 ), 0.1 );
+		this.diet = this.dna.shapedNumber( [0x8C729F32, 0xFA886D41] );
+		this.diet_range = Math.max( this.dna.shapedNumber( [0x6FA6982D, 0xAE0D5144], 0, 0.5 ), 0.1 );
 		// base rates per unit of mass - grows as organism grows
-		this.base_energy = this.dna.shapedNumber( [0xc65977, 0x8fab90], 0.25, 2.0 ); // max energy per mass
-		this.base_rest_metabolism = this.dna.shapedNumber( [0x44a99b, 0xe25273], 0.004, 0.008 ); // energy per second per mass
-		this.base_digestion_rate = this.dna.shapedNumber( [0xbbfc40, 0x3030c1], 0.003, 0.008 ); // food per second per mass
-		this.base_bite_rate = this.dna.shapedNumber( [0x96fa3a, 0x34c19f], 0.3, 0.8 ); // food per second per mass
-		this.base_stomach_size = this.dna.shapedNumber( [0x328415, 0xdb1c34], 0.1, 0.5 ); // food per mass;		
+		this.base_energy = this.dna.shapedNumber( [0xC6695977, 0x8F5A8B90], 0.25, 2.0 ); // max energy per mass
+		this.base_rest_metabolism = this.dna.shapedNumber( [0x4442A99B, 0xE2531273], 0.004, 0.008 ); // energy per second per mass
+		this.base_digestion_rate = this.dna.shapedNumber( [0xB4BF3C40, 0x303120C1], 0.003, 0.008 ); // food per second per mass
+		this.base_bite_rate = this.dna.shapedNumber( [0x9667FA3A, 0x34C8159F], 0.3, 0.8 ); // food per second per mass
+		this.base_stomach_size = this.dna.shapedNumber( [0x32028415, 0xDB911C34], 0.1, 0.5 ); // food per mass;		
 
 		this.ScaleBoidByMass();
 
@@ -685,23 +674,22 @@ export class Boid {
 		const my_max_dim = Math.max( this.body.length, this.body.width );
 		const max_sensor_distance = Math.sqrt(my_max_dim) * 65;
 		const max_sensor_radius = Math.sqrt(my_max_dim) * 50;
-		const min_sensor_distance = Math.min( my_max_dim, max_sensor_distance );
 		const min_sensor_radius = Math.min( my_max_dim, max_sensor_radius );
+		const min_sensor_distance = Math.min( my_max_dim, max_sensor_distance );
 		for ( let detect of ['food','obstacles'] ) {
-			const base_num_sensors = this.dna.shapedInt( [0xa69409, 0xd0837b, 0xae9822, 0xae62ec],1,3,1.5,0.5);
-			// console.log(base_num_sensors);
-			// const base_num_sensors = utils.BiasedRandInt(1,3,1.5,0.5);
+			const base_num_sensors = this.dna.shapedInt( [0xA6940009, 0xAE6200EC],1,3,1.5,0.5);
 			for ( let n=0; n < base_num_sensors; n++ ) {
 				let sx = 0;
 				let sy = 0;
-				let r = this.dna.shapedInt( [0x0FD00D, this.dna.geneFor(`${detect} sensor radius ${n}`)], min_sensor_radius, max_sensor_radius) * (detect=='obstacles' ? 0.6 : 1.0);
-				let d = this.dna.shapedInt( [0x0F99EA, this.dna.geneFor(`${detect} sensor diameter ${n}`)], min_sensor_radius, max_sensor_radius);
+				let r = this.dna.shapedNumber( [0x0FD8010D, this.dna.geneFor(`${detect} sensor radius ${n}`)], min_sensor_radius, max_sensor_radius) * (detect=='obstacles' ? 0.6 : 1.0);
+				let d = this.dna.biasedRand( this.dna.geneFor(`${detect} sensor distance ${n}`), min_sensor_radius, max_sensor_radius);
 				// prefer sensors in front
-				let a = ( this.dna.shapedInt( [0x0FB7A3, this.dna.geneFor(`${detect} sensor angle ${n}`)], 0, Math.PI * 2) + Math.PI ) % (Math.PI * 2);
+				let a = ( this.dna.shapedNumber( [0x0FB756A3, this.dna.geneFor(`${detect} sensor angle ${n}`)], 0, Math.PI * 2) + Math.PI ) % (Math.PI * 2);
 				// TODO: update b when we revise body plan symmetry
 				// decide if sensor is going to be axially aligned or symmetrical
 				// axial / symmetry = 0
-				if ( Math.random() < 0.33 ) {
+				const symmetryGene = this.dna.geneFor(`${detect} sensor symmetry ${n}`,false,true);
+				if ( this.dna.biasedRand(symmetryGene, 0,1,0.5,0) < 0.33 ) {
 					this.sensors.push( new Sensor({ x:d, y:sy, r, angle:0, detect, name:detect }, this ) );			
 				}
 				// symmetry = 1
@@ -729,8 +717,8 @@ export class Boid {
 			'enemies': 		0.6,
 			};
 		for ( let k in non_coll_sensors ) {
-			const gene1 = this.dna.geneFor(`has sensor ${k} 1`);
-			const gene2 = this.dna.geneFor(`has sensor ${k} 2`);
+			const gene1 = this.dna.geneFor(`has sensor ${k} 1`, false, true);
+			const gene2 = this.dna.geneFor(`has sensor ${k} 2`, false, true);
 			const n = this.dna.shapedInt( [gene1, gene2], 0, 1 );
 			if ( n >= non_coll_sensors[k] ) {
 				this.sensors.push( new Sensor({detect:k}, this) );
@@ -746,9 +734,9 @@ export class Boid {
 		const max_num_motors = 6;
 		let num_motors = 0;
 		for ( let n=0; n < max_num_motors; n++ ) {
-			const hasMotorGene1 = this.dna.geneFor(`has motor ${n} 1`);
-			const hasMotorGene2 = this.dna.geneFor(`has motor ${n} 2`);
-			const hasMotorGene3 = this.dna.geneFor(`has motor ${n} 3`);
+			const hasMotorGene1 = this.dna.geneFor(`has motor ${n} 1`, false, true);
+			const hasMotorGene2 = this.dna.geneFor(`has motor ${n} 2`, false, true);
+			const hasMotorGene3 = this.dna.geneFor(`has motor ${n} 3`, false, true);
 			const has_motor = this.dna.shapedNumber([hasMotorGene1, hasMotorGene2, hasMotorGene3], 0, 1);
 			if ( has_motor < 0.5 || !n ) { continue; }
 			num_motors++;
@@ -756,7 +744,7 @@ export class Boid {
 			const strokeFuncGene =  this.dna.geneFor(`motor stroke function ${n}`);
 			let strokefunc = this.dna.shapedNumber([strokeFuncGene], 0, 1);
 			
-			const wheelChanceGene =  this.dna.geneFor(`motor wheel chance ${n}`);
+			const wheelChanceGene =  this.dna.geneFor(`motor wheel chance ${n}`, false, true);
 			let wheel = this.dna.shapedNumber([wheelChanceGene], 0, 1) > 0.75 ? true : false;
 			
 			const stroketimeGene =  this.dna.geneFor(`motor stroke time ${n}`);
@@ -780,15 +768,15 @@ export class Boid {
 			const angularGene =  this.dna.geneFor(`motor angular ${n}`);
 			let angular = this.dna.shapedNumber([angularGene],3, 100, 20, 0.5);
 			
-			const linearFlipGene =  this.dna.geneFor(`motor linear flip ${n}`);
+			const linearFlipGene =  this.dna.geneFor(`motor linear flip ${n}`, false, true);
 			if ( this.dna.shapedNumber([linearFlipGene],0,1) > 0.65 ) { linear = -linear; }
 			
-			const angularFlipGene =  this.dna.geneFor(`motor angular flip ${n}`);
+			const angularFlipGene =  this.dna.geneFor(`motor angular flip ${n}`, false, true);
 			if ( this.dna.shapedNumber([angularFlipGene],0,1) > 0.65 ) { angular = -angular; }
 			
 			// all organisms must have ability to move forward and turn
 			if ( num_motors > 1 ) { // FIXME TODO: this probably creates combo motors for everyone. Not what we want.
-				const comboChanceGene =  this.dna.geneFor(`motor combo_chance ${n}`);
+				const comboChanceGene =  this.dna.geneFor(`motor combo_chance ${n}`, false, true);
 				const combo_chance = this.dna.shapedNumber([comboChanceGene],0,1)
 				if ( combo_chance > 0.75 && ( n < num_motors-1 || has_linear ) ) { linear = 0; }
 				else if ( combo_chance < 0.25 && ( n < num_motors-1 || has_angular ) ) { angular = 0; }
@@ -835,12 +823,12 @@ export class Boid {
 		}
 			
 		// reproductive motors
-		const mitosis_num = this.dna.biasedRandInt( 0xa656d2, 1,5,1,0.95);
-		const stroketime = this.dna.biasedRandInt( 0x304fa2, mitosis_num*this.lifespan*0.02,mitosis_num*this.lifespan*0.06,mitosis_num*this.lifespan*0.04,0.5) * mitosis_num;
+		const mitosis_num = this.dna.biasedRandInt( 0xA67256D2, 1,5,1,0.95);
+		const stroketime = this.dna.biasedRandInt( 0x30184FA2, mitosis_num*this.lifespan*0.02,mitosis_num*this.lifespan*0.06,mitosis_num*this.lifespan*0.04,0.5) * mitosis_num;
 		this.motors.push({
 			mitosis: mitosis_num, // number of new organisms
-			min_act: this.dna.biasedRand( 0x93dcf5, 0.22,0.9,0.6,0.5),
-			cost: ( this.max_energy * this.dna.biasedRand( 0xbd3528, 0.51,1,0.65,0.5) ) / stroketime, 
+			min_act: this.dna.biasedRand( 0x193D8CF5, 0.22,0.9,0.6,0.5),
+			cost: ( this.max_energy * this.dna.biasedRand( 0x5BD35728, 0.51,1,0.65,0.5) ) / stroketime, 
 			stroketime: stroketime, 
 			strokefunc: 'complete', 
 			name: 'mitosis',
@@ -875,10 +863,10 @@ export class Boid {
 		// }
 				
 		// neuro stuff
-		const brain_complexity = this.dna.biasedRand( 0xf660d4, 0.5,5,2,0.8);	
-		const middle_nodes = this.dna.biasedRandInt( 0x94e123, 0,12,3,0.3);
+		const brain_complexity = this.dna.biasedRand( 0xF65601D4, 0.5,5,2,0.8);	
+		const middle_nodes = this.dna.biasedRandInt( 0x964E3123, 0,12,3,0.3);
 		const connections = Math.trunc(  brain_complexity * ( this.sensors.length + middle_nodes + this.motors.length ) );
-		const network_type = this.dna.shapedNumber([0x219e5b, 0xd65ecc],0,1) > 0.5 ? 'perceptron' : 'random';
+		const network_type = this.dna.shapedNumber([0x28193E5B, 0xD6500ECC],0,1) > 0.5 ? 'perceptron' : 'random';
 		this.MakeBrain( this.sensors.length, middle_nodes, this.motors.length, connections, network_type );					
 	}
 			
@@ -890,7 +878,7 @@ export class Boid {
 		b.dna = new DNA( this.dna.str );
 		if ( b?.body?.geo ) b.body.geo.remove(); // out with the old
 		if ( mutate_body ) {
-			b.dna.mutate( utils.RandomInt(1,4) ); // TODO: introduce mutation rate
+			b.dna.mutate( utils.RandomInt(1,10) * ((Math.random() >= 0.99) ? 10 : 1) ); // TODO: introduce mutation rate
 		}
 		b.RehydrateFromDNA();
 		b.min_mass = b.body.mass * 0.3;

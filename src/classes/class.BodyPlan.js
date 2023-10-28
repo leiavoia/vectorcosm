@@ -20,49 +20,49 @@ export default class BodyPlan {
 		this.curved = false;
 		
 		// setup
-		this.length = dna.biasedRandInt( 0xe89263, 8,120,25,0.9);
-		this.width = dna.biasedRandInt( 0x940ae4, 8,70,17,0.9);
+		this.length = dna.biasedRandInt( 0xE3892763, 8,120,25,0.9);
+		this.width = dna.biasedRandInt( 0x92640AE4, 8,70,17,0.9);
 		this.mass = this.length * this.width;
-		this.max_length = this.length * dna.biasedRand( 0x9df776, 1,1.5,1.1,0.3);
-		this.max_width = this.width * dna.biasedRand( 0x846088, 1,1.5,1.1,0.3);
-		this.min_length = this.length * dna.biasedRand( 0xd0ad99, 0.6,1,0.9,0.3);
-		this.min_width = this.width * dna.biasedRand( 0x00df8d, 0.6,1,0.9,0.3);
-		this.curved = dna.biasedRand( 0x657e52, 0,1,0.5,0.1) > 0.7;
-		if ( dna.biasedRand( 0x1db614, 0,1,0.4,0.1) > 0.92 ) {
+		this.max_length = this.length * dna.biasedRand( 0x99DF7776, 1,1.5,1.1,0.3);
+		this.max_width = this.width * dna.biasedRand( 0x84670788, 1,1.5,1.1,0.3);
+		this.min_length = this.length * dna.biasedRand( 0xD204AD99, 0.6,1,0.9,0.3);
+		this.min_width = this.width * dna.biasedRand( 0x001D3F8D, 0.6,1,0.9,0.3);
+		this.curved = dna.biasedRand( 0x657E2752, 0,1,0.5,0.1) > 0.7;
+		if ( dna.biasedRand( 0x16DB6814, 0,1,0.4,0.1) > 0.92 ) {
 			this.dashes = [];
-			this.dashes.push( dna.biasedRandInt( 0x8187f3, 0,10, 4, 0.5) );
-			this.dashes.push( dna.biasedRandInt( 0x0b914c, 0,10, 4, 0.5) );	
+			this.dashes.push( dna.biasedRandInt( 0x813871F3, 0,10, 4, 0.5) );
+			this.dashes.push( dna.biasedRandInt( 0x0B92214C, 0,10, 4, 0.5) );	
 		}
 		
 		// colors
 		// TODO: we want to guarantee bright colors on all lines and fill-only's 
 		const colors = [
-			'#' + Math.trunc( dna.shapedNumber( [0x9e44cb, 0xa92a5b, 0x57f286], 0, 0xFFFFFF) ).toString(16).padStart(6,0), // line
-			'#' + Math.trunc( dna.shapedNumber( [0x84e854, 0xcdc4df, 0x689812], 0, 0xFFFFFF) ).toString(16).padStart(6,0), // fill
-			'#' + Math.trunc( dna.shapedNumber( [0x03c2cb, 0xe10b1f, 0x8cd170], 0, 0xFFFFFF) ).toString(16).padStart(6,0), // TBD
-			'#' + Math.trunc( dna.shapedNumber( [0xe9a196, 0x39a170, 0x0ef975], 0, 0xFFFFFF) ).toString(16).padStart(6,0), // TBD
-			'#' + Math.trunc( dna.shapedNumber( [0x0a9f17, 0x79993e, 0x480be7], 0, 0xFFFFFF) ).toString(16).padStart(6,0), // TBD
+			'#' + Math.trunc( dna.shapedNumber( [0x91E44CB, 0xA925A5B, 0x578F286], 0, 0xFFFFFF) ).toString(16).padStart(6,0), // line
+			'#' + Math.trunc( dna.shapedNumber( [0x824E854, 0xCDC44DF, 0x6879812], 0, 0xFFFFFF) ).toString(16).padStart(6,0), // fill
+			'#' + Math.trunc( dna.shapedNumber( [0x033C2CB, 0xE103B1F, 0x8C6D170], 0, 0xFFFFFF) ).toString(16).padStart(6,0), // TBD
+			'#' + Math.trunc( dna.shapedNumber( [0xE49A196, 0x39A2170, 0x0E5F975], 0, 0xFFFFFF) ).toString(16).padStart(6,0), // TBD
+			'#' + Math.trunc( dna.shapedNumber( [0x05A9F17, 0x799193E, 0x4850BE7], 0, 0xFFFFFF) ).toString(16).padStart(6,0), // TBD
 		];
 
 		// chance for transparency
-		if ( dna.biasedRand( 0x5b9440, 0, 1, 0.5, 0.5) > 0.65 ) {
+		if ( dna.biasedRand( 0x5B962440, 0, 1, 0.5, 0.5) > 0.65 ) {
 			// one or the other but not both
-			const i = ( dna.biasedRand( 0xb7897e, 0, 1, 0.5, 0.5) > 0.5 ) ? 1 : 0;
+			const i = ( dna.biasedRand( 0xB789477E, 0, 1, 0.5, 0.5) > 0.5 ) ? 1 : 0;
 			colors[i] = 'transparent';
 		}
-		this.linewidth = dna.biasedRandInt( 0x614030, 2,8,2,0.8);
+		this.linewidth = dna.biasedRandInt( 0x61406630, 2,8,2,0.8);
 		this.stroke = colors[0];
 		this.fill = colors[1]==='transparent' ? colors[1] : `${colors[1]}AA`;
 			
 		// chance for gradients
-		if ( colors[0] !== 'transparent' && dna.biasedRand(0xe60639, 0, 1, 0.5, 0.5) > 0.85 ) {
-			const index = dna.biasedRandInt(0xe60639, 0, 4, 2, 0.5);
+		if ( colors[0] !== 'transparent' && dna.biasedRand(0xE6062539, 0, 1, 0.5, 0.5) > 0.85 ) {
+			const index = dna.biasedRandInt(0xE6610639, 0, 4, 2, 0.5);
 			const stops = [ new Two.Stop(0, colors[0]), new Two.Stop(1, colors[index]) ];
 			this.stroke = window.two.makeRadialGradient(0, 0, this.length/2, ...stops );
 			this.stroke.units = 'userSpaceOnUse'; // super important		
 		}
-		if ( colors[1] !== 'transparent' && dna.biasedRand(0x27267a, 0, 1, 0.5, 0.5) > 0.85 ) {
-			const index = dna.biasedRandInt(0xbb80b4, 0, 4, 2, 0.5);
+		if ( colors[1] !== 'transparent' && dna.biasedRand(0x2712267A, 0, 1, 0.5, 0.5) > 0.85 ) {
+			const index = dna.biasedRandInt(0xBB8650B4, 0, 4, 2, 0.5);
 			const stops = [ new Two.Stop(0, colors[1]), new Two.Stop(1, colors[index]) ];
 			this.fill = window.two.makeRadialGradient(0, 0, this.length/2, ...stops );
 			this.fill.units = 'userSpaceOnUse'; // super important		
@@ -100,13 +100,13 @@ export default class BodyPlan {
 				const blank = dna.shapedNumber( [dna.geneFor(`body point ${n} blank`)], 0, 1 );
 				if ( blank < 0.75 ) { continue; }
 			}
-			const geneX1A = dna.geneFor(`body point ${n} x 1 A`);
+			const geneX1A = dna.geneFor(`body point ${n} x 1 A`, false, true);
 			const geneX2A = dna.geneFor(`body point ${n} x 2 A`);
-			const geneY1A = dna.geneFor(`body point ${n} y 1 A`);
+			const geneY1A = dna.geneFor(`body point ${n} y 1 A`, false, true);
 			const geneY2A = dna.geneFor(`body point ${n} y 2 A`);
-			const geneX1B = dna.geneFor(`body point ${n} x 1 B`);
+			const geneX1B = dna.geneFor(`body point ${n} x 1 B`, false, true);
 			const geneX2B = dna.geneFor(`body point ${n} x 2 B`);
-			const geneY1B = dna.geneFor(`body point ${n} y 1 B`);
+			const geneY1B = dna.geneFor(`body point ${n} y 1 B`, false, true);
 			const geneY2B = dna.geneFor(`body point ${n} y 2 B`);
 			let x1 = dna.shapedNumber( [geneX1A, geneX1B], -this.length/2, this.length/2 );
 			let x2 = 0.25 * dna.shapedNumber( [geneX2A, geneX2B], -this.length/2, this.length/2 );
@@ -117,12 +117,13 @@ export default class BodyPlan {
 			pts.push([px,py]);
 		}
 		// sorting gives a cleaner look which is sometimes wanted, but not always
-		if ( dna.shapedNumber( [0x0F4343], 0, 1 ) > 0.7 ) { pts.sort( (a,b) => b[0] - a[0] ); }
+		if ( dna.shapedNumber( [0x0F430043], 0, 1 ) > 0.7 ) { pts.sort( (a,b) => b[0] - a[0] ); }
 		// make complimentary points on other side of body
 		let new_pts = pts.map( p => [ p[0], -p[1] ] );
 		// random chance for extra point in the back
-		if ( dna.shapedNumber( [0x0F6017], 0, 1 ) > 0.5 ) { 
-			new_pts.push( [ utils.RandomFloat( -this.length/2, 0 ), 0] );
+		if ( dna.shapedNumber( [0x0F600017], 0, 1 ) > 0.5 ) { 
+			const x = dna.shapedNumber( [0x0F998877,0xA8808513], -this.length/2, 0 )
+			new_pts.push( [ x, 0] );
 		}
 		pts.push( ...new_pts.reverse() );
 		// standard forward nose point required for all body plans

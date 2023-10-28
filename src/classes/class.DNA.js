@@ -22,13 +22,13 @@ export default class DNA {
 			this.str = str.replace(/\s+/g,'').replace(/^[0123456789ABCDEF]/ig, 0).toUpperCase();
 		}
 		else {
-			this.str = DNA.Random(256);
+			this.str = DNA.Random(512);
 		}
 	}	
 
 	toString() { return this.str; }
 
-	static Random( chars=256 ) {
+	static Random( chars=512 ) {
 		const alphabet = '0123456789ABCDEF';
 		let str = '';
 		for ( let i=0; i < chars; i++ ) {
@@ -38,19 +38,21 @@ export default class DNA {
 	}
 		
 	// returns a positive 64-bit Number		
-	// `gene` = 2, 4, or 6-char hex code, e.g. 0xFFFFFF
+	// `gene` = 2, 4, 6, or 8-char hex code, e.g. 0x12345678
 	// `to_min` and `to_max` optionally constrain output
 	read( gene, to_min=null, to_max=null  ) {
 		gene = gene & 0xFFFFFF; // blank out surplus bits
-		const loc = gene & 255;
-		let hshift = gene >>> 8 & 15; // defaults to 1 if neither hshift or vshift are provided
-		const vshift = gene >>> 12 & 15;
-		const length = ( gene >>> 16 & 15 ) || 0xF;
-		const transform = gene >>> 20 & 15;
-		if ( !hshift && !vshift ) { hshift = 1; }
+		const loc = gene & 0xFFFF;
+		let hshift = gene >>> 16 & 15; // defaults to 1 if neither hshift or vshift are provided
+		const vshift = gene >>> 20 & 15;
+		const length = ( gene >>> 24 & 15 ) || 0xF;
+		const transform = gene >>> 28 & 15;
+		if ( !hshift && !vshift ) { hshift = 1; } // otherwise we just get a string of repeat chars
+		// stay in the read-only section of DNA if the gene location starts in 0..0xFF safe zone
+		const max_address = (loc >>> 8 & 0xFF) ? this.str.length : Math.min(this.str.length,0xFF);
 		let str = '';
 		for ( let n=0; n < length; n++ ) {
-			str += this.str.charAt( utils.mod( loc + ( n * hshift ) + ( n * vshift * 16 ), this.str.length) ); 
+			str += this.str.charAt( utils.mod( loc + ( n * hshift ) + ( n * vshift * 16 ), max_address) ); 
 		}
 		let n = parseInt(str, 16);
 
@@ -76,7 +78,7 @@ export default class DNA {
 			let v = this.read( g ); // max 0xFFFFFFFFFFFFFFFF
 			if ( last === null ) { last = v; }
 			else {
-				const transform = g >>> 20 & 15;
+				const transform = g >>> 28 & 15;
 				if ( transform ) {
 					switch ( transform ) {
 						// case 0x2: // unused
@@ -126,14 +128,17 @@ export default class DNA {
 	
 	shapedNumber( genes, min=0, max=1, bias=0.5, influence=0 ) {
 		let x = this.mix( genes, 0, 1 );
-		// if ( influence ) { 
-		// 	// map the bias number to 0..1
-		// 	bias = bias.clamp( 0, 1 );
-		// 	bias = utils.MapToRange( bias, min, max, 0, 1 );
-		// 	// crunch through shaping function
-		// 	influence = influence.clamp( 0, 1 );
-		// 	x = utils.AdjustableSigmoid( x, bias, influence );
-		// }
+		if ( influence ) { 
+			// bias = bias.clamp( 0, 1 )
+			// influence = influence.clamp( 0, 1 );
+			// x = this.biasedRand( gene, min, max, bias, influence );
+			// map the bias number to 0..1
+			// bias = bias.clamp( 0, 1 );
+			// bias = utils.MapToRange( bias, min, max, 0, 1 );
+			// crunch through shaping function
+			// influence = influence.clamp( 0, 1 );
+			// x = utils.AdjustableSigmoid( x, bias, influence );
+		}
 		// map back to desired range
 		if ( min !== 0 || max !== 1 ) {
 			x = utils.MapToRange( x, 0, 1, min, max );
@@ -145,35 +150,38 @@ export default class DNA {
 		return Math.round( this.shapedNumber( genes, min, max, bias, influence ) ); 
 	}
 	
-	biasedRand( gene, min, max, bias, influence ) {
-		const gene2 = ( ( gene & 255 ) + 2 ) % 255;
+	biasedRand( gene, min=0, max=1, bias=0.5, influence=0 ) {
+		// NOTE: if the first gene is from the read-only group, the second gene must also be
+		const gene2 = gene + 16;
+		if ( !(gene >>> 8 & 0xFF) ) { gene2 &= ~(3 << 2); }
 		const r1 = this.read( gene, 0, 1 );
 		const r2 = this.read( gene2, 0, 1 );
-		let rnd = r1 * (max - min) + min;   // random in range
-		let mix = r2 * influence;   // random mixer - higher influence number means more spread
+		const rnd = r1 * (max - min) + min;   // random in range
+		const mix = r2 * influence;   // random mixer - higher influence number means more spread
 		return rnd * (1 - mix) + bias * mix;// mix full range and bias
 	}
 		
-	biasedRandInt( gene, min, max, bias, influence ) {
+	biasedRandInt( gene, min, max, bias=0.5, influence=0 ) {
 		return Math.floor( this.biasedRand(gene, min, max+0.99999, bias, influence) );
 	}
 	
 	// returns string of a single gene created by hashing any arbitrary string
 	// Useage: 
 	// 	let gene = dna.geneFor('likes pie'); // returns 0xABC123
-	geneFor( str, as_str=false ) {
+	geneFor( str, as_str=false, use_safe_zone=false ) {
 		// use the same seed for the entire game
 		// using a different seed per organism creates wild results if seed changes.
-		// const seed = parseInt( this.str.substring(0,7), 16 );
 		let n = utils.murmurhash3_32_gc( str, 0x600DF00D );
-		n = n & 0xFFFFFF; utils.MapToRange( n, 0, 0xFFFFFFFF, 0, 0xFFFFFF );
-		return as_str ? n.toString(16) : n;
+		// zero out the 3rd and 4th position as a hint to the gene reader, e.g. 0xFFFF00FF 
+		if ( use_safe_zone ) { n &= ~(3 << 2); } 
+		return as_str ? n.toString(16).padStart(8,'0') : n;
 	}
 	
-	mutate( num_mutations=1 ) {
+	mutate( num_mutations=1, protect_read_only_zone=true ) {
 		for ( let n = 0; n < num_mutations; n++ ) {
 			const option = DNA.mutationOptionPicker.Pick();
-			const i = utils.BiasedRandInt( 0, this.str.length-1, 0.5, 0.5 ); // draw more from the middle
+			const first_char = (protect_read_only_zone && this.str.length > 0xFF) ? 0xFF+1 : 0;
+			const i = utils.BiasedRandInt( first_char, this.str.length-1, 0.5, 0.5 ); // draw more from the middle
 			const char = this.str.charAt(i);
 			switch ( option ) {
 				case 'increment': {
@@ -206,12 +214,14 @@ export default class DNA {
 				}
 				case 'swap_prev': {
 					const neighbor = (!i) ? (this.str.length-1) : (i-1);
+					if ( first_char && neighbor < first_char ) { continue; } // read-only defense
 					this.putCharAt(i, this.str.charAt(neighbor));
 					this.putCharAt(neighbor, char);
 					break;
 				}
 				case 'swap_next': {
 					const neighbor = (i == this.str.length-1) ? 0 : (i+1);
+					if ( first_char && neighbor < first_char ) { continue; } // read-only defense
 					this.putCharAt(i, this.str.charAt(neighbor));
 					this.putCharAt(neighbor, char);
 					break;
