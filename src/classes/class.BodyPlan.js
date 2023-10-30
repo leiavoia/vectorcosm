@@ -54,43 +54,51 @@ export default class BodyPlan {
 		this.stroke = colors[0];
 		this.fill = colors[1]==='transparent' ? colors[1] : `${colors[1]}AA`;
 			
+		const MakeGradient = (label, req_color, transp='FF') => {
+			const stops = [ new Two.Stop(0, req_color+transp), new Two.Stop(1, req_color+transp) ];
+			const num_stops = dna.biasedRandInt(dna.geneFor(`${label} gradient num_stops`), 0, 5, 1, 1);
+			for ( let n=0; n < num_stops; n++ ) {
+				const pct = dna.biasedRand( dna.geneFor(`${label} gradient stop pct n`) );
+				const index = dna.biasedRandInt(dna.geneFor(`${label} gradient stop index n`), 0, colors.length-1);
+				stops.push( new Two.Stop(pct, colors[index]+transp));
+			}
+			stops.sort( (a,b) => a.offset - b.offset );
+			const longest_dim = Math.max(this.width,this.length);
+			let xoff = dna.biasedRand( dna.geneFor(`${label} gradient xoff`), -this.length/2, this.length/2 );
+			let yoff = 0;
+			let radius = dna.biasedRand( dna.geneFor(`${label} gradient radius`), longest_dim/10, longest_dim, longest_dim, 0.8 );
+			const gtype = dna.biasedRand( dna.geneFor(`${label} gradient type`) ) < 0.4 ? 'linear' : 'radial';
+			const flip = dna.biasedRand( dna.geneFor(`${label} gradient axis flip`) ) < 0.33;
+			let grad = null;
+			if ( gtype == 'radial' ) {
+				grad = window.two.makeRadialGradient(xoff, yoff, radius, ...stops );
+			}
+			else {
+				let xoff2 = xoff+radius;
+				let yoff2 = 0;
+				// random axis flip
+				if ( flip ) {
+					yoff = 0;
+					yoff2 = radius;
+					xoff = 0;
+					xoff2 = 0;
+				}
+				grad = window.two.makeLinearGradient(xoff, yoff, xoff2, yoff2, ...stops );
+			}
+			grad.units = 'userSpaceOnUse'; // super important
+			const spreadNum = dna.biasedRand( dna.geneFor(`${label} gradient repeat`) );
+			grad.spread = (spreadNum > 0.66) ? 'pad' : ( spreadNum > 0.33 ? 'reflect' : 'repeat' );	
+			if ( flip ) { grad.spread = 'reflect'; }	
+			return grad;
+		};
+		
 		// chance for gradients
-		if ( colors[0] !== 'transparent' && dna.biasedRand(0xE6062539, 0, 1, 0.5, 0.5) > 0.85 ) {
-			const index = dna.biasedRandInt(0xE6610639, 0, 4, 2, 0.5);
-			const stops = [ new Two.Stop(0, colors[0]), new Two.Stop(1, colors[index]) ];
-			this.stroke = window.two.makeRadialGradient(0, 0, this.length/2, ...stops );
-			this.stroke.units = 'userSpaceOnUse'; // super important		
+		if ( colors[0] !== 'transparent' && dna.shapedNumber( [0xE6062539, 0xAF88FAD4], 0, 1, 0.5, 0.5) > 0.65 ) {
+			this.stroke = MakeGradient('stroke',colors[0]);
 		}
-		if ( colors[1] !== 'transparent' && dna.biasedRand(0x2712267A, 0, 1, 0.5, 0.5) > 0.85 ) {
-			const index = dna.biasedRandInt(0xBB8650B4, 0, 4, 2, 0.5);
-			const stops = [ new Two.Stop(0, colors[1]), new Two.Stop(1, colors[index]) ];
-			this.fill = window.two.makeRadialGradient(0, 0, this.length/2, ...stops );
-			this.fill.units = 'userSpaceOnUse'; // super important		
+		if ( colors[1] !== 'transparent' && dna.shapedNumber( [0x2712267A, 0xAF77DEAD], 0, 1, 0.5, 0.5) > 0.65 ) {
+			this.fill = MakeGradient('fill',colors[1],'BB');
 		}
-		
-		// colors
-		// const color_roll = Math.random();
-		// if ( color_roll < 0.33 ) { // just line
-		// 	this.linewidth = Math.random() > 0.5 ? utils.BiasedRandInt(2,8,2,0.8) : 2;
-		// 	this.stroke = utils.RandomColor( true, false, true );
-		// 	this.fill = 'transparent';
-		// }
-		// else if ( color_roll > 0.67 ) { // just fill
-		// 	this.linewidth = 0;
-		// 	this.stroke = 'transparent';
-		// 	this.fill =  utils.RandomColor( true, false, true ) + 'AA';
-		// }
-		// else { // line and fill
-		// 	this.linewidth = Math.random() > 0.5 ? utils.BiasedRandInt(2,8,2,0.8) : 2;
-		// 	this.stroke = utils.RandomColor( true, false, true );
-		// 	this.fill =  utils.RandomColor( true, false, false ) + 'AA'; // don't need bright interiors if we also have line
-		// }
-		
-		// Gradients
-		// let stops = [ new Two.Stop(0, '#000'), new Two.Stop(1, '#FFF') ];
-		// this.stroke = window.two.makeRadialGradient(0, 0, 30, ...stops );
-		// this.stroke.units = 'userSpaceOnUse'; // super important
-		
 		
 		// path points
 		let pts = []; 
