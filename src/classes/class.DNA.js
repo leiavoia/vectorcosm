@@ -152,7 +152,7 @@ export default class DNA {
 	
 	biasedRand( gene, min=0, max=1, bias=0.5, influence=0 ) {
 		// NOTE: if the first gene is from the read-only group, the second gene must also be
-		const gene2 = gene + 16;
+		let gene2 = gene + 16;
 		if ( !(gene >>> 8 & 0xFF) ) { gene2 &= ~(3 << 2); }
 		const r1 = this.read( gene, 0, 1 );
 		const r2 = this.read( gene2, 0, 1 );

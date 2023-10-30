@@ -101,8 +101,6 @@ export class Boid {
 		this.inertia = 0; // forward motion power, can be negative
 		this.angmo = 0; // angular momentum / rotational inertia
 		// drawing stuff
-		this.outline_color = utils.RandomColor( true, false, true ) + 'AA';
-		this.fill_color = utils.RandomColor( true, false, true ) + 'AA';
 		this.container = window.two.makeGroup();
 		this.container.position.x = x;
 		this.container.position.y = y;
@@ -124,27 +122,27 @@ export class Boid {
 		// rehydrate objects from JSON if supplied
 		if ( json && typeof json === 'object' ) {
 			Object.assign(this,json);
+			this.dna = new DNA(this.dna);
+			this.RehydrateFromDNA();
 			this.brain = neataptic.Network.fromJSON(this.brain);
-			this.body = new BodyPlan(this.body);
-			this.collision.radius = Math.max(this.length, this.width) / 2;
-			this.container.add([this.body.geo]);
-			this.sensors = this.sensors.map( s => new Sensor(s,this) );
+			this.ScaleBoidByMass();
 		}
 				
 	}
 	MakeGeometry() { }
 	MakeMotors() {}
 	// inherit this function
-	MakeBrain( inputs, middles, outputs, connections=null, type='random' ) {
-		inputs = inputs || 1;
-		outputs = outputs || 1;
+	MakeBrain() {
+
+		const inputs = this.sensors.length || 1;
+		const outputs = this.motors.length || 1;
 		
 		const act_picker = new utils.RandomPicker( [
-			[neataptic.methods.activation.LOGISTIC, 200],
-			[neataptic.methods.activation.TANH, 50],
+			[neataptic.methods.activation.LOGISTIC, 300],
+			[neataptic.methods.activation.TANH, 100],
 			[neataptic.methods.activation.IDENTITY, 2],
 			[neataptic.methods.activation.STEP, 5],
-			[neataptic.methods.activation.RELU, 150],
+			[neataptic.methods.activation.RELU, 200],
 			[neataptic.methods.activation.SOFTSIGN, 10],
 			[neataptic.methods.activation.SINUSOID, 8],
 			[neataptic.methods.activation.GAUSSIAN, 8],
@@ -154,7 +152,7 @@ export class Boid {
 			[neataptic.methods.activation.HARD_TANH, 8],
 			[neataptic.methods.activation.ABSOLUTE, 2],
 			[neataptic.methods.activation.INVERSE, 2],
-			[neataptic.methods.activation.SELU, 20],
+			[neataptic.methods.activation.SELU, 15],
 		]);
 		
 		const num_node_threshold = utils.Clamp( this.dna.mix( [0x3E0A3D, 0xAD7144, 0x1AA1CB], 0, 1 ),  0.1, 0.4 );
@@ -450,7 +448,6 @@ export class Boid {
 				this.x -= result.overlap * result.overlap_x;
 				this.y -= result.overlap * result.overlap_y;
 				this.inertia *= 0.75; // what a drag
-				// this.body.geo.fill = '#D11';
 				this.collision.contact_obstacle = true;
 			}
 		}
@@ -638,19 +635,20 @@ export class Boid {
 		b.species = utils.RandomName(12);
 		b.age = utils.RandomInt( 0, b.lifespan * 0.5 );
 		b.RehydrateFromDNA();
+		b.MakeBrain();
 		b.min_mass = b.body.mass * 0.3;
-		b.mass = b.body.mass; // random boids start adult size			
-		b.ScaleBoidByMass();		
-		// drawing and collisions data
-		b.container.add([b.body.geo]);
-		b.collision.radius = Math.max(b.length, b.width) / 2;
+		b.mass = b.body.mass; // random boids start adult size	
+		b.ScaleBoidByMass();	
+		b.Reset(); // need this to get state values back to default
 		return b;
 	}
 	
 	// fill traits based on values mined from our DNA
 	RehydrateFromDNA() {
 	
+		if ( this?.body?.geo ) { this.body.geo.remove(); }
 		this.body = new BodyPlan( this.dna );
+		this.container.add([this.body.geo]);
 		
 		this.min_mass = this.body.mass * 0.3; // ???
 		this.max_energy = this.dna.shapedInt( [0x4A41941A, 0xCA3254B9], 100, 600 );
@@ -860,25 +858,28 @@ export class Boid {
 		// 			m.anim.index = 0;
 		// 		}
 		// 	}
-		// }
-				
-		// neuro stuff
-		const brain_complexity = this.dna.biasedRand( 0xF65601D4, 0.5,5,2,0.8);	
-		const middle_nodes = this.dna.biasedRandInt( 0x964E3123, 0,12,3,0.3);
-		const connections = Math.trunc(  brain_complexity * ( this.sensors.length + middle_nodes + this.motors.length ) );
-		const network_type = this.dna.shapedNumber([0x28193E5B, 0xD6500ECC],0,1) > 0.5 ? 'perceptron' : 'random';
-		this.MakeBrain( this.sensors.length, middle_nodes, this.motors.length, connections, network_type );					
+		// }				
 	}
 			
-	Copy( mutate_body=false, reset=false ) {
+	Copy( mutate=false, reset=false ) {
 		let b = new Boid(this.x, this.y, this.tank);
 		// POD we can just copy over
 		let datakeys = ['species','generation']
 		for ( let k of datakeys ) { b[k] = this[k]; }
 		b.dna = new DNA( this.dna.str );
+		b.brain = neataptic.Network.fromJSON(this.brain.toJSON());
 		if ( b?.body?.geo ) b.body.geo.remove(); // out with the old
-		if ( mutate_body ) {
-			b.dna.mutate( utils.RandomInt(1,10) * ((Math.random() >= 0.99) ? 10 : 1) ); // TODO: introduce mutation rate
+		// TODO: introduce mutation rate
+		if ( mutate ) {
+			b.dna.mutate( utils.RandomInt(1,10) * ((Math.random() >= 0.99) ? 10 : 1) ); 
+			const mutations = utils.Clamp( window.vc?.simulation?.settings?.max_mutation || 3 ,0,1000);
+			for ( let n=0; n < mutations; n++ ) {
+				this.brain.mutate( Boid.mutationOptionPicker.Pick() );
+			}
+			// this resets output node bias to zero. 
+			// letting it run amok can lead to "locked in" brain outputs that never change. 
+			// you might specifically want it back someday
+			this.brain.nodes.filter(n=>n.type=='output').forEach(n => n.bias = 0 );
 		}
 		b.RehydrateFromDNA();
 		b.min_mass = b.body.mass * 0.3;
@@ -894,9 +895,10 @@ export class Boid {
 	Export( as_JSON=false ) {
 		let b = {};
 		// POD we can just copy over
-		let datakeys = ['id','x','y','species','dna','age','stomach_contents', 'mass', 'scale', 'length', 'width', 'generation' ];		
+		let datakeys = ['id','x','y','species','age','stomach_contents', 'mass', 'scale', 'length', 'width', 'generation' ];		
 		for ( let k of datakeys ) { b[k] = this[k]; }
 		b.brain = this.brain.toJSON(); // misnomor, its not actually JSON, its POD object
+		b.dna = this.dna.str;
 		let output = b;
 		// trim insignificant digits to save space
 		if ( as_JSON ) {

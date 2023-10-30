@@ -27,7 +27,7 @@ export default class BodyPlan {
 		this.max_width = this.width * dna.biasedRand( 0x84670788, 1,1.5,1.1,0.3);
 		this.min_length = this.length * dna.biasedRand( 0xD204AD99, 0.6,1,0.9,0.3);
 		this.min_width = this.width * dna.biasedRand( 0x001D3F8D, 0.6,1,0.9,0.3);
-		this.curved = dna.biasedRand( 0x657E2752, 0,1,0.5,0.1) > 0.7;
+		this.curved = dna.biasedRand( 0x657E00CC, 0, 1, 0.5, 0.1 ) > 0.7; // once a pointy, always a pointy
 		if ( dna.biasedRand( 0x16DB6814, 0,1,0.4,0.1) > 0.92 ) {
 			this.dashes = [];
 			this.dashes.push( dna.biasedRandInt( 0x813871F3, 0,10, 4, 0.5) );

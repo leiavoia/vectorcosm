@@ -177,8 +177,7 @@ export default class Simulation {
 		let diff = this.settings.num_boids - this.tank.boids.length;
 		if ( diff > 0 ) {
 			for ( let i=0; i < diff; i++ ) {
-				// const b = BoidFactory(world.use_species, Math.random()*world.width, Math.random()*world.height );
-				const b = BoidFactory(this.settings?.species, this.tank.width*0.25, this.tank.height*0.25, this.tank );
+				const b = BoidFactory(this.settings?.species, Math.random()*this.tank.width, Math.random()*this.tank.height, this.tank );
 				b.angle = Math.random() * Math.PI * 2;
 				this.tank.boids.push(b);
 			}			
@@ -782,7 +781,6 @@ export class AvoidEdgesSimulation extends Simulation {
 				b.x + my_radius,
 				b.y + my_radius
 			);
-			// console.log(candidates.length + ' cand');
 			for ( let o of candidates ) {
 				const circle  = new Circle(b.x, b.y, my_radius);
 				const circle2  = new Circle(o.x, o.y, o.r);
