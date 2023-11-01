@@ -632,7 +632,7 @@ export class Boid {
 	static Random(x,y,tank) {
 		let b = new Boid(x,y,tank);
 		b.dna = new DNA();
-		b.species = utils.RandomName(12);
+		b.species = utils.RandomName(9);
 		b.age = utils.RandomInt( 0, b.lifespan * 0.5 );
 		b.RehydrateFromDNA();
 		b.MakeBrain();
@@ -675,7 +675,7 @@ export class Boid {
 		const min_sensor_radius = Math.min( my_max_dim, max_sensor_radius );
 		const min_sensor_distance = Math.min( my_max_dim, max_sensor_distance );
 		for ( let detect of ['food','obstacles'] ) {
-			const base_num_sensors = this.dna.shapedInt( [0xA6940009, 0xAE6200EC],1,3,1.5,0.5);
+			const base_num_sensors = this.dna.shapedInt( [0xA6940009, 0xAE6200EC],1,3,1.5,0.5); // 1..3
 			for ( let n=0; n < base_num_sensors; n++ ) {
 				let sx = 0;
 				let sy = 0;
@@ -702,17 +702,17 @@ export class Boid {
 		}
 		// random chance to get any of the non-collision sensors	
 		const non_coll_sensors = {
-			'energy': 		0.6,
-			'inertia': 		0.6,
-			'spin': 		0.6,
+			'energy': 		0.5,
+			'inertia': 		0.3,
+			'spin': 		0.2,
 			'angle-sin': 	0.6,
 			'angle-cos': 	0.6,
-			'edges': 		0.6,
+			'edges': 		0.8,
 			'world-x': 		0.6,
 			'world-y': 		0.6,
-			'chaos': 		0.2,
-			'friends': 		0.6,
-			'enemies': 		0.6,
+			'chaos': 		0.1,
+			'friends': 		0.5,
+			'enemies': 		0.5,
 			};
 		for ( let k in non_coll_sensors ) {
 			const gene1 = this.dna.geneFor(`has sensor ${k} 1`, false, true);
@@ -721,6 +721,10 @@ export class Boid {
 			if ( n >= non_coll_sensors[k] ) {
 				this.sensors.push( new Sensor({detect:k}, this) );
 			}
+		}
+		// if the organism has no inputs at all, they get energy
+		if ( !this.sensors.length ) {
+			this.sensors.push( new Sensor({detect:'energy'}, this) );
 		}
 		
 		// motors
@@ -731,13 +735,21 @@ export class Boid {
 		// this way if a gene changes it doesnt affect all subsequent motors in the stack.
 		const max_num_motors = 6;
 		let num_motors = 0;
-		for ( let n=0; n < max_num_motors; n++ ) {
+		const motor_slots = []; // array of bolleans to indicate if motor should be created
+		// first loop decides if a motor should be created. 
+		// this helps us set up defaults in case nothing is created.
+		for ( let n=1; n <= max_num_motors; n++ ) {
 			const hasMotorGene1 = this.dna.geneFor(`has motor ${n} 1`, false, true);
 			const hasMotorGene2 = this.dna.geneFor(`has motor ${n} 2`, false, true);
 			const hasMotorGene3 = this.dna.geneFor(`has motor ${n} 3`, false, true);
-			const has_motor = this.dna.shapedNumber([hasMotorGene1, hasMotorGene2, hasMotorGene3], 0, 1);
-			if ( has_motor < 0.5 || !n ) { continue; }
-			num_motors++;
+			const has_motor_chance = this.dna.shapedNumber([hasMotorGene1, hasMotorGene2, hasMotorGene3], 0, 1);
+			const gotcha = has_motor_chance > 1/n; // guaranteed one motor
+			motor_slots.push(gotcha);
+			num_motors += gotcha ? 1 : 0;
+		}
+		// second loop creates the motors
+		for ( let n=1; n <= motor_slots.length; n++ ) {
+			if ( !motor_slots[n] ) { continue; } // a blank for your thoughts
 			
 			const strokeFuncGene =  this.dna.geneFor(`motor stroke function ${n}`);
 			let strokefunc = this.dna.shapedNumber([strokeFuncGene], 0, 1);
@@ -772,15 +784,18 @@ export class Boid {
 			const angularFlipGene =  this.dna.geneFor(`motor angular flip ${n}`, false, true);
 			if ( this.dna.shapedNumber([angularFlipGene],0,1) > 0.65 ) { angular = -angular; }
 			
-			// all organisms must have ability to move forward and turn
-			if ( num_motors > 1 ) { // FIXME TODO: this probably creates combo motors for everyone. Not what we want.
+			// all organisms must have ability to move forward and turn. 
+			// If there is only one motor on the organism, make it a combo linear+angular.
+			if ( num_motors > 1 ) {
 				const comboChanceGene =  this.dna.geneFor(`motor combo_chance ${n}`, false, true);
 				const combo_chance = this.dna.shapedNumber([comboChanceGene],0,1)
 				if ( combo_chance > 0.75 && ( n < num_motors-1 || has_linear ) ) { linear = 0; }
 				else if ( combo_chance < 0.25 && ( n < num_motors-1 || has_angular ) ) { angular = 0; }
 			}
+			
 			if ( linear ) { motor.linear = linear; has_linear = true; }
 			if ( angular ) { motor.angular = angular; has_angular = true; }
+			
 			// certain stroke functions alter the power to make sure things dont go bonkers
 			if ( strokefunc == 'burst' || strokefunc == 'spring' ) {
 				if ( motor.linear ) { motor.linear *= 2.5; }
@@ -790,10 +805,12 @@ export class Boid {
 				if ( motor.linear ) { motor.linear *= 0.6; }
 				if ( motor.angular ) { motor.angular *= 0.6; }
 			}
+			
 			// cost of motor: baseline scales with body mass. random element to represent unique adaptation.
 			const motorCostGene =  this.dna.geneFor(`motor cost ${n}`);
 			motor.cost = (Math.abs(motor.linear||0) / 1800) + (Math.abs(motor.angular||0) / 100);
 			motor.cost += ( motor.cost * this.dna.shapedNumber([motorCostGene],0,1) ) - (motor.cost * 0.5);
+			
 			// animation
 			motor.anim = {
 				index:this.motors.length, // to be changed after body plan is created
@@ -802,10 +819,12 @@ export class Boid {
 				xfunc: Math.random() > 0.5 ? 'time' : 'blend',
 				yfunc: Math.random() > 0.5 ? 'time' : 'blend',
 			};
+			
 			// naming
 			motor.name = (motor.linear && motor.angular) ? 'Combo' : (motor.linear ? 'Linear' : 'Angular');
 			if ( motor.wheel ) { motor.name += ' Wheel'; }
 			this.motors.push( motor );
+			
 			// if non-wheel motor has angular movement, create a symmetrical counterpart
 			if ( !motor.wheel && motor.angular ) {
 				let motor2 = Object.assign( {}, motor );
