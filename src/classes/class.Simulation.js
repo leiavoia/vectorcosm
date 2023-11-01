@@ -25,7 +25,7 @@ export default class Simulation {
 			// 	avg_score: 10,	
 			// 	avg_score_rounds: 5
 			// },
-			species: 'Boid',
+			species: 'random',
 		};
 		if ( settings ) {
 			this.settings = Object.assign(this.settings, settings);
@@ -493,63 +493,61 @@ export class TurningSimulation extends Simulation {
 		this.Reset();
 	}
 	Reset() {
-		this.SetNumBoids( this.settings.num_boids ); // top up the population
-		// reset entire population
-		let spawn_x = 0.5 * this.tank.width; 
-		let spawn_y = 0.5 * this.tank.height; 	
-		let angle = Math.random() * Math.PI * 2;
-		for ( let b of this.tank.boids ) {
-			b.Reset();
-			b.angle = angle;
-			b.x = spawn_x;
-			b.y = spawn_y;
-			b.total_fitness_score = 10000; // golf!
-			b.fitness_score = 0;
-			b.total_movement_cost = 0;
-		}
 		// respawn food
 		this.tank.foods.forEach( x => x.Kill() );
 		this.tank.foods.length = 0;
-		let r = 100 + Math.random() * 200;
-		angle = Math.random() * Math.PI * 2;
+		const distance = (this.settings?.distance || 300 );
+		const distance_variance = (this.settings?.distance_variance || 0.3);
+		const distance_offset = distance * distance_variance * Math.random();
+		let r = distance - distance_offset * 0.5;
+		let angle = Math.random() * Math.PI * 2;
 		let dx = r * Math.cos(angle); 
 		let dy = r * Math.sin(angle);
 		let food = new Food( this.tank.width*0.5 + dx, this.tank.height*0.5 + dy );
 		food.vx = 0;
 		food.vy = 0;
 		food.edibility = 1; // universal edibility
-		food.value = 1000;
+		food.value = 1;
+		food.permafood = true;
 		this.tank.foods.push(food);
+		this.min_distance_to_score = r;
+		// reset entire population
+		this.SetNumBoids( this.settings.num_boids ); // top up the population
+		let spawn_x = 0.5 * this.tank.width; 
+		let spawn_y = 0.5 * this.tank.height; 	
+		let angle_spread = (this.settings?.angle_spread || 0 ) * utils.RandomFloat(0.25,1);
+		angle_spread = angle_spread * (Math.random() > 0.5 ? 1 : -1);
+		angle += utils.mod( angle_spread, Math.PI * 2 );
+		for ( let b of this.tank.boids ) {
+			b.Reset();
+			b.angle = angle;
+			b.x = spawn_x;
+			b.y = spawn_y;
+			b.total_fitness_score = this.min_distance_to_score; // golf!
+			b.fitness_score = 0;
+			b.total_movement_cost = 0;
+		}
 	}	
 	ScoreBoidPerFrame(b) {
-		// record minimum distance to food circle
+		// record minimum distance to food circle that is LESS than the scoring threshold
 		const food = this.tank.foods[0];
 		if ( food ) { 
 			const dx = Math.abs(food.x - b.x);
 			const dy = Math.abs(food.y - b.y);
 			const d = Math.sqrt(dx*dx + dy*dy);
-			b.total_fitness_score = Math.min( d, b.total_fitness_score );
+			b.total_fitness_score = Math.min( d, b.total_fitness_score, this.min_distance_to_score );
 		}
 	}	
 	ScoreBoidPerRound(b) {
-		b.total_fitness_score = -b.total_fitness_score || 0; // golf!
+		// golf!
+		b.total_fitness_score = 
+			( this.min_distance_to_score - (b.total_fitness_score || 0) ) 
+			/ this.min_distance_to_score
+			* 100;
 	}	
-	Update(delta) {
-		super.Update(delta);
-		// keep the food coming
-		this.tank.foods[0].value = 1000; // artificially inflate the food instead of respawning new ones.
-		if ( !this.tank.foods.length ) {
-			let r = 100 + Math.random() * 200;
-			let angle = Math.random() * Math.PI * 2;
-			let dx = r * Math.cos(angle); 
-			let dy = r * Math.sin(angle);
-			let food = new Food( this.tank.width*0.5 + dx, this.tank.height*0.5 + dy );
-			food.vx = 0;
-			food.vy = 0;
-			food.edibility = 1; // universal edibility
-			this.tank.foods.push(food);
-		}	 
-	}		
+	// Update(delta) {
+	// 	super.Update(delta);
+	// }		
 }
 
 export class AvoidEdgesSimulation extends Simulation {

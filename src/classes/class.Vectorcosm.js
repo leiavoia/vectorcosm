@@ -84,12 +84,12 @@ export default class Vectorcosm {
 		this.ResizeTankToWindow();
 		this.ResetCameraZoom();
 		
-		const training_sim = new FoodChaseSimulation(this.tank,{
-			name: 'Food Awareness Training',
-			num_boids: 30,
+		const food_training_sim_easy = new FoodChaseSimulation(this.tank,{
+			name: 'Food Chase - Easy',
+			num_boids: 80,
 			// random_boid_pos: true,
 			// random_food_pos: true,
-			time: 30,
+			time: 20,
 			// min_score: 5,
 			max_mutation: 0.1,
 			// you can separately define DNA and brain mutations, in case you want just one or the other
@@ -105,15 +105,77 @@ export default class Vectorcosm {
 			angle_spread: 0.2,
 			current: 0,
 			num_foods: 1,
-			food_speed: 50,
+			food_speed: 70,
 			food_bounce_margin: 300,
 			food_friction: false,
 			// circular_current: true,
 			// tide: 300,
 			end: {
-				// avg_score:400,
-				// avg_score_rounds: 10,
-				rounds:100000
+				avg_score:500,
+				avg_score_rounds: 10,
+				rounds:200
+			},
+		});		
+		
+		const food_training_sim_medium = new FoodChaseSimulation(this.tank,{
+			name: 'Food Chase - Medium',
+			num_boids: 80,
+			// random_boid_pos: true,
+			// random_food_pos: true,
+			time: 45,
+			// min_score: 5,
+			max_mutation: 0.1,
+			// you can separately define DNA and brain mutations, in case you want just one or the other
+			// dna_mutation_rate: 0.1,
+			// brain_mutation_rate: 0.1,
+			num_rocks: 0,
+			num_plants: 0,
+			target_spread: 200,
+			species:'random',
+			cullpct: 0.4,
+			edibility: 1,
+			scale: 0.7,
+			angle_spread: 0.2,
+			current: 0,
+			num_foods: 2,
+			food_speed: 125,
+			food_bounce_margin: 300,
+			food_friction: false,
+			end: {
+				avg_score:500,
+				avg_score_rounds: 10,
+				rounds:500
+			},
+		});		
+		
+		const food_training_sim_hard = new FoodChaseSimulation(this.tank,{
+			name: 'Food Chase - Medium',
+			num_boids: 80,
+			// random_boid_pos: true,
+			// random_food_pos: true,
+			time: 60,
+			// min_score: 5,
+			max_mutation: 0.1,
+			// you can separately define DNA and brain mutations, in case you want just one or the other
+			// dna_mutation_rate: 0.1,
+			// brain_mutation_rate: 0.1,
+			num_rocks: 3,
+			num_plants: 0,
+			target_spread: 200,
+			species:'random',
+			cullpct: 0.4,
+			edibility: 1,
+			scale: 0.7,
+			angle_spread: 0.2,
+			current: 0,
+			num_foods: 3,
+			food_speed: 200,
+			food_bounce_margin: 300,
+			food_friction: false,
+			end: {
+				avg_score:600,
+				avg_score_rounds: 10,
+				rounds:500
 			},
 		});		
 		
@@ -125,13 +187,13 @@ export default class Vectorcosm {
 			time: 1000000,
 			// min_score: 5,
 			max_mutation: 0.1,
-			num_rocks: 9,
+			num_rocks: 50,
 			num_plants: 20,
 			target_spread: 400,
 			species:'random',
 			cullpct: 0.3,
 			edibility: 1,
-			scale: 0.5,
+			scale: 0.4,
 			// angle_spread: 0.2,
 			current: 0.1,
 			num_foods: 0,
@@ -161,26 +223,68 @@ export default class Vectorcosm {
 			},
 		});
 		
-		const turning_training = new TurningSimulation(this.tank,{
-			name: 'Steering',
-			num_boids: 60,
+		const turning_training_easy = new TurningSimulation(this.tank,{
+			name: 'Steering - Easy',
+			num_boids: 100,
 			num_foods: 1,
-			time: 20,
+			time: 1.2,
 			max_mutation: 0.1,
-			angle_spread: 0.3,
+			brain_mutation_rate: 0.25,
+			angle_spread: 0.7, // radians
+			cullpct: 0.5,
+			distance: 300,
+			distance_variance: 0.2,
 			end: {
-				// avg_score:400,
-				// avg_score_rounds: 10,
-				rounds:10
+				avg_score:80,
+				avg_score_rounds: 7,
+				rounds:100
+			},
+		});
+		const turning_training_medium = new TurningSimulation(this.tank,{
+			name: 'Steering - Medium',
+			num_boids: 100,
+			num_foods: 1,
+			time: 1.8,
+			max_mutation: 0.1,
+			brain_mutation_rate: 0.25,
+			angle_spread: 2, // radians
+			cullpct: 0.5,
+			distance: 350,
+			distance_variance: 0.3,
+			end: {
+				avg_score:80,
+				avg_score_rounds: 7,
+				rounds:100
+			},
+		});
+		const turning_training_hard = new TurningSimulation(this.tank,{
+			name: 'Steering - Hard',
+			num_boids: 100,
+			num_foods: 1,
+			time: 2.0,
+			max_mutation: 0.1,
+			brain_mutation_rate: 0.25,
+			angle_spread: 3, // radians
+			cullpct: 0.5,
+			distance: 400,
+			distance_variance: 0.5,
+			end: {
+				avg_score:80,
+				avg_score_rounds: 7,
+				rounds:100
 			},
 		});
 					
 		// set up simulations so we have something to watch
 		this.sim_queue = [
-			// training_sim,
-			natural_tank,
-			// turning_training,
+			turning_training_easy,
+			turning_training_medium,
+			turning_training_hard,
+			food_training_sim_easy,
+			food_training_sim_medium,
+			food_training_sim_hard,
 			// edge_training
+			natural_tank,
 		];
 		
 		
@@ -259,7 +363,6 @@ export default class Vectorcosm {
 		const was_turbo = this.simulation ? this.simulation.turbo : false; 
 		this.simulation = this.sim_queue.shift();
 		if ( this.simulation ) { 
-			console.log('next sim: ' + (this.simulation ? (this.simulation.settings.name||'unknown') : 'null') );
 			this.simulation.Sterilize(); 
 			this.simulation.tank.boids = boids;
 			this.simulation.Setup(); 

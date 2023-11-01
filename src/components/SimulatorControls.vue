@@ -44,6 +44,7 @@
 		vars.round.best_score = props.sim.stats.round.best_score;
 		vars.round.avg_score = props.sim.stats.round.avg_score;
 		vars.round.time = props.sim.stats.round.time;
+		vars.name = props.sim.settings.name;
 	}
 	
 	function copyStats() {
@@ -55,6 +56,7 @@
 		vars.round.avg_score = props.sim.stats.round.avg_score;
 		vars.round.time = props.sim.stats.round.time;
 		vars.fps = window.vc.fps;
+		vars.name = props.sim.settings.name;
 	}
 	
 	vars = reactive(vars);
@@ -248,6 +250,8 @@
 		<br/>
 		<br/>
 
+		<p v-if="vars.name"><output>{{vars.name}}</output></p>
+		
 		Round: <output id="round_output">{{vars.round.num}}</output> | 
 		Best: <output id="best_score_output">{{vars.round.best_score.toFixed()}}</output> | 
 		Avg: <output id="avg_score_output">{{vars.round.avg_score.toFixed()}}</output>

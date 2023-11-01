@@ -37,7 +37,7 @@ export default class Food {
 		if ( !delta ) { return; }
 		if ( delta > 1 ) { delta /= 1000; }
 		this.age += delta;
-		if ( this.age > this.lifespan ) {
+		if ( this.age > this.lifespan && !this.permafood ) {
 			this.Kill();
 			return;
 		}
@@ -109,7 +109,7 @@ export default class Food {
 	Eat(amount) { 
 		if ( this.dead || !this.value ) { return 0; }
 		const eaten = Math.min( this.value, amount );
-		this.value -= eaten;
+		if ( !this.permafood ) { this.value -= eaten; }
 		if ( this.value <= 0 ) { this.Kill(); }
 		return eaten;
 	}
