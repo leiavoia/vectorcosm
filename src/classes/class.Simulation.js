@@ -12,7 +12,7 @@ export default class Simulation {
 	constructor( tank, settings ) {
 		this.tank = tank || new Tank( this.tank.width, this.tank.height );
 		this.settings = {
-			max_mutation: 8, // up to
+			max_mutation: 0.1, // 0..1
 			cullpct: 0.6, // 0..1
 			min_score: null,
 			// width: 0,
@@ -135,8 +135,11 @@ export default class Simulation {
 			this.tank.boids.splice(0,numkill).forEach( x=> x.Kill() );
 			// create boids to make up the difference
 			let n = this.settings.num_boids;
-			let diff = n - this.tank.boids.length;
+			let diff = n - this.tank.boids.length;	
 			if ( diff > 0 ) {
+				const mutation_rate = utils.Clamp( this.settings?.max_mutation || 0, 0, 1 );
+				const dna_mutation_rate = utils.Clamp( this.settings?.dna_mutation_rate || mutation_rate, 0, 1 );
+				const brain_mutation_rate = utils.Clamp( this.settings?.brain_mutation_rate || mutation_rate, 0, 1 );
 				const parent_selection = this.tank.boids.slice();
 				for ( let i=0; i < diff; i++ ) {
 					// pick from the end of the selection
@@ -144,7 +147,7 @@ export default class Simulation {
 						? parent_selection[ utils.BiasedRandInt(0,parent_selection.length-1,parent_selection.length-1,0.8) ] 
 						: null;
 					let species = parent ? parent.species : this.settings?.species;
-					let b = parent ? parent.Copy(true,true) : BoidFactory( species, 0, 0, this.tank );
+					let b = parent ? parent.Copy(true,dna_mutation_rate,brain_mutation_rate) : BoidFactory( species, 0, 0, this.tank ) ;
 					// if no survivors, it automatically has a randomly generated brain
 					this.tank.boids.push(b);
 				}			
@@ -365,20 +368,21 @@ export class FoodChaseSimulation extends Simulation {
 			}
 		}
 		// circular current
-		if ( this.settings?.current ) { 
+		if ( this.settings?.current ) {
+			const max_current = 5000; 
 			for ( let b of this.tank.boids ) {
 				const cell = this.tank.datagrid.CellAt(b.x,b.y);
 				if ( cell ) { 
-					b.momentum_x -= cell.current_x * this.settings.current * delta;
-					b.momentum_y -= cell.current_y * this.settings.current * delta;
+					b.momentum_x -= cell.current_x * this.settings.current * max_current * delta;
+					b.momentum_y -= cell.current_y * this.settings.current * max_current * delta;
 				}
 			}
 			for ( let b of this.tank.foods ) {
 				if ( !b.frictionless ) { 
 					const cell = this.tank.datagrid.CellAt(b.x,b.y);
 					if ( cell ) { 
-						b.vx -= cell.current_x * this.settings.current * delta;
-						b.vy -= cell.current_y * this.settings.current * delta;
+						b.vx -= cell.current_x * this.settings.current * max_current * delta;
+						b.vy -= cell.current_y * this.settings.current * max_current * delta;
 					}
 				}
 			}

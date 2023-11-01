@@ -583,8 +583,9 @@ export class Boid {
 				this.path.fill = `rgba(${c[0]},${c[1]},${c[2]},${utils.clamp(amount,0,1)})`;
 			}
 			if ( m.hasOwnProperty('mitosis') && m.t >= m.this_stoke_time ) {
+				const mutation_rate = utils.Clamp( window.vc?.simulation?.settings?.max_mutation, 0, 1 );
 				for ( let n=0; n < m.mitosis; n++ ) { 
-					let offspring = this.Copy(true,true); // mutate body and reset state variables
+					let offspring = this.Copy(true, mutation_rate, mutation_rate); // reset state and mutate organism
 					offspring.x = this.x;
 					offspring.y = this.y;
 					offspring.angle = utils.RandomFloat(0, Math.PI*2);
@@ -880,25 +881,31 @@ export class Boid {
 		// }				
 	}
 			
-	Copy( mutate=false, reset=false ) {
+	Copy( reset=false, dna_mutation=0, brain_mutation=0 ) {
+		brain_mutation = utils.Clamp( brain_mutation, 0, 1 );
+		dna_mutation = utils.Clamp( dna_mutation, 0, 1 );
 		let b = new Boid(this.x, this.y, this.tank);
 		// POD we can just copy over
-		let datakeys = ['species','generation']
+		let datakeys = ['species','generation'];
 		for ( let k of datakeys ) { b[k] = this[k]; }
 		b.dna = new DNA( this.dna.str );
 		b.brain = neataptic.Network.fromJSON(this.brain.toJSON());
 		if ( b?.body?.geo ) b.body.geo.remove(); // out with the old
-		// TODO: introduce mutation rate
-		if ( mutate ) {
-			b.dna.mutate( utils.RandomInt(1,10) * ((Math.random() >= 0.99) ? 10 : 1) ); 
-			const mutations = utils.Clamp( window.vc?.simulation?.settings?.max_mutation || 3 ,0,1000);
-			for ( let n=0; n < mutations; n++ ) {
+		if ( brain_mutation ) {
+			const max_nn_muts = 50;
+			const nn_mutations = utils.RandomInt( 1, Math.ceil( max_nn_muts * brain_mutation ) );
+			for ( let n=0; n < nn_mutations; n++ ) {
 				this.brain.mutate( Boid.mutationOptionPicker.Pick() );
 			}
-			// this resets output node bias to zero. 
-			// letting it run amok can lead to "locked in" brain outputs that never change. 
-			// you might specifically want it back someday
+			// Neataptic can alter output node bias. We don't want this.
+			// This resets output node bias to zero. letting it run amok
+			// can lead to "locked in" brain outputs that never change. 
+			// You might specifically want it back someday, but not today.
 			this.brain.nodes.filter(n=>n.type=='output').forEach(n => n.bias = 0 );
+		}
+		if ( dna_mutation ) {
+			const max_dna_muts = 20;
+			b.dna.mutate( utils.RandomInt( 1, Math.ceil( max_dna_muts * dna_mutation ) ) ); 
 		}
 		b.RehydrateFromDNA();
 		b.min_mass = b.body.mass * 0.3;

@@ -206,7 +206,7 @@
 
 		<label for="world_scale_slider">Scale</label>
 		<input v-model.number="vars.scale" @change="updateScale()" type="range" min="0.1" max="2" step="0.1" style="margin-bottom:-0.25em;" id="world_scale_slider" />
-		<output for="world_scale_slider" id="world_scale_slider_output">{{vars.scale}}</output>
+		<output for="world_scale_slider" id="world_scale_slider_output">{{vars.scale}}x</output>
 
 		<br/>
 
@@ -219,25 +219,25 @@
 
 		<label for="viscosity_slider">Viscosity</label>
 		<input v-model.number="vars.viscosity" @change="updateViscosity()" type="range" min="0" max="1" step="0.01" style="margin-bottom:-0.25em;" id="viscosity_slider"/>
-		<output for="viscosity_slider" id="viscosity_slider_output">{{vars.viscosity}}</output>
+		<output for="viscosity_slider" id="viscosity_slider_output">{{(vars.viscosity*100).toFixed(0)}}%</output>
 
 		<br/>		
 
 		<label for="current_slider">Current</label>
-		<input v-model.number="vars.current" @change="updateCurrent()" type="range" min="0" max="5000" step="50" style="margin-bottom:-0.25em;" id="current_slider"/>
-		<output for="current_slider" id="current_slider_output">{{vars.current}}</output>
+		<input v-model.number="vars.current" @change="updateCurrent()" type="range" min="0" max="1" step="0.01" style="margin-bottom:-0.25em;" id="current_slider"/>
+		<output for="current_slider" id="current_slider_output">{{(vars.current*100).toFixed(0)}}%</output>
 
 		<br/>		
 
 		<label for="mutation_slider">Mutation</label>
-		<input v-model.number="vars.max_mutation" @change="updateMutation()" type="range" min="1" max="25" step="1" style="margin-bottom:-0.25em;" id="mutation_slider" />
-		<output for="mutation_slider" id="mutation_slider_output">{{vars.max_mutation}}</output>
+		<input v-model.number="vars.max_mutation" @change="updateMutation()" type="range" min="0" max="1" step="0.01" style="margin-bottom:-0.25em;" id="mutation_slider" />
+		<output for="mutation_slider" id="mutation_slider_output">{{(vars.max_mutation*100).toFixed(0)}}%</output>
 
 		<br/>
 
 		<label for="culling_slider">Culling</label>
 		<input v-model.number="vars.cullpct" @change="updateCulling()" type="range" min="0.1" max="0.9" step="0.1" style="margin-bottom:-0.25em;" id="culling_slider" />
-		<output for="culling_slider" id="culling_slider_output">{{vars.cullpct}}</output>
+		<output for="culling_slider" id="culling_slider_output">{{(vars.cullpct*100).toFixed(0)}}%</output>
 
 		<br/>
 

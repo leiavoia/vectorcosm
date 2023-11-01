@@ -86,12 +86,15 @@ export default class Vectorcosm {
 		
 		const training_sim = new FoodChaseSimulation(this.tank,{
 			name: 'Food Awareness Training',
-			num_boids: 60,
+			num_boids: 30,
 			// random_boid_pos: true,
 			// random_food_pos: true,
 			time: 30,
 			// min_score: 5,
-			max_mutation: 8,
+			max_mutation: 0.1,
+			// you can separately define DNA and brain mutations, in case you want just one or the other
+			// dna_mutation_rate: 0.1,
+			// brain_mutation_rate: 0.1,
 			num_rocks: 0,
 			num_plants: 0,
 			target_spread: 200,
@@ -110,7 +113,7 @@ export default class Vectorcosm {
 			end: {
 				// avg_score:400,
 				// avg_score_rounds: 10,
-				rounds:1000
+				rounds:100000
 			},
 		});		
 		
@@ -121,21 +124,20 @@ export default class Vectorcosm {
 			random_food_pos: true,
 			time: 1000000,
 			// min_score: 5,
-			max_mutation: 8,
-			num_rocks: 30,
-			num_plants: 21,
+			max_mutation: 0.1,
+			num_rocks: 9,
+			num_plants: 20,
 			target_spread: 400,
 			species:'random',
 			cullpct: 0.3,
 			edibility: 1,
-			scale: 0.3,
+			scale: 0.5,
 			// angle_spread: 0.2,
-			current: 0,
+			current: 0.1,
 			num_foods: 0,
 			food_speed: 50,
 			food_bounce_margin: 0,
 			food_friction: true,
-			circular_current: true,
 			tide: 300
 		});			
 		
@@ -146,7 +148,7 @@ export default class Vectorcosm {
 			punishment: 0.05,
 			max_segment_spread: 70,
 			segments: 7,
-			max_mutation: 8,
+			max_mutation: 0.1,
 			num_rocks: 2,
 			angle_spread: 0.3,
 			food_proximity_bonus: 100,
@@ -164,7 +166,7 @@ export default class Vectorcosm {
 			num_boids: 60,
 			num_foods: 1,
 			time: 20,
-			max_mutation: 8,
+			max_mutation: 0.1,
 			angle_spread: 0.3,
 			end: {
 				// avg_score:400,
@@ -175,8 +177,8 @@ export default class Vectorcosm {
 					
 		// set up simulations so we have something to watch
 		this.sim_queue = [
-			natural_tank
 			// training_sim,
+			natural_tank,
 			// turning_training,
 			// edge_training
 		];
@@ -345,7 +347,6 @@ export default class Vectorcosm {
 			}
 		}
 		
-		// console.log(this.tank.grid);
 		// UI stats
 		// this.simulator.framenum = two.frameCount;
 		this.fps = Math.round(1/delta);
@@ -402,7 +403,7 @@ export default class Vectorcosm {
 			if ( this.focus_object == o ) { this.StopTrackObject(); }
 			return;
 		}
-		// o.show_sensors = true;
+		o.show_sensors = true;
 		if ( this.focus_object && this.focus_object !== o ) { 
 			delete this.focus_object.show_sensors;
 			// this.focus_object.DrawBounds(false);
