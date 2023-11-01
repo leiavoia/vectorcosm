@@ -41,7 +41,7 @@ export default class DNA {
 	// `gene` = 2, 4, 6, or 8-char hex code, e.g. 0x12345678
 	// `to_min` and `to_max` optionally constrain output
 	read( gene, to_min=null, to_max=null  ) {
-		gene = gene & 0xFFFFFF; // blank out surplus bits
+		gene = ( gene & 0xFFFFFFFF ) >>> 0; // blank out surplus bits
 		const loc = gene & 0xFFFF;
 		let hshift = gene >>> 16 & 15; // defaults to 1 if neither hshift or vshift are provided
 		const vshift = gene >>> 20 & 15;
@@ -153,7 +153,7 @@ export default class DNA {
 	biasedRand( gene, min=0, max=1, bias=0.5, influence=0 ) {
 		// NOTE: if the first gene is from the read-only group, the second gene must also be
 		let gene2 = gene + 16;
-		if ( !(gene >>> 8 & 0xFF) ) { gene2 &= ~(3 << 2); }
+		if ( !(gene >>> 8 & 0xFF) ) { gene2 = (gene2 & ~(0xFF << 8)) >>> 0; }
 		const r1 = this.read( gene, 0, 1 );
 		const r2 = this.read( gene2, 0, 1 );
 		const rnd = r1 * (max - min) + min;   // random in range
@@ -168,12 +168,12 @@ export default class DNA {
 	// returns string of a single gene created by hashing any arbitrary string
 	// Useage: 
 	// 	let gene = dna.geneFor('likes pie'); // returns 0xABC123
-	geneFor( str, as_str=false, use_safe_zone=false ) {
+	geneFor( str, as_str=false, use_safe_zone=true ) {
 		// use the same seed for the entire game
 		// using a different seed per organism creates wild results if seed changes.
 		let n = utils.murmurhash3_32_gc( str, 0x600DF00D );
 		// zero out the 3rd and 4th position as a hint to the gene reader, e.g. 0xFFFF00FF 
-		if ( use_safe_zone ) { n &= ~(3 << 2); } 
+		if ( use_safe_zone ) { n = (n & ~(0xFF << 8)) >>> 0; } 
 		return as_str ? n.toString(16).padStart(8,'0') : n;
 	}
 	
@@ -181,7 +181,8 @@ export default class DNA {
 		for ( let n = 0; n < num_mutations; n++ ) {
 			const option = DNA.mutationOptionPicker.Pick();
 			const first_char = (protect_read_only_zone && this.str.length > 0xFF) ? 0xFF+1 : 0;
-			const i = utils.BiasedRandInt( first_char, this.str.length-1, 0.5, 0.5 ); // draw more from the middle
+			const i = utils.BiasedRandInt( first_char, this.str.length-1, 
+				first_char + (((this.str.length-1)-first_char)/2), 0.5 ); // draw more from the middle
 			const char = this.str.charAt(i);
 			switch ( option ) {
 				case 'increment': {
