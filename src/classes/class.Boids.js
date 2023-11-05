@@ -759,10 +759,10 @@ export class Boid {
 			let wheel = this.dna.shapedNumber([wheelChanceGene], 0, 1) > 0.75 ? true : false;
 			
 			const stroketimeGene =  this.dna.geneFor(`motor stroke time ${n}`);
-			const stroketime = this.dna.shapedNumber([stroketimeGene],0.1, 3.5, 1, 0.6); 
+			const stroketime = this.dna.shapedNumber([stroketimeGene],0.1, 3.5, 0.75, 0.6); 
 			
 			const minActGene =  this.dna.geneFor(`motor min_act chance ${n}`);
-			const min_act = this.dna.shapedNumber([minActGene],0,0.9,0.1,0.6) * 0.4; // FIXME remove crutch number
+			const min_act = this.dna.shapedNumber([minActGene],0,0.9,0.1,0.6);
 			if ( strokefunc < 0.4 ) { strokefunc = 'linear_down'; }
 			else if ( strokefunc < 0.5 ) { strokefunc = 'linear_up'; }
 			else if ( strokefunc < 0.65 ) { strokefunc = 'bell'; }

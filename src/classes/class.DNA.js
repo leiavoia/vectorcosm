@@ -126,18 +126,19 @@ export default class DNA {
 
 	}
 	
+	
+	// bias is the target average number you want, between min and max
 	shapedNumber( genes, min=0, max=1, bias=0.5, influence=0 ) {
 		let x = this.mix( genes, 0, 1 );
-		if ( influence ) { 
-			// bias = bias.clamp( 0, 1 )
-			// influence = influence.clamp( 0, 1 );
-			// x = this.biasedRand( gene, min, max, bias, influence );
-			// map the bias number to 0..1
-			// bias = bias.clamp( 0, 1 );
-			// bias = utils.MapToRange( bias, min, max, 0, 1 );
-			// crunch through shaping function
-			// influence = influence.clamp( 0, 1 );
-			// x = utils.AdjustableSigmoid( x, bias, influence );
+		if ( influence ) { // ironically, we ignore the influence
+			bias = utils.MapToRange( bias, min, max, 0, 1 );
+			bias = utils.Clamp(bias, 0.005, 0.995);
+			// TODO: make a better shaping function, perhaps based on B-Splines
+			// this is an inverted sigmoid with some constraints. 
+			// this shapes x in range 0..1 to 0..1 on some bias.
+			// this shaping function is not very good but it lets us move on with our lives.
+			x = Math.log(x/(1-x)) * ((0.5-Math.abs(0.5-bias))/5) + bias;
+			x = utils.Clamp(x,0,1);
 		}
 		// map back to desired range
 		if ( min !== 0 || max !== 1 ) {
