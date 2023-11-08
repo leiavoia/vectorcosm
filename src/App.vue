@@ -50,7 +50,8 @@ let frameUpdateSubscription = PubSub.subscribe('frame-update', (msg,data) => {
 			] ) {
 			focus_boid_data.value[i] = vc.focus_object[i];
 		}
-		focus_boid_data.value.sensors = vc.focus_object.sensors.map(s => ({name:s.name||s.detect, val:s.val}) );
+		focus_boid_data.value.sensors = vc.focus_object.sensor_outputs;
+		
 		focus_boid_data.value.outputs = vc.focus_object.brain.nodes
 			.filter(n => n.type=='output')
 			.map(n => ({val:n.activation.toFixed(2)}) );

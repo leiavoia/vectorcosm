@@ -99,7 +99,7 @@ export default class BrainGraph {
 			this.geo.add(this.nodes_geo);
 			let output_i = 0;
 			let input_i = 0;
-			const input_labels = this.target.NeuroInputLabels();
+			const input_labels = this.target.sensor_outputs.map(s=>s.name);
 			for ( let i=0; i < this.brain.nodes.length; i++ ) {
 				let node = this.brain.nodes[i];
 				let activation_label = node.activation.toFixed(2);

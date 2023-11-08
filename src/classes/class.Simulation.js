@@ -141,11 +141,11 @@ export default class Simulation {
 				const dna_mutation_rate = utils.Clamp( this.settings?.dna_mutation_rate || mutation_rate, 0, 1 );
 				const brain_mutation_rate = utils.Clamp( this.settings?.brain_mutation_rate || mutation_rate, 0, 1 );
 				const parent_selection = this.tank.boids.slice();
+				const parentPicker = new utils.RandomPicker(
+					parent_selection.map( b => [b,b.total_fitness_score]) 
+				);
 				for ( let i=0; i < diff; i++ ) {
-					// pick from the end of the selection
-					let parent = parent_selection.length 
-						? parent_selection[ utils.BiasedRandInt(0,parent_selection.length-1,parent_selection.length-1,0.8) ] 
-						: null;
+					let parent = parent_selection.length ? parentPicker.Pick() : null;
 					let species = parent ? parent.species : this.settings?.species;
 					let b = parent ? parent.Copy(true,dna_mutation_rate,brain_mutation_rate) : BoidFactory( species, 0, 0, this.tank ) ;
 					// if no survivors, it automatically has a randomly generated brain
@@ -291,17 +291,8 @@ export class FoodChaseSimulation extends Simulation {
 				b.max_travel = travel;
 			}
 		}
-		// sensor collision detection				
-		b.fitness_score = 0;
-		let score_div = 0;
-		for ( let s of b.sensors ) {
-			if ( s.detect=='food' ) { 
-				score_div++;
-				b.fitness_score += s.val * ( 20 / Math.max( b.body.width, b.body.length ) ); // bigger creatures get less score
-			}
-		}
-		b.fitness_score /= score_div;
 		// eat food, get win!
+		b.fitness_score = 0;
 		for ( let food of this.tank.foods ) { 
 			const dx = Math.abs(food.x - b.x);
 			const dy = Math.abs(food.y - b.y);
@@ -516,7 +507,8 @@ export class TurningSimulation extends Simulation {
 		let spawn_x = 0.5 * this.tank.width; 
 		let spawn_y = 0.5 * this.tank.height; 	
 		let angle_spread = (this.settings?.angle_spread || 0 ) * utils.RandomFloat(0.25,1);
-		angle_spread = angle_spread * (Math.random() > 0.5 ? 1 : -1);
+		this.last_side = this.last_side > 0 ? -1 : 1; // alternate evenly between right and left
+		angle_spread = angle_spread * this.last_side;
 		angle += utils.mod( angle_spread, Math.PI * 2 );
 		for ( let b of this.tank.boids ) {
 			b.Reset();

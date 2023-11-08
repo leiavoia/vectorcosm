@@ -74,6 +74,7 @@ export default class DNA {
 		
 	mix( genes, to_min=null, to_max=null ) {
 		let last = null;
+		genes = Array.isArray(genes) ? genes : [genes];
 		for ( let g of genes ) {
 			let v = this.read( g ); // max 0xFFFFFFFFFFFFFFFF
 			if ( last === null ) { last = v; }

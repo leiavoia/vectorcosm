@@ -110,6 +110,7 @@ export class Boid {
 		this.brain = null;
 		// vision and sensors
 		this.sensors = [];
+		this.sensor_outputs = [];
 		this.fitness_score = 0; // per frame
 		this.total_fitness_score = 0; // accumulates over time
 		this.last_movement_cost = 0;
@@ -134,7 +135,7 @@ export class Boid {
 	// inherit this function
 	MakeBrain() {
 
-		const inputs = this.sensors.length || 1;
+		const inputs = this.sensors.reduce( (n,s) => n + (Array.isArray(s.detect) ? s.detect.length : 1), 0 ) || 1;
 		const outputs = this.motors.length || 1;
 		
 		const act_picker = new utils.RandomPicker( [
@@ -155,8 +156,10 @@ export class Boid {
 			[neataptic.methods.activation.SELU, 15],
 		]);
 		
-		const num_node_threshold = utils.Clamp( this.dna.mix( [0x3E0A3D, 0xAD7144, 0x1AA1CB], 0, 1 ),  0.1, 0.4 );
-		const connectivity = utils.Clamp( this.dna.mix( [0x3E0A3D, 0xAD7144, 0x1AA1CB], 0, 1 ),  0.3, 0.55 );
+		// threshold to determine if a node exists at all
+		const num_node_threshold = this.dna.shapedNumber( [0x3E0A3D, 0xAD7144, 0x1AA1CB], 0.1, 0.5, 0.2, 0.5 );
+		// threshold to determine if a connection between two nodes is made
+		const connectivity = this.dna.shapedNumber( [0x3E0A3D, 0xAD7144, 0x1AA1CB], 0.2, 0.6, 0.33, 0.5 );
 		
 		const hasNode = gene_str => {
 			const gene1 = this.dna.geneFor(gene_str + ' g1');
@@ -190,18 +193,22 @@ export class Boid {
 				middle_nodes.push( n );
 			}
 		}
+		// input connections
 		for ( let [i_index, i] of input_nodes.entries() ) {
+			// inputs to middles
 			for ( let [m_index, m] of middle_nodes.entries() ) {
 				if ( geneConnect(`conn i${i_index}-m${m_index}`) ) {
 					i.connect(m, geneWeight(`conn i${i_index}-m${m_index} weight`) );	
 				}
 			}
+			// inputs to outputs
 			for ( let [o_index, o] of output_nodes.entries() ) {
 				if ( geneConnect(`conn i${i_index}-o${o_index}`) ) {
 					i.connect(o, geneWeight(`conn i${i_index}-o${o_index} weight`) );	
 				}
 			}
 		}
+		// middle to outputs
 		for ( let [m_index, m] of middle_nodes.entries() ) {
 			for ( let [o_index, o] of output_nodes.entries() ) {
 				if ( geneConnect(`conn m${m_index}-o${o_index}`) ) {
@@ -209,34 +216,49 @@ export class Boid {
 				}
 			}
 		}
-		// connect middle nodes that are not well connected
-		for ( let i=middle_nodes.length-1; i>=0; i-- ) {
-			if ( !middle_nodes[i].connections.in.length ) {
-				middle_nodes[i].connect(input_nodes[ i % input_nodes.length ], geneWeight(`conn i${i} makeup weight`));
-			}
-			if ( !middle_nodes[i].connections.out.length ) {
-				middle_nodes[i].connect(output_nodes[ i % output_nodes.length ], geneWeight(`conn i${i} makeup weight`));
+		// middles to other middles
+		for ( let i=0; i < middle_nodes.length; i++ ) {
+			for ( let j=i+1; j < middle_nodes.length; j++ ) {
+				if ( geneConnect(`conn m${i}-m${j}`) ) {
+					middle_nodes[i].connect(middle_nodes[j], geneWeight(`conn m${i}-m${j} weight`) );	
+				}
 			}
 		}
-		// connect inputs and outputs that are not well connected
+		// connect inputs that are not well connected
 		for ( let i=input_nodes.length-1; i>=0; i-- ) {
 			if ( !input_nodes[i].connections.out.length ) {
+				// input to all middles
 				for ( let [m_index, m] of middle_nodes.entries() ) {
 					input_nodes[i].connect(m, geneWeight(`conn i${i}-m${m_index} weight`) );	
 				}			
+				// input to all outputs
 				for ( let [o_index, o] of output_nodes.entries() ) {
 					input_nodes[i].connect(o, geneWeight(`conn i${i}-o${o_index} weight`) );	
 				}			
 			}
 		}
+		// connect outputs that are not well connected
 		for ( let o=output_nodes.length-1; o>=0; o-- ) {
 			if ( !output_nodes[o].connections.in.length ) {
+				// output to all middles
 				for ( let [m_index, m] of middle_nodes.entries() ) {
-					output_nodes[o].connect(m, geneWeight(`conn o${o}-m${m_index} weight`) );	
+					m.connect(output_nodes[o], geneWeight(`conn o${o}-m${m_index} weight`) );	
 				}			
+				// output to all inputs
 				for ( let [i_index, i] of input_nodes.entries() ) {
-					output_nodes[o].connect(i, geneWeight(`conn o${o}-i${i_index} weight`) );	
+					i.connect(output_nodes[o], geneWeight(`conn o${o}-i${i_index} weight`) );	
 				}			
+			}
+		}
+		// connect middle nodes that are not well connected
+		for ( let i=middle_nodes.length-1; i>=0; i-- ) {
+			if ( !middle_nodes[i].connections.in.length ) {
+				const n = input_nodes[ i % input_nodes.length ];
+				const w = geneWeight(`conn m${i} makeup weight`);
+				n.connect(middle_nodes[i], w);
+			}
+			if ( !middle_nodes[i].connections.out.length ) {
+				middle_nodes[i].connect(output_nodes[ i % output_nodes.length ], geneWeight(`conn m${i} makeup weight`));
 			}
 		}
 		
@@ -276,16 +298,25 @@ export class Boid {
 			return;
 		}
 		
-		// sensor collision detection				
+		// sensor detection				
 		this.collision.contact_obstacle = false;
 		if ( !frame_skip || window.two.frameCount % frame_skip === 0 ) {
-			for ( let s of this.sensors ) { s.Sense(); }
+			this.sensor_outputs = [];
+			for ( let s of this.sensors ) { 
+				s.Sense();
+				if ( Array.isArray(s.val) ) {
+					this.sensor_outputs.push( ...s.val );
+				}
+				else {
+					this.sensor_outputs.push( s.val );
+				}
+			}	
 		}
 		
 		// UI: toggle collision detection geometry UI
 		if ( ( window.vc.show_collision_detection || this.show_sensors ) && !this.sensor_group ) {
 			this.sensor_group = window.two.makeGroup();
-			this.sensor_group.add( this.sensors.filter( s => s.detect=='food' || s.detect=='obstacles' ).map( i => i.CreateGeometry() ) );
+			this.sensor_group.add( this.sensors.filter( s => s.name=='vision' || s.detect=='food' || s.detect=='obstacles' ).map( i => i.CreateGeometry() ) );
 			this.container.add(this.sensor_group);
 		}
 		else if ( !( window.vc.show_collision_detection || this.show_sensors ) && this.sensor_group ) {
@@ -296,7 +327,7 @@ export class Boid {
 		// CPU optimization: we don't need to run AI every frame
 		if ( !frame_skip || window.two.frameCount % frame_skip === 0 ) {
 			// movement / motor control 				
-			let brain_outputs = this.brain.activate( this.NeuroInputs() );
+			let brain_outputs = this.brain.activate( this.sensor_outputs.map(s=>s.val) );
 			for ( let k in brain_outputs ) {
 				if ( Number.isNaN(brain_outputs[k]) ) { brain_outputs[k] = 0; }
 			}
@@ -624,12 +655,7 @@ export class Boid {
 		this.container.remove();
 		this.dead = true;
 	}
-	NeuroInputs() {
-		return this.sensors.map(s=>s.val);
-	}
-	NeuroInputLabels() {
-		return this.sensors.map(s=>s.name||s.detect);
-	}	
+
 	static Random(x,y,tank) {
 		let b = new Boid(x,y,tank);
 		b.dna = new DNA();
@@ -667,21 +693,48 @@ export class Boid {
 
 		this.ScaleBoidByMass();
 
-		// sensors:
-		// food and obstacle sensors are mandatory - its just a matter of how many
+		// SENSORS:
 		this.sensors = [];
+		
+		// experimental: general vision circle
+		const has_vision = this.dna.shapedNumber(0xEF280028) > 0.4;
+		if ( has_vision ) {
+			const radius = this.dna.shapedNumber([0x65F000D2, 0x3D5500CB, 0x4893BADE], 150, 900, 450, 0.25 );
+			const xoff = this.dna.shapedNumber([0xED290071, 0xABAB0008, 0x5E0BA7D4], -radius*0.5, radius, radius*0.5, 0.25 );
+			const detect = ['near_food_dist'];
+			// include density 
+			if ( this.dna.shapedNumber(0x6F4A0039) > 0.6 ) { detect.push('food_density'); }
+			// use single angle number
+			if ( this.dna.shapedNumber(0x7DD800D8) > 0.7 ) { detect.push('near_food_angle'); }
+			// otherwise use more advanced sine/cosine pair
+			else { detect.push('near_food_sine','near_food_cos'); }
+			this.sensors.push( new Sensor({ 
+				name: 'vision', 
+				detect: detect, 
+				x: xoff,
+				y: 0, 
+				r: radius,
+				},
+			this ) );
+		}
+		
+		// food and obstacle sensors are mandatory - its just a matter of how many
 		const my_max_dim = Math.max( this.body.length, this.body.width );
 		const max_sensor_distance = Math.sqrt(my_max_dim) * 65;
 		const max_sensor_radius = Math.sqrt(my_max_dim) * 50;
 		const min_sensor_radius = Math.min( my_max_dim, max_sensor_radius );
 		const min_sensor_distance = Math.min( my_max_dim, max_sensor_distance );
 		for ( let detect of ['food','obstacles'] ) {
-			const base_num_sensors = this.dna.shapedInt( [0xA6940009, 0xAE6200EC],1,3,1.5,0.5); // 1..3
+			let base_num_sensors = this.dna.shapedInt( [0xA6940009, 0xAE6200EC],1,3,1.5,0.5); // 1..3
+			// if organism already has vision, we limit the extra food sensors
+			if ( has_vision && detect==='food' ) { base_num_sensors = 1; }
 			for ( let n=0; n < base_num_sensors; n++ ) {
 				let sx = 0;
 				let sy = 0;
 				let r = this.dna.shapedNumber( [0x0FD8010D, this.dna.geneFor(`${detect} sensor radius ${n}`)], min_sensor_radius, max_sensor_radius) * (detect=='obstacles' ? 0.6 : 1.0);
 				let d = this.dna.biasedRand( this.dna.geneFor(`${detect} sensor distance ${n}`), min_sensor_radius, max_sensor_radius);
+				// sensors need to stay close to the body:
+				d = Math.min( d, r );
 				// prefer sensors in front
 				let a = ( this.dna.shapedNumber( [0x0FB756A3, this.dna.geneFor(`${detect} sensor angle ${n}`)], 0, Math.PI * 2) + Math.PI ) % (Math.PI * 2);
 				// TODO: update b when we revise body plan symmetry
