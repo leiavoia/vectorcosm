@@ -220,7 +220,6 @@ export class FoodChaseSimulation extends Simulation {
 			b.y = spawn_y;
 			b.total_fitness_score = 0;
 			b.fitness_score = 0;
-			b.total_movement_cost = 0;
 		}
 		// respawn food
 		this.tank.foods.forEach( x => x.Kill() );
@@ -273,8 +272,6 @@ export class FoodChaseSimulation extends Simulation {
 		}			
 	}	
 	ScoreBoidPerFrame(b) {
-		// record energy used for later
-		b.total_movement_cost = (b.total_movement_cost || 0 ) + ( b.last_movement_cost || 0 );
 		// calculate score for this frame	
 		b.fitness_score = 0;
 		// record travel distance or lack thereof
@@ -315,10 +312,7 @@ export class FoodChaseSimulation extends Simulation {
 		b.total_fitness_score += b.fitness_score * this.stats.delta * 18; // extra padding just makes numbers look good
 	}	
 	ScoreBoidPerRound(b) {
-		if ( b.total_movement_cost ) {
-			let cps = (b.total_movement_cost || 0) / this.settings.time; // cost per second
-			b.total_fitness_score *= utils.Clamp(5/cps,0.1,3); // /!\ MAGICNUMBERZ
-		}
+
 	}	
 	Update(delta) {
 		super.Update(delta);
@@ -431,7 +425,6 @@ export class BasicTravelSimulation extends Simulation {
 			b.y = spawn_y;
 			b.total_fitness_score = this.tank.width; // golf!
 			b.fitness_score = 0;
-			b.total_movement_cost = 0;
 		}
 		// check for deflection angle settings
 		let target_spread = this.settings?.target_spread || 0;
@@ -517,7 +510,6 @@ export class TurningSimulation extends Simulation {
 			b.y = spawn_y;
 			b.total_fitness_score = this.min_distance_to_score; // golf!
 			b.fitness_score = 0;
-			b.total_movement_cost = 0;
 		}
 	}	
 	ScoreBoidPerFrame(b) {
@@ -561,7 +553,6 @@ export class AvoidEdgesSimulation extends Simulation {
 			b.y = spawn_y;
 			b.total_fitness_score = this.tank.width; // golf!
 			b.fitness_score = 0;
-			b.total_movement_cost = 0;
 		}
 		
 		if ( this.settings.spiral) {

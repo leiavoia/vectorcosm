@@ -113,12 +113,8 @@ export class Boid {
 		this.sensor_outputs = [];
 		this.fitness_score = 0; // per frame
 		this.total_fitness_score = 0; // accumulates over time
-		this.last_movement_cost = 0;
 		// motors
 		this.motors = [];
-		// shimmed in for testing:
-		// this.total_movement_cost = 0;
-		// this.last_movement_cost = 0;
 		
 		// rehydrate objects from JSON if supplied
 		if ( json && typeof json === 'object' ) {
@@ -331,18 +327,9 @@ export class Boid {
 			for ( let k in brain_outputs ) {
 				if ( Number.isNaN(brain_outputs[k]) ) { brain_outputs[k] = 0; }
 			}
-			// estimate cost of moving to see if we can afford to move at all
-			let cost = 0
 			for ( let i=0; i < brain_outputs.length; i++ ) {
-				cost += this.ActivateMotor( i, brain_outputs[i], delta, true ); // estimate costs
+				this.ActivateMotor( i, Math.tanh(brain_outputs[i]), delta ); // FIXME tanh?
 			}
-			// activate all motors at once, even if it seems contradictory
-			if ( this.energy >= cost ) {
-				for ( let i=0; i < brain_outputs.length; i++ ) {
-					this.ActivateMotor( i, Math.tanh(brain_outputs[i]), delta ); // FIXME tanh?
-				}
-			}
-			this.last_movement_cost = cost; // helps training functions
 		}
 		// shoot blanks but keep the motors running through strokes
 		else {
@@ -511,8 +498,8 @@ export class Boid {
 		}
 		
 	}
-	// use estimate=true if you want a cost value returned instead of the actual movement 
-	ActivateMotor( i, amount /* -1..1 */, delta, estimate = false ) {
+
+	ActivateMotor( i, amount /* -1..1 */, delta ) {
 		// sometimes neataptic can output nan and infinities. 
 		if ( Number.isNaN(amount) || !Number.isFinite(amount) ) { return 0; }
 		let m = this.motors[i];
@@ -572,11 +559,8 @@ export class Boid {
 			// don't allow overtaxing
 			delta = Math.min( delta, m.this_stoke_time - m.t ); 
 			// cost of doing business
-			let cost = ( m.cost * Math.abs(m.strokepow) * delta * this.mass ) / 800;
-			// if they just want an cost estimate, return now
-			if ( estimate ) { return cost; }
-			// otherwise commit to the motion
-			this.energy -= cost;
+			this.last_cost = ( m.cost * Math.abs(m.strokepow) * delta * this.mass ) / 800;
+			this.energy -= this.last_cost;
 			// increase stroke time
 			m.t = utils.clamp(m.t+delta, 0, m.this_stoke_time); 
 			// stroke power function modifies the power withdrawn per frame
