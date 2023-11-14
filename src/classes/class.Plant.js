@@ -162,6 +162,78 @@ export class VectorGrass extends Plant {
 	}	
 } 
 
+export class WaveyVectorGrass extends Plant {
+	constructor(x=0, y=0) {
+		super(x,y);
+		this.fruit_interval = utils.RandomInt(45,60);
+		this.next_fruit = this.fruit_interval;
+		this.fruit_hue = utils.RandomFloat(0.05,0.20);
+		// leaf coloring
+		const tip_color = `hsl(${this.fruit_hue*255},85%,75%)`;
+		const stops = [ new Two.Stop(0, '#243'), new Two.Stop(0.86, '#726'), new Two.Stop(1, tip_color) ];		
+		const grad = window.two.makeLinearGradient(0, 1, 0, 0, ...stops );
+		// make the unique shape		
+		const blades = utils.BiasedRandInt( 1, 5, 3, 0.8 );
+		const avglength = utils.BiasedRandInt( 500, 2000, 900, 0.6);
+		const max_variance = length*0.3; 
+		const spread = 0.25 * Math.PI; 
+		this.blades = [];
+		for ( let i=0; i < blades; i++ ) {
+			const length = avglength + utils.RandomInt( -max_variance, max_variance );
+			const width = length * utils.BiasedRand( 0.02, 0.1, 0.03, 0.5 );
+			// const dashes = [width,width*0.8];
+			const dashes = [2,2];
+			const blade = [];
+			// create points
+			const num_points = utils.RandomInt(3,5);
+			for ( let n=0; n<num_points; n++ ) {
+				let l = (length/num_points) * n;
+				let a2 = 1.5*Math.PI + utils.BiasedRand( -spread/(n||1), spread/(n||1), 0, 0.65 ) ;
+				blade.push([ l * Math.cos(a2), l * Math.sin(a2) ]);
+			}
+			this.blades.push(blade);
+			// make the geometry
+			const anchors = blade.map( p => new Two.Anchor( p[0], p[1] ) );
+			const line = window.two.makePath(anchors);
+			line.stroke = grad;
+			line.stroke.units = 'objectBoundingBox'; // super important
+			line.linewidth = width;
+			line.fill = 'transparent';
+			line.closed = false;
+			line.curved = true;
+			// line.cap = 'round';
+			line.dashes = dashes;
+			this.geo.add(line);
+		}
+	}
+	Update(delta) {
+		super.Update(delta);
+		if ( this.dead ) { return; }
+		// make berries
+		if ( this.age > this.next_fruit ) {
+			this.next_fruit += this.fruit_interval;
+			if ( window.vc.tank.foods.length < 200 ) {
+				for ( const b of this.blades ) {
+					const f = new Food( 
+						this.x + b[b.length-1][0], 
+						this.y + b[b.length-1][1], 
+						{ 
+						value: utils.RandomInt(100,120), 
+						hue: this.fruit_hue, 
+						colorval: 1, 
+						edibility: 0.3,
+						lifespan: 40,
+						vx: utils.RandomFloat(0,25),
+						vy: utils.RandomFloat(0,25),
+						} 
+						);
+					window.vc.tank.foods.push(f);
+				}
+			}
+		}
+	}	
+} 
+
 // export default class Plant {
 // 	constructor(x=0,y=0,scale=1) {
 // 		scale = utils.clamp(scale,0.1,10);
