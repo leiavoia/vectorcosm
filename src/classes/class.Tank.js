@@ -3,6 +3,7 @@ import Delaunator from 'delaunator';
 import * as utils from '../util/utils.js'
 import SpaceGrid from '../classes/class.SpaceGrid.js'
 import DataGrid from '../classes/class.DataGrid.js'
+import Rock from '../classes/class.Rock.js'
 
 export default class Tank {
 
@@ -189,6 +190,7 @@ export default class Tank {
 			['#07290C','#001B04','transparent'], // kelpgarden
 			['#07290C','#001B04','#0C1F01'], // mossgarden
 			['#001C41','#001C41','#00355e','#05080f','#001C41','#001C41','#00355e','#05080f','#004b9b'], // moonlight
+			['#081212','#2D1F04','#3A2905','#2D2908','#1F132B','#140C1C','#0F2222','#132C2C'], // crushed grape
 		];
 		
 		// randomized color schemes 
@@ -247,6 +249,42 @@ export default class Tank {
 		if ( this.debug_geo ) {			
 			this.DrawDebugBoundaryRectangle();
 		}
+	}
+	
+	MakePrettyDecor() {
+		const max_height = Math.min(this.height*0.05, 500);
+		// random rocks
+		const num_rocks = utils.RandomInt(1,5);
+		for ( let n=0; n < num_rocks; n++ ) {
+			const h = utils.RandomFloat( this.height * 0.25, this.height * 0.9 );
+			const w = utils.RandomFloat( this.width * 0.15, this.width * 0.5 );
+			const x = Math.random() * ( this.width * 1.5 - this.width * 0.75 );
+			const y = this.height - h*0.75;
+			this.obstacles.push(
+				new Rock( { 
+					x,
+					y,
+					w,
+					h,
+					force_corners: false,
+					complexity: utils.RandomInt(5,12),
+					new_points_respect_hull: false,
+				}),
+			);		
+		}
+		// substrate				
+		this.obstacles.push(
+			new Rock( { 
+				x: 0,
+				y: ( this.height - max_height ),
+				w: this.width,
+				h: max_height,
+				force_corners: true,
+				complexity: 16,
+				color_scheme: 'sandstone'
+			}),
+		);		
+		
 	}
 
 

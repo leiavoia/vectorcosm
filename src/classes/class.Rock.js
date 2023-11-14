@@ -4,10 +4,24 @@ import Delaunator from 'delaunator';
 import {Point, Polygon, Result} from 'collisions';
 
 export default class Rock {
+
+	static color_schemes = {
+		grey_marble: 		['#7d8488','#6f737a'],
+		old_marble: 		['#a4bdb7'],
+		light_copper_oxide:	['#67a197','#77a096','#7ca098'],
+		sandstone: 			['#96806d','#A29276','#9c957b','#94735a','#8a7a77','#b1966c'],
+		slate: 				['#AAAAAA','#999999'],
+		wavebreak: 			['#878b8a','#4B4E50','#6c7471'],
+		// dark_basalt: ['#333333','#383533'],
+		// driftwood might work as a uncollidable foreground object, 
+		// but looks weird with missing spaces that are still collidable
+		// driftwood:			['#614d33','#664834','#57424a','#725238','#83725e','transparent','transparent','transparent','transparent'],
+	};
+		
 	// x, y (position)
 	// w, h (box drawing mode)
 	// complexity = INT num points in visual geometry
-	// hull = list of [x,y] points to create hull in LOCAL PSACE
+	// hull = list of [x,y] points to create hull in LOCAL SPACE
 	// points = explicit list of points in LOCAL SPACE (useful for save/load)
 	// force_corners = BOOL default true
 	// new_points_respect_hull = BOOL default true. if false, new points can be outside hull
@@ -101,10 +115,11 @@ export default class Rock {
 		}
 		this.collision.hull.reverse(); // reverse for collision compatibility
 		// make triangles
-		const color_scheme = ['#070808','#4B4E50','#070808','#4B4E50','#9ba1a5']; // speckled granite
+		const color_scheme = Rock.color_schemes[params.color_scheme] || Object.values(Rock.color_schemes).pickRandom();
+		const height = this.y2 - this.y1;
 		let triangles = delaunay.triangles;
 		for (let i = 0; i < triangles.length; i += 3) {
-			let c = color_scheme[ Math.trunc( Math.random() * color_scheme.length ) ]; 
+			// geometry
 			let t = window.two.makePath(
 				this.pts[triangles[i]][0], 
 				this.pts[triangles[i]][1], 
@@ -112,13 +127,25 @@ export default class Rock {
 				this.pts[triangles[i+1]][1], 
 				this.pts[triangles[i+2]][0], 
 				this.pts[triangles[i+2]][1] 
-				);
-			// t.linewidth = 1;
-			// t.fill = c;
-			// t.stroke = c;
+			);
+			// color
+			let c = color_scheme[ Math.trunc( Math.random() * color_scheme.length ) ]; 
+			// illuminated topside
+			const color_variance = 0.9;
+			const center = (this.pts[triangles[i]][1] + this.pts[triangles[i+1]][1] + this.pts[triangles[i+2]][1]) / 3;
+			const r = (0.5-(center/height)) * color_variance + (Math.random()*color_variance*0.5-0.5); 
+			c = utils.adjustColor(c,r);
+							
+			// for chosen color scheme:
 			t.linewidth = 1;
-			t.fill = '#FFFFFF' + utils.DecToHex(utils.RandomInt(64,128));
-			t.stroke = 'white';
+			t.fill = c;
+			t.stroke = c;
+			
+			// for transparent white glass:
+			// t.linewidth = 1;
+			// t.fill = '#FFFFFF' + utils.DecToHex(utils.RandomInt(64,128));
+			// t.stroke = 'white';
+			
 			this.geo.add(t);
 		}
 		window.vc.AddShapeToRenderLayer(this.geo,'-1'); // slight background

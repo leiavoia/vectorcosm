@@ -5,7 +5,7 @@ import * as utils from '../util/utils.js'
 import { BoidFactory } from '../classes/class.Boids.js'
 import neataptic from "neataptic";
 import {Circle} from 'collisions';
-import { PendantLettuce, VectorGrass } from '../classes/class.Plant.js'
+import { PendantLettuce, VectorGrass, WaveyVectorGrass } from '../classes/class.Plant.js'
 
 export default class Simulation {
 
@@ -238,38 +238,46 @@ export class FoodChaseSimulation extends Simulation {
 			this.tank.foods.push(food);
 		}
 		// randomize rocks
-		this.tank.obstacles.forEach( x => x.Kill() );
-		this.tank.obstacles.length = 0;	
-		let num_rocks = this.settings?.num_rocks || 0;
-		let margin = 200;
-		for ( let i =0; i < num_rocks; i++ ) {
-			const xscale = utils.RandomFloat(0.2,1.0);
-			const yscale = utils.RandomFloat(0.2,1.0);
-			let rock = new Rock( {
-				x: utils.RandomInt(margin,this.tank.width-margin)-200, 
-				y: utils.RandomInt(margin,this.tank.height-margin)-150, 
-				w: xscale * Math.sqrt( utils.BiasedRandInt(150,this.tank.width*0.5, 400, 0.9) * utils.BiasedRandInt(150,this.tank.width*0.5, 400, 0.9) ), 
-				h: yscale * Math.sqrt( utils.BiasedRandInt(150,this.tank.height*0.5, 400, 0.9) * utils.BiasedRandInt(150,this.tank.height*0.5, 400, 0.9) ), 
-				complexity: utils.RandomInt(0,3)
-			})
-			this.tank.obstacles.push(rock);
+		if ( this.settings?.num_rocks ) {
+			this.tank.obstacles.forEach( x => x.Kill() );
+			this.tank.obstacles.length = 0;	
+			let num_rocks = this.settings?.num_rocks || 0;
+			let margin = 200;
+			for ( let i =0; i < num_rocks; i++ ) {
+				const xscale = utils.RandomFloat(0.2,1.0);
+				const yscale = utils.RandomFloat(0.2,1.0);
+				let rock = new Rock( {
+					x: utils.RandomInt(margin,this.tank.width-margin)-200, 
+					y: utils.RandomInt(margin,this.tank.height-margin)-150, 
+					w: xscale * Math.sqrt( utils.BiasedRandInt(150,this.tank.width*0.5, 400, 0.9) * utils.BiasedRandInt(150,this.tank.width*0.5, 400, 0.9) ), 
+					h: yscale * Math.sqrt( utils.BiasedRandInt(150,this.tank.height*0.5, 400, 0.9) * utils.BiasedRandInt(150,this.tank.height*0.5, 400, 0.9) ), 
+					complexity: utils.RandomInt(0,3)
+				})
+				this.tank.obstacles.push(rock);
+			}
+		}
+		// substate and placed stones
+		if ( this.settings?.add_decor ) { 
+			this.tank.MakePrettyDecor();
 		}
 		// plants
-		this.tank.plants.forEach( x => x.Kill() );
-		this.tank.plants.length = 0;
-		const num_plants = this.settings?.num_plants;
-		if ( num_plants > 0 ) {
-			for ( let n=0; n < num_plants; n++ ) {
-				const rock = this.tank.obstacles.pickRandom();
-				if ( rock ) {
-					const p = rock.pts.pickRandom(); 
-					const type = Math.random() < 0.30 ? PendantLettuce : VectorGrass;
-					const plant = new type( rock.x+p[0], rock.y+p[1] );
-					this.tank.plants.push(plant);
-					window.vc.AddShapeToRenderLayer( plant.geo, /* Math.random() > 0.5 ? '+1' : */ '-2' );
+		if ( this.settings?.num_plants ) { 
+			this.tank.plants.forEach( x => x.Kill() );
+			this.tank.plants.length = 0;
+			const num_plants = this.settings?.num_plants;
+			if ( num_plants > 0 ) {
+				for ( let n=0; n < num_plants; n++ ) {
+					const rock = this.tank.obstacles.pickRandom();
+					if ( rock ) {
+						const p = rock.pts.pickRandom(); 
+						const type = Math.random() < 0.20 ? PendantLettuce : ( Math.random() < 0.2 ? WaveyVectorGrass : VectorGrass);
+						const plant = new type( rock.x+p[0], rock.y+p[1] );
+						this.tank.plants.push(plant);
+						window.vc.AddShapeToRenderLayer( plant.geo, /* Math.random() > 0.5 ? '+1' : */ '-2' );
+					}
 				}
-			}
-		}			
+			}			
+		}
 	}	
 	ScoreBoidPerFrame(b) {
 		// calculate score for this frame	
