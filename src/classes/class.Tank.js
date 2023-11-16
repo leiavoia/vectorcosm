@@ -183,7 +183,7 @@ export default class Tank {
 			['#4b4b48','#4B4E50','#6c7471','transparent','transparent'], // Wavebreak
 			['#1C4D44'], // copper oxide
 			['#1C4D44','#1C4D44','#1C4D44','#3b4b30','#18270B','#1C4D44','#1C4D44','#1C4D44','#3b4b30','#18270B','#656b5c'], // Serpentine
-			['#070808','#4B4E50','#070808','#4B4E50','#070808','#4B4E50','#070808','#4B4E50','#9ba1a5'], // speckled granite
+			['#070808','#4B4E50','#070808','#4B4E50','#070808','#4B4E50','#070808','#4B4E50','#394b57'], // speckled granite
 			['#301A30','#4E2237','#2b0a36'], // sunrise
 			['#333333','#383533'], // basalt
 			['#0a0a0a','#111111','#1a1a1a'], // obsidian
@@ -191,6 +191,8 @@ export default class Tank {
 			['#07290C','#001B04','#0C1F01'], // mossgarden
 			['#001C41','#001C41','#00355e','#05080f','#001C41','#001C41','#00355e','#05080f','#004b9b'], // moonlight
 			['#081212','#2D1F04','#3A2905','#2D2908','#1F132B','#140C1C','#0F2222','#132C2C'], // crushed grape
+			['#09FFFF09','#10FFFF0D','#20FFFF14','2DEEEE2D'],
+			['#FFFFFF04','#FFFFFF08','#FFFFFF0C','#FFFFFF10'],
 		];
 		
 		// randomized color schemes 
@@ -211,7 +213,8 @@ export default class Tank {
 			let c = bgcolors[ Math.trunc( Math.random() * bgcolors.length ) ]; 
 			
 			// fades up the tank 
-			const color_variance = 0.9;
+			// const color_variance = 0.05;
+			const color_variance = Math.random();
 			let center = (bgpts[triangles[i]][1] + bgpts[triangles[i+1]][1] + bgpts[triangles[i+2]][1]) / 3;
 			const r = (0.5-(center/this.height)) * color_variance + (Math.random()*color_variance*0.5-0.5); 
 			c = utils.adjustColor(c,r);
@@ -229,22 +232,30 @@ export default class Tank {
 				bgpts[triangles[i+2]][0], 
 				bgpts[triangles[i+2]][1] 
 				);
-			t.linewidth = 1;
+			t.linewidth = 0;
 			t.fill = c;
-			t.stroke = c;
+			t.stroke = 'transparent';
 			this.bg.add(t);
-		}		
-		window.vc.AddShapeToRenderLayer(this.bg, -2);
+		}
+		if ( window.vc.bg_opacity ) {	
+			if ( window.vc.bg_opacity == 'random' ) {	
+				this.bg.opacity = Math.random();
+			}
+			else {
+				this.bg.opacity = window.vc.bg_opacity;
+			}
+		}
+		// window.vc.AddShapeToRenderLayer(this.bg, -2);
+		window.vc.AddShapeToRenderLayer(this.bg, 'backdrop');
 		this.ScaleBackground();
 	}
 	
 	ScaleBackground() {
-		// scale the background until it covers the scene - should look static
 		if ( this.bg ) { 
 			this.bg.scale = 1; // reset to one
 			const rect = this.bg.getBoundingClientRect(true);
-			const to_scale = 1 / Math.min(  rect.width / this.width, rect.height / this.height );
-			this.bg.scale = to_scale;
+			// this.bg.scale /= Math.min(  rect.width / this.width, rect.height / this.height );
+			this.bg.scale /= Math.min(  rect.width / window.vc.width, rect.height / window.vc.height );
 		}
 		if ( this.debug_geo ) {			
 			this.DrawDebugBoundaryRectangle();

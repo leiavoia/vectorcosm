@@ -148,7 +148,7 @@ export default class Rock {
 			
 			this.geo.add(t);
 		}
-		window.vc.AddShapeToRenderLayer(this.geo,'-1'); // slight background
+		window.vc.AddShapeToRenderLayer(this.geo,'0'); 
 	}
 	Kill() {
 		this.geo.remove();

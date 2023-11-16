@@ -13,8 +13,6 @@ import BrainGraph from '../classes/class.BrainGraph.js'
 import { BoidFactory, Boid } from '../classes/class.Boids.js'
 import PubSub from 'pubsub-js'
 
-const { architect, Network } = neataptic;
-
 export default class Vectorcosm {
 
 	constructor() {
@@ -25,6 +23,7 @@ export default class Vectorcosm {
 		this.two = new Two({ fitted: true, type: 'SVGRenderer' }); 
 		window.two = this.two; // make available everywhere
 		this.renderLayers = {};
+		this.renderLayers['backdrop'] = this.two.makeGroup(); // parallax backdrop needs to stay separate form tank
 		this.renderLayers['tank'] = this.two.makeGroup(); // meta group. UI and tank layers need to scale separately
 		this.renderLayers['-2'] = this.two.makeGroup(); // tank backdrop
 		this.renderLayers['-1'] = this.two.makeGroup(); // background objects
@@ -55,7 +54,8 @@ export default class Vectorcosm {
 		this.height = 0;
 		this.scale = 1;
 		this.cinema_mode = false;
-		
+		this.parallax = true;
+		this.bg_opacity = 'random'; // 'random', zero, or 0..1
 		// subscriptions to critical events
 		// this.frameUpdateSubscription = PubSub.subscribe('frame-update', (msg,data) => {
     	// 	console.log( msg, data );
@@ -86,7 +86,7 @@ export default class Vectorcosm {
 		
 		const food_training_sim_easy = new FoodChaseSimulation(this.tank,{
 			name: 'Food Chase - Easy',
-			num_boids: 80,
+			num_boids: 50,
 			// random_boid_pos: true,
 			// random_food_pos: true,
 			time: 20,
@@ -101,7 +101,7 @@ export default class Vectorcosm {
 			species:'random',
 			cullpct: 0.4,
 			edibility: 1,
-			scale: 1.0,
+			scale: 1.5,
 			angle_spread: 0.2,
 			current: 0,
 			num_foods: 1,
@@ -159,7 +159,7 @@ export default class Vectorcosm {
 			// you can separately define DNA and brain mutations, in case you want just one or the other
 			// dna_mutation_rate: 0.1,
 			// brain_mutation_rate: 0.1,
-			num_rocks: 3,
+			num_rocks: 0,
 			num_plants: 0,
 			target_spread: 200,
 			species:'random',
@@ -179,29 +179,34 @@ export default class Vectorcosm {
 			},
 		});		
 		
-		const natural_tank = new FoodChaseSimulation(this.tank,{
-			name: 'Natural Tank',
+		const food_training_sim_forever = new FoodChaseSimulation(this.tank,{
+			name: 'Food Chase - Forever',
 			num_boids: 80,
-			random_boid_pos: true,
-			random_food_pos: true,
-			time: 1000000,
+			// random_boid_pos: true,
+			// random_food_pos: true,
+			time: 80,
 			// min_score: 5,
-			max_mutation: 0.1,
-			num_rocks: 50,
-			num_plants: 20,
-			target_spread: 400,
+			max_mutation: 0.12,
+			// you can separately define DNA and brain mutations, in case you want just one or the other
+			// dna_mutation_rate: 0.1,
+			// brain_mutation_rate: 0.1,
+			num_rocks: 0,
+			num_plants: 0,
+			target_spread: 200,
 			species:'random',
-			cullpct: 0.3,
+			cullpct: 0.4,
 			edibility: 1,
-			scale: 0.4,
-			// angle_spread: 0.2,
-			current: 0.1,
-			num_foods: 0,
-			food_speed: 50,
-			food_bounce_margin: 0,
-			food_friction: true,
-			tide: 300
-		});			
+			scale: 0.6,
+			angle_spread: 0.2,
+			current: 0,
+			num_foods: 3,
+			food_speed: 200,
+			food_bounce_margin: 300,
+			food_friction: false,
+			end: {
+				rounds:10000
+			},
+		});		
 		
 		const edge_training = new AvoidEdgesSimulation(this.tank,{
 			name: 'Obstacle Course',
@@ -227,29 +232,31 @@ export default class Vectorcosm {
 			name: 'Steering - Easy',
 			num_boids: 100,
 			num_foods: 1,
-			time: 1.2,
-			max_mutation: 0.1,
+			time: 1.6,
+			max_mutation: 0.5,
 			brain_mutation_rate: 0.25,
 			angle_spread: 0.7, // radians
 			cullpct: 0.5,
-			distance: 300,
+			distance: 500,
+			scale:0.5,
 			distance_variance: 0.2,
 			end: {
-				avg_score:80,
+				avg_score:90,
 				avg_score_rounds: 7,
-				rounds:100
+				rounds:200
 			},
 		});
 		const turning_training_medium = new TurningSimulation(this.tank,{
 			name: 'Steering - Medium',
 			num_boids: 100,
 			num_foods: 1,
-			time: 1.8,
+			time: 2,
 			max_mutation: 0.1,
 			brain_mutation_rate: 0.25,
 			angle_spread: 2, // radians
 			cullpct: 0.5,
-			distance: 350,
+			distance: 600,
+			scale:0.5,
 			distance_variance: 0.3,
 			end: {
 				avg_score:80,
@@ -261,12 +268,13 @@ export default class Vectorcosm {
 			name: 'Steering - Hard',
 			num_boids: 100,
 			num_foods: 1,
-			time: 2.0,
+			time: 2.3,
 			max_mutation: 0.1,
 			brain_mutation_rate: 0.25,
 			angle_spread: 3, // radians
 			cullpct: 0.5,
-			distance: 400,
+			distance: 750,
+			scale:0.5,
 			distance_variance: 0.5,
 			end: {
 				avg_score:80,
@@ -274,17 +282,63 @@ export default class Vectorcosm {
 				rounds:100
 			},
 		});
+		
+		const natural_tank = new FoodChaseSimulation(this.tank,{
+			name: 'Natural Tank',
+			num_boids: 80,
+			random_boid_pos: true,
+			random_food_pos: true,
+			time: 1000000,
+			// min_score: 5,
+			max_mutation: 0.1,
+			num_rocks: 20,
+			num_plants: 40,
+			target_spread: 400,
+			species:'random',
+			cullpct: 0.3,
+			edibility: 1,
+			scale: 0.165,
+			// angle_spread: 0.2,
+			current: 0.1,
+			num_foods: 0,
+			food_speed: 50,
+			food_bounce_margin: 0,
+			food_friction: true,
+			tide: 300,
+			add_decor: true,
+		});		
+				
+		const pitri_dish = new FoodChaseSimulation(this.tank,{
+			name: 'Pitri Dish',
+			num_boids: 1,
+			random_boid_pos: true,
+			random_food_pos: true,
+			time: 1000000,
+			// min_score: 5,
+			max_mutation: 0,
+			num_rocks: 1,
+			num_plants: 0,
+			edibility: 1,
+			scale: 1.5,
+			current: 0,
+			num_foods: 1,
+			food_speed: 0,
+			food_bounce_margin: 200,
+			food_friction: false,
+		});			
 					
 		// set up simulations so we have something to watch
 		this.sim_queue = [
-			turning_training_easy,
-			turning_training_medium,
-			turning_training_hard,
-			food_training_sim_easy,
-			food_training_sim_medium,
-			food_training_sim_hard,
+			// turning_training_easy,
+			// turning_training_medium,
+			// turning_training_hard,
+			// food_training_sim_easy,
+			// food_training_sim_medium,
+			// food_training_sim_hard,
+			// food_training_sim_forever,
 			// edge_training
 			natural_tank,
+			// pitri_dish
 		];
 		
 		
@@ -506,17 +560,26 @@ export default class Vectorcosm {
 			if ( this.focus_object == o ) { this.StopTrackObject(); }
 			return;
 		}
-		o.show_sensors = true;
+		o.show_sensors = false;
 		if ( this.focus_object && this.focus_object !== o ) { 
 			delete this.focus_object.show_sensors;
 			// this.focus_object.DrawBounds(false);
 		}
 		this.focus_object = o;
 		if ( !this.focus_geo ) {
-			this.focus_geo = this.two.makeCircle(this.focus_object.x, this.focus_object.y, 50);
+			const focus_radius = 70
+			this.focus_geo = this.two.makeCircle(this.focus_object.x, this.focus_object.y, focus_radius);
 			this.focus_geo.stroke = '#AEA';
-			this.focus_geo.linewidth = 4;
+			this.focus_geo.linewidth = 3;
 			this.focus_geo.fill = 'transparent';
+			// const grad = window.two.makeRadialGradient(0, 0, focus_radius, 
+			// 	new Two.Stop(0,'transparent'), 
+			// 	new Two.Stop(0.8,'#AAEEAA00'), 
+			// 	new Two.Stop(1,'#AAEEAAAA')
+			// );
+			// grad.units = 'userSpaceOnUse'; // super important
+			// this.focus_geo.fill = grad;
+			this.focus_geo.visible = false;
 			this.AddShapeToRenderLayer(this.focus_geo);
 		}
 		else {
@@ -574,6 +637,7 @@ export default class Vectorcosm {
 		else if ( target_y > 0 ) { this.renderLayers['tank'].position.y = 0; }  
 		else if ( target_y < -max_y ) { this.renderLayers['tank'].position.y = -max_y; }
 		else { this.renderLayers['tank'].position.y = target_y; }
+		this.AdjustBackgroundForParallax();
 	}
 	
 	// for adjusting camera position in smaller increments.
@@ -612,9 +676,32 @@ export default class Vectorcosm {
 		else if ( target_y > 0 ) { this.renderLayers['tank'].position.y = 0; }  
 		else if ( target_y < -max_y ) { this.renderLayers['tank'].position.y = -max_y; }
 		else { this.renderLayers['tank'].position.y = target_y; }
-				
+		
+		this.AdjustBackgroundForParallax();	
 	}
 	
+	AdjustBackgroundForParallax() {
+		// static background provides faux parallax
+		if ( !this.parallax ) { return; }
+		// true parallax
+		const margin = 0.0001;
+		const max_x = -margin + (this.tank.width * this.scale) - (this.width);
+		const max_y = -margin + (this.tank.height * this.scale) - (this.height);
+		const scalex = this.width / this.tank.width;
+		const scaley = this.height / this.tank.height;
+		const minscale = Math.min(scalex,scaley); // min = contain, max = cover
+		const bgscale = this.renderLayers['tank'].scale /  minscale;
+		if ( bgscale != this.renderLayers['backdrop'].scale ) { // optimization to dodge setScale()
+			this.renderLayers['backdrop'].scale = bgscale;
+		}
+		const xpct = -utils.Clamp( this.renderLayers['tank'].position.x / max_x, -1, 1);
+		const ypct = -utils.Clamp( this.renderLayers['tank'].position.y / max_y, -1, 1);
+		const xrange = this.width * (this.renderLayers['backdrop'].scale - 1);
+		const yrange = this.height * (this.renderLayers['backdrop'].scale - 1);
+		this.renderLayers['backdrop'].position.x = -(xpct * (xrange/2)) - (xrange/4);
+		this.renderLayers['backdrop'].position.y = -(ypct * (yrange/2)) - (yrange/4);
+	}
+		
 	ScreenToWorldCoord( x, y ) {
 		x = ( x - this.renderLayers['tank'].position.x ) / this.scale;
 		y = ( y - this.renderLayers['tank'].position.y ) / this.scale;

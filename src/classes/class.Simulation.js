@@ -273,7 +273,7 @@ export class FoodChaseSimulation extends Simulation {
 						const type = Math.random() < 0.20 ? PendantLettuce : ( Math.random() < 0.2 ? WaveyVectorGrass : VectorGrass);
 						const plant = new type( rock.x+p[0], rock.y+p[1] );
 						this.tank.plants.push(plant);
-						window.vc.AddShapeToRenderLayer( plant.geo, /* Math.random() > 0.5 ? '+1' : */ '-2' );
+						window.vc.AddShapeToRenderLayer( plant.geo, /* Math.random() > 0.5 ? '+1' : */ '-1' );
 					}
 				}
 			}			
