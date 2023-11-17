@@ -37,7 +37,6 @@ export default class Vectorcosm {
 		this.renderLayers['tank'].add(this.renderLayers['1']);
 		this.renderLayers['tank'].add(this.renderLayers['2']);
 		
-
 		this.simulation = null;
 		this.tank = null;
 		this.braingraph = null; // move me some day
@@ -56,6 +55,9 @@ export default class Vectorcosm {
 		this.cinema_mode = false;
 		this.parallax = true;
 		this.bg_opacity = 'random'; // 'random', zero, or 0..1
+		this.bg_visible = true; 
+		this.renderLayers['backdrop'].visible = this.bg_visible;
+		
 		// subscriptions to critical events
 		// this.frameUpdateSubscription = PubSub.subscribe('frame-update', (msg,data) => {
     	// 	console.log( msg, data );
@@ -291,13 +293,13 @@ export default class Vectorcosm {
 			time: 1000000,
 			// min_score: 5,
 			max_mutation: 0.1,
-			num_rocks: 20,
-			num_plants: 40,
+			num_rocks: 28,
+			num_plants: 60,
 			target_spread: 400,
 			species:'random',
 			cullpct: 0.3,
 			edibility: 1,
-			scale: 0.165,
+			scale: 0.3,
 			// angle_spread: 0.2,
 			current: 0.1,
 			num_foods: 0,

@@ -239,7 +239,8 @@ export default class Tank {
 		}
 		if ( window.vc.bg_opacity ) {	
 			if ( window.vc.bg_opacity == 'random' ) {	
-				this.bg.opacity = Math.random();
+				window.vc.bg_opacity = Math.random()
+				this.bg.opacity = window.vc.bg_opacity;
 			}
 			else {
 				this.bg.opacity = window.vc.bg_opacity;

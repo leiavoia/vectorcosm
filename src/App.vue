@@ -201,6 +201,9 @@ const keyFunctionMap = {
 	'5': _ => {
 			vc.animate_boids = !vc.animate_boids;
 		},
+	'6': _ => {
+			vc.renderLayers['backdrop'].visible = !vc.renderLayers['backdrop'].visible;
+		},
 	'7': _ => {
 			ToggleTankDebug();
 		},
