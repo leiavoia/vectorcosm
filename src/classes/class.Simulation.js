@@ -69,6 +69,7 @@ export default class Simulation {
 		if ( this.settings?.scale ) {
 			window.vc.SetViewScale( this.settings.scale );
 			window.vc.ResizeTankToWindow();
+			window.vc.ResetCameraZoom();
 		}	
 	}
 	

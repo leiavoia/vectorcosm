@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@tweenjs/tween.js": "^21.0.0",
     "chart.js": "^4.3.0",
     "collisions": "^2.0.13",
     "delaunator": "^5.0.0",

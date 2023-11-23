@@ -112,22 +112,17 @@ function ToggleTankDebug() {
 }
 
 body.addEventListener("wheel", function(event) {
-	if ( event.deltaY > 0 ) {
-		const newscale = vc.scale * (1/(1 + zoompct));
-		const scalediff = Math.abs( vc.scale - newscale );
-		const [prev_x, prev_y] = vc.ScreenToWorldCoord( event.clientX, event.clientY );
-		vc.MoveCamera( 0, 0, -scalediff );
-		const [x, y] = vc.ScreenToWorldCoord( event.clientX, event.clientY );
-		vc.MoveCamera( (x - prev_x) * newscale, (y - prev_y) * newscale );
-	}
-	else {
-		const newscale = vc.scale * ((1 + zoompct)/1);
-		const scalediff = Math.abs( vc.scale - newscale );
-		const [prev_x, prev_y] = vc.ScreenToWorldCoord( event.clientX, event.clientY );
-		vc.MoveCamera( 0, 0, scalediff );
-		const [x, y] = vc.ScreenToWorldCoord( event.clientX, event.clientY );
-		vc.MoveCamera( (x - prev_x) * newscale, (y - prev_y) * newscale );
-	}
+	let newscale = vc.scale * ((1 + zoompct)/1);
+	if ( event.deltaY > 0 ) { newscale = vc.scale * (1/(1 + zoompct)); }
+	// record mouse click in world space
+	const [prev_x, prev_y] = vc.ScreenToWorldCoord( event.clientX, event.clientY );
+	// zoom into center of screen
+	const [world_x, world_y] = vc.ScreenToWorldCoord(vc.width * 0.5, vc.height * 0.5);
+	vc.PointCameraAt( world_x, world_y, newscale );
+	// where would the mouse point be now?
+	const [new_x, new_y] = vc.ScreenToWorldCoord( event.clientX, event.clientY );
+	// move screen to maintain the offset from click point
+	vc.PointCameraAt( world_x - (new_x - prev_x), world_y - (new_y - prev_y) );
 });
 
 const keyFunctionMap = {
@@ -157,16 +152,16 @@ const keyFunctionMap = {
 			vc.ResetCameraZoom();
 		},
 	'ArrowLeft': _ => {
-			vc.MoveCamera( 100, 0, 0 );
+			vc.MoveCamera( -100, 0 );
 		},
 	'ArrowRight': _ => {
-			vc.MoveCamera( -100, 0, 0 );
+			vc.MoveCamera( 100, 0 );
 		},
 	'ArrowUp': _ => {
-			vc.MoveCamera( 0, 100, 0 );
+			vc.MoveCamera( 0, -100 );
 		},
 	'ArrowDown': _ => {
-			vc.MoveCamera( 0, -100, 0 );
+			vc.MoveCamera( 0, 100 );
 		},
 	'PageUp': _ => {
 			vc.ShiftFocusTarget();
@@ -217,7 +212,7 @@ const keyFunctionMap = {
 			vc.ToggleSimulatorFF();
 		},
 	'c': _ => {
-			vc.CinemaMode( !vc.cinema_mode );
+			vc.CinemaMode( !vc.camera.cinema_mode );
 		},
 	'Escape': _ => {
 			if ( show_boid_details.value ) { show_boid_details.value = false; }
@@ -264,7 +259,7 @@ function MouseUp(event) {
 }
 function MouseMove(event) {
 	if ( dragging ) {
-		vc.MoveCamera( event.movementX, event.movementY );
+		vc.MoveCamera( -event.movementX, -event.movementY );
 	}
 }
 			
@@ -289,7 +284,7 @@ function ClickMap( event ) {
 	// }
 	const [x,y] = vc.ScreenToWorldCoord( event.clientX, event.clientY );
 	if ( event.button > 0 ) { 
-		vc.PointCameraAt( x, y, null );
+		vc.PointCameraAt( x, y );
 		return false;
 	}
 	// find objects near pointer click
