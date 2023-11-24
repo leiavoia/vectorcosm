@@ -44,6 +44,7 @@ export default class Vectorcosm {
 		
 		// world settings
 		this.animate_boids = true;
+		this.animate_plants = true;
 		this.show_collision_detection = false;
 		this.show_ui = false;
 		this.show_brainmap = false;
