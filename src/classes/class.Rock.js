@@ -6,12 +6,12 @@ import {Point, Polygon, Result} from 'collisions';
 export default class Rock {
 
 	static color_schemes = {
-		grey_marble: 		['#7d8488','#6f737a'],
-		old_marble: 		['#a4bdb7'],
-		light_copper_oxide:	['#67a197','#77a096','#7ca098'],
-		sandstone: 			['#96806d','#A29276','#9c957b','#94735a','#8a7a77','#b1966c'],
-		slate: 				['#AAAAAA','#999999'],
-		wavebreak: 			['#878b8a','#4B4E50','#6c7471'],
+		'Grey Marble': 		['#7d8488','#6f737a'],
+		'Old Marble': 		['#a4bdb7'],
+		'Light Copper Oxide':	['#67a197','#77a096','#7ca098'],
+		'Sandstone': 			['#96806d','#A29276','#9c957b','#94735a','#8a7a77','#b1966c'],
+		'Slate': 				['#AAAAAA','#999999'],
+		'Wavebreak': 			['#878b8a','#4B4E50','#6c7471'],
 		// dark_basalt: ['#333333','#383533'],
 		// driftwood might work as a uncollidable foreground object, 
 		// but looks weird with missing spaces that are still collidable

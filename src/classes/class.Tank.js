@@ -7,6 +7,36 @@ import Rock from '../classes/class.Rock.js'
 
 export default class Tank {
 
+	static backdrop_themes = [
+		{ name: 'Deepwater', class: 'bg-theme-deepwater' },
+		{ name: 'Algae', class: 'bg-theme-algae' },
+		{ name: 'Bleak', class: 'bg-theme-bleak' },
+		{ name: 'Rainstorm', class: 'bg-theme-rainstorm' },
+		{ name: 'Reactor', class: 'bg-theme-reactor' },
+		{ name: 'Hades', class: 'bg-theme-hades' },
+		{ name: 'Thermal Vent', class: 'bg-theme-thermal-vent' },
+		{ name: 'Asteroid', class: 'bg-theme-asteroid' },
+		{ name: 'Blue Eye', class: 'bg-theme-blue-eye' },
+	];
+				
+	static background_themes = {
+		'Shipwreck': ['#352619','#2E1D06','#2E2A1D','#473120','#2c0b04','#492f05','#6c7471','transparent','transparent' ,'transparent','transparent','transparent','transparent','transparent','transparent'],
+		'Mudstone': ['#352619','#2E1D06','#2E2A1D','#473120','#2c0b04','#492f05'],
+		'Wavebreak': ['#4b4b48','#4B4E50','#6c7471','transparent','transparent'],
+		'Copper Oxide': ['#1C4D44'],
+		'Serpentine': ['#1C4D44','#1C4D44','#1C4D44','#3b4b30','#18270B','#1C4D44','#1C4D44','#1C4D44','#3b4b30','#18270B','#656b5c'],
+		'Speckled Granite': ['#070808','#4B4E50','#070808','#4B4E50','#070808','#4B4E50','#070808','#4B4E50','#394b57'],
+		'Sunrise': ['#301A30','#4E2237','#2b0a36'],
+		'Basalt': ['#333333','#383533'],
+		'Obsidian': ['#0a0a0a','#111111','#1a1a1a'],
+		'Kelp': ['#07290C','#001B04','transparent'],
+		'Moss Garden': ['#07290C','#001B04','#0C1F01'],
+		'Moonlight': ['#001C41','#001C41','#00355e','#05080f','#001C41','#001C41','#00355e','#05080f','#004b9b'],
+		'Crushed Grapes': ['#081212','#2D1F04','#3A2905','#2D2908','#1F132B','#140C1C','#0F2222','#132C2C'],
+		// 'Emeralds': ['#09FFFF09','#10FFFF0D','#20FFFF14','2DEEEE2D'],
+		// 'Glass': ['#FFFFFF04','#FFFFFF08','#FFFFFF0C','#FFFFFF10'],
+	};
+						
 	constructor( w, h ) {
 		this.width = w;
 		this.height = h;
@@ -145,7 +175,14 @@ export default class Tank {
 	
 	// background layer
 	MakeBackground() {
+		
+		// random backdrop theme
+		const bg_theme = Tank.backdrop_themes.pickRandom();
+		document.body.setAttribute("class", document.body.getAttribute("class").replace(/\s*bg-theme-\w+/, '') + ' ' + bg_theme.class );
+		
 		// return;
+		
+		// random delauney background
 		if ( this.bg ) { this.bg.remove(); }
 		this.bg = window.two.makeGroup();
 		let bgnumpts = Math.trunc(Math.random() * 200) + 10;
@@ -167,33 +204,14 @@ export default class Tank {
 		}
 
 		// random edge gravity
-		// const x_strength = Math.random() * 2 -1;
-		// const y_strength = Math.random() * 2 -1;
-		// const x_focus = this.width * 0.5; // ( Math.random() * 0.9 + 0.05 );
-		// const y_focus = this.height * 0.5; // ( Math.random() * 0.9 + 0.05 );
-		// for ( let p of bgpts ) {
-		// 	p[0] = utils.SigMap( p[0], 0, this.width, 0, this.width, x_focus, x_strength );
-		// 	p[1] = utils.SigMap( p[1], 0, this.height, 0, this.height, y_focus, y_strength );
-		// }
-		
-		let color_schemes = [
-			['#352619','#2E1D06','#2E2A1D','#473120','#2c0b04','#492f05','#6c7471','transparent','transparent'
-			,'transparent','transparent','transparent','transparent','transparent','transparent'], // shipwreck
-			['#352619','#2E1D06','#2E2A1D','#473120','#2c0b04','#492f05'], // mudstone
-			['#4b4b48','#4B4E50','#6c7471','transparent','transparent'], // Wavebreak
-			['#1C4D44'], // copper oxide
-			['#1C4D44','#1C4D44','#1C4D44','#3b4b30','#18270B','#1C4D44','#1C4D44','#1C4D44','#3b4b30','#18270B','#656b5c'], // Serpentine
-			['#070808','#4B4E50','#070808','#4B4E50','#070808','#4B4E50','#070808','#4B4E50','#394b57'], // speckled granite
-			['#301A30','#4E2237','#2b0a36'], // sunrise
-			['#333333','#383533'], // basalt
-			['#0a0a0a','#111111','#1a1a1a'], // obsidian
-			['#07290C','#001B04','transparent'], // kelpgarden
-			['#07290C','#001B04','#0C1F01'], // mossgarden
-			['#001C41','#001C41','#00355e','#05080f','#001C41','#001C41','#00355e','#05080f','#004b9b'], // moonlight
-			['#081212','#2D1F04','#3A2905','#2D2908','#1F132B','#140C1C','#0F2222','#132C2C'], // crushed grape
-			['#09FFFF09','#10FFFF0D','#20FFFF14','2DEEEE2D'],
-			['#FFFFFF04','#FFFFFF08','#FFFFFF0C','#FFFFFF10'],
-		];
+		const x_strength = Math.random() * 2 -1;
+		const y_strength = Math.random() * 2 -1;
+		const x_focus = this.width * 0.5; // ( Math.random() * 0.9 + 0.05 );
+		const y_focus = this.height * 0.5; // ( Math.random() * 0.9 + 0.05 );
+		for ( let p of bgpts ) {
+			p[0] = utils.SigMap( p[0], 0, this.width, 0, this.width, x_focus, x_strength );
+			p[1] = utils.SigMap( p[1], 0, this.height, 0, this.height, y_focus, y_strength );
+		}
 		
 		// randomized color schemes 
 		for ( let n=0; n < 5; n++ ) {
@@ -203,12 +221,12 @@ export default class Tank {
 				const color = utils.RandomColor( true, false, false, true );
 				colors.push(color);
 			}
-			color_schemes.push(colors);
+			Tank.background_themes[`random-${n}`] = colors;
 		}
 		
 		const delaunay = Delaunator.from(bgpts);
 		let triangles = delaunay.triangles;
-		let bgcolors = color_schemes[ Math.trunc( Math.random() * color_schemes.length ) ];
+		let bgcolors = Object.values(Tank.background_themes).pickRandom();
 		for (let i = 0; i < triangles.length; i += 3) {
 			let c = bgcolors[ Math.trunc( Math.random() * bgcolors.length ) ]; 
 			
@@ -293,7 +311,7 @@ export default class Tank {
 				h: max_height,
 				force_corners: true,
 				complexity: 16,
-				color_scheme: 'sandstone'
+				color_scheme: 'Sandstone'
 			}),
 		);		
 		
