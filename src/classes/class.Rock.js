@@ -66,14 +66,19 @@ export default class Rock {
 		else if ( 'hull' in params ) {
 			this.pts = params.hull;
 		}
-		// calculate bounds if we dont already have them
-		if ( !this.x2 || !this.y2 ) {
-			this.x2 = 0;
-			this.y2 = 0;
-			for ( let p of this.pts ) {
-				if ( p[0] > this.x2 ) { this.x2 = p[0]; }
-				if ( p[1] > this.y2 ) { this.y2 = p[1]; }
-			}
+		// reel in points out of bounds
+		for ( let p of this.pts )  {
+			if ( p[0] + this.x < 0 ) { p[0] = -this.x; }
+			else if ( p[0] + this.x > window.vc.tank.width ) { p[0] = window.vc.tank.width - this.x; }
+			if ( p[1] + this.x < 0 ) { p[1] = -this.x; }
+			else if ( p[1] + this.y > window.vc.tank.height ) { p[1] = window.vc.tank.height - this.y; }
+		}
+		// recalculate bounds in case adjustments were made
+		this.x2 = 0;
+		this.y2 = 0;
+		for ( let p of this.pts ) {
+			if ( p[0] > this.x2 ) { this.x2 = p[0]; }
+			if ( p[1] > this.y2 ) { this.y2 = p[1]; }
 		}
 		// make note of the convex hull for collision detection
 		this.collision = {
