@@ -35,7 +35,7 @@ export class PendantLettuce extends Plant {
 	constructor(x=0, y=0) {
 		super(x,y);
 		this.fruit_interval = utils.RandomInt(30,40);
-		this.next_fruit = this.fruit_interval;
+		this.next_fruit = this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 );
 		this.fruit_hue = utils.RandomFloat(0.25,0.35);	
 		// make the unique shape	
 		const n = utils.BiasedRandInt( 3, 16, 8, 0.8 );
@@ -84,7 +84,7 @@ export class PendantLettuce extends Plant {
 		if ( this.dead ) { return; }
 		// make berries
 		if ( this.age > this.next_fruit ) {
-			this.next_fruit += this.fruit_interval;
+			this.next_fruit += this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 );
 			if ( window.vc.tank.foods.length < 60 ) {
 				const f = new Food( this.x, this.y, { 
 					value: 50, 
@@ -112,7 +112,7 @@ export class VectorGrass extends Plant {
 	constructor(x=0, y=0) {
 		super(x,y);
 		this.fruit_interval = utils.RandomInt(20,30);
-		this.next_fruit = this.fruit_interval;
+		this.next_fruit = this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 );
 		this.fruit_hue = utils.RandomFloat(0.55,0.8);
 		// leaf coloring
 		const tip_color = `hsl(${this.fruit_hue*255},85%,75%)`;
@@ -146,7 +146,7 @@ export class VectorGrass extends Plant {
 		if ( this.dead ) { return; }
 		// make berries
 		if ( this.age > this.next_fruit ) {
-			this.next_fruit += this.fruit_interval;
+			this.next_fruit += this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 );
 			if ( window.vc.tank.foods.length < 200 ) {
 				for ( const b of this.blades ) {
 					const f = new Food( 
@@ -183,7 +183,7 @@ export class WaveyVectorGrass extends Plant {
 	constructor(x=0, y=0) {
 		super(x,y);
 		this.fruit_interval = utils.RandomInt(45,60);
-		this.next_fruit = this.fruit_interval;
+		this.next_fruit = this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 );
 		this.fruit_hue = utils.RandomFloat(0.05,0.20);
 		// leaf coloring
 		const tip_color = `hsl(${this.fruit_hue*255},85%,75%)`;
@@ -228,7 +228,7 @@ export class WaveyVectorGrass extends Plant {
 		if ( this.dead ) { return; }
 		// make berries
 		if ( this.age > this.next_fruit ) {
-			this.next_fruit += this.fruit_interval;
+			this.next_fruit += this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 );
 			if ( window.vc.tank.foods.length < 200 ) {
 				for ( const b of this.blades ) {
 					const f = new Food( 

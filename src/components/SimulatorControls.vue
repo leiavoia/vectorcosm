@@ -37,6 +37,7 @@
 		vars.rounds = props.sim.settings.rounds;
 		vars.species = props.sim.settings.species;
 		vars.viscosity = props.sim.tank.viscosity;
+		vars.fruiting_speed = props.sim.tank.fruiting_speed || 1.0;
 		vars.best_score = props.sim.stats.best_score;
 		vars.best_avg_score = props.sim.stats.best_avg_score;
 		vars.framenum = props.sim.stats.framenum;
@@ -79,6 +80,10 @@
 
 	function updateMutation() {
 		props.sim.settings.max_mutation = vars.max_mutation;
+	}
+
+	function updateFruitingSpeed() {
+		props.sim.settings.fruiting_speed = vars.fruiting_speed;
 	}
 
 	function updateNumBoids() {
@@ -240,6 +245,12 @@
 		<label for="culling_slider">Culling</label>
 		<input v-model.number="vars.cullpct" @change="updateCulling()" type="range" min="0.1" max="0.9" step="0.1" style="margin-bottom:-0.25em;" id="culling_slider" />
 		<output for="culling_slider" id="culling_slider_output">{{(vars.cullpct*100).toFixed(0)}}%</output>
+
+		<br/>
+
+		<label for="fruiting_speed_slider">Fruiting</label>
+		<input v-model.number="vars.fruiting_speed" @change="updateFruitingSpeed()" type="range" min="0.1" max="2.0" step="0.1" style="margin-bottom:-0.25em;" id="fruiting_speed_slider" />
+		<output for="fruiting_speed_slider" id="fruiting_speed_slider_output">{{vars.fruiting_speed.toFixed(1)}}x</output>
 
 		<br/>
 

@@ -26,6 +26,7 @@ export default class Simulation {
 			// 	avg_score_rounds: 5
 			// },
 			species: 'random',
+			fruiting_speed: 1.0,
 		};
 		if ( settings ) {
 			this.settings = Object.assign(this.settings, settings);
