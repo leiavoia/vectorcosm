@@ -38,6 +38,8 @@
 		vars.species = props.sim.settings.species;
 		vars.viscosity = props.sim.tank.viscosity;
 		vars.fruiting_speed = props.sim.tank.fruiting_speed || 1.0;
+		vars.num_rocks = props.sim.settings.num_rocks || 0;
+		vars.num_plants = props.sim.settings.num_plants || 0;
 		vars.best_score = props.sim.stats.best_score;
 		vars.best_avg_score = props.sim.stats.best_avg_score;
 		vars.framenum = props.sim.stats.framenum;
@@ -88,6 +90,14 @@
 
 	function updateNumBoids() {
 		props.sim.SetNumBoids(vars.num_boids);
+	}
+
+	function updateNumRocks() {
+		props.sim.SetNumRocks(vars.num_rocks);
+	}
+
+	function updateNumPlants() {
+		props.sim.SetNumPlants(vars.num_plants);
 	}
 
 	function updateScale() {
@@ -251,6 +261,18 @@
 		<label for="fruiting_speed_slider">Fruiting</label>
 		<input v-model.number="vars.fruiting_speed" @change="updateFruitingSpeed()" type="range" min="0.1" max="2.0" step="0.1" style="margin-bottom:-0.25em;" id="fruiting_speed_slider" />
 		<output for="fruiting_speed_slider" id="fruiting_speed_slider_output">{{vars.fruiting_speed.toFixed(1)}}x</output>
+
+		<br/>
+
+		<label for="num_rocks_slider">Rocks</label>
+		<input v-model.number="vars.num_rocks" @change="updateNumRocks()" type="range" min="0" max="100" step="1" style="margin-bottom:-0.25em;" id="num_rocks_slider" />
+		<output for="num_rocks_slider" id="num_rocks_slider_output">{{vars.num_rocks}}</output>
+
+		<br/>
+
+		<label for="num_plants_slider">Plants</label>
+		<input v-model.number="vars.num_plants" @change="updateNumPlants()" type="range" min="0" max="200" step="1" style="margin-bottom:-0.25em;" id="num_plants_slider" />
+		<output for="num_plants_slider" id="num_plants_slider_output">{{vars.num_plants}}</output>
 
 		<br/>
 

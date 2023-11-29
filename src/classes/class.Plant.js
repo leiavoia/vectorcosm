@@ -85,7 +85,7 @@ export class PendantLettuce extends Plant {
 		// make berries
 		if ( this.age > this.next_fruit ) {
 			this.next_fruit += this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 );
-			if ( window.vc.tank.foods.length < 60 ) {
+			if ( window.vc.tank.foods.length < 300 ) {
 				const f = new Food( this.x, this.y, { 
 					value: 50, 
 					hue: this.fruit_hue, 
@@ -147,7 +147,7 @@ export class VectorGrass extends Plant {
 		// make berries
 		if ( this.age > this.next_fruit ) {
 			this.next_fruit += this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 );
-			if ( window.vc.tank.foods.length < 200 ) {
+			if ( window.vc.tank.foods.length < 300 ) {
 				for ( const b of this.blades ) {
 					const f = new Food( 
 						this.x + b.x2, 
@@ -229,7 +229,7 @@ export class WaveyVectorGrass extends Plant {
 		// make berries
 		if ( this.age > this.next_fruit ) {
 			this.next_fruit += this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 );
-			if ( window.vc.tank.foods.length < 200 ) {
+			if ( window.vc.tank.foods.length < 300 ) {
 				for ( const b of this.blades ) {
 					const f = new Food( 
 						this.x + b[b.length-1][0], 
