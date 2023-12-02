@@ -317,3 +317,257 @@ export class WaveyVectorGrass extends Plant {
 // 		}
 // 	}
 // }
+
+export class PointCloudPlant extends Plant {
+	constructor(x=0, y=0) {
+		super(x,y);
+		this.fruit_interval = utils.RandomInt(45,60);
+		this.next_fruit = this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 );
+		this.fruit_hue = utils.RandomFloat(0.05,0.20);
+		
+		// create point cloud
+		this.radius = utils.RandomInt( 100, 500 );
+		this.points = [];
+		const num_points = utils.RandomInt( 3, 12 );
+		for ( let i=0; i < num_points; i++ ) {
+			this.points.push( [
+				utils.RandomInt( -this.radius, this.radius ),
+				utils.RandomInt( -this.radius, this.radius )
+			]);
+		}
+		
+		// point sorting
+		this.smeth = Math.random();
+		if ( this.smeth < 0.25 ) { this.smeth = null; }
+		else if ( this.smeth < 0.5 ) { this.smeth = this.SortByX; }
+		else if ( this.smeth < 0.75 ) { this.smeth = this.SortByY; }
+		else { this.smeth = this.SortByAngle; }
+		if ( this.smeth ) {
+			this.points.sort( this.smeth );
+		}
+		
+		this.curved = Math.random() > 0.75;
+		
+		// `discreet` creates many individual shapes. continuous create a single shape.
+		this.discreet = Math.random() > 0.35;
+		
+		// slur the points around
+		// TODO: there are lots of fun ways we could do this in the future
+		if ( Math.random() > 0.5 ) {
+			this.points = this.points.map( p => [ p[0], p[1] - this.radius * 2 ] );
+		}
+		
+		// if the shape is "centered", it threads all points back through the center
+		// when creating individual sub-shapes (petals), creating an aster-like pattern.
+		this.centered = true; //Math.random() > 0.5;
+		
+		// if the shape is NOT centered, use the center point as a starting point
+		if ( !this.centered ) {
+			this.points.unshift([0,0]);
+		}
+		
+		// if the shape is "centered", we automatically insert the center point
+		// to begin each shape. Center points are in addition to existing points,
+		// so we need to conditionally subtract one from many of the following calculations.
+		const subtract_one = this.centered ? 1 : 0;
+		
+		// points per shape only applies if we are going to create individual shapes
+		this.points_per_shape = utils.RandomInt(2,Math.min(4,this.points.length));
+		
+		// point increments determines how many indexes to skip when iterating through the point array.
+		// skipping fewer points creates overlapping shapes. Skipping more creates separate, discontinuous shapes.
+		this.point_increment = utils.RandomInt(1,this.points_per_shape-(subtract_one+1)); // use pps-1 to prevent discontinuous shapes
+		
+		// create shapes by iterating over points in different ways
+		const shapes = [];
+		
+		// create discreet shapes
+		if ( this.discreet ) {
+			for ( let i=0; i < this.points.length - (this.points_per_shape-subtract_one); i += this.point_increment ) {
+				const slice = this.points.slice( i, i + ( this.points_per_shape - subtract_one ) );
+				slice.sort( this.SortByAngle ); // not required but usually aesthetically better
+				if ( this.centered ) { slice.unshift([0,0]); } // start from zero on every shape
+				shapes.push(slice);
+			}
+		}
+		
+		// create a single continuous shape
+		else {
+			shapes[0] = [];
+			// one big glob
+			if ( Math.random() > 0.5 ) { 
+				this.points_per_shape = this.points.length;
+				this.point_increment = this.points.length;
+			}
+			for ( let i=0; i < this.points.length - (this.points_per_shape-(1+subtract_one)); i += this.point_increment ) {
+				const slice = this.points.slice( i, i + ( this.points_per_shape - subtract_one ) );
+				if ( this.centered ) { slice.unshift([0,0]); } // start from zero on every loop
+				shapes[0].push(...slice);
+			}
+		}
+		
+		// when points_per_shape == 2, individual shapes are composed of single lines.
+		// we may wish to handle these differently
+		const is_linear = this.points_per_shape == 2;
+				
+		// colors and features			
+		this.linewidth = utils.RandomInt(1,20); 
+		this.fill = this.RandomGradient();							
+		this.stroke = this.RandomGradient();						
+		if ( Math.random() > 0.6 ) {
+			const dash = utils.BiasedRandInt(2,20,3,0.8);
+			this.dashes =  [dash,dash];
+		}
+		if ( Math.random() > 0.6 ) {
+			this.cap = 'round';
+		}
+		const color_roll = Math.random();
+		// remove fill
+		if ( color_roll < 0.33 ) {
+			this.fill = 'transparent';
+		}
+		// remove stroke
+		else if ( color_roll < 0.66 && !(is_linear && !this.curved) ) {
+			this.stroke = 'transparent';
+			this.linewidth = 0;
+		}
+		
+		// if the shape is composed of line segments, turn off curves (which just look like giant ovals)
+		// TODO: we can keep curves if we want to fiddle with bezier handles later.
+		if ( is_linear ) { 
+			// this.curved = false; 
+			this.linewidth *= 3;
+		}
+				
+		this.animation_method = (this.centered && this.discreet) ? 'sway' : 'skew';
+					
+		// create the final SVG shape(s)
+		for ( let points of shapes ) {
+			let anchors = points.map( p => new Two.Anchor( p[0], p[1] ) );
+			let shape = window.two.makePath(anchors);
+			shape.fill = this.fill;
+			shape.stroke = this.stroke;
+			shape.linewidth = this.linewidth;
+			shape.curved = this.curved;
+			if ( this.dashes ) shape.dashes = this.dashes;		
+			if ( this.cap ) shape.cap = this.cap;		
+			this.geo.add( shape );
+		}
+			
+	}
+	Kill() {
+		this.geo.remove();
+		this.dead = true;
+	}	
+	Update( delta ) {
+		this.age += delta;
+		if ( this.age >= this.lifespan ) {
+			this.geo.remove();
+			this.Kill();
+			return false;
+		}
+		// make berries
+		if ( this.age > this.next_fruit ) {
+			this.next_fruit += this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 );
+			if ( window.vc.tank.foods.length < 300 ) {
+				const f = new Food( this.x, this.y, { 
+					value: 50, 
+					hue: this.fruit_hue, 
+					colorval: 1, 
+					edibility: 0.3, 
+					lifespan: 80,
+					vx: utils.RandomFloat(0,25),
+					vy: utils.RandomFloat(0,25),
+					} );
+				window.vc.tank.foods.push(f);
+			}
+		}
+		// wave the grass
+		if ( window.vc.animate_plants && !window.vc.simulation.turbo ) {
+			// sway individual shapes
+			// FIXME: make blades wave from base
+			if ( this.animation_method == 'sway' ) {		
+				const cell = window.vc.tank.datagrid.CellAt( this.x, this.y );
+				const strength = Math.sqrt( cell.current_x * cell.current_x + cell.current_y * cell.current_y ); 
+				const cycle_time = utils.clamp( 3 * (1-strength), 1, 3);			
+				for ( let i=0; i < this.geo.children.length; i++ ) {
+					const child = this.geo.children[i];
+					const radius = (child.vertices[0].y - child.vertices[child.vertices.length-1].y) / 2;
+					const effect = strength * 0.10 * Math.cos( ( i + window.vc.simulation.stats.round.time ) / cycle_time );
+					const angle = effect; 
+					child.rotation = angle;
+					if ( !child.x_offset ) { // stash for repeated calls
+						const dims = child.getBoundingClientRect(true);
+						child.x_offset = ( dims.right + dims.left ) / 2;
+					}
+					child.position.x = ( Math.sin(angle) * radius ) + child.x_offset;
+					child.position.y = -( Math.cos(angle) * radius );	
+				}
+			}
+			// simpler skew animation
+			else {
+				const cell = window.vc.tank.datagrid.CellAt( this.x, this.y );
+				let strength = Math.sqrt( cell.current_x * cell.current_x + cell.current_y * cell.current_y ); 
+				const cycle_time = utils.clamp( 3 * (1-strength), 1, 3);
+				strength *= Math.PI/10 * ( 1.15-(this.radius/500) );
+				this.geo.skewX = strength * Math.cos( ( window.vc.simulation.stats.round.time ) / cycle_time );
+				this.geo.skewY = strength * Math.sin( ( window.vc.simulation.stats.round.time ) / cycle_time );			
+			}
+		}				
+	}
+	
+	SortByY(a,b) {
+		return b[1] - a[1];
+	}
+	SortByX(a,b) {
+		return b[0] - a[0];
+	}
+	SortByAngle(a,b) {
+		Math.atan2(b) - Math.atan2(a);
+	}
+	RandomShadeOfGreen() {
+		let hue = utils.RandomInt(55,200);		
+		let saturation = utils.RandomInt(20,70);			
+		let lightness = utils.RandomInt(20,60);			
+		let transp = utils.RandomFloat( 0.5, 1.0 );
+		return `hsla(${hue},${saturation}%,${lightness}%,${transp})`;	
+	}
+	RandomGradient() {
+		// TODO add triples, random not-gree-color, copy code from bodyplan
+		const c1 = this.RandomShadeOfGreen();
+		const c2 = this.RandomShadeOfGreen();
+		const c3 = Math.random() > 0.8 
+			? utils.RandomColor(true,true,false) 
+			: ( Math.random() > 0.6 ? this.RandomShadeOfGreen() : c2 );
+		const stops = [ 
+			new Two.Stop(0, c1),
+			new Two.Stop(utils.BiasedRand(0.1,1.0,0.8,0.8), c2),
+			new Two.Stop(1, c3),
+		]
+		if ( Math.random() > 0.7 ) {
+			const scale = utils.BiasedRand( 0.1, 0.9, 0.4, 0.5 );
+			for ( let stop of stops ) {
+				stop.offset *= scale;
+			}
+		}
+		const grad = window.two.makeRadialGradient(0.5, 1, 1, ...stops );
+		grad.units = Math.random > 0.5 ? 'userSpaceOnUse' : 'objectBoundingBox';
+		const spreadNum = Math.random();
+		grad.spread = (spreadNum > 0.66) ? 'pad' : ( spreadNum > 0.33 ? 'reflect' : 'repeat' );	
+		return grad;
+	}
+	
+}
+
+const plantPicker = new utils.RandomPicker( [
+	[ PointCloudPlant, 	100 ],
+	[ PendantLettuce, 	50 ],
+	[ VectorGrass, 		150 ],
+	[ WaveyVectorGrass, 50 ],
+] );
+
+export function RandomPlant(x=0,y=0) {
+	const type = plantPicker.Pick();
+	return new type(x,y);
+}
+	

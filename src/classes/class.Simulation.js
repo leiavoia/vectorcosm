@@ -5,7 +5,7 @@ import * as utils from '../util/utils.js'
 import { BoidFactory } from '../classes/class.Boids.js'
 import neataptic from "neataptic";
 import {Circle} from 'collisions';
-import { PendantLettuce, VectorGrass, WaveyVectorGrass } from '../classes/class.Plant.js'
+import { RandomPlant, PointCloudPlant, PendantLettuce, VectorGrass, WaveyVectorGrass } from '../classes/class.Plant.js'
 
 export default class Simulation {
 
@@ -232,10 +232,12 @@ export default class Simulation {
 			const rock = this.tank.obstacles.pickRandom();
 			if ( rock ) {
 				const p = rock.pts.pickRandom(); 
-				const type = Math.random() < 0.20 ? PendantLettuce : ( Math.random() < 0.2 ? WaveyVectorGrass : VectorGrass);
-				const plant = new type( rock.x+p[0], rock.y+p[1] );
+				// const type = Math.random() < 0.20 ? PendantLettuce : ( Math.random() < 0.2 ? WaveyVectorGrass : VectorGrass);
+				// const type = PointCloudPlant;
+				const plant = RandomPlant( rock.x+p[0], rock.y+p[1] );
 				this.tank.plants.push(plant);
-				window.vc.AddShapeToRenderLayer( plant.geo, /* Math.random() > 0.5 ? '+1' : */ '-1' );
+				window.vc.AddShapeToRenderLayer( plant.geo, Math.random() > 0.5 ? '0' : '-1' );
+				// window.vc.AddShapeToRenderLayer( plant.geo, '-1' );
 			}
 		}
 	}
