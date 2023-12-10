@@ -216,7 +216,7 @@ export default class Simulation {
 				this.tank.obstacles.push(rock);
 			}
 		}
-		// substate and placed stones
+		// substrate and placed stones
 		if ( this.settings?.add_decor ) { 
 			this.tank.MakePrettyDecor();
 		}
@@ -232,8 +232,6 @@ export default class Simulation {
 			const rock = this.tank.obstacles.pickRandom();
 			if ( rock ) {
 				const p = rock.pts.pickRandom(); 
-				// const type = Math.random() < 0.20 ? PendantLettuce : ( Math.random() < 0.2 ? WaveyVectorGrass : VectorGrass);
-				// const type = PointCloudPlant;
 				const plant = RandomPlant( rock.x+p[0], rock.y+p[1] );
 				this.tank.plants.push(plant);
 				window.vc.AddShapeToRenderLayer( plant.geo, Math.random() > 0.5 ? '0' : '-1' );

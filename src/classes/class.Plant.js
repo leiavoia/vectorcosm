@@ -288,47 +288,25 @@ export class WaveyVectorGrass extends Plant {
 	}	
 } 
 
-// export default class Plant {
-// 	constructor(x=0,y=0,scale=1) {
-// 		scale = utils.clamp(scale,0.1,10);
-// 		this.x = x;
-// 		this.y = y;
-// 		let leaves = Math.trunc( Math.random() * 2 ) + 2;
-// 		this.geo = two.makeGroup();
-// 		for ( let i=0; i < leaves; i++ ) {
-// 			let h = Math.random()*400*scale + 200;
-// 			let w = Math.random()*300*scale + 200;
-// 			let tip_x = x + ((w * Math.random() * 0.6) - (w * Math.random() * 0.3));
-// 			let points = [
-// 				(x + (Math.random() * 60 * scale)) - (30*scale), // root
-// 				y+50,
-// 				Math.max(x,tip_x) + Math.random() * w / 2,
-// 				y - (Math.random() * h/2 + h/2),
-// 				tip_x,
-// 				y-h,
-// 				Math.min(x,tip_x) - Math.random() * w / 2,
-// 				y - (Math.random() * h/2 + h/2)
-// 			];
-// 			let path = two.makePath(...points);
-// 			path.linewidth = 2;
-// 			path.stroke = utils.adjustColor('#AEA1',0.1);
-// 			path.fill = utils.adjustColor('#AEA2',0.1);
-// 			this.geo.add( path );
-// 		}
-// 	}
-// }
-
 export class PointCloudPlant extends Plant {
 	constructor(x=0, y=0) {
 		super(x,y);
-		this.fruit_interval = utils.RandomInt(45,60);
+		this.fruit_interval = utils.RandomInt(30,120);
 		this.next_fruit = this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 );
-		this.fruit_hue = utils.RandomFloat(0.05,0.20);
+		this.fruit_hue = Math.random();
+		this.lifespan = utils.RandomFloat(30, 300);
+		this.growth_overlap_mod = Math.random();
+		this.maturity_age = utils.RandomFloat( 0.1 * this.lifespan, 0.5 * this.lifespan );
+		
+		// TODO: IMMORTALITY FOR TESTING  
+		this.age = this.maturity_age;
 		
 		// create point cloud
-		this.radius = utils.RandomInt( 100, 500 );
+		this.radius = utils.RandomInt( 100, 350 );
+		// this.radius = 200;
 		this.points = [];
-		const num_points = utils.RandomInt( 3, 12 );
+		// const num_points = utils.RandomInt( 5, 12 );
+		const num_points = 10;
 		for ( let i=0; i < num_points; i++ ) {
 			this.points.push( [
 				utils.RandomInt( -this.radius, this.radius ),
@@ -338,9 +316,9 @@ export class PointCloudPlant extends Plant {
 		
 		// point sorting
 		this.smeth = Math.random();
-		if ( this.smeth < 0.25 ) { this.smeth = null; }
-		else if ( this.smeth < 0.5 ) { this.smeth = this.SortByX; }
-		else if ( this.smeth < 0.75 ) { this.smeth = this.SortByY; }
+		if ( this.smeth < 0.0 ) { this.smeth = null; }
+		else if ( this.smeth < 0.25 ) { this.smeth = this.SortByX; }
+		else if ( this.smeth < 0.50 ) { this.smeth = this.SortByY; }
 		else { this.smeth = this.SortByAngle; }
 		if ( this.smeth ) {
 			this.points.sort( this.smeth );
@@ -353,9 +331,12 @@ export class PointCloudPlant extends Plant {
 		
 		// slur the points around
 		// TODO: there are lots of fun ways we could do this in the future
-		if ( Math.random() > 0.5 ) {
+		if ( Math.random() > 0.35 ) {
 			this.points = this.points.map( p => [ p[0], p[1] - this.radius * 2 ] );
 		}
+		
+		// label all of the points with an ID number - we can use this to animate growth later
+		for ( let i=0; i < this.points.length; i++ ) { this.points[i][2] = i+1; }
 		
 		// if the shape is "centered", it threads all points back through the center
 		// when creating individual sub-shapes (petals), creating an aster-like pattern.
@@ -363,7 +344,7 @@ export class PointCloudPlant extends Plant {
 		
 		// if the shape is NOT centered, use the center point as a starting point
 		if ( !this.centered ) {
-			this.points.unshift([0,0]);
+			this.points.unshift([0,0,0]);
 		}
 		
 		// if the shape is "centered", we automatically insert the center point
@@ -386,7 +367,7 @@ export class PointCloudPlant extends Plant {
 			for ( let i=0; i < this.points.length - (this.points_per_shape-subtract_one); i += this.point_increment ) {
 				const slice = this.points.slice( i, i + ( this.points_per_shape - subtract_one ) );
 				slice.sort( this.SortByAngle ); // not required but usually aesthetically better
-				if ( this.centered ) { slice.unshift([0,0]); } // start from zero on every shape
+				if ( this.centered ) { slice.unshift([0,0,0]); } // start from zero on every shape
 				shapes.push(slice);
 			}
 		}
@@ -401,7 +382,7 @@ export class PointCloudPlant extends Plant {
 			}
 			for ( let i=0; i < this.points.length - (this.points_per_shape-(1+subtract_one)); i += this.point_increment ) {
 				const slice = this.points.slice( i, i + ( this.points_per_shape - subtract_one ) );
-				if ( this.centered ) { slice.unshift([0,0]); } // start from zero on every loop
+				if ( this.centered ) { slice.unshift([0,0,0]); } // start from zero on every loop
 				shapes[0].push(...slice);
 			}
 		}
@@ -411,11 +392,11 @@ export class PointCloudPlant extends Plant {
 		const is_linear = this.points_per_shape == 2;
 				
 		// colors and features			
-		this.linewidth = utils.RandomInt(1,20); 
+		this.linewidth = utils.RandomInt(1,this.radius/6); 
 		this.fill = this.RandomGradient();							
 		this.stroke = this.RandomGradient();						
-		if ( Math.random() > 0.6 ) {
-			const dash = utils.BiasedRandInt(2,20,3,0.8);
+		if ( Math.random() > 0.46 ) {
+			const dash = utils.BiasedRandInt(2,this.linewidth*2,3,0.95);
 			this.dashes =  [dash,dash];
 		}
 		if ( Math.random() > 0.6 ) {
@@ -444,7 +425,13 @@ export class PointCloudPlant extends Plant {
 		// create the final SVG shape(s)
 		for ( let points of shapes ) {
 			let anchors = points.map( p => new Two.Anchor( p[0], p[1] ) );
+			// TODO: add back when full plant lifecycle implemented
+			// let anchors = points.map( p => new Two.Anchor( 0, 0 ) );
 			let shape = window.two.makePath(anchors);
+			// label the vertices for animation later
+			for ( let i=0; i < shape.vertices.length; i++ ) {
+				shape.vertices[i].label = points[i][2];
+			}
 			shape.fill = this.fill;
 			shape.stroke = this.stroke;
 			shape.linewidth = this.linewidth;
@@ -461,11 +448,14 @@ export class PointCloudPlant extends Plant {
 	}	
 	Update( delta ) {
 		this.age += delta;
-		if ( this.age >= this.lifespan ) {
-			this.geo.remove();
-			this.Kill();
-			return false;
-		}
+		
+		// TODO: IMMORTALITY FOR TESTING  
+		// if ( this.age >= this.lifespan ) {
+		// 	this.geo.remove();
+		// 	this.Kill();
+		// 	return false;
+		// }
+		
 		// make berries
 		if ( this.age > this.next_fruit ) {
 			this.next_fruit += this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 );
@@ -482,10 +472,14 @@ export class PointCloudPlant extends Plant {
 				window.vc.tank.foods.push(f);
 			}
 		}
+		
+		// TODO: limit calls to save frame rate
+		// this.UpdatePointsByGrowth();
+		
 		// wave the grass
 		if ( window.vc.animate_plants && !window.vc.simulation.turbo ) {
 			// sway individual shapes
-			// FIXME: make blades wave from base
+			// FIXME: make blades wave from base - need to do rotate-around-point math
 			if ( this.animation_method == 'sway' ) {		
 				const cell = window.vc.tank.datagrid.CellAt( this.x, this.y );
 				const strength = Math.sqrt( cell.current_x * cell.current_x + cell.current_y * cell.current_y ); 
@@ -501,7 +495,6 @@ export class PointCloudPlant extends Plant {
 						child.x_offset = ( dims.right + dims.left ) / 2;
 					}
 					child.position.x = ( Math.sin(angle) * radius ) + child.x_offset;
-					child.position.y = -( Math.cos(angle) * radius );	
 				}
 			}
 			// simpler skew animation
@@ -515,7 +508,32 @@ export class PointCloudPlant extends Plant {
 			}
 		}				
 	}
-	
+	UpdatePointsByGrowth( force=false ) {
+		if ( this.age > this.maturity_age && !force ) { return; } 
+		const maturity = this.maturity_age / this.lifespan;
+		const age = this.age / this.lifespan;
+		const growth = (age >= maturity) ? 1 : (age / maturity);
+		const n = this.points.length;
+		// create a map of where each point should be right now
+		const pts = this.points.map( (p,i) => {
+			const start = (1/n) * i * this.growth_overlap_mod;
+			const end = start + (1/n) / this.growth_overlap_mod;
+			const at = utils.Clamp( (growth - start) / (end - start), 0, 1);
+			const x = p[0] * at;
+			const y = p[1] * at;
+			return [x,y];
+		});
+		if ( pts[0][0] || pts[0][1] ) { pts.unshift([0,0,0]); } 
+		// adjust the points in the actual geometry - there may be multiple occurrences
+		for ( let s of this.geo.children ) {
+			for ( let v of s.vertices ) {
+				if ( v.label ) {
+					v.x = pts[ v.label ][0];
+					v.y = pts[ v.label ][1];
+				}
+			}
+		}
+	}	
 	SortByY(a,b) {
 		return b[1] - a[1];
 	}
@@ -527,13 +545,12 @@ export class PointCloudPlant extends Plant {
 	}
 	RandomShadeOfGreen() {
 		let hue = utils.RandomInt(55,200);		
-		let saturation = utils.RandomInt(20,70);			
-		let lightness = utils.RandomInt(20,60);			
+		let saturation = utils.RandomInt(20,60);			
+		let lightness = utils.RandomInt(20,55);			
 		let transp = utils.RandomFloat( 0.5, 1.0 );
 		return `hsla(${hue},${saturation}%,${lightness}%,${transp})`;	
 	}
 	RandomGradient() {
-		// TODO add triples, random not-gree-color, copy code from bodyplan
 		const c1 = this.RandomShadeOfGreen();
 		const c2 = this.RandomShadeOfGreen();
 		const c3 = Math.random() > 0.8 
@@ -560,7 +577,7 @@ export class PointCloudPlant extends Plant {
 }
 
 const plantPicker = new utils.RandomPicker( [
-	[ PointCloudPlant, 	100 ],
+	[ PointCloudPlant, 	20 ],
 	[ PendantLettuce, 	50 ],
 	[ VectorGrass, 		150 ],
 	[ WaveyVectorGrass, 50 ],
