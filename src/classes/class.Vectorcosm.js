@@ -8,6 +8,9 @@ import Chart from 'chart.js/auto';
 // https://www.chartjs.org/docs/latest/getting-started/integration.html
 import * as utils from '../util/utils.js'
 import Tank from '../classes/class.Tank.js'
+import Rock from '../classes/class.Rock.js'
+import Food from '../classes/class.Food.js'
+import Plant from '../classes/class.Plant.js'
 import { AvoidEdgesSimulation, TurningSimulation, FoodChaseSimulation, BasicTravelSimulation } from '../classes/class.Simulation.js'
 import BrainGraph from '../classes/class.BrainGraph.js'
 import { BoidFactory, Boid } from '../classes/class.Boids.js'
@@ -68,9 +71,6 @@ export default class Vectorcosm {
 			transition_time: 10000, // ms
 			focus_time: 15000, // ms
 		};
-		this.bg_opacity = 'random'; // 'random', zero, or 0..1
-		this.bg_visible = true; 
-		this.renderLayers['backdrop'].visible = this.bg_visible;
 		
 		// subscriptions to critical events
 		// this.frameUpdateSubscription = PubSub.subscribe('frame-update', (msg,data) => {
@@ -301,14 +301,14 @@ export default class Vectorcosm {
 		
 		const natural_tank = new FoodChaseSimulation(this.tank,{
 			name: 'Natural Tank',
-			num_boids: 80,
+			num_boids: 50,
 			random_boid_pos: true,
 			random_food_pos: true,
 			time: 1000000,
 			// min_score: 5,
 			max_mutation: 0.1,
-			num_rocks: 28,
-			num_plants: 60,
+			num_rocks: 20,
+			num_plants: 20,
 			target_spread: 400,
 			species:'random',
 			cullpct: 0.3,
@@ -525,7 +525,7 @@ export default class Vectorcosm {
 		const was_turbo = this.simulation ? this.simulation.turbo : false; 
 		this.simulation = this.sim_queue.shift();
 		if ( this.simulation ) { 
-			this.simulation.Sterilize(); 
+			this.tank.Sterilize(); 
 			this.simulation.tank.boids = boids;
 			this.simulation.Setup(); 
 			this.simulation.turbo = was_turbo;
@@ -895,5 +895,53 @@ export default class Vectorcosm {
 			}			
 		}		
 	}
+	
+	SaveTank() {
+		if ( this.tank ) {
+			const scene = {
+				tank: this.tank.Export(),
+				boids: this.tank.boids.map( x => x.Export() ),
+				obstacles: this.tank.obstacles.map( x => x.Export() ),
+				foods: this.tank.foods.map( x => x.Export() ),
+				plants: this.tank.plants.map( x => x.Export() ),
+			};
+			let str = JSON.stringify(scene).replace(/\d+\.\d+/g, x => parseFloat(x).toPrecision(6) );
+			localStorage.setItem("tank", str);
+		}
+	}
 			
+	LoadTank() {
+		let json = localStorage.getItem("tank");
+		if (json) {
+			this.tank.Kill();
+			const scene = JSON.parse(json);
+			this.tank = new Tank( scene.tank );
+			this.tank.MakeBackground();
+			this.ResetCameraZoom();
+			this.sim_queue.push( new FoodChaseSimulation(this.tank,{
+				name: 'Saved Tank',
+				time: 1000000,
+				num_boids:0,
+				num_foods: 0,
+				num_plants: 0,
+				num_rocks: 0
+			}));
+			this.LoadNextSim();
+			this.tank.boids = scene.boids.map( o => {
+				// let b = new Boid( this.width*0.25, this.height*0.25, this.simulation.tank, JSON.parse(json) );
+				let b = new Boid( o.x || this.width*math.random(), o.y || this.height*math.random(), this.tank, o );
+				b.angle = Math.random() * Math.PI * 2;		
+				b.ScaleBoidByMass();
+				return b;
+			});
+			this.tank.obstacles = scene.obstacles.map( x => new Rock(x) );
+			this.tank.foods = scene.foods.map( x => new Food(x) );
+			this.tank.plants = scene.plants.map( x => new Plant.PlantTypes[x.classname](x) );
+			// [!]hack
+			for ( let p of this.tank.plants ) {
+				window.vc.AddShapeToRenderLayer( p.geo, Math.random() > 0.5 ? '0' : '-1' );
+			}
+		}		
+	}
+	
 }

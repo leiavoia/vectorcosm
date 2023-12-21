@@ -5,6 +5,11 @@ import Rock from '../classes/class.Rock.js'
 
 export default class Food {
 	constructor(x=0,y=0,params) {
+		// first param can be JSON to rehydrate entire object from save
+		if ( x && typeof x === 'object' ) {
+			params = x;
+		}
+		// defaults
 		this.x = x;
 		this.y = y;
 		this.vx = Math.random() * 10 - 5;
@@ -19,11 +24,7 @@ export default class Food {
 		Object.assign( this, params );
 		this.r = Math.sqrt( 2 * this.value / Math.PI );
 		this.geo = window.two.makeCircle(this.x,this.y,this.r);
-		// this.geo.linewidth=2;
-		// this.geo.stroke = 'white';
 		this.geo.noStroke();
-		// let stops = [ new Two.Stop(0, '#FA06'), new Two.Stop(1, '#FA0F') ];
-		// this.geo.fill = new Two.RadialGradient(0, 0, 1, stops, -0.25, -0.25);
 		this.geo.fill = `hsl(${this.hue*255},${(Math.min(1,this.edibility+0.5))*100}%,${this.colorval*100}%)`;
 		this.geo.stroke = `hsl(${this.hue*255},${(Math.min(1,this.edibility+0.5))*100}%,50%)`;
 		this.geo.linewidth = 4;
@@ -33,6 +34,13 @@ export default class Food {
 		this.dead = false;		
 		this.collision = { radius: this.r }	;
 	}
+	Export( as_JSON=false ) {
+		let output = {};
+		let datakeys = ['x','y','value','age','lifespan','hue','colorval','edibility'];		
+		for ( let k of datakeys ) { output[k] = this[k]; }
+		if ( as_JSON ) { output = JSON.stringify(output); }
+		return output;
+	}	
 	Update(delta) {
 		if ( !delta ) { return; }
 		if ( delta > 1 ) { delta /= 1000; }
@@ -41,12 +49,6 @@ export default class Food {
 			this.Kill();
 			return;
 		}
-		// brownian motion
-		// const brownian_velocity = 200;
-		// if ( Math.random() > 0.5 ) {
-		// 	this.vx += Math.random() * brownian_velocity - (brownian_velocity*0.5);
-		// 	this.vy += Math.random() * brownian_velocity - (brownian_velocity*0.5);
-		// }
 		// move
 		this.x += this.vx * delta;
 		this.y += this.vy * delta;

@@ -129,6 +129,9 @@ const keyFunctionMap = {
 	'Pause': _ => {
 			vc.TogglePause();
 		},
+	'p': _ => {
+			vc.TogglePause();
+		},
 	'_': _ => {
 			const diff = Math.abs( vc.scale - (vc.scale * (1/(1 + zoompct))) );
 			vc.MoveCamera( 0, 0, -diff );
@@ -178,6 +181,12 @@ const keyFunctionMap = {
 	'ScrollLock': _ => {
 			vc.ResizeTankToWindow();
 		},
+	's': _ => {
+			vc.SaveTank();
+		},
+	'a': _ => {
+			vc.LoadTank();
+		},
 	'1': _ => {
 			vc.ToggleShowSensors();
 		},
@@ -197,7 +206,8 @@ const keyFunctionMap = {
 			vc.animate_boids = !vc.animate_boids;
 		},
 	'6': _ => {
-			vc.renderLayers['backdrop'].visible = !vc.renderLayers['backdrop'].visible;
+			vc.tank.bg_visible = !vc.tank.bg_visible;
+			vc.tank.bg.visible = vc.tank.bg_visible;
 		},
 	'7': _ => {
 			ToggleTankDebug();

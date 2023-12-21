@@ -40,25 +40,54 @@ export default class Tank {
 	constructor( w, h ) {
 		this.width = w;
 		this.height = h;
-		// this.responsive = true; // snap to window size on resize events
-		this.responsive = false; // snap to window size on resize events
 		this.viscosity = 0.5;
 		this.boids = [];
 		this.foods = [];
-		this.threats = [];
 		this.obstacles = [];
 		this.plants = [];
 		this.whirls = []; // defined later for generating currents
-		this.grid = new SpaceGrid(w,h,300);
-		this.CreateDataGrid(w,h);
+		this.bg_opacity = 'random'; // 'random', zero, or 0..1
+		this.bg_visible = true; 		
+		this.bg_theme = 'random';
+		// first param can be JSON to rehydrate entire object from save
+		if ( w && typeof w === 'object' ) {
+			Object.assign(this,w);
+			this.MakeBackground();
+		}
+		this.grid = new SpaceGrid(this.width,this.height,300);
+		this.CreateDataGrid(this.width,this.height);
 	}
 	
+	Export( as_JSON=false ) {
+		let output = {};
+		let datakeys = ['width','height','whirls','viscosity','background_triangles','bg_opacity', 'bg_visible', 'bg_theme'];		
+		for ( let k of datakeys ) { output[k] = this[k]; }
+		if ( as_JSON ) { output = JSON.stringify(output); }
+		return output;
+	}
+		
+	Kill() {
+		if ( this.bg ) { this.bg.remove(); }
+		if ( this.debug_geo ) { this.debug_geo.remove(); }
+		for ( let r of this.obstacles ) { r.Kill(); }
+		this.Sterilize();
+	}
+
+	Sterilize() {
+		this.boids.forEach( x => x.Kill() );
+		this.boids.length = 0;
+		this.foods.forEach( x => x.Kill() );
+		this.foods.length = 0;
+		this.plants.forEach( x => x.Kill() );
+		this.plants.length = 0;
+	}
+		
 	CreateDataGrid(w,h) {
 		const gridsize = 300;
 		this.datagrid = new DataGrid(w,h,gridsize);
 		const largest_dim = Math.max( w, h );
 		// create a few whirlpool points
-		// if ( !this.whirls.length ) { // don't make new ones
+		if ( !this.whirls.length ) { // don't make new ones
 			const num_whirls = utils.RandomInt(1,5);
 			this.whirls = [];
 			for ( let n=0; n < num_whirls; n++ ) {
@@ -72,7 +101,7 @@ export default class Tank {
 					pull: utils.RandomFloat(0.3, 0.7) // 0.5=neutral, <0.5=inward, >0.5=outward
 				} );
 			}
-		// }
+		}
 		// create vector field
 		for ( let x=0; x < this.datagrid.cells_x; x++ ) {
 			for ( let y=0; y < this.datagrid.cells_y; y++ ) {
@@ -176,94 +205,108 @@ export default class Tank {
 	// background layer
 	MakeBackground() {
 		
-		// random backdrop theme
-		const bg_theme = Tank.backdrop_themes.pickRandom();
+		// backdrop theme
+		let bg_theme;
+		if ( this.bg_theme == 'random' ) { 
+			bg_theme = Tank.backdrop_themes.pickRandom()
+		}
+		else {
+			bg_theme = Tank.backdrop_themes.find( x => x.name == this.bg_theme );
+		}
+		if ( !bg_theme ) { bg_theme = Tank.background_themes; }
+		this.bg_theme = bg_theme.name;
+		
 		document.body.setAttribute("class", document.body.getAttribute("class").replace(/\s*bg-theme-\w+/, '') + ' ' + bg_theme.class );
 		
 		// return;
 		
-		// random delauney background
 		if ( this.bg ) { this.bg.remove(); }
 		this.bg = window.two.makeGroup();
-		let bgnumpts = Math.trunc(Math.random() * 200) + 10;
-		let bgpts = [];
-		bgpts.push( [0, 0] );
-		bgpts.push( [this.width, 0] );
-		bgpts.push( [0, this.height] );
-		bgpts.push( [this.width, this.height] );
-		for ( let x=0; x < bgnumpts*0.1; x++ ) {
-			bgpts.push( [Math.trunc(Math.random() * this.width), 0] );
-			bgpts.push( [Math.trunc(Math.random() * this.width), this.height] );
-		}
-		for ( let x=0; x < bgnumpts*0.1; x++ ) {
-			bgpts.push( [0, Math.trunc(Math.random() * this.height)] );
-			bgpts.push( [this.width, Math.trunc(Math.random() * this.height) ] );
-		}
-		for ( let x=0; x < bgnumpts*0.8; x++ ) {
-			bgpts.push( [ Math.trunc(Math.random() * this.width), Math.trunc(Math.random() * this.height)] );
-		}
-
-		// random edge gravity
-		const x_strength = Math.random() * 2 -1;
-		const y_strength = Math.random() * 2 -1;
-		const x_focus = this.width * 0.5; // ( Math.random() * 0.9 + 0.05 );
-		const y_focus = this.height * 0.5; // ( Math.random() * 0.9 + 0.05 );
-		for ( let p of bgpts ) {
-			p[0] = utils.SigMap( p[0], 0, this.width, 0, this.width, x_focus, x_strength );
-			p[1] = utils.SigMap( p[1], 0, this.height, 0, this.height, y_focus, y_strength );
-		}
 		
-		// randomized color schemes 
-		for ( let n=0; n < 5; n++ ) {
-			const colors = [];
-			const num_colors = utils.RandomInt(2,5,3,0.5);
-			for ( let c=0; c < num_colors; c++ ){
-				const color = utils.RandomColor( true, false, false, true );
-				colors.push(color);
+		// random delauney background
+		if ( !this.background_triangles ) {
+			this.background_triangles = [];
+			let bgnumpts = Math.trunc(Math.random() * 200) + 10;
+			let bgpts = [];
+			bgpts.push( [0, 0] );
+			bgpts.push( [this.width, 0] );
+			bgpts.push( [0, this.height] );
+			bgpts.push( [this.width, this.height] );
+			for ( let x=0; x < bgnumpts*0.1; x++ ) {
+				bgpts.push( [Math.trunc(Math.random() * this.width), 0] );
+				bgpts.push( [Math.trunc(Math.random() * this.width), this.height] );
 			}
-			Tank.background_themes[`random-${n}`] = colors;
+			for ( let x=0; x < bgnumpts*0.1; x++ ) {
+				bgpts.push( [0, Math.trunc(Math.random() * this.height)] );
+				bgpts.push( [this.width, Math.trunc(Math.random() * this.height) ] );
+			}
+			for ( let x=0; x < bgnumpts*0.8; x++ ) {
+				bgpts.push( [ Math.trunc(Math.random() * this.width), Math.trunc(Math.random() * this.height)] );
+			}
+
+			// random edge gravity
+			const x_strength = Math.random() * 2 -1;
+			const y_strength = Math.random() * 2 -1;
+			const x_focus = this.width * 0.5; // ( Math.random() * 0.9 + 0.05 );
+			const y_focus = this.height * 0.5; // ( Math.random() * 0.9 + 0.05 );
+			for ( let p of bgpts ) {
+				p[0] = utils.SigMap( p[0], 0, this.width, 0, this.width, x_focus, x_strength );
+				p[1] = utils.SigMap( p[1], 0, this.height, 0, this.height, y_focus, y_strength );
+			}
+			
+			// randomized color schemes 
+			for ( let n=0; n < 5; n++ ) {
+				const colors = [];
+				const num_colors = utils.RandomInt(2,5,3,0.5);
+				for ( let c=0; c < num_colors; c++ ){
+					const color = utils.RandomColor( true, false, false, true );
+					colors.push(color);
+				}
+				Tank.background_themes[`random-${n}`] = colors;
+			}
+			
+			const delaunay = Delaunator.from(bgpts);
+			let triangles = delaunay.triangles;
+			let bgcolors = Object.values(Tank.background_themes).pickRandom();
+			for (let i = 0; i < triangles.length; i += 3) {
+				let c = bgcolors[ Math.trunc( Math.random() * bgcolors.length ) ]; 
+				
+				// fade up the tank 
+				const color_variance = Math.random();
+				let center = (bgpts[triangles[i]][1] + bgpts[triangles[i+1]][1] + bgpts[triangles[i+2]][1]) / 3;
+				const r = (0.5-(center/this.height)) * color_variance + (Math.random()*color_variance*0.5-0.5); 
+				c = utils.adjustColor(c,r);
+				
+				// save triangle data for later
+				this.background_triangles.push( [
+					bgpts[triangles[i]][0], 
+					bgpts[triangles[i]][1], 
+					bgpts[triangles[i+1]][0], 
+					bgpts[triangles[i+1]][1], 
+					bgpts[triangles[i+2]][0], 
+					bgpts[triangles[i+2]][1],
+					c
+				]); 
+			}
 		}
-		
-		const delaunay = Delaunator.from(bgpts);
-		let triangles = delaunay.triangles;
-		let bgcolors = Object.values(Tank.background_themes).pickRandom();
-		for (let i = 0; i < triangles.length; i += 3) {
-			let c = bgcolors[ Math.trunc( Math.random() * bgcolors.length ) ]; 
-			
-			// fades up the tank 
-			// const color_variance = 0.05;
-			const color_variance = Math.random();
-			let center = (bgpts[triangles[i]][1] + bgpts[triangles[i+1]][1] + bgpts[triangles[i+2]][1]) / 3;
-			const r = (0.5-(center/this.height)) * color_variance + (Math.random()*color_variance*0.5-0.5); 
-			c = utils.adjustColor(c,r);
-			
-			// random shift
-			// const color_variance = 0.2;
-			// const r = Math.random() * color_variance;
-			// c = utils.adjustColor(c, 2 * r - r); // +/- the amount
-			
-			let t = window.two.makePath(
-				bgpts[triangles[i]][0], 
-				bgpts[triangles[i]][1], 
-				bgpts[triangles[i+1]][0], 
-				bgpts[triangles[i+1]][1], 
-				bgpts[triangles[i+2]][0], 
-				bgpts[triangles[i+2]][1] 
-				);
-			t.linewidth = 0;
-			t.fill = c;
-			t.stroke = 'transparent';
-			this.bg.add(t);
-		}
-		if ( window.vc.bg_opacity ) {	
-			if ( window.vc.bg_opacity == 'random' ) {	
-				window.vc.bg_opacity = Math.random()
-				this.bg.opacity = window.vc.bg_opacity;
+		// geometry for two.js
+		for ( let t of this.background_triangles ) {
+			let p = window.two.makePath( ...t.slice(null, -1) );
+			p.linewidth = 0;
+			p.fill = t[6];
+			p.stroke = 'transparent'; // t[6];
+			this.bg.add(p);
+		}		
+		if ( this.bg_opacity ) {	
+			if ( this.bg_opacity == 'random' ) {	
+				this.bg_opacity = Math.random()
+				this.bg.opacity = this.bg_opacity;
 			}
 			else {
-				this.bg.opacity = window.vc.bg_opacity;
+				this.bg.opacity = this.bg_opacity;
 			}
 		}
+		this.bg.visible = this.bg_visible;
 		// window.vc.AddShapeToRenderLayer(this.bg, -2);
 		window.vc.AddShapeToRenderLayer(this.bg, 'backdrop');
 		this.ScaleBackground();

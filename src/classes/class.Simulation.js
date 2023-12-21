@@ -58,16 +58,6 @@ export default class Simulation {
 		this.onComplete = null; // not implemented
 	}
 	
-	Sterilize() {
-		// sterilize the tank
-		this.tank.boids.forEach( x => x.Kill() );
-		this.tank.boids.length = 0;
-		this.tank.foods.forEach( x => x.Kill() );
-		this.tank.foods.length = 0;
-		this.tank.plants.forEach( x => x.Kill() );
-		this.tank.plants.length = 0;
-	}
-	
 	// inherit me	
 	Setup() {
 		if ( this.settings?.scale ) {
@@ -234,6 +224,7 @@ export default class Simulation {
 				const p = rock.pts.pickRandom(); 
 				const plant = RandomPlant( rock.x+p[0], rock.y+p[1] );
 				this.tank.plants.push(plant);
+				// [!] inconsistent behavior with rocks which automatically place themselves
 				window.vc.AddShapeToRenderLayer( plant.geo, Math.random() > 0.5 ? '0' : '-1' );
 				// window.vc.AddShapeToRenderLayer( plant.geo, '-1' );
 			}

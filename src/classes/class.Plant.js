@@ -4,18 +4,23 @@ import * as utils from '../util/utils.js'
 import Food from '../classes/class.Food.js'
 
 export default class Plant {
+	static PlantTypes = new Map;
 	constructor(x=0,y=0) {
 		this.x = x;
 		this.y = y;
 		this.dead = false;
-		this.geo = two.makeGroup();
-		this.geo.position.x = x;
-		this.geo.position.y = y;
 		this.age = 0;
-		this.lifespan = 10000000;
-		this.fruit_interval = 10;
-		this.next_fruit = 10;
-		this.fruit_hue = 0.3;
+		this.lifespan = 100000000;
+		this.fruit_interval = 0;
+		this.next_fruit = 0;
+		this.fruit_hue = 0;
+		// first param can be JSON to rehydrate entire object from save
+		if ( x && typeof x === 'object' ) {
+			Object.assign(this,x);
+		}		
+		this.geo = window.two.makeGroup();
+		this.geo.position.x = this.x;
+		this.geo.position.y = this.y;
 	}
 	Kill() {
 		this.geo.remove();
@@ -24,19 +29,29 @@ export default class Plant {
 	Update( delta ) {
 		this.age += delta;
 		if ( this.age >= this.lifespan ) {
-			this.geo.remove();
 			this.Kill();
 			return false;
 		}
 	}
+	Export( as_JSON=false ) {
+		let output = { classname: this.constructor.name };
+		let datakeys = ['x','y','fruit_interval','age','lifespan','fruit_hue','next_fruit','maturity_age','growth_overlap_mod'];		
+		for ( let k of datakeys ) { 
+			if ( this.hasOwnProperty(k) ) { 
+				output[k] = this[k];
+			} 
+ 		}
+		if ( as_JSON ) { output = JSON.stringify(output); }
+		return output;
+	}		
 }
 
 export class PendantLettuce extends Plant {
 	constructor(x=0, y=0) {
 		super(x,y);
-		this.fruit_interval = utils.RandomInt(30,40);
-		this.next_fruit = this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 );
-		this.fruit_hue = utils.RandomFloat(0.25,0.35);	
+		if ( !this.fruit_interval ) { this.fruit_interval = utils.RandomInt(30,40); }
+		if ( !this.next_fruit ) { this.next_fruit = this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 ); }
+		if ( !this.fruit_hue ) { this.fruit_hue = utils.RandomFloat(0.25,0.35);	}
 		// make the unique shape	
 		const n = utils.BiasedRandInt( 3, 16, 8, 0.8 );
 		const r = utils.BiasedRandInt( 50, 200, 100, 0.6);
@@ -84,7 +99,7 @@ export class PendantLettuce extends Plant {
 		if ( this.dead ) { return; }
 		// make berries
 		if ( this.age > this.next_fruit ) {
-			this.next_fruit += this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 );
+			this.next_fruit = this.age + this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 );
 			if ( window.vc.tank.foods.length < 300 ) {
 				const f = new Food( this.x, this.y, { 
 					value: 50, 
@@ -107,13 +122,14 @@ export class PendantLettuce extends Plant {
 		}
 	}
 } 
+Plant.PlantTypes.PendantLettuce = PendantLettuce;
 
 export class VectorGrass extends Plant {
 	constructor(x=0, y=0) {
 		super(x,y);
-		this.fruit_interval = utils.RandomInt(20,30);
-		this.next_fruit = this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 );
-		this.fruit_hue = utils.RandomFloat(0.55,0.8);
+		if ( !this.fruit_interval ) { this.fruit_interval = utils.RandomInt(20,30); }
+		if ( !this.next_fruit ) { this.next_fruit = this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 ); }
+		if ( !this.fruit_hue ) { this.fruit_hue = utils.RandomFloat(0.55,0.8); }
 		// leaf coloring
 		const tip_color = `hsl(${this.fruit_hue*255},85%,75%)`;
 		const stops = [ new Two.Stop(0, '#697'), new Two.Stop(0.68, '#697'), new Two.Stop(1, tip_color) ];		
@@ -146,7 +162,7 @@ export class VectorGrass extends Plant {
 		if ( this.dead ) { return; }
 		// make berries
 		if ( this.age > this.next_fruit ) {
-			this.next_fruit += this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 );
+			this.next_fruit = this.age + this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 );
 			if ( window.vc.tank.foods.length < 300 ) {
 				for ( const b of this.blades ) {
 					const f = new Food( 
@@ -178,13 +194,14 @@ export class VectorGrass extends Plant {
 		}		
 	}	
 } 
+Plant.PlantTypes.VectorGrass = VectorGrass;
 
 export class WaveyVectorGrass extends Plant {
 	constructor(x=0, y=0) {
 		super(x,y);
-		this.fruit_interval = utils.RandomInt(45,60);
-		this.next_fruit = this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 );
-		this.fruit_hue = utils.RandomFloat(0.05,0.20);
+		if ( !this.fruit_interval ) { this.fruit_interval = utils.RandomInt(45,60); }
+		if ( !this.next_fruit ) { this.next_fruit = this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 ); }
+		if ( !this.fruit_hue ) { this.fruit_hue = utils.RandomFloat(0.05,0.20); }
 		// leaf coloring
 		const tip_color = `hsl(${this.fruit_hue*255},85%,75%)`;
 		const stops = [ new Two.Stop(0, '#243'), new Two.Stop(0.86, '#726'), new Two.Stop(1, tip_color) ];		
@@ -228,7 +245,7 @@ export class WaveyVectorGrass extends Plant {
 		if ( this.dead ) { return; }
 		// make berries
 		if ( this.age > this.next_fruit ) {
-			this.next_fruit += this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 );
+			this.next_fruit = this.age + this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 );
 			if ( window.vc.tank.foods.length < 300 ) {
 				for ( const b of this.blades ) {
 					const f = new Food( 
@@ -287,16 +304,17 @@ export class WaveyVectorGrass extends Plant {
 							
 	}	
 } 
+Plant.PlantTypes.WaveyVectorGrass = WaveyVectorGrass;
 
 export class PointCloudPlant extends Plant {
 	constructor(x=0, y=0) {
 		super(x,y);
-		this.fruit_interval = utils.RandomInt(30,120);
-		this.next_fruit = this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 );
-		this.fruit_hue = Math.random();
-		this.lifespan = utils.RandomFloat(30, 300);
-		this.growth_overlap_mod = Math.random();
-		this.maturity_age = utils.RandomFloat( 0.1 * this.lifespan, 0.5 * this.lifespan );
+		if ( !this.fruit_interval ) { this.fruit_interval = utils.RandomInt(30,120); }
+		if ( !this.next_fruit ) { this.next_fruit = this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 ); }
+		if ( !this.fruit_hue ) { this.fruit_hue = Math.random(); }
+		if ( !this.lifespan ) { this.lifespan = utils.RandomFloat(30, 300); }
+		if ( !this.growth_overlap_mod ) { this.growth_overlap_mod = Math.random(); }
+		if ( !this.maturity_age ) { this.maturity_age = utils.RandomFloat( 0.1 * this.lifespan, 0.5 * this.lifespan ); }
 		
 		// TODO: IMMORTALITY FOR TESTING  
 		this.age = this.maturity_age;
@@ -458,7 +476,7 @@ export class PointCloudPlant extends Plant {
 		
 		// make berries
 		if ( this.age > this.next_fruit ) {
-			this.next_fruit += this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 );
+			this.next_fruit = this.age + this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 );
 			if ( window.vc.tank.foods.length < 300 ) {
 				const f = new Food( this.x, this.y, { 
 					value: 50, 
@@ -575,6 +593,7 @@ export class PointCloudPlant extends Plant {
 	}
 	
 }
+Plant.PlantTypes.PointCloudPlant = PointCloudPlant;
 
 const plantPicker = new utils.RandomPicker( [
 	[ PointCloudPlant, 	20 ],
