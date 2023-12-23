@@ -62,14 +62,19 @@ export default class Vectorcosm {
 			y: 0,
 			z: 1,
 			min_zoom: 1,
+			max_zoom: 1,
 			cinema_mode: false,
 			tween: null,
 			cinema_timeout: null,
 			easing: TWEEN.Easing.Sinusoidal.InOut, // SEE: https://github.com/tweenjs/tween.js/blob/main/docs/user_guide.md
-			transitions: true,
-			parallax: true,
+			transitions: false,
+			parallax: false,
 			transition_time: 10000, // ms
 			focus_time: 15000, // ms
+			show_boid_indicator_on_focus: true,
+			show_boid_info_on_focus: true,
+			show_boid_sensors_on_focus: true,
+			show_boid_collision_on_focus: false,
 		};
 		
 		// subscriptions to critical events
@@ -369,6 +374,7 @@ export default class Vectorcosm {
 		
 	}
 
+	
 	CinemaMode( x=true ) { 
 		this.camera.cinema_mode = !!x;
 		if ( x ) {
@@ -383,8 +389,14 @@ export default class Vectorcosm {
 			if ( r < 0.3 && this.tank.boids.length ) {
 				// pick a boid and chase it down
 				const b = this.tank.boids.pickRandom();
+				const zoom = utils.BiasedRand( 
+					this.camera.min_zoom,
+					this.camera.max_zoom,
+					this.camera.min_zoom + (this.camera.max_zoom - this.camera.min_zoom) / 3, // div by three to shift towards zoomed out
+					0.5 
+					);
 				if ( this.camera.transitions ) {
-					const to = { x: b.x, y: b.y, z: 1 };
+					const to = { x: b.x, y: b.y, z: zoom };
 					this.camera.tween = new TWEEN.Tween(this.camera)
 						.to(to, this.camera.transition_time )
 						.easing(this.camera.easing)
@@ -409,13 +421,14 @@ export default class Vectorcosm {
 						.start();
 				}
 				else {
+					this.PointCameraAt( b.x, b.y, zoom );
 					this.TrackObject(b);
 					this.camera.cinema_timeout = setTimeout( _ => this.CinemaMode(), this.camera.focus_time );
 				}
 			}
 			// focus on a non-boid point of interest
 			else if ( r < 0.85 ) {
-				const zoom = Math.random() > 0.5 ? utils.RandomFloat( this.camera.min_zoom, 1.3 ) : this.camera.z;
+				const zoom = Math.random() > 0.5 ? utils.RandomFloat( this.camera.min_zoom, this.camera.max_zoom ) : this.camera.z;
 				// choose a plant, rock, or random point in space
 				let target_x = this.tank.width * Math.random();
 				let target_y = this.tank.height * Math.random();
@@ -478,7 +491,7 @@ export default class Vectorcosm {
 				}
 				else {
 					this.ResetCameraZoom();
-					this.camera.cinema_timeout = setTimeout( _ => this.CinemaMode(), timing );
+					this.camera.cinema_timeout = setTimeout( _ => this.CinemaMode(), this.camera.focus_time );
 				}
 			}
 		}
@@ -500,6 +513,7 @@ export default class Vectorcosm {
 		const scaley = this.height / this.tank.height;
 		const scale = Math.min(scalex,scaley); // min = contain, max = cover
 		this.camera.min_zoom = scale;
+		this.camera.max_zoom = Math.min(this.tank.width,this.tank.height) / 1250;
 		this.PointCameraAt( this.tank.width*0.5, this.tank.height*0.5, scale );	
 	}
 	
@@ -667,26 +681,31 @@ export default class Vectorcosm {
 			if ( this.focus_object == o ) { this.StopTrackObject(); }
 			return;
 		}
-		o.show_sensors = false;
+		o.show_sensors = this.camera.show_boid_sensors_on_focus;
+		o.DrawBounds(this.camera.show_boid_collision_on_focus);
 		if ( this.focus_object && this.focus_object !== o ) { 
 			delete this.focus_object.show_sensors;
-			// this.focus_object.DrawBounds(false);
+			this.focus_object.DrawBounds(false);
 		}
 		this.focus_object = o;
 		if ( !this.focus_geo ) {
-			const focus_radius = 70
+			const focus_radius = 80
 			this.focus_geo = this.two.makeCircle(this.focus_object.x, this.focus_object.y, focus_radius);
 			this.focus_geo.stroke = '#AEA';
 			this.focus_geo.linewidth = 3;
 			this.focus_geo.fill = 'transparent';
+			
 			// const grad = window.two.makeRadialGradient(0, 0, focus_radius, 
 			// 	new Two.Stop(0,'transparent'), 
 			// 	new Two.Stop(0.8,'#AAEEAA00'), 
 			// 	new Two.Stop(1,'#AAEEAAAA')
 			// );
 			// grad.units = 'userSpaceOnUse'; // super important
+			// this.focus_geo.stroke = 'transparent';
+			// this.focus_geo.linewidth = 0;
 			// this.focus_geo.fill = grad;
-			this.focus_geo.visible = false;
+			
+			this.focus_geo.visible = this.camera.show_boid_indicator_on_focus;
 			this.AddShapeToRenderLayer(this.focus_geo);
 		}
 		else {
@@ -700,7 +719,7 @@ export default class Vectorcosm {
 	StopTrackObject() {
 		if ( !this.focus_object ) { return ; }
 		delete this.focus_object.show_sensors;
-		// this.focus_object.DrawBounds(false);
+		this.focus_object.DrawBounds(false);
 		this.focus_object = null;
 		if ( this.focus_geo ) {
 			this.focus_geo.remove();
@@ -739,7 +758,10 @@ export default class Vectorcosm {
 			}
 		
 		// zoom
-		if ( z && z!=this.scale ) { this.SetViewScale( z ); }
+		if ( z && z!=this.scale ) { 
+			z = Math.min( z, this.camera.max_zoom );
+			this.SetViewScale( z ); 
+		}
 		
 		// X pos	
 		const target_x = -( x * this.scale ) + ( 0.5 * this.width );

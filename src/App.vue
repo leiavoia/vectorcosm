@@ -312,7 +312,7 @@ function ClickMap( event ) {
 		}
 	}
 	if ( closest ) {
-		show_boid_details.value = true;
+		show_boid_details.value = vc.camera.show_boid_info_on_focus;
 		vc.TrackObject(closest);
 		RefreshBoidDetailsDynamicObjects(closest);
 	}
