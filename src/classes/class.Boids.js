@@ -748,7 +748,7 @@ export class Boid {
 			'edges': 		0.8,
 			'world-x': 		0.6,
 			'world-y': 		0.6,
-			'chaos': 		0.1,
+			// 'chaos': 		0.1,
 			'friends': 		0.5,
 			'enemies': 		0.5,
 			};
