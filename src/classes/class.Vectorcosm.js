@@ -814,7 +814,6 @@ export default class Vectorcosm {
 		const scaley = this.height / this.tank.height;
 		const minscale = Math.min(scalex,scaley); // min = contain, max = cover
 		const bgscale = this.renderLayers['tank'].scale /  minscale;
-		console.log(`bgscale: ${bgscale}`);
 		if ( bgscale != this.renderLayers['backdrop'].scale ) { // optimization to dodge setScale()
 			this.renderLayers['backdrop'].scale = bgscale;
 		}

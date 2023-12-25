@@ -12,6 +12,7 @@ import Simulation from './classes/class.Simulation.js'
 import BrainGraph from './classes/class.BrainGraph.js'
 import { Boid } from './classes/class.Boids.js'
 import SimulatorControls from './components/SimulatorControls.vue'
+import CameraControls from './components/CameraControls.vue'
 import TankStats from './components/TankStats.vue'
 // import Plant from './classes/class.Plant.js'
 // import Poison from './classes/class.Poison.js'
@@ -28,6 +29,7 @@ window.vc.onSimulationChange = new_sim => { sim.value = new_sim; }
 let dragging = false;
 let show_boid_details = ref(false);
 let show_ui = ref(false);
+let show_camera_controls = ref(false);
 let show_tank_debug = ref(false);
 
 let boidviewer = new Two({ fitted: true, type: 'SVGRenderer' }); 
@@ -102,6 +104,10 @@ const zoompct = 0.25;
 
 function ToggleUI() {
 	show_ui.value = !show_ui.value;
+}
+
+function ToggleCameraControls() {
+	show_camera_controls.value = !show_camera_controls.value;
 }
 
 function ToggleTankDebug() {
@@ -201,10 +207,10 @@ const keyFunctionMap = {
 			vc.ToggleShowBrainmap()
 		},
 	'3': _ => {
-			vc.SaveLeader();
+			ToggleCameraControls();
 		},
 	'4': _ => {
-			vc.LoadLeader();
+			// vc.LoadLeader();
 		},
 	'5': _ => {
 			vc.animate_boids = !vc.animate_boids;
@@ -394,6 +400,11 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 			<div id="braingraph"  style="width:100%; height: 100%;"></div>
 		</section>
 		-->
+		
+		<section v-show="show_camera_controls">
+			<camera-controls @close="ToggleCameraControls()"></camera-controls>
+		</section>	
+		
 		<section v-if="sim" v-show="show_ui">
 			<simulator-controls :sim="sim" @close="ToggleUI()" ></simulator-controls>
 			<tank-stats :sim="sim"></tank-stats>
