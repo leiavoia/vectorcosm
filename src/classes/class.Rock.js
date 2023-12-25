@@ -165,6 +165,17 @@ export default class Rock {
 			p.stroke = t[6];
 			this.geo.add(p);
 		}
+		
+		// outline (used for dark-mode and when not using triangle fill)
+		let anchors = this.collision.hull.map( p => new Two.Anchor( p[0], p[1] ) );
+		let outline = window.two.makePath(anchors);
+		outline.linewidth = 4;
+		outline.fill = 'transparent';
+		outline.stroke = '#AAA';
+		outline.visible = false;
+		outline.outline = true; // hint for UI to switch modes
+		this.geo.add( outline );
+				
 		// do this last or the scaling gets confused
 		window.vc.AddShapeToRenderLayer(this.geo,'0'); 
 	}

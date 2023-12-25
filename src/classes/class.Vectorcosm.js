@@ -27,7 +27,7 @@ export default class Vectorcosm {
 		this.two = new Two({ fitted: true, type: 'SVGRenderer' }); 
 		window.two = this.two; // make available everywhere
 		this.renderLayers = {};
-		this.renderLayers['backdrop'] = this.two.makeGroup(); // parallax backdrop needs to stay separate form tank
+		this.renderLayers['backdrop'] = this.two.makeGroup(); // parallax backdrop needs to stay separate from tank
 		this.renderLayers['tank'] = this.two.makeGroup(); // meta group. UI and tank layers need to scale separately
 		this.renderLayers['-2'] = this.two.makeGroup(); // tank backdrop
 		this.renderLayers['-1'] = this.two.makeGroup(); // background objects
@@ -51,6 +51,8 @@ export default class Vectorcosm {
 		this.show_collision_detection = false;
 		this.show_ui = false;
 		this.show_brainmap = false;
+		this.responsive_tank_size = false;
+		this.allow_hyperzoom = true;
 		this.focus_object = null;
 		this.focus_geo = null;
 		this.fps = 0;
@@ -71,9 +73,9 @@ export default class Vectorcosm {
 			parallax: false,
 			transition_time: 10000, // ms
 			focus_time: 15000, // ms
-			show_boid_indicator_on_focus: true,
-			show_boid_info_on_focus: true,
-			show_boid_sensors_on_focus: true,
+			show_boid_indicator_on_focus: false,
+			show_boid_info_on_focus: false,
+			show_boid_sensors_on_focus: false,
 			show_boid_collision_on_focus: false,
 		};
 		
@@ -102,7 +104,7 @@ export default class Vectorcosm {
 		else if ( this.two.width < 1200 ) { this.SetViewScale(0.6); }
 		else if ( this.two.width < 1900 ) { this.SetViewScale(1); }
 		else { this.SetViewScale(1); }
-		this.ResizeTankToWindow();
+		this.ResizeTankToWindow(true); // force
 		this.ResetCameraZoom();
 		
 		const food_training_sim_easy = new FoodChaseSimulation(this.tank,{
@@ -170,11 +172,11 @@ export default class Vectorcosm {
 		});		
 		
 		const food_training_sim_hard = new FoodChaseSimulation(this.tank,{
-			name: 'Food Chase - Medium',
-			num_boids: 80,
+			name: 'Food Chase - Hard',
+			num_boids: 60,
 			// random_boid_pos: true,
 			// random_food_pos: true,
-			time: 60,
+			time: 80,
 			// min_score: 5,
 			max_mutation: 0.1,
 			// you can separately define DNA and brain mutations, in case you want just one or the other
@@ -186,11 +188,11 @@ export default class Vectorcosm {
 			species:'random',
 			cullpct: 0.4,
 			edibility: 1,
-			scale: 0.7,
+			scale: 0.6,
 			angle_spread: 0.2,
 			current: 0,
 			num_foods: 3,
-			food_speed: 200,
+			food_speed: 400,
 			food_bounce_margin: 300,
 			food_friction: false,
 			end: {
@@ -306,27 +308,25 @@ export default class Vectorcosm {
 		
 		const natural_tank = new FoodChaseSimulation(this.tank,{
 			name: 'Natural Tank',
-			num_boids: 50,
+			num_boids: 80,
 			random_boid_pos: true,
 			random_food_pos: true,
 			time: 1000000,
 			// min_score: 5,
 			max_mutation: 0.1,
 			num_rocks: 20,
-			num_plants: 20,
+			num_plants: 40,
 			target_spread: 400,
 			species:'random',
 			cullpct: 0.3,
 			edibility: 1,
-			scale: 0.3,
+			scale: 0.6,
 			// angle_spread: 0.2,
 			current: 0.1,
 			num_foods: 0,
-			food_speed: 50,
-			food_bounce_margin: 0,
 			food_friction: true,
-			tide: 300,
-			add_decor: true,
+			tide: 600,
+			add_decor: false,
 		});		
 				
 		const pitri_dish = new FoodChaseSimulation(this.tank,{
@@ -559,7 +559,7 @@ export default class Vectorcosm {
 		const prev_scale = this.renderLayers['tank'].scale;
 		this.width = two.width;
 		this.height = two.height;
-		this.scale = utils.clamp( scale, 0.1, 10 );
+		this.scale = utils.clamp( scale, 0.01, 5 );
 		this.renderLayers['tank'].scale = this.scale;
 		// small adjustment to keep screen centered
 		const xdiff = ( this.width * prev_scale ) - ( this.width * this.scale );
@@ -571,12 +571,18 @@ export default class Vectorcosm {
 		}
 	}
 	
-	ResizeTankToWindow() {
+	// if force is FALSE, `responsive_tank_size` setting will be honored
+	ResizeTankToWindow( force=false ) {
 		if ( this.tank ) {
-			this.tank.Resize(this.width / this.scale, this.height / this.scale);
-			this.renderLayers['tank'].position.x = 0;
-			this.renderLayers['tank'].position.y = 0;
-			this.camera.min_zoom = Math.min(this.width / this.tank.width, this.height / this.tank.height);
+			if ( this.responsive_tank_size || force ) {
+				this.tank.Resize(this.width / this.scale, this.height / this.scale);
+				this.renderLayers['tank'].position.x = 0;
+				this.renderLayers['tank'].position.y = 0;
+				this.camera.min_zoom = Math.min(this.width / this.tank.width, this.height / this.tank.height);
+			}
+			else { 
+				this.tank.ScaleBackground(); 
+			}
 		}
 	}
 
@@ -754,7 +760,7 @@ export default class Vectorcosm {
 			const scale = Math.min(scalex,scaley); // min = contain, max = cover
 			x = this.tank.width * 0.5;
 			y = this.tank.height * 0.5;
-			z = scale;
+			if ( !this.allow_hyperzoom ) { z = scale; }
 			}
 		
 		// zoom
@@ -808,6 +814,7 @@ export default class Vectorcosm {
 		const scaley = this.height / this.tank.height;
 		const minscale = Math.min(scalex,scaley); // min = contain, max = cover
 		const bgscale = this.renderLayers['tank'].scale /  minscale;
+		console.log(`bgscale: ${bgscale}`);
 		if ( bgscale != this.renderLayers['backdrop'].scale ) { // optimization to dodge setScale()
 			this.renderLayers['backdrop'].scale = bgscale;
 		}
@@ -817,6 +824,34 @@ export default class Vectorcosm {
 		const yrange = this.height * (this.renderLayers['backdrop'].scale - 1);
 		this.renderLayers['backdrop'].position.x = -(xpct * (xrange/2)) - (xrange/4);
 		this.renderLayers['backdrop'].position.y = -(ypct * (yrange/2)) - (yrange/4);
+		// console.log(
+		// 	this.renderLayers['tank'].position.x,
+		// 	this.renderLayers['tank'].position.y,
+		// 	this.renderLayers['backdrop'].position.x,
+		// 	this.renderLayers['backdrop'].position.y
+		// );
+		// adjustment for hyperzoomed situations
+		if ( this.renderLayers['tank'].position.x > 0 || this.renderLayers['tank'].position.y > 0 ) {
+			// if ( this.tank.bg ) { 
+			// 	this.renderLayers['backdrop'].scale = 1;
+			// 	let rect = this.renderLayers['backdrop'].getBoundingClientRect(true);
+			// 	// console.log(rect.width, this.tank.width);
+			// 	// this.tank.bg.remove();
+			// 	// this.renderLayers['backdrop'].add(this.tank.bg);
+			// 	this.renderLayers['backdrop'].scale = new Two.Vector( 
+			// 		this.tank.width / rect.width,
+			// 		this.tank.height / rect.height 
+			// 	);
+			// }
+			// this.tank.ScaleBackground();
+			this.renderLayers['backdrop'].position.x = this.renderLayers['tank'].position.x;
+			this.renderLayers['backdrop'].position.y = this.renderLayers['tank'].position.y;
+			// console.log('adjusting backdrop',
+			// 	this.renderLayers['backdrop'].position.x,
+			// 	this.renderLayers['backdrop'].position.y,
+			// 	this.renderLayers['backdrop'].scale,
+			// );
+		}
 	}
 		
 	ScreenToWorldCoord( x, y ) {

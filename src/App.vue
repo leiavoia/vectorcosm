@@ -151,6 +151,10 @@ const keyFunctionMap = {
 	';': _ => {
 			vc.ResetCameraZoom();
 		},
+	'\'': _ => {
+			vc.ResizeTankToWindow(true);
+			vc.ResetCameraZoom();
+		},
 	'Home': _ => {
 			vc.ResetCameraZoom();
 		},
@@ -211,6 +215,9 @@ const keyFunctionMap = {
 		},
 	'7': _ => {
 			ToggleTankDebug();
+		},
+	'8': _ => {
+			vc.responsive_tank_size = !vc.responsive_tank_size;
 		},
 	'9': _ => {
 			vc.SavePopulation();
@@ -274,13 +281,20 @@ function MouseMove(event) {
 }
 			
 window.addEventListener("resize", function (event) {
-	vc.height = window.innerHeight;
-	vc.width = window.innerWidth;
-	vc.two.fit();
-	vc.SetViewScale( vc.scale ); // trigger update, even though scale hasent changed
-	vc.ResizeTankToWindow(); // not a permanent place to put this. needs a "responsive" game settings
+    // there is no "windowResizeFinished" event, so settle for timeout to avoid jank
+	if ( window.resizeTimeout ) { clearTimeout(window.resizeTimeout); }
+    window.resizedFinished = setTimeout(function() {
+		vc.height = window.innerHeight;
+		vc.width = window.innerWidth;
+		vc.two.fit();
+		vc.SetViewScale( vc.scale ); // trigger update, even though scale hasent changed
+		vc.ResizeTankToWindow();
+		vc.tank.ScaleBackground();
+		vc.tank.ScaleBackground();
+		vc.tank.ScaleBackground();
+		vc.ResetCameraZoom(); // also does parallax
+    }, 200);
 });
-				
 
 onMounted(() => {
 	vc.Init();

@@ -102,8 +102,8 @@
 
 	function updateScale() {
 		window.vc.SetViewScale(vars.scale);
-		window.vc.ResizeTankToWindow();
-		window.vc.PointCameraAt( vc.tank.width*0.5, vc.tank.height*0.5, vars.scale );
+		window.vc.ResizeTankToWindow(true); // force
+		window.vc.ResetCameraZoom();
 	}
 	
 	const loadCallbacksOnSim = () => {

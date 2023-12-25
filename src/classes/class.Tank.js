@@ -82,6 +82,7 @@ export default class Tank {
 		this.plants.length = 0;
 	}
 		
+		
 	CreateDataGrid(w,h) {
 		const gridsize = 300;
 		this.datagrid = new DataGrid(w,h,gridsize);
@@ -218,6 +219,13 @@ export default class Tank {
 		
 		document.body.setAttribute("class", document.body.getAttribute("class").replace(/\s*bg-theme-\w+/, '') + ' ' + bg_theme.class );
 		
+		// tank frame
+		this.tankframe = window.two.makeRectangle(this.width/2, this.height/2, this.width, this.height );
+		this.tankframe.stroke = "#888888";
+		this.tankframe.linewidth = '2';
+		this.tankframe.fill = 'transparent';		
+		window.vc.AddShapeToRenderLayer(this.tankframe, '-2');
+						
 		// return;
 		
 		if ( this.bg ) { this.bg.remove(); }
@@ -313,15 +321,26 @@ export default class Tank {
 	}
 	
 	ScaleBackground() {
+		// scale background layer
 		if ( this.bg ) { 
 			this.bg.scale = 1; // reset to one
 			const rect = this.bg.getBoundingClientRect(true);
-			// this.bg.scale /= Math.min(  rect.width / this.width, rect.height / this.height );
-			this.bg.scale /= Math.min(  rect.width / window.vc.width, rect.height / window.vc.height );
+			this.bg.scale = new Two.Vector( 
+				(this.width * window.vc.scale) / rect.width, 
+				(this.height * window.vc.scale) / rect.height 
+			);
 		}
+		// scale debug geometry (fluid currents, etc)
 		if ( this.debug_geo ) {			
 			this.DrawDebugBoundaryRectangle();
 		}
+		// remake the cosmetic tank frame
+		if ( this.tankframe ) { this.tankframe.remove(); }
+		this.tankframe = window.two.makeRectangle(this.width/2, this.height/2, this.width, this.height );
+		this.tankframe.stroke = "#888888";
+		this.tankframe.linewidth = '2';
+		this.tankframe.fill = 'transparent';		
+		window.vc.AddShapeToRenderLayer(this.tankframe, '-2');
 	}
 	
 	MakePrettyDecor() {
@@ -351,7 +370,7 @@ export default class Tank {
 				x: 0,
 				y: ( this.height - max_height ),
 				w: this.width,
-				h: max_height,
+				h: max_height * 2.1,
 				force_corners: true,
 				complexity: 16,
 				color_scheme: 'Sandstone'
