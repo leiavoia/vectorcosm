@@ -71,6 +71,8 @@
 
 <template>
 	<div>
+		<h2>Camera Settings</h2>
+		
 		<button @click="$emit('close')" style="width:100%;">Close</button>
 		<br/>
 		<br/>

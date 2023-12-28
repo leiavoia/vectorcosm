@@ -13,6 +13,7 @@
     "chart.js": "^4.3.0",
     "collisions": "^2.0.13",
     "delaunator": "^5.0.0",
+    "dexie": "^3.2.4",
     "neataptic": "^1.3.9",
     "pubsub-js": "^1.9.4",
     "two.js": "^0.8.10",

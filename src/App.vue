@@ -13,12 +13,13 @@ import BrainGraph from './classes/class.BrainGraph.js'
 import { Boid } from './classes/class.Boids.js'
 import SimulatorControls from './components/SimulatorControls.vue'
 import CameraControls from './components/CameraControls.vue'
+import BoidLibraryControls from './components/BoidLibraryControls.vue'
 import TankStats from './components/TankStats.vue'
 // import Plant from './classes/class.Plant.js'
 // import Poison from './classes/class.Poison.js'
 import { onMounted, ref, reactive, markRaw, shallowRef, shallowReactive } from 'vue'
 import PubSub from 'pubsub-js'
-
+import BoidLibrary from './classes/class.BoidLibrary.js'
 
 let sim = shallowRef(null);
 
@@ -27,6 +28,7 @@ window.vc = vc;
 window.vc.onSimulationChange = new_sim => { sim.value = new_sim; }
 
 let dragging = false;
+let show_boid_library = ref(false);
 let show_boid_details = ref(false);
 let show_ui = ref(false);
 let show_camera_controls = ref(false);
@@ -108,6 +110,9 @@ function ToggleUI() {
 
 function ToggleCameraControls() {
 	show_camera_controls.value = !show_camera_controls.value;
+}
+function ToggleBoidLibrary() {
+	show_boid_library.value = !show_boid_library.value;
 }
 
 function ToggleTankDebug() {
@@ -210,7 +215,7 @@ const keyFunctionMap = {
 			ToggleCameraControls();
 		},
 	'4': _ => {
-			// vc.LoadLeader();
+			ToggleBoidLibrary();
 		},
 	'5': _ => {
 			vc.animate_boids = !vc.animate_boids;
@@ -285,6 +290,33 @@ function MouseMove(event) {
 		vc.MoveCamera( -event.movementX, -event.movementY );
 	}
 }
+		
+function SaveBoid() {
+	if ( vc.focus_object ) {
+		const lib = new BoidLibrary();
+		lib.Add(vc.focus_object);
+	}
+}
+		
+function SaveSpecies() {
+	if ( vc.focus_object && vc.tank ) {
+		const lib = new BoidLibrary();
+		lib.Add( vc.tank.boids.filter( b => b.species === vc.focus_object.species ) );
+	}
+}
+		
+function SaveTankPopulation() {
+	if ( vc.focus_object && vc.tank ) {
+		const lib = new BoidLibrary();
+		lib.Add( vc.tank.boids );
+	}
+}
+
+function SmiteBoid() {
+	if ( vc.focus_object ) {
+		vc.focus_object.Kill();
+	}
+}
 			
 window.addEventListener("resize", function (event) {
     // there is no "windowResizeFinished" event, so settle for timeout to avoid jank
@@ -295,8 +327,6 @@ window.addEventListener("resize", function (event) {
 		vc.two.fit();
 		vc.SetViewScale( vc.scale ); // trigger update, even though scale hasent changed
 		vc.ResizeTankToWindow();
-		vc.tank.ScaleBackground();
-		vc.tank.ScaleBackground();
 		vc.tank.ScaleBackground();
 		vc.ResetCameraZoom(); // also does parallax
     }, 200);
@@ -405,6 +435,10 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 			<camera-controls @close="ToggleCameraControls()"></camera-controls>
 		</section>	
 		
+		<section v-if="show_boid_library">
+			<boid-library-controls @close="ToggleBoidLibrary()"></boid-library-controls>
+		</section>	
+		
 		<section v-if="sim" v-show="show_ui">
 			<simulator-controls :sim="sim" @close="ToggleUI()" ></simulator-controls>
 			<tank-stats :sim="sim"></tank-stats>
@@ -429,6 +463,11 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 			<p>BASE METAB: <output>{{focus_boid_data.base_rest_metabolism.toFixed(5)}}</output></p>
 			<p>BASE DIGEST: <output>{{focus_boid_data.base_digestion_rate.toFixed(5)}}</output></p>
 			<p>BASE STOMACH: <output>{{focus_boid_data.base_stomach_size.toFixed(5)}}</output></p>
+			
+			<button @click="SaveBoid()">Save</button>
+			<button @click="SaveSpecies()">Save Species</button>
+			<button @click="SaveTankPopulation()">Save All</button>
+			<button @click="SmiteBoid()">Smite</button>
 			
 			<h2>Vitals</h2>
 			<p>

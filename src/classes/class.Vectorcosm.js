@@ -74,7 +74,7 @@ export default class Vectorcosm {
 			transition_time: 10000, // ms
 			focus_time: 15000, // ms
 			show_boid_indicator_on_focus: false,
-			show_boid_info_on_focus: false,
+			show_boid_info_on_focus: true,
 			show_boid_sensors_on_focus: false,
 			show_boid_collision_on_focus: false,
 		};
@@ -308,14 +308,14 @@ export default class Vectorcosm {
 		
 		const natural_tank = new FoodChaseSimulation(this.tank,{
 			name: 'Natural Tank',
-			num_boids: 80,
+			num_boids: 20,
 			random_boid_pos: true,
 			random_food_pos: true,
 			time: 1000000,
 			// min_score: 5,
 			max_mutation: 0.1,
-			num_rocks: 20,
-			num_plants: 40,
+			num_rocks: 3,
+			num_plants: 10,
 			target_spread: 400,
 			species:'random',
 			cullpct: 0.3,
