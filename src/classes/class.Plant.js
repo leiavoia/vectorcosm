@@ -6,6 +6,7 @@ import Food from '../classes/class.Food.js'
 export default class Plant {
 	static PlantTypes = new Map;
 	constructor(x=0,y=0) {
+		this.type = 'Plant'; // avoids JS classname mangling
 		this.x = x;
 		this.y = y;
 		this.dead = false;
@@ -34,7 +35,7 @@ export default class Plant {
 		}
 	}
 	Export( as_JSON=false ) {
-		let output = { classname: this.constructor.name };
+		let output = { classname: this.type };
 		let datakeys = ['x','y','fruit_interval','age','lifespan','fruit_hue','next_fruit','maturity_age','growth_overlap_mod'];		
 		for ( let k of datakeys ) { 
 			if ( this.hasOwnProperty(k) ) { 
@@ -49,6 +50,7 @@ export default class Plant {
 export class PendantLettuce extends Plant {
 	constructor(x=0, y=0) {
 		super(x,y);
+		this.type = 'PendantLettuce'; // avoids JS classname mangling
 		if ( !this.fruit_interval ) { this.fruit_interval = utils.RandomInt(30,40); }
 		if ( !this.next_fruit ) { this.next_fruit = this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 ); }
 		if ( !this.fruit_hue ) { this.fruit_hue = utils.RandomFloat(0.25,0.35);	}
@@ -127,6 +129,7 @@ Plant.PlantTypes.PendantLettuce = PendantLettuce;
 export class VectorGrass extends Plant {
 	constructor(x=0, y=0) {
 		super(x,y);
+		this.type = 'VectorGrass'; // avoids JS classname mangling
 		if ( !this.fruit_interval ) { this.fruit_interval = utils.RandomInt(20,30); }
 		if ( !this.next_fruit ) { this.next_fruit = this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 ); }
 		if ( !this.fruit_hue ) { this.fruit_hue = utils.RandomFloat(0.55,0.8); }
@@ -199,6 +202,7 @@ Plant.PlantTypes.VectorGrass = VectorGrass;
 export class WaveyVectorGrass extends Plant {
 	constructor(x=0, y=0) {
 		super(x,y);
+		this.type = 'WaveyVectorGrass'; // avoids JS classname mangling
 		if ( !this.fruit_interval ) { this.fruit_interval = utils.RandomInt(45,60); }
 		if ( !this.next_fruit ) { this.next_fruit = this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 ); }
 		if ( !this.fruit_hue ) { this.fruit_hue = utils.RandomFloat(0.05,0.20); }
@@ -309,6 +313,7 @@ Plant.PlantTypes.WaveyVectorGrass = WaveyVectorGrass;
 export class PointCloudPlant extends Plant {
 	constructor(x=0, y=0) {
 		super(x,y);
+		this.type = 'PointCloudPlant'; // avoids JS classname mangling
 		if ( !this.fruit_interval ) { this.fruit_interval = utils.RandomInt(30,120); }
 		if ( !this.next_fruit ) { this.next_fruit = this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 ); }
 		if ( !this.fruit_hue ) { this.fruit_hue = Math.random(); }
