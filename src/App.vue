@@ -12,6 +12,7 @@ import Simulation from './classes/class.Simulation.js'
 import BrainGraph from './classes/class.BrainGraph.js'
 import { Boid } from './classes/class.Boids.js'
 import SimulatorControls from './components/SimulatorControls.vue'
+import TrainingProgramControls from './components/TrainingProgramControls.vue'
 import CameraControls from './components/CameraControls.vue'
 import BoidLibraryControls from './components/BoidLibraryControls.vue'
 import TankStats from './components/TankStats.vue'
@@ -33,6 +34,7 @@ let show_boid_details = ref(false);
 let show_ui = ref(false);
 let show_camera_controls = ref(false);
 let show_tank_debug = ref(false);
+let show_training_programs = ref(false);
 
 let boidviewer = new Two({ fitted: true, type: 'SVGRenderer' }); 
 let braingraph_context = new Two({ fitted: true, type: 'SVGRenderer' }); 
@@ -113,6 +115,9 @@ function ToggleCameraControls() {
 }
 function ToggleBoidLibrary() {
 	show_boid_library.value = !show_boid_library.value;
+}
+function ToggleTrainingProgramControls() {
+	show_training_programs.value = !show_training_programs.value;
 }
 
 function ToggleTankDebug() {
@@ -217,7 +222,7 @@ const keyFunctionMap = {
 	'4': _ => {
 			ToggleBoidLibrary();
 		},
-	'5': _ => {
+	'8': _ => {
 			vc.animate_boids = !vc.animate_boids;
 		},
 	'6': _ => {
@@ -227,7 +232,10 @@ const keyFunctionMap = {
 	'7': _ => {
 			ToggleTankDebug();
 		},
-	'8': _ => {
+	'5': _ => {
+			ToggleTrainingProgramControls();
+		},
+	'r': _ => {
 			vc.responsive_tank_size = !vc.responsive_tank_size;
 		},
 	'9': _ => {
@@ -411,15 +419,16 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 </script>
 
 <template>
-    <div class="shape-container">
-      <div id="draw-shapes"></div>
-    </div>
-    <main 
+    <div class="shape-container" 
 		@click="ClickMap($event)" 
 		@contextmenu.prevent="ClickMap($event)" 
 		@mousemove="MouseMove($event)"
 		@mousedown="MouseDown($event)"
 		@mouseup="MouseUp($event)"
+	>
+      <div id="draw-shapes"></div>
+    </div>
+    <main 
 		>
 		<!-- <section class="iconmenu" v-if="show_boid_details && focus_boid_data" style="display:flex; flex-flow: column;">
 			<button style="width:100%; padding:0.5em; margin: 0 0 0.25em; display:block;">Exit</button>
@@ -437,6 +446,10 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 		
 		<section v-if="show_boid_library">
 			<boid-library-controls @close="ToggleBoidLibrary()"></boid-library-controls>
+		</section>	
+		
+		<section v-if="show_training_programs">
+			<training-program-controls @close="ToggleTrainingProgramControls()"></training-program-controls>
 		</section>	
 		
 		<section v-if="sim" v-show="show_ui">
@@ -571,12 +584,15 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 		grid-template-columns: 21rem 0.65fr 0.65fr 17em;
 		grid-template-rows: 1fr 1fr;
 		gap: 1rem;
+		pointer-events:none;
 	}
 	main > section {
 		background: #0005;
 		backdrop-filter: blur(2px);
 		border-radius: 1rem;
 		padding: 0.5rem 1rem;
+		pointer-events:auto;
+		user-select: none;
 	}
 	.iconmenu {
 		grid-row: 1 /3;

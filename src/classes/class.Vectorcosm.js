@@ -73,9 +73,9 @@ export default class Vectorcosm {
 			parallax: false,
 			transition_time: 10000, // ms
 			focus_time: 15000, // ms
-			show_boid_indicator_on_focus: false,
+			show_boid_indicator_on_focus: true,
 			show_boid_info_on_focus: true,
-			show_boid_sensors_on_focus: false,
+			show_boid_sensors_on_focus: true,
 			show_boid_collision_on_focus: false,
 		};
 		
@@ -308,7 +308,7 @@ export default class Vectorcosm {
 		
 		const natural_tank = new FoodChaseSimulation(this.tank,{
 			name: 'Natural Tank',
-			num_boids: 20,
+			num_boids: 40,
 			random_boid_pos: true,
 			random_food_pos: true,
 			time: 1000000,
@@ -320,13 +320,13 @@ export default class Vectorcosm {
 			species:'random',
 			cullpct: 0.3,
 			edibility: 1,
-			scale: 0.6,
+			scale: 0.5,
 			// angle_spread: 0.2,
 			current: 0.1,
 			num_foods: 0,
 			food_friction: true,
 			tide: 600,
-			add_decor: false,
+			add_decor: true,
 		});		
 				
 		const pitri_dish = new FoodChaseSimulation(this.tank,{
@@ -361,9 +361,6 @@ export default class Vectorcosm {
 			natural_tank,
 			// pitri_dish
 		];
-		
-		
-		this.sim_queue.forEach( sim => { sim.onComplete  = _ => this.LoadNextSim() } );
 		
 		this.LoadNextSim();
 		
@@ -538,17 +535,35 @@ export default class Vectorcosm {
 		let boids = this.simulation ? this.simulation.tank.boids.splice(0,this.simulation.tank.boids.length) : [];
 		const was_turbo = this.simulation ? this.simulation.turbo : false; 
 		this.simulation = this.sim_queue.shift();
-		if ( this.simulation ) { 
-			this.tank.Sterilize(); 
-			this.simulation.tank.boids = boids;
-			this.simulation.Setup(); 
-			this.simulation.turbo = was_turbo;
-			// [!]HACK
-			if ( typeof(this.onSimulationChange) === 'function' ) {
-				this.onSimulationChange(this.simulation);
-			}
+		// if the simulation is empty create a natural tank environment
+		if ( !this.simulation ) { 
+			this.simulation = new FoodChaseSimulation(this.tank,{
+				name: 'Natural Tank',
+				num_boids: (boids.length || 20),
+				random_boid_pos: true,
+				random_food_pos: true,
+				time: 10000000,
+				max_mutation: 5,
+				num_rocks: 5,
+				num_plants: 10,
+				cullpct: 0,
+				scale: 0.5,
+				current: 0.1,
+				num_foods: 0,
+				food_friction: true,
+				tide: 600,
+				add_decor: true,
+			});		
 		}
-		else { console.log("sim queue empty"); }
+		this.simulation.onComplete = _ => this.LoadNextSim();
+		this.tank.Sterilize(); 
+		this.simulation.tank.boids = boids;
+		this.simulation.Setup(); 
+		this.simulation.turbo = was_turbo;
+		// [!]HACK
+		if ( typeof(this.onSimulationChange) === 'function' ) {
+			this.onSimulationChange(this.simulation);
+		}
 	}
 	
 	Play() {

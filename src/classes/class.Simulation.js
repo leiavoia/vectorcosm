@@ -15,8 +15,6 @@ export default class Simulation {
 			max_mutation: 0.1, // 0..1
 			cullpct: 0.6, // 0..1
 			min_score: null,
-			// width: 0,
-			// height: 0,
 			num_boids: 40,
 			num_foods: 1,
 			num_plants: 0,
