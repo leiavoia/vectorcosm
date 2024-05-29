@@ -55,6 +55,13 @@ export function RGBToHexColor( rgb ) {
 	return str;
 	}
 	
+// input: h,s,l in [0,1] - output: r,g,b in [0,1]
+export function hsl2rgb(h,s,l) {
+	h *= 360;
+	let a=s*Math.min(l,1-l);
+	let f= (n,k=(n+h/30)%12) => l - a*Math.max(Math.min(k-3,9-k,1),-1);
+	return [f(0),f(8),f(4)];
+}
 	
 export function angleToPoint(x1, y1, x2, y2){
 	d = distance(x1, y1, x2, y2);

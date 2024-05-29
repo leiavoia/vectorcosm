@@ -2,18 +2,18 @@ import * as utils from '../util/utils.js'
 	
 /*	
 GENE STRUCTURE:
-	Example: 0x123456
+	Example: 0x12345678
 	1 = transform
 	2 = number of chars to read
 	3 = vertical shift
 	4 = horizontal shift
-	56 = seek location	
+	5678 = seek location	
 */
 
 export default class DNA {
 
 	// `str` can be either a number of chars, or the entire string (copy)
-	// default is 256 char DNA.
+	// default is 512 char DNA.
 	constructor( str ) {
 		if ( Number.isInteger(str) ) {
 			this.str = DNA.Random(str);

@@ -18,21 +18,26 @@ export default class Food {
 		this.age = 0;
 		this.lifespan = 60 + Math.random() * 120;
 		this.hue = Math.random();
-		this.colorval = Math.random();
+		this.colorval = 1; // Math.random(); // colorval doesnt currently do anything
 		this.edibility = Math.random() * 0.5;
 		this.frictionless = false;
 		Object.assign( this, params );
 		this.r = Math.sqrt( 2 * this.value / Math.PI );
 		this.geo = window.two.makeCircle(this.x,this.y,this.r);
 		this.geo.noStroke();
-		this.geo.fill = `hsl(${this.hue*255},${(Math.min(1,this.edibility+0.5))*100}%,${this.colorval*100}%)`;
-		this.geo.stroke = `hsl(${this.hue*255},${(Math.min(1,this.edibility+0.5))*100}%,50%)`;
+		let h = this.hue;
+		let s = Math.min(1,this.edibility+0.5);
+		let l = this.colorval * 0.8; // 0.8 keeps it from blowing out
+		this.sensor_color = utils.hsl2rgb(h, s, l);
+		this.sensor_color = utils.RGBArrayToHexColor( this.sensor_color.map( c => Math.round(c * 255) ) );
+		this.geo.fill = `hsl(${h*255},${s*100}%,${l*100}%)`;
+		this.geo.stroke = `hsl(${h*255},${s*100}%,50%)`;
 		this.geo.linewidth = 4;
 		this.geo.dashes = [3,3];
 		window.vc.AddShapeToRenderLayer(this.geo); // main layer
 		// this.geo.fill.units = 'objectBoundingBox';
 		this.dead = false;		
-		this.collision = { radius: this.r }	;
+		this.collision = { radius: this.r, shape: 'circle' };
 	}
 	Export( as_JSON=false ) {
 		let output = {};

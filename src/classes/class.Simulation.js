@@ -238,7 +238,6 @@ export class FoodChaseSimulation extends Simulation {
 		let spawn_y = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.height; 	
 		for ( let i=this.tank.boids.length; i < this.settings.num_boids; i++ ) {
 			const b = BoidFactory(this.settings?.species, spawn_x, spawn_y, this.tank );
-			// b.angle = 0;
 			this.tank.boids.push(b);
 		}
 		this.Reset();
@@ -254,7 +253,7 @@ export class FoodChaseSimulation extends Simulation {
 				spawn_y = Math.random() * this.tank.height; 			
 			}
 			b.Reset();
-			b.angle = new_angle;
+			b.angle = ( this.settings?.random_boid_angle ? (Math.random() * Math.PI * 2) : new_angle ),
 			b.x = spawn_x;
 			b.y = spawn_y;
 			b.total_fitness_score = 0;
@@ -268,12 +267,15 @@ export class FoodChaseSimulation extends Simulation {
 				spawn_x = Math.random() * this.tank.width; 
 				spawn_y = Math.random() * this.tank.height; 			
 			}
-			let food = new Food( this.tank.width - spawn_x, this.tank.height - spawn_y );
 			let food_speed = this.settings?.food_speed || 100;
-			food.value = 2000;
-			food.vx = Math.random() * food_speed - (food_speed*0.5);
-			food.vy = Math.random() * food_speed - (food_speed*0.5);
-			food.edibility = this.settings?.edibility ?? food.edibility;
+			let food = new Food( {
+				x: this.tank.width - spawn_x, 
+				y: this.tank.height - spawn_y,
+				value: 2000,
+				vx: Math.random() * food_speed - (food_speed*0.5),
+				vy: Math.random() * food_speed - (food_speed*0.5),
+				edibility: this.settings?.edibility ?? food.edibility,
+			} );
 			this.tank.foods.push(food);
 		}
 		// randomize rocks
@@ -339,13 +341,16 @@ export class FoodChaseSimulation extends Simulation {
 		if ( this.tank.foods.length < this.settings.num_foods ) {
 			let diff = this.settings.num_foods - this.tank.foods.length;
 			for ( let i=0; i < diff; i++ ) {
-				let food = new Food( this.tank.width * Math.random(), this.tank.height * Math.random() );
 				let food_speed = this.settings?.food_speed ?? 100;
-				food.value = 2000;
-				food.vx = Math.random() * food_speed - (food_speed*0.5);
-				food.vy = Math.random() * food_speed - (food_speed*0.5);
-				food.edibility = this.settings?.edibility ?? food.edibility;
-				food.frictionless = !food_friction;
+				let food = new Food( {
+					x: this.tank.width * Math.random(), 
+					y: this.tank.height * Math.random(),
+					value: 2000,
+					vx: Math.random() * food_speed - (food_speed*0.5),
+					vy: Math.random() * food_speed - (food_speed*0.5),
+					edibility: this.settings?.edibility ?? food.edibility,
+					frictionless: !food_friction,
+				} );				
 				this.tank.foods.push(food);
 			}	
 		}	 
@@ -449,13 +454,13 @@ export class BasicTravelSimulation extends Simulation {
 		// respawn food
 		this.tank.foods.forEach( x => x.Kill() );
 		this.tank.foods.length = 0;
-		let food = new Food( 
-			this.tank.width * 0.7 + (Math.random()*target_spread*2 - target_spread), 
-			this.tank.height * 0.5 + (Math.random()*target_spread*2 - target_spread)
-		);
-		food.vx = 0;
-		food.vy = 0;
-		food.edibility = 1; // universal edibility
+		let food = new Food( {
+			x: this.tank.width * 0.7 + (Math.random()*target_spread*2 - target_spread), 
+			y: this.tank.height * 0.5 + (Math.random()*target_spread*2 - target_spread),
+			vx: 0,
+			vy: 0,
+			edibility: 1,
+		} );		
 		this.tank.foods.push(food);
 	}	
 	ScoreBoidPerFrame(b) {
@@ -476,14 +481,13 @@ export class BasicTravelSimulation extends Simulation {
 		// keep the food coming
 		this.tank.foods[0].value = 80; // artificially inflate the food instead of respawning new ones.
 		if ( !this.tank.foods.length ) {
-			let target_spread = this.settings?.target_spread || 0;
-			let food = new Food( 
-				this.tank.width * 0.7 + (Math.random()*target_spread*2 - target_spread), 
-				this.tank.height * 0.5 + (Math.random()*target_spread*2 - target_spread)
-			);
-			food.vx = 0;
-			food.vy = 0;
-			food.edibility = 1; // universal edibility
+			let food = new Food( {
+				x: this.tank.width * 0.7 + (Math.random()*target_spread*2 - target_spread), 
+				y: this.tank.height * 0.5 + (Math.random()*target_spread*2 - target_spread),
+				vx: 0,
+				vy: 0,
+				edibility: 1,
+			} );	
 			this.tank.foods.push(food);	
 		}	 
 	}		

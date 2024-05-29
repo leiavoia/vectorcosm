@@ -19,7 +19,7 @@ export function BoidFactory( type, x, y, tank ) {
 export class Boid {
 
 	static maxspeed = 2000; // these are global maximum speeds to prevent collision detection from breaking in fringe cases
-	static maxrot = 20;
+	static maxrot = 14;
 		
 	static mutationOptionPicker = new utils.RandomPicker( [
 		[ neataptic.methods.mutation.ADD_NODE, 			16 ],
@@ -27,7 +27,7 @@ export class Boid {
 		[ neataptic.methods.mutation.ADD_CONN, 			34 ],
 		[ neataptic.methods.mutation.SUB_CONN, 			40 ],
 		[ neataptic.methods.mutation.MOD_WEIGHT, 		1000 ],
-		[ neataptic.methods.mutation.MOD_BIAS, 			500 ],
+		[ neataptic.methods.mutation.MOD_BIAS, 			100 ],
 		[ neataptic.methods.mutation.MOD_ACTIVATION, 	15 ],
 		[ neataptic.methods.mutation.ADD_GATE, 			10 ],
 		[ neataptic.methods.mutation.SUB_GATE, 			10 ],
@@ -57,6 +57,7 @@ export class Boid {
 	}
 	
 	constructor( x=0, y=0, tank=null, json=null ) {
+		this.sensor_color = "AEA"; // SHIM: avg color as it appears on vision sensors
 		this.id = Math.random();
 		this.dna = '';
 		this.generation = 1;
@@ -153,7 +154,7 @@ export class Boid {
 		]);
 		
 		// threshold to determine if a node exists at all
-		const num_node_threshold = this.dna.shapedNumber( [0x3E0A3D, 0xAD7144, 0x1AA1CB], 0.1, 0.5, 0.2, 0.5 );
+		const num_node_threshold = this.dna.shapedNumber( [0x3E0A3D, 0xAD7144, 0x1AA1CB], 0.05, 0.3, 0.14, 0.5 );
 		// threshold to determine if a connection between two nodes is made
 		const connectivity = this.dna.shapedNumber( [0x3E0A3D, 0xAD7144, 0x1AA1CB], 0.2, 0.6, 0.33, 0.5 );
 		
@@ -576,7 +577,7 @@ export class Boid {
 				// default: ;; // the default is constant time output
 			}
 			// record how much power was activated this stroke - mostly for UI and animation
-			m.last_amount = amount;
+			m.last_amount = Math.abs( amount );
 			// adjust for body size - larger organisms provide more power
 			amount *= Math.pow( this.mass / 800, 0.75 ); 
 			// apply power for this frame
@@ -592,10 +593,6 @@ export class Boid {
 					? utils.clamp(-amount*m.brake,-this.inertia,0)
 					: utils.clamp(amount*m.brake,0,-this.inertia);
 				this.inertia += v;
-			}
-			if ( m.hasOwnProperty('color') ) {
-				let c = utils.HexColorToRGBArray(this.path.stroke);
-				this.path.fill = `rgba(${c[0]},${c[1]},${c[2]},${utils.clamp(amount,0,1)})`;
 			}
 			if ( m.hasOwnProperty('mitosis') && m.t >= m.this_stoke_time ) {
 				const mutation_rate = utils.Clamp( window.vc?.simulation?.settings?.max_mutation, 0, 1 );
@@ -659,6 +656,7 @@ export class Boid {
 	
 		if ( this?.body?.geo ) { this.body.geo.remove(); }
 		this.body = new BodyPlan( this.dna );
+		this.sensor_color = this.body.sensor_color;
 		this.container.add([this.body.geo]);
 		
 		this.min_mass = this.body.mass * 0.3; // ???
@@ -680,9 +678,9 @@ export class Boid {
 		// SENSORS:
 		this.sensors = [];
 		
-		// experimental: general vision circle
-		const has_vision = this.dna.shapedNumber(0xEF280028) > 0.4;
-		if ( has_vision ) {
+		// experimental: food-locator
+		const has_food_locator = this.dna.shapedNumber(0xEF280028) > 0.86;
+		if ( has_food_locator ) {
 			const radius = this.dna.shapedNumber([0x65F000D2, 0x3D5500CB, 0x4893BADE], 150, 900, 450, 0.25 );
 			const xoff = this.dna.shapedNumber([0xED290071, 0xABAB0008, 0x5E0BA7D4], -radius*0.5, radius, radius*0.5, 0.25 );
 			const detect = ['near_food_dist'];
@@ -702,6 +700,28 @@ export class Boid {
 			this ) );
 		}
 		
+		// experimental color vision
+		const has_vision = this.dna.shapedNumber(0x28FE00B9) > 0.35;
+		if ( has_vision ) {
+			const radius = this.dna.shapedNumber([0x65F000D2, 0x3D5500CB, 0x4893BADE], 150, 900, 450, 0.25 );
+			const xoff = this.dna.shapedNumber([0xED290071, 0xABAB0008, 0x5E0BA7D4], -radius*0.5, radius, radius*0.5, 0.25 );
+			const yoff = this.dna.shapedNumber([0x53A1008C, 0x811E0305, 0xC98ECC9A], 0, radius, radius*0.5, 0.25 );
+			const chance_r = this.dna.shapedNumber([0x52B500E1, 0xA3E5000E, 0xBCAC00D6], 0, 1, 0.5, 0 );
+			const chance_g = this.dna.shapedNumber([0xBA6A00CD, 0xBEDC001E, 0x2E4C00C1], 0, 1, 0.5, 0 );
+			const chance_b = this.dna.shapedNumber([0xD93500A8, 0xDF9C007F, 0xEE02001B], 0, 1, 0.5, 0 );
+			const chance_i = this.dna.shapedNumber([0x8D1A00A9, 0xD47800C5, 0x5E1800DA], 0, 1, 0.5, 0 );
+			const detect = [];
+			if ( chance_i < 0.20 ) { detect.push('color_i'); }
+			else {
+				if ( chance_r > 0.20 ) { detect.push('color_r'); }
+				if ( chance_g > 0.20 ) { detect.push('color_g'); }
+				if ( chance_b > 0.20 ) { detect.push('color_b'); }
+			}
+			if ( !detect.length ) { detect.push('color_i'); }
+			this.sensors.push( new Sensor({ name: 'vision', detect: detect, x: xoff, y: yoff, r: radius, }, this ) );
+			this.sensors.push( new Sensor({ name: 'vision', detect: detect, x: xoff, y: -yoff, r: radius, }, this ) );
+		}
+		
 		// food and obstacle sensors are mandatory - its just a matter of how many
 		const my_max_dim = Math.max( this.body.length, this.body.width );
 		const max_sensor_distance = Math.sqrt(my_max_dim) * 65;
@@ -711,7 +731,7 @@ export class Boid {
 		for ( let detect of ['food','obstacles'] ) {
 			let base_num_sensors = this.dna.shapedInt( [0xA6940009, 0xAE6200EC],1,3,1.5,0.5); // 1..3
 			// if organism already has vision, we limit the extra food sensors
-			if ( has_vision && detect==='food' ) { base_num_sensors = 1; }
+			if ( has_food_locator && detect==='food' ) { base_num_sensors = 1; }
 			for ( let n=0; n < base_num_sensors; n++ ) {
 				let sx = 0;
 				let sy = 0;
@@ -721,9 +741,6 @@ export class Boid {
 				d = Math.min( d, r );
 				// prefer sensors in front
 				let a = ( this.dna.shapedNumber( [0x0FB756A3, this.dna.geneFor(`${detect} sensor angle ${n}`)], 0, Math.PI * 2) + Math.PI ) % (Math.PI * 2);
-				// TODO: update b when we revise body plan symmetry
-				// decide if sensor is going to be axially aligned or symmetrical
-				// axial / symmetry = 0
 				const symmetryGene = this.dna.geneFor(`${detect} sensor symmetry ${n}`,false,true);
 				if ( this.dna.biasedRand(symmetryGene, 0,1,0.5,0) < 0.33 ) {
 					this.sensors.push( new Sensor({ x:d, y:sy, r, angle:0, detect, name:detect }, this ) );			
@@ -738,25 +755,30 @@ export class Boid {
 				}
 			}
 		}
+		
+		// proprioception
+		const proprio_chance = this.dna.shapedNumber( [0xA9B100D5, 0xE4F000E6, 0xD5C10073] );
+		if ( proprio_chance < 0.45 ) { 
+			this.sensors.push( new Sensor({detect:'proprio'}, this) );
+		}
+		
 		// random chance to get any of the non-collision sensors	
 		const non_coll_sensors = {
 			'energy': 		0.5,
 			'inertia': 		0.3,
-			'spin': 		0.2,
-			'angle-sin': 	0.6,
-			'angle-cos': 	0.6,
-			'edges': 		0.8,
-			'world-x': 		0.6,
-			'world-y': 		0.6,
-			// 'chaos': 		0.1,
-			'friends': 		0.5,
-			'enemies': 		0.5,
+			'spin': 		0.1,
+			'angle-sin': 	0.3,
+			'angle-cos': 	0.3,
+			'world-x': 		0.3,
+			'world-y': 		0.3,
+			'friends': 		0.0,
+			'enemies': 		0.0,
 			};
 		for ( let k in non_coll_sensors ) {
 			const gene1 = this.dna.geneFor(`has sensor ${k} 1`, false, true);
 			const gene2 = this.dna.geneFor(`has sensor ${k} 2`, false, true);
 			const n = this.dna.shapedInt( [gene1, gene2], 0, 1 );
-			if ( n >= non_coll_sensors[k] ) {
+			if ( n < non_coll_sensors[k] ) {
 				this.sensors.push( new Sensor({detect:k}, this) );
 			}
 		}
@@ -771,9 +793,9 @@ export class Boid {
 		let has_angular = false;
 		// loop through the max number of potential motors and decide on each one individually with a gene.
 		// this way if a gene changes it doesnt affect all subsequent motors in the stack.
-		const max_num_motors = 6;
+		const max_num_motors = 5;
 		let num_motors = 0;
-		const motor_slots = []; // array of bolleans to indicate if motor should be created
+		const motor_slots = []; // array of booleans to indicate if motor should be created
 		// first loop decides if a motor should be created. 
 		// this helps us set up defaults in case nothing is created.
 		for ( let n=1; n <= max_num_motors; n++ ) {
@@ -781,13 +803,13 @@ export class Boid {
 			const hasMotorGene2 = this.dna.geneFor(`has motor ${n} 2`, false, true);
 			const hasMotorGene3 = this.dna.geneFor(`has motor ${n} 3`, false, true);
 			const has_motor_chance = this.dna.shapedNumber([hasMotorGene1, hasMotorGene2, hasMotorGene3], 0, 1);
-			const gotcha = has_motor_chance > 1/n; // guaranteed one motor
+			const gotcha = has_motor_chance <= 1/n; // guaranteed one motor
 			motor_slots.push(gotcha);
 			num_motors += gotcha ? 1 : 0;
 		}
 		// second loop creates the motors
 		for ( let n=1; n <= motor_slots.length; n++ ) {
-			if ( !motor_slots[n] ) { continue; } // a blank for your thoughts
+			if ( !motor_slots[n-1] ) { continue; } // a blank for your thoughts
 			
 			const strokeFuncGene =  this.dna.geneFor(`motor stroke function ${n}`);
 			let strokefunc = this.dna.shapedNumber([strokeFuncGene], 0, 1);
@@ -799,7 +821,8 @@ export class Boid {
 			const stroketime = this.dna.shapedNumber([stroketimeGene],0.1, 3.5, 0.75, 0.6); 
 			
 			const minActGene =  this.dna.geneFor(`motor min_act chance ${n}`);
-			const min_act = this.dna.shapedNumber([minActGene],0,0.9,0.1,0.6);
+			let min_act = this.dna.shapedNumber([minActGene],0,0.7,0.05,0.95);
+			if ( wheel ) { min_act * 0.5; }
 			if ( strokefunc < 0.4 ) { strokefunc = 'linear_down'; }
 			else if ( strokefunc < 0.5 ) { strokefunc = 'linear_up'; }
 			else if ( strokefunc < 0.65 ) { strokefunc = 'bell'; }
