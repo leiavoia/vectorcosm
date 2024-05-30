@@ -779,13 +779,13 @@ export class Boid {
 			'angle-cos': 	0.3,
 			'world-x': 		0.3,
 			'world-y': 		0.3,
-			'friends': 		0.0,
-			'enemies': 		0.0,
+			//'friends': 		0.0,
+			//'enemies': 		0.0,
 			};
 		for ( let k in non_coll_sensors ) {
-			const gene1 = this.dna.geneFor(`has sensor ${k} 1`, false, true);
-			const gene2 = this.dna.geneFor(`has sensor ${k} 2`, false, true);
-			const n = this.dna.shapedInt( [gene1, gene2], 0, 1 );
+			const gene1 = this.dna.geneFor(`has sensor ${k} chance 1`, false, true);
+			const gene2 = this.dna.geneFor(`has sensor ${k} chance 2`, false, true);
+			const n = this.dna.shapedNumber( [gene1, gene2], 0, 1 );
 			if ( n < non_coll_sensors[k] ) {
 				this.sensors.push( new Sensor({detect:k}, this) );
 			}
