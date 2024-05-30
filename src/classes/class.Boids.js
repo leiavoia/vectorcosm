@@ -963,13 +963,13 @@ export class Boid {
 			const max_nn_muts = 50;
 			const nn_mutations = utils.RandomInt( 1, Math.ceil( max_nn_muts * brain_mutation ) );
 			for ( let n=0; n < nn_mutations; n++ ) {
-				this.brain.mutate( Boid.mutationOptionPicker.Pick() );
+				b.brain.mutate( Boid.mutationOptionPicker.Pick() );
 			}
 			// Neataptic can alter output node bias. We don't want this.
 			// This resets output node bias to zero. letting it run amok
 			// can lead to "locked in" brain outputs that never change. 
 			// You might specifically want it back someday, but not today.
-			this.brain.nodes.filter(n=>n.type=='output').forEach(n => n.bias = 0 );
+			b.brain.nodes.filter(n=>n.type=='output').forEach(n => n.bias = 0 );
 		}
 		if ( dna_mutation ) {
 			const max_dna_muts = 20;
