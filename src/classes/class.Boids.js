@@ -132,7 +132,15 @@ export class Boid {
 	// inherit this function
 	MakeBrain() {
 
-		const inputs = this.sensors.reduce( (n,s) => n + (Array.isArray(s.detect) ? s.detect.length : 1), 0 ) || 1;
+		// let inputs = this.sensors.reduce( (n,s) => n + (Array.isArray(s.detect) ? s.detect.length : 1), 0 ) || 1;
+		// WARNING: this way of determining number of inputs may be dangerous if the boid is not in a tank yet.
+		// ideally we refactor the sensor data structures so that we can know ahead of time what we're dealing with.
+		let inputs = 0;
+		for ( let s of this.sensors ) { 
+			s.Sense(); // need to trigger sensor ince
+			inputs += Array.isArray(s.val) ? s.val.length : 1;
+		}	
+			
 		const outputs = this.motors.length || 1;
 		
 		const act_picker = new utils.RandomPicker( [
@@ -901,7 +909,7 @@ export class Boid {
 		}
 			
 		// reproductive motors
-		const mitosis_num = this.dna.biasedRandInt( 0xA67256D2, 1,5,1,0.95);
+		const mitosis_num = this.dna.biasedRandInt( 0xA67200D2, 1,5,1,0.95);
 		const stroketime = this.dna.biasedRandInt( 0x30184FA2, mitosis_num*this.lifespan*0.02,mitosis_num*this.lifespan*0.06,mitosis_num*this.lifespan*0.04,0.5) * mitosis_num;
 		this.motors.push({
 			mitosis: mitosis_num, // number of new organisms
