@@ -40,6 +40,8 @@ export default class Tank {
 	constructor( w, h ) {
 		this.width = w;
 		this.height = h;
+		this.turbulence = Math.random() * 0.7;
+		this.mutate_whirls_every = 200;
 		this.viscosity = 0.5;
 		this.boids = [];
 		this.foods = [];
@@ -82,6 +84,55 @@ export default class Tank {
 		this.plants.length = 0;
 	}
 		
+	MakeWhirlpool() {
+		this.whirls.push( { 
+			x: this.width * Math.random(),
+			y: this.height * Math.random(),
+			strength: Math.random(),
+			dir: (Math.random() > 0.5) ? 1 : 0, // direction CW / CCW 
+			locality: utils.RandomFloat(0.18, 0.80, 0.5, 0.5 ), // locality exponent (smaller is more local effect)
+			// note: use 0.5 for a perfectly circular current. Use 0.5..1.0 for a whirlpool effect.
+			pull: utils.RandomFloat(0.3, 0.7) // 0.5=neutral, <0.5=inward, >0.5=outward
+		} );
+	}
+		
+	MakeWhirlpools() {
+		const num_whirls = utils.RandomInt(1,5);
+		this.whirls = [];
+		for ( let n=0; n < num_whirls; n++ ) {
+			this.MakeWhirlpool();
+		}	
+	}
+		
+	MutateWhirlpools() {
+		// random chance to remove
+		this.whirls = this.whirls.filter( w => Math.random() < 0.98 );
+		
+		// random chance to add
+		if ( this.whirls.length <= 5 && ( !this.whirls.length || Math.random() >= (0.80 + this.whirls.length * 0.04) ) ) {
+			this.MakeWhirlpool();
+		}
+		
+		// random chance to tweak stats
+		for ( let w of this.whirls ) {
+			if ( Math.random() > 0.35 ) {
+				w.x = utils.Clamp( w.x + ( ( this.width * 0.2 * Math.random() ) - ( ( this.width * 0.1 ))  ), 0, this.width);
+				w.y = utils.Clamp( w.y + ( ( this.height * 0.2 * Math.random() ) - ( ( this.height * 0.1 ))  ), 0, this.height);
+				w.strength = ( w.strength + Math.random() ) / 2;
+				w.locality = ( w.locality + utils.RandomFloat(0.18, 0.80, 0.5, 0.5 ) ) / 2;
+				w.pull = ( w.pull + utils.RandomFloat(0.3, 0.7) ) / 2; 
+			}
+		}
+		
+		// update the actual data grid
+		this.CreateDataGrid(this.width,this.height);
+		
+		// update visualization if its currently on
+		if ( this.debug_geo ) {
+			this.DrawDebugBoundaryRectangle(true);
+		}
+				
+	}
 		
 	CreateDataGrid(w,h) {
 		const gridsize = 300;
@@ -89,19 +140,7 @@ export default class Tank {
 		const largest_dim = Math.max( w, h );
 		// create a few whirlpool points
 		if ( !this.whirls.length ) { // don't make new ones
-			const num_whirls = utils.RandomInt(1,5);
-			this.whirls = [];
-			for ( let n=0; n < num_whirls; n++ ) {
-				this.whirls.push( { 
-					x: w * Math.random(),
-					y: h * Math.random(),
-					strength: Math.random(),
-					dir: (Math.random() > 0.5) ? 1 : 0, // direction CW / CCW 
-					locality: utils.RandomFloat(0.18, 0.80, 0.5, 0.5 ), // locality exponent (smaller is more local effect)
-					// note: use 0.5 for a perfectly circular current. Use 0.5..1.0 for a whirlpool effect.
-					pull: utils.RandomFloat(0.3, 0.7) // 0.5=neutral, <0.5=inward, >0.5=outward
-				} );
-			}
+			this.MakeWhirlpools();
 		}
 		// create vector field
 		for ( let x=0; x < this.datagrid.cells_x; x++ ) {
@@ -116,7 +155,7 @@ export default class Tank {
 					const diff_y = this.whirls[n].y - cell_y;
 					const arctan = Math.atan( diff_y / diff_x ) + ( diff_x < 0 ? Math.PI : 0 );
 					// const deflection = ( this.whirls[n].pull + utils.RandomFloat(0.3, 0.7) ) / 2; // local jitter
-					const deflection = utils.RandomFloat(0.3, 0.7); // local jitter
+					const deflection = 0.5 + ( ( Math.random() - 0.5 ) * this.turbulence ); // local jitter
 					const angle = ( arctan + Math.PI * deflection ) % ( Math.PI * 2 );
 					const dist = Math.sqrt( diff_x * diff_x + diff_y * diff_y ); 
 					cell.current_x += (this.whirls[n].dir ? 1 : -1) * Math.cos(angle) * ( 1 - Math.pow( dist / largest_dim, this.whirls[n].locality ) ) * this.whirls[n].strength;
@@ -377,6 +416,14 @@ export default class Tank {
 			}),
 		);		
 		
+	}
+	
+	Update( delta ) {
+		this.mutate_cycle = ( this.mutate_cycle ?? 0 ) + delta;
+		if ( this.mutate_cycle > this.mutate_whirls_every ) { 
+			this.MutateWhirlpools();
+			this.mutate_cycle -= this.mutate_whirls_every; 
+		}
 	}
 
 

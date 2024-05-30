@@ -610,6 +610,11 @@ export default class Vectorcosm {
 		if ( delta && delta > 1 ) { delta /= 1000; }
 		delta = Math.min( (delta || this.two.timeDelta/1000), 0.1); // beware of spikes from pausing
 		
+		// update tank conditions
+		if ( this.tank ) {
+			this.tank.Update(delta);
+		}
+		
 		// update simulation		
 		if ( this.simulation ) {
 			this.simulation.Update(delta);
