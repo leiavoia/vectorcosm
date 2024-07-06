@@ -48,6 +48,8 @@ export default class Vectorcosm {
 		// world settings
 		this.animate_boids = true;
 		this.animate_plants = true;
+		this.plant_intro_method = 'grow'; // 'grow' or 'fade'
+		this.plant_growth_animation_step = 0.05; // in seconds. reduces the number of geometry updates
 		this.show_collision_detection = false;
 		this.show_ui = false;
 		this.show_brainmap = false;

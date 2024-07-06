@@ -225,6 +225,7 @@ export default class Simulation {
 			if ( rock ) {
 				const p = rock.pts.pickRandom(); 
 				const plant = RandomPlant( rock.x+p[0], rock.y+p[1] );
+				if ( 'RandomizeAge' in plant ) { plant.RandomizeAge(); }
 				this.tank.plants.push(plant);
 				// [!] inconsistent behavior with rocks which automatically place themselves
 				window.vc.AddShapeToRenderLayer( plant.geo, Math.random() > 0.5 ? '0' : '-1' );

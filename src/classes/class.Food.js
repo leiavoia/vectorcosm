@@ -2,6 +2,8 @@ import Two from "two.js";
 import * as utils from '../util/utils.js'
 import {Circle, Polygon, Result} from 'collisions';
 import Rock from '../classes/class.Rock.js'
+// import DNAPlant from '../classes/class.Plant.js'
+import { DNAPlant } from '../classes/class.Plant.js'
 
 export default class Food {
 	constructor(x=0,y=0,params) {
@@ -91,6 +93,7 @@ export default class Food {
 			Rock
 		);
 		// narrow phase collision detection
+		let touching_rock = false;
 		for ( let o of candidates ) {
 			const circle  = new Circle(this.x, this.y, this.r);
 			const polygon = new Polygon(o.x, o.y, o.collision.hull);
@@ -103,14 +106,49 @@ export default class Food {
 				this.vx = utils.Clamp( -this.vx + utils.RandomFloat(-this.vx*0.5,this.vx*0.5), -300, 300 );
 				this.vy = utils.Clamp( -this.vy + utils.RandomFloat(-this.vy*0.5,this.vy*0.5), -300, 300 );
 			}
+			touching_rock = touching_rock || gotcha;
+		}
+		// plant a seed
+		if ( touching_rock && this.seed && this.age > 5 && Math.random() > 0.9999 && 
+			window.vc.tank.plants.length < window.vc.simulation.settings.num_plants ) {
+			// only plant the seed if there are not too many other plants in the local area
+			let plant_the_seed = true;
+			if ( this.max_germ_density && this.germ_distance ) {
+				// [1] plants are not in the collision detection space, so we need to check all of them for now ;-(
+				let found = 0;
+				const csqrd = this.germ_distance * this.germ_distance;
+				for ( let p of window.vc.tank.plants ) {
+					const xdiff = p.x - this.x;
+					const ydiff = p.y - this.y;
+					const absqrd = xdiff * xdiff + ydiff * ydiff; // dont need to sqrt here
+					if ( absqrd < csqrd ) {
+						found++;
+						if ( found >= this.max_germ_density ) {
+							plant_the_seed = false;
+							break; // too many plants in the local area - stop here
+						}
+					}
+				}				
+			}
+			if ( plant_the_seed ) {
+				const plant = new DNAPlant( {dna:this.seed} );
+				plant.x = this.x;
+				plant.y = this.y;
+				plant.geo.position.x = this.x; // this is really ugly
+				plant.geo.position.y = this.y;
+				plant.age = 0; // shim
+				window.vc.tank.plants.push(plant);
+				// [!] inconsistent behavior with rocks which automatically place themselves
+				window.vc.AddShapeToRenderLayer( plant.geo, Math.random() > 0.5 ? '0' : '-1' );			
+				this.Kill();
+			}
 		}
 		// drawing
-		// if ( !window.vc?.simulation?.turbo ) {
+		else {
 			this.geo.radius = Math.max(this.r,5);
 			this.geo.position.x = this.x;
 			this.geo.position.y = this.y;
-		// }
-			
+		}
 	}
 	// returns the amount eaten
 	Eat(amount) { 
