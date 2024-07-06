@@ -36,6 +36,9 @@ let show_camera_controls = ref(false);
 let show_tank_debug = ref(false);
 let show_training_programs = ref(false);
 
+let idle_for = ref(0);
+let is_idle = ref(false);
+
 let boidviewer = new Two({ fitted: true, type: 'SVGRenderer' }); 
 let braingraph_context = new Two({ fitted: true, type: 'SVGRenderer' }); 
 let braingraph = null;
@@ -288,15 +291,21 @@ body.addEventListener("keydown", function(event) {
 		
 function MouseDown(event) {
 	dragging = true;
+	idle_for.value = 0;
+	is_idle.value = false;
 }
 function MouseUp(event) {
 	// let ClickMap handle it instead to avoid phantom clicks on objects
 	dragging = false;
+	idle_for.value = 0;
+	is_idle.value = false;
 }
 function MouseMove(event) {
 	if ( dragging ) {
 		vc.MoveCamera( -event.movementX, -event.movementY );
 	}
+	idle_for.value = 0;
+	is_idle.value = false;
 }
 		
 function SaveBoid() {
@@ -326,6 +335,12 @@ function SmiteBoid() {
 	}
 }
 			
+function UpdateIdleTime() {
+	idle_for.value += 0.5;
+	is_idle.value = idle_for.value >= 2;
+    setTimeout( UpdateIdleTime, 500 );
+};
+			
 window.addEventListener("resize", function (event) {
     // there is no "windowResizeFinished" event, so settle for timeout to avoid jank
 	if ( window.resizeTimeout ) { clearTimeout(window.resizeTimeout); }
@@ -343,6 +358,7 @@ window.addEventListener("resize", function (event) {
 onMounted(() => {
 	vc.Init();
 	vc.Play();
+	UpdateIdleTime(); // start the clock
 }) 
 
 function ClickMap( event ) {
@@ -419,7 +435,7 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 </script>
 
 <template>
-    <div class="shape-container" 
+    <div :class="{'shape-container':true, 'hidecursor':is_idle}" 
 		@click="ClickMap($event)" 
 		@contextmenu.prevent="ClickMap($event)" 
 		@mousemove="MouseMove($event)"
@@ -428,12 +444,8 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 	>
       <div id="draw-shapes"></div>
     </div>
-    <main 
-		>
-		<!-- <section class="iconmenu" v-if="show_boid_details && focus_boid_data" style="display:flex; flex-flow: column;">
-			<button style="width:100%; padding:0.5em; margin: 0 0 0.25em; display:block;">Exit</button>
-			<button style="width:100%; padding:0.5em; margin: 0 0 0.25em; display:block;">Save Specimen</button>
-		</section> -->
+    <main>
+
 		<!--
 		<section class="boid-braingraph-panel" v-if="show_boid_details && focus_boid_data">
 			<div id="braingraph"  style="width:100%; height: 100%;"></div>
@@ -548,6 +560,16 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 		</section> 
 		-->
 		
+		<!-- style="display:flex; flex-flow: column;pointer-events:auto; user-select: none;" -->
+				
+		<!--				
+			<section class="iconmenu" v-show="idle_for < 2" style="text-align:center;">
+				<button @click="ToggleUI();" 						style="background:#AAAA; border:none; border-radius:0.2rem;  width:3rem; aspect-ratio:1/1; display:inline-block; padding:0em; margin: 0 0.25em; font-size:200%;">📊</button>
+				<button @click="ToggleCameraControls();" 			style="background:#AAAA; border:none; border-radius:0.2rem;  width:3rem; aspect-ratio:1/1; display:inline-block; padding:0em; margin: 0 0.25em; font-size:200%;">🎥</button>
+				<button @click="ToggleBoidLibrary();" 				style="background:#AAAA; border:none; border-radius:0.2rem;  width:3rem; aspect-ratio:1/1; display:inline-block; padding:0em; margin: 0 0.25em; font-size:200%;">💾</button>
+				<button @click="ToggleTrainingProgramControls();" 	style="background:#AAAA; border:none; border-radius:0.2rem;  width:3rem; aspect-ratio:1/1; display:inline-block; padding:0em; margin: 0 0.25em; font-size:200%;">🔄</button>
+			</section>
+		-->
 	</main>
 </template>
 
@@ -582,7 +604,7 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 		/* border: 1px solid white; */
 		display:grid;
 		grid-template-columns: 21rem 0.65fr 0.65fr 17em;
-		grid-template-rows: 1fr 1fr;
+		grid-template-rows: 0.5fr 0.5fr 4rem;
 		gap: 1rem;
 		pointer-events:none;
 	}
@@ -595,15 +617,16 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 		user-select: none;
 	}
 	.iconmenu {
-		grid-row: 1 /3;
+		grid-row: 3/4;
+		grid-column: span 5 / 5;
 	}
 	.boid-detail {
-		grid-row: 1 / 3;
+		grid-row: 1 / 2;
 		grid-column: 4 / 5;
 		font-size: 80%;
 	}
 	.boid-braingraph-panel {
-		grid-row: 1 / 2;
+		grid-row: span 1 / 2;
 		grid-column: 2 / 3;
 		backdrop-filter: blur(4px);
 	}
@@ -641,4 +664,9 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 		width: 100vw;
 		height: 100vh;
 	}
+	
+	.hidecursor {
+		cursor: none;
+	}
+	
 </style>
