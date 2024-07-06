@@ -79,6 +79,10 @@ export default class Simulation {
 	
 	Update( delta ) {
 		if ( this.complete ) { return; }
+		if ( this.killme ) {
+			if ( typeof(this.onComplete) === 'function' ) { this.onComplete(this); }		
+			return;
+		}
 		// house keeping
 		this.stats.round.time += delta;
 		this.stats.delta = delta;
@@ -148,7 +152,7 @@ export default class Simulation {
 			this.Reset();
 			if ( typeof(this.onRound) === 'function' ) { this.onRound(this); }
 			// check if entire simulation is over
-			let end_sim = false;
+			let end_sim = false; // you can mark "killme" to terminate early 
 			if ( this.settings.end?.rounds && this.stats.round.num > this.settings.end.rounds ) {
 				end_sim = true;
 			}

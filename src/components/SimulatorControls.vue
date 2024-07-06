@@ -100,6 +100,10 @@
 		props.sim.SetNumPlants(vars.num_plants);
 	}
 
+	function endSim() {
+		props.sim.killme = true;
+	}
+
 	function updateScale() {
 		window.vc.SetViewScale(vars.scale);
 		window.vc.ResizeTankToWindow(true); // force
@@ -212,8 +216,9 @@
 
 		<button @click="TogglePause()" id="pause_button">Pause</button>
 		<button @click="ToggleSimulatorFF()" id="fast_forward_button">FF</button>
+		<button @click="endSim()">EndSim</button>
 		<button @click="$emit('close')" id="hide_ui_button">UI</button>
-		<button @click="ToggleShowSensors()" id="show_sensors_button">Sensors</button>
+		<!-- <button @click="ToggleShowSensors()" id="show_sensors_button">Sensors</button> -->
 		<button @click="ToggleShowBrainmap()" id="show_brainmap_button">Brain</button>
 		<button @click="SavePopulation()" id="save_leader_button">Save</button>
 		<button @click="LoadPopulation()" id="load_leader_button">Load</button>

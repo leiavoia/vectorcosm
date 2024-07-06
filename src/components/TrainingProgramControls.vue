@@ -24,14 +24,8 @@
 	// 	QueryLibrary( order_by, ascending, star );
 	// });
 	
-	function RunProgram() {
-		window.vc.tank.Kill();
-		window.vc.tank = new Tank( 100,100 );
-		window.vc.tank.MakeBackground();
-		window.vc.ResetCameraZoom();
-		// TODO: this would probably appreciate a defined API instead of overreaching
-		window.vc.sim_queue.length = 0;
-		window.vc.sim_queue.push( new TurningSimulation(window.vc.tank,{
+	function MakeTurningSim() { 
+		return new TurningSimulation(window.vc.tank,{
 			name: 'Steering - Easy',
 			num_boids: 100,
 			num_foods: 1,
@@ -49,8 +43,11 @@
 				avg_score_rounds: 7,
 				rounds:200
 			},
-		}));
-		window.vc.sim_queue.push( new FoodChaseSimulation(window.vc.tank,{
+		});
+	}
+		
+	function MakeFoodChaseSimEasy() { 
+		return new FoodChaseSimulation(window.vc.tank,{
 			name: 'Food Chase - Easy',
 			num_boids: 50,
 			random_boid_pos: true,
@@ -66,7 +63,7 @@
 			species:'random',
 			cullpct: 0.4,
 			edibility: 1,
-			scale: 1.5,
+			scale: 1.1,
 			angle_spread: 0.2,
 			current: 0,
 			num_foods: 1,
@@ -78,10 +75,13 @@
 			end: {
 				avg_score:500,
 				avg_score_rounds: 10,
-				rounds:200
+				rounds:50
 			},
-		}));
-		window.vc.sim_queue.push( new FoodChaseSimulation(window.vc.tank,{
+		});
+	}
+	
+	function MakeFoodChaseSimMedium() { 
+		return new FoodChaseSimulation(window.vc.tank,{
 			name: 'Food Chase - Medium',
 			num_boids: 80,
 			// random_boid_pos: true,
@@ -110,7 +110,36 @@
 				avg_score_rounds: 10,
 				rounds:500
 			},
-		}));
+		});
+	}
+		
+	function RunProgram( program_num ) {
+		window.vc.tank.Kill();
+		window.vc.tank = new Tank( 100,100 );
+		window.vc.tank.MakeBackground();
+		window.vc.ResetCameraZoom();
+		// TODO: this would probably appreciate a defined API instead of overreaching
+		window.vc.sim_queue.length = 0;
+		switch (program_num) {
+			case 1: {
+				window.vc.sim_queue.push(MakeTurningSim());
+				break;
+			}
+			case 2: {
+				window.vc.sim_queue.push(MakeFoodChaseSimEasy());
+				break;
+			}
+			case 3: {
+				window.vc.sim_queue.push(MakeFoodChaseSimMedium());
+				break;
+			}
+			default: {
+				window.vc.sim_queue.push(MakeTurningSim());
+				window.vc.sim_queue.push(MakeFoodChaseSimEasy());
+				window.vc.sim_queue.push(MakeFoodChaseSimMedium());
+				break;
+			}
+		}
 		window.vc.LoadNextSim();
 	}
 	
@@ -124,8 +153,14 @@
 		<br/>
 		<br/>
 				
+		<button @click="RunProgram(1)" style="width:100%; margin-bottom:0.25rem;">Basic Steering</button>
+		<button @click="RunProgram(2)" style="width:100%; margin-bottom:0.25rem;">Food Chase - Easy</button>
+		<button @click="RunProgram(3)" style="width:100%; margin-bottom:0.25rem;">Food Chase - Medium</button>
+		<button @click="RunProgram(4)" style="width:100%; margin-bottom:0.25rem;">The Works</button>
+		
+		
 		<!-- Programs -->
-		<h3>Programs</h3>
+		<!-- <h3>Programs</h3>
 		<div style="border: 1px solid white; margin: 1em 0; padding: 1em 0.5em;">
 			<p>Starting Population:</p>
 			<select>
@@ -150,20 +185,20 @@
 				<button>Delete</button>
 				<button>Edit</button>
 			</div>
-		</div>
+		</div> -->
 		
 		<!-- Sessions -->
-		<h3>Sessions</h3>
+		<!-- <h3>Sessions</h3>
 		<div style="border: 1px solid white; margin: 1em 0; padding: 1em 0.5em;">
 			<div>
 				<button>Session 1</button>
 				<button>Delete</button>
 				<button>Edit</button>
 			</div>
-		</div>
+		</div> -->
 		
 		<!-- Session Config -->
-		<h3>Session Configuration</h3>
+		<!-- <h3>Session Configuration</h3>
 		<div style="border: 1px solid white; margin: 1em 0; padding: 1em 0.5em;">
 			<input type="text" placeholder="Session Name" />
 			max_mutation: 0.1<br/>
@@ -190,58 +225,7 @@
 			current: 0.1,<br/>
 			food_friction: true,<br/>
 			tide: 600,<br/>
-		</div>
-		
-		<!--
-
-		
-		<div class="button_rack">
-			<button :class="{ghost: !num_selected}" @click="AddSelectedRowsToTank()">Add To Tank</button>
-			<button :class="{ghost: !num_selected}" @click="ToggleFavoriteSelectedRows()">Favorite</button>
-			<button :class="{ghost: !num_selected}" @click="DeleteSelectedRows()">Delete</button>
-		</div>
-		<div class="button_rack">
-			<button :class="{ghost: !num_selected}" @click="DeselectAll()">None</button>
-			<button @click="SelectAll()">All</button>
-			<button @click="ToggleQueryFavorites()">Favorites {{star===null ? '' : (star ? '★' : '☆')}}</button>
-		</div>
-		
-		<br/>
-		
-		<p v-show="!rows.length" style="text-align:center;">
-			<b>Library is empty.</b>
-			<br/>
-			Save specimens by clicking on them and pressing "Save".
-		</p>
-		
-		<p v-if="rows.length">
-			<b>{{rows.length}}</b> saved populations
-		</p>
-		
-		<div class="scrollbox">
-			<table v-show="rows.length">
-				<tr>
-					<th></th>
-					<th>Species</th>
-					<th>Count</th>
-					<th>Date</th>
-				</tr>
-				<tr v-for="row of rows" 
-					:class="{ selected: row.selected }"
-					@click="ToggleRowSelect(row)"
-					>
-					<td @click.prevent.stop="MarkRowAsFavorite(row)">{{row.star ? '★' : '☆'}}</td>	
-					<td>{{row.species}}</td>	
-					<td>{{row.count}}</td>	
-					<td>{{FormatTimestamp(row.date)}}</td>	
-				</tr>
-			</table>
-		</div>
-
-		<br/>
-		
-		-->
-		
+		</div> -->
 		
 	</div>
 	  
