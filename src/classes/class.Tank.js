@@ -70,7 +70,8 @@ export default class Tank {
 		
 	Kill() {
 		if ( this.bg ) { this.bg.remove(); }
-		if ( this.debug_geo ) { this.debug_geo.remove(); }
+		if ( this.tankframe ) { this.tankframe.remove(); }
+		this.DrawDebugBoundaryRectangle(false);
 		for ( let r of this.obstacles ) { r.Kill(); }
 		this.Sterilize();
 	}

@@ -43,8 +43,12 @@ export default class Food {
 	}
 	Export( as_JSON=false ) {
 		let output = {};
-		let datakeys = ['x','y','value','age','lifespan','hue','colorval','edibility'];		
-		for ( let k of datakeys ) { output[k] = this[k]; }
+		let datakeys = ['x','y','value','age','lifespan','hue','colorval','edibility','seed','max_germ_density','germ_distance','frictionless'];		
+		for ( let k of datakeys ) { 
+			if ( k in this ) {
+				output[k] = this[k]; 
+			}
+		}
 		if ( as_JSON ) { output = JSON.stringify(output); }
 		return output;
 	}	
@@ -59,6 +63,7 @@ export default class Food {
 		// move
 		this.x += this.vx * delta;
 		this.y += this.vy * delta;
+		const margin = 0;
 		// drag slows us down
 		if ( !this.frictionless ) { 
 			let drag = ( 
@@ -70,13 +75,13 @@ export default class Food {
 			drag = 1 - drag;
 			this.vx *= drag;
 			this.vy *= drag;
+			// bounce off edges
+			if ( this.x < margin ) { this.vx = -this.vx; }
+			if ( this.y < margin ) { this.vy = -this.vy; }
+			if ( this.x > window.vc.tank.width-margin ) { this.vx = -this.vx; }
+			if ( this.y > window.vc.tank.height-margin ) { this.vy = -this.vy; }
 		}
-		// bounce off edges
-		const margin = 0;
-		if ( this.x < margin ) { this.vx = -this.vx; }
-		if ( this.y < margin ) { this.vy = -this.vy; }
-		if ( this.x > window.vc.tank.width-margin ) { this.vx = -this.vx; }
-		if ( this.y > window.vc.tank.height-margin ) { this.vy = -this.vy; }
+
 		// stay in tank
 		this.x = utils.clamp( this.x, margin, window.vc.tank.width-margin );
 		this.y = utils.clamp( this.y, margin, window.vc.tank.height-margin );

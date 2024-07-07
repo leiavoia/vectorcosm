@@ -671,7 +671,7 @@ export class Boid {
 		this.max_energy = this.dna.shapedInt( [0x4A41941A, 0xCA3254B9], 100, 600 );
 		this.lifespan = this.dna.shapedInt( [0x306440CD, 0xB949E20B], 60, 600 );
 		this.maturity_age = this.dna.shapedInt( [0xDC615877, 0x5016E979], 0.1 * this.lifespan, 0.9 * this.lifespan, 0.25 * this.lifespan, 0.8 );
-		this.energy = this.max_energy;
+		if ( !this.energy ) { this.energy = this.max_energy; }
 		this.diet = this.dna.shapedNumber( [0x8C729F32, 0xFA886D41] );
 		this.diet_range = Math.max( this.dna.shapedNumber( [0x6FA6982D, 0xAE0D5144], 0, 0.5 ), 0.1 );
 		// base rates per unit of mass - grows as organism grows
@@ -989,7 +989,7 @@ export class Boid {
 	Export( as_JSON=false ) {
 		let b = {};
 		// POD we can just copy over
-		let datakeys = ['id','x','y','species','age','stomach_contents', 'mass', 'scale', 'length', 'width', 'generation' ];		
+		let datakeys = ['id','x','y','species','age','stomach_contents', 'energy', 'mass', 'scale', 'length', 'width', 'generation' ];		
 		for ( let k of datakeys ) { b[k] = this[k]; }
 		b.brain = this.brain.toJSON(); // misnomor, its not actually JSON, its POD object
 		b.dna = this.dna.str;

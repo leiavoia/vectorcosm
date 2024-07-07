@@ -15,12 +15,19 @@ export default class DNA {
 	// `str` can be either a number of chars, or the entire string (copy)
 	// default is 512 char DNA.
 	constructor( str ) {
+		// actual numbers
 		if ( Number.isInteger(str) ) {
 			this.str = DNA.Random(str);
 		}
-		else if ( str ) {
+		// string literals
+		else if ( str && typeof str=='string' ) {
 			this.str = str.replace(/\s+/g,'').replace(/^[0123456789ABCDEF]/ig, 0).toUpperCase();
 		}
+		// an object with "str" as a member
+		else if ( typeof str === 'object' && 'str' in str ) {
+			this.str = str.str;
+		}
+		// just make something up
 		else {
 			this.str = DNA.Random(512);
 		}

@@ -546,7 +546,7 @@ export default class Vectorcosm {
 				random_boid_pos: true,
 				random_food_pos: true,
 				time: 10000000,
-				max_mutation: 5,
+				max_mutation: 0.1,
 				num_rocks: 5,
 				num_plants: 10,
 				cullpct: 0,
@@ -977,6 +977,9 @@ export default class Vectorcosm {
 	
 	SaveTank() {
 		if ( this.tank ) {
+			//
+			// TODO: it would be nice to save the sim params too
+			//
 			const scene = {
 				tank: this.tank.Export(),
 				boids: this.tank.boids.map( x => x.Export() ),
@@ -1000,10 +1003,19 @@ export default class Vectorcosm {
 			this.sim_queue.push( new FoodChaseSimulation(this.tank,{
 				name: 'Saved Tank',
 				time: 1000000,
-				num_boids:0,
-				num_foods: 0,
+				num_boids: 0,
 				num_plants: 0,
-				num_rocks: 0
+				num_rocks: 0,
+				num_foods: 0,
+				food_friction:true,
+				// random_boid_pos: true,
+				// random_food_pos: true,
+				max_mutation: 0.1,
+				cullpct: 0,
+				// scale: 0.5,
+				current: 0.1,
+				food_friction: true,
+				tide: 600,
 			}));
 			this.LoadNextSim();
 			this.tank.boids = scene.boids.map( o => {
@@ -1020,6 +1032,10 @@ export default class Vectorcosm {
 			for ( let p of this.tank.plants ) {
 				window.vc.AddShapeToRenderLayer( p.geo, Math.random() > 0.5 ? '0' : '-1' );
 			}
+			// hack settings back in
+			this.simulation.settings.num_boids = scene.boids.length;
+			this.simulation.settings.num_plants = scene.plants.length;
+			this.simulation.settings.num_rocks = scene.obstacles.length;
 		}		
 	}
 	

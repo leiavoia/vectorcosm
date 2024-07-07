@@ -343,7 +343,7 @@ export class FoodChaseSimulation extends Simulation {
 		super.Update(delta);
 		const food_friction = typeof(this.settings?.food_friction) === 'boolean' ? this.settings.food_friction : false;
 		// keep the food coming
-		if ( this.tank.foods.length < this.settings.num_foods ) {
+		if ( this.settings.num_foods && this.tank.foods.length < this.settings.num_foods ) {
 			let diff = this.settings.num_foods - this.tank.foods.length;
 			for ( let i=0; i < diff; i++ ) {
 				let food_speed = this.settings?.food_speed ?? 100;
