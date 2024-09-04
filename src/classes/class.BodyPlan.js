@@ -101,19 +101,17 @@ export default class BodyPlan {
 		}
 		
 		// average the first two color indexes to get a unified color we can use for vision calculations
-		this.sensor_color = [0,0,0];
+		this.sensor_colors = [0,0,0];
 		for ( let i=0; i < 2; i++ ) {
 			if ( colors[i] !== 'transparent' ) {
 				const c = utils.HexColorToRGBArray(colors[i]);
 				for ( let color_index=0; color_index < 3; color_index++ ) {
-					this.sensor_color[color_index] += c[color_index];
+					this.sensor_colors[color_index] += c[color_index];
 				}
 			}
 		}
 		const sensor_color_divisor = ( colors[0] === 'transparent' || colors[1] === 'transparent' ) ? 1 : 2;
-		this.sensor_color = utils.RGBArrayToHexColor( 
-			this.sensor_color.map( c => Math.round(c/sensor_color_divisor) )
-		);
+		this.sensor_colors = this.sensor_colors.map( c => Math.round(c/sensor_color_divisor) );
 		
 		// path points
 		let pts = []; 

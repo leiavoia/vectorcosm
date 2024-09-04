@@ -58,6 +58,7 @@ export class Boid {
 	
 	constructor( x=0, y=0, tank=null, json=null ) {
 		this.sensor_color = "AEA"; // SHIM: avg color as it appears on vision sensors
+		this.sense = new Array(16);
 		this.id = Math.random();
 		this.dna = '';
 		this.generation = 1;
@@ -162,7 +163,7 @@ export class Boid {
 		]);
 		
 		// threshold to determine if a node exists at all
-		const num_node_threshold = this.dna.shapedNumber( [0x3E0A3D, 0xAD7144, 0x1AA1CB], 0.05, 0.3, 0.14, 0.5 );
+		const num_node_threshold = this.dna.shapedNumber( [0x3E0A3D, 0xAD7144, 0x1AA1CB], 0.05, 0.5, 0.28, 0.5 );
 		// threshold to determine if a connection between two nodes is made
 		const connectivity = this.dna.shapedNumber( [0x3E0A3D, 0xAD7144, 0x1AA1CB], 0.2, 0.6, 0.33, 0.5 );
 		
@@ -321,7 +322,7 @@ export class Boid {
 		// UI: toggle collision detection geometry UI
 		if ( ( window.vc.show_collision_detection || this.show_sensors ) && !this.sensor_group ) {
 			this.sensor_group = window.two.makeGroup();
-			this.sensor_group.add( this.sensors.filter( s => s.name=='vision' || s.detect=='food' || s.detect=='obstacles' ).map( i => i.CreateGeometry() ) );
+			this.sensor_group.add( this.sensors.filter( s => s.name=='vision' || s.detect=='food' || s.detect=='obstacles' || s.type==='sense' ).map( i => i.CreateGeometry() ) );
 			this.container.add(this.sensor_group);
 		}
 		else if ( !( window.vc.show_collision_detection || this.show_sensors ) && this.sensor_group ) {
@@ -665,8 +666,19 @@ export class Boid {
 		if ( this?.body?.geo ) { this.body.geo.remove(); }
 		this.body = new BodyPlan( this.dna );
 		this.sensor_color = this.body.sensor_color;
+		this.sense[0] = this.body.sensor_colors[0];
+		this.sense[1] = this.body.sensor_colors[1];
+		this.sense[2] = this.body.sensor_colors[2];
+		this.sense[3] = this.dna.mix(0x8B2FC3CE, 0, 1);
+		this.sense[4] = this.dna.mix(0x92C706DE, 0, 1);
+		this.sense[5] = this.dna.mix(0x47A313D3, 0, 1);
+		this.sense[6] = this.dna.mix(0x9C5FE21E, 0, 1);
+		this.sense[7] = this.dna.mix(0xE74231EE, 0, 1);
+		this.sense[8] = this.dna.mix(0x31C75CCA, 0, 1);
+		this.sense[9] = this.dna.mix(0x03F689A8, 0, 1);
+		this.sense[0] = this.dna.mix(0x40C66616, 0, 1);
+		this.sense[1] = this.dna.mix(0x9BC35358, 0, 1);
 		this.container.add([this.body.geo]);
-		
 		this.min_mass = this.body.mass * 0.3; // ???
 		this.max_energy = this.dna.shapedInt( [0x4A41941A, 0xCA3254B9], 100, 600 );
 		this.lifespan = this.dna.shapedInt( [0x306440CD, 0xB949E20B], 60, 600 );
@@ -699,16 +711,17 @@ export class Boid {
 			// otherwise use more advanced sine/cosine pair
 			else { detect.push('near_food_sine','near_food_cos'); }
 			this.sensors.push( new Sensor({ 
-				name: 'vision', 
+				name: 'locate', 
 				detect: detect, 
 				x: xoff,
 				y: 0, 
 				r: radius,
+				color: '#33AAFFAA'
 				},
 			this ) );
 		}
 		
-		// experimental color vision
+		// color vision
 		const has_vision = this.dna.shapedNumber(0x28FE00B9) > 0.35;
 		if ( has_vision ) {
 			const radius = this.dna.shapedNumber([0x65F000D2, 0x3D5500CB, 0x4893BADE], 150, 900, 450, 0.25 );
@@ -719,15 +732,57 @@ export class Boid {
 			const chance_b = this.dna.shapedNumber([0xD93500A8, 0xDF9C007F, 0xEE02001B], 0, 1, 0.5, 0 );
 			const chance_i = this.dna.shapedNumber([0x8D1A00A9, 0xD47800C5, 0x5E1800DA], 0, 1, 0.5, 0 );
 			const detect = [];
-			if ( chance_i < 0.20 ) { detect.push('color_i'); }
+			if ( chance_i < 0.20 ) { detect.push([0,1,2]); } // blended intensity
 			else {
-				if ( chance_r > 0.20 ) { detect.push('color_r'); }
-				if ( chance_g > 0.20 ) { detect.push('color_g'); }
-				if ( chance_b > 0.20 ) { detect.push('color_b'); }
+				if ( chance_r > 0.20 ) { detect.push([0]); }
+				if ( chance_g > 0.20 ) { detect.push([1]); }
+				if ( chance_b > 0.20 ) { detect.push([2]); }
 			}
-			if ( !detect.length ) { detect.push('color_i'); }
-			this.sensors.push( new Sensor({ name: 'vision', detect: detect, x: xoff, y: yoff, r: radius, }, this ) );
-			this.sensors.push( new Sensor({ name: 'vision', detect: detect, x: xoff, y: -yoff, r: radius, }, this ) );
+			if ( !detect.length ) { detect.push([0,1,2]); }
+			this.sensors.push( new Sensor({ type:'sense', name: 'vision1', color: '#99DDFFAA', fov:true, attenuation:true, detect: detect, x: xoff, y: yoff, r: radius, }, this ) );
+			this.sensors.push( new Sensor({ type:'sense', name: 'vision2', color: '#99DDFFAA', fov:true, attenuation:true, detect: detect, x: xoff, y: -yoff, r: radius, }, this ) );
+		}
+		
+		// smell
+		const has_smell = this.dna.shapedNumber(0xB1570091) > 0.2;
+		if ( has_smell ) {
+			const radius = this.dna.shapedNumber([0xCE240049, 0x45EC0063, 0x3343345A], 300, 1200, 600, 0.25 );
+			const xoff = this.dna.shapedNumber([0x9A22004B, 0x22A000F0, 0x9D2A0107], -radius*0.5, radius, radius*0.5, 0.25 );
+			const yoff = this.dna.shapedNumber([0x40C10059, 0xE0570072, 0x2E2FD071], 0, radius, radius*0.5, 0.25 );
+			const detect = [];
+			const rejects = [];
+			// chance to detect indv channels
+			for ( let i=0; i<9; i++ ) {
+				const g1 = this.dna.geneFor('smell chance ' + i);
+				const chance = this.dna.mix(g1, 0, 1);
+				if ( chance > 0.5 ) { detect.push(i+3); } // first three indexes are vision
+				else { rejects.push(i+3); }
+			}
+			// random chance to have blended channel detection
+			if ( rejects.length ) {
+				rejects.shuffle();
+				while ( rejects.length ) {
+					let num = this.dna.shapedInt( this.dna.geneFor('smell merge ' + rejects.length), 2, 3);
+					num = Math.min( rejects.length, num );
+					const chance = this.dna.mix(this.dna.geneFor('smell merge chance ' + rejects.length), 0, 1);
+					const my_rejects = rejects.splice(0,num);
+					if ( chance > 0.5 ) { 
+						detect.push(my_rejects);
+					}
+				}
+			}
+			if ( detect.length ) {
+				const chance = this.dna.shapedNumber([0x293D00E7,0x380A0056,0x615F00E1]);
+				// mono
+				if ( chance > 0.5 ) {
+					this.sensors.push( new Sensor({ type:'sense', name: 'smell', color: '#FFBB00FF', detect: detect, x: xoff, y: 0, r: radius, }, this ) );
+				} 
+				// stereo
+				else {
+					this.sensors.push( new Sensor({ type:'sense', name: 'smell1', color: '#FFBB00FF', detect: detect, x: xoff, y: yoff, r: radius, }, this ) );
+					this.sensors.push( new Sensor({ type:'sense', name: 'smell2', color: '#FFBB00FF', detect: detect, x: xoff, y: -yoff, r: radius, }, this ) );
+				}
+			}
 		}
 		
 		// food and obstacle sensors are mandatory - its just a matter of how many
@@ -750,15 +805,16 @@ export class Boid {
 				// prefer sensors in front
 				let a = ( this.dna.shapedNumber( [0x0FB756A3, this.dna.geneFor(`${detect} sensor angle ${n}`)], 0, Math.PI * 2) + Math.PI ) % (Math.PI * 2);
 				const symmetryGene = this.dna.geneFor(`${detect} sensor symmetry ${n}`,false,true);
+				let color = detect==='obstacles' ? '#FF22BB77' : null;
 				if ( this.dna.biasedRand(symmetryGene, 0,1,0.5,0) < 0.33 ) {
-					this.sensors.push( new Sensor({ x:d, y:sy, r, angle:0, detect, name:detect }, this ) );			
+					this.sensors.push( new Sensor({ x:d, y:sy, r, angle:0, detect, color, name:detect }, this ) );			
 				}
 				// symmetry = 1
 				else {
 					for ( let angle of [a, Math.PI*2-a] ) {
 						sx = d * Math.cos(angle);
 						sy = d * Math.sin(angle);				
-						this.sensors.push( new Sensor({ x:sx, y:sy, r, angle, detect, name:detect }, this ) );			
+						this.sensors.push( new Sensor({ x:sx, y:sy, r, angle, detect, color, name:detect }, this ) );			
 					}
 				}
 			}

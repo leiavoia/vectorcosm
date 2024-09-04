@@ -23,15 +23,24 @@ export default class Food {
 		this.colorval = 1; // Math.random(); // colorval doesnt currently do anything
 		this.edibility = Math.random() * 0.5;
 		this.frictionless = false;
+		this.sense = new Array(16);
 		Object.assign( this, params );
 		this.r = Math.sqrt( 2 * this.value / Math.PI );
 		this.geo = window.two.makeCircle(this.x,this.y,this.r);
-		this.geo.noStroke();
 		let h = this.hue;
 		let s = Math.min(1,this.edibility+0.5);
 		let l = this.colorval * 0.8; // 0.8 keeps it from blowing out
-		this.sensor_color = utils.hsl2rgb(h, s, l);
-		this.sensor_color = utils.RGBArrayToHexColor( this.sensor_color.map( c => Math.round(c * 255) ) );
+		// sensory data
+		let rgbs = utils.hsl2rgb(h, s, l);
+		this.sense[0] = rgbs[0] * 10; // hack x10 for "brightness"
+		this.sense[1] = rgbs[1] * 10; // hack x10 for "brightness"
+		this.sense[2] = rgbs[2] * 10; // hack x10 for "brightness"
+		// SHIM: SMELL - this should come from DNA / be provided from outside
+		for ( let i=0; i<9; i++ ) { 
+			this.sense[i+3] = Math.random();
+		}
+		// rendering
+		this.geo.noStroke();
 		this.geo.fill = `hsl(${h*255},${s*100}%,${l*100}%)`;
 		this.geo.stroke = `hsl(${h*255},${s*100}%,50%)`;
 		this.geo.linewidth = 4;
@@ -43,7 +52,7 @@ export default class Food {
 	}
 	Export( as_JSON=false ) {
 		let output = {};
-		let datakeys = ['x','y','value','age','lifespan','hue','colorval','edibility','seed','max_germ_density','germ_distance','frictionless'];		
+		let datakeys = ['x','y','value','age','lifespan','hue','colorval','edibility','seed','max_germ_density','germ_distance','frictionless','sense'];		
 		for ( let k of datakeys ) { 
 			if ( k in this ) {
 				output[k] = this[k]; 
