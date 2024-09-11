@@ -195,15 +195,18 @@ export default class Simulation {
 		this.tank.obstacles.length = 0;	
 		if ( this.settings?.num_rocks ) {
 			let margin = 200;
+			const xscale = utils.RandomFloat(0.2,1.2);
+			const yscale = 1.4-xscale; // utils.RandomFloat(0.2,1.5);
+			const blunt = Math.random() > 0.5;
 			for ( let i =0; i < this.settings.num_rocks; i++ ) {
-				const xscale = utils.RandomFloat(0.2,1.0);
-				const yscale = utils.RandomFloat(0.2,1.0);
 				let rock = new Rock( {
 					x: utils.RandomInt(margin,this.tank.width-margin)-200, 
 					y: utils.RandomInt(margin,this.tank.height-margin)-150, 
 					w: xscale * Math.sqrt( utils.BiasedRandInt(150,this.tank.width*0.5, 400, 0.9) * utils.BiasedRandInt(150,this.tank.width*0.5, 400, 0.9) ), 
 					h: yscale * Math.sqrt( utils.BiasedRandInt(150,this.tank.height*0.5, 400, 0.9) * utils.BiasedRandInt(150,this.tank.height*0.5, 400, 0.9) ), 
-					complexity: utils.RandomInt(0,3)
+					complexity: utils.RandomInt(0,2),
+					new_points_respect_hull: false,
+					blunt
 				})
 				this.tank.obstacles.push(rock);
 			}

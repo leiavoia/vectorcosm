@@ -74,6 +74,18 @@ export default class Rock {
 					this.pts.push([ utils.RandomInt(0,this.x2), this.y2 ]); // bottom
 					this.pts.push([ 0, utils.RandomInt(0,this.y2) ]); // left
 					this.pts.push([ this.x2, utils.RandomInt(0,this.y2) ]); // right
+					// aesthetics: add more points nearby to reduce sharp points
+					if ( params.blunt ) {
+						for ( let i=0; i<4; i++ ) {
+							const max_jitter = 0.3;
+							const damp_x = i < 2 ? 1 : 0.2 ;
+							const damp_y = i >= 2 ? 1 : 0.2 ;
+							this.pts.push([
+								this.pts[i][0] + (params.w * max_jitter * damp_x) - (params.w * max_jitter * 0.5 * damp_x),
+								this.pts[i][1] + (params.h * max_jitter * damp_y) - (params.h * max_jitter * 0.5 * damp_y)
+							]);
+						}
+					}
 				}
 			}
 			// hull mode
