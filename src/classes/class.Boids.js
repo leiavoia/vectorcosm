@@ -279,8 +279,11 @@ export class Boid {
 		// aging out
 		this.age += delta;
 		if ( this.age > this.lifespan ) {
-			this.Kill();
-			return;
+			// chance to live a while longer
+			if ( Math.random() < 0.002 ) {
+				this.Kill();
+				return;
+			}
 		}
 		
 		// metabolism

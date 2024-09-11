@@ -69,8 +69,11 @@ export default class Food {
 		if ( delta > 1 ) { delta /= 1000; }
 		this.age += delta;
 		if ( this.age > this.lifespan && !this.permafood ) {
-			this.Kill();
-			return;
+			// chance to live a while longer
+			if ( Math.random() < 0.003 ) {		
+				this.Kill();
+				return;
+			}
 		}
 		// buoyancy
 		this.buoy = this.buoy_start;// + ( this.buoy_end - this.buoy_start ) * Math.max(1, this.age / this.lifespan) ; 

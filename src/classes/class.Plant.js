@@ -70,8 +70,11 @@ export class DNAPlant extends Plant {
 		
 		// current plant class has hacks in to ignore death
 		if ( !this.perma && this.age >= this.lifespan ) {
-			this.Kill();
-			return false;
+			// chance to live a while longer
+			if ( Math.random() < 0.002 ) {
+				this.Kill();
+				return false;
+			}
 		}
 		
 		// make berries
