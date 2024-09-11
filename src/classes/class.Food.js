@@ -121,6 +121,11 @@ export default class Food {
 			}
 			touching_rock = touching_rock || gotcha;
 		}
+		// if an object pushed us out of bounds and we gets stuck outside tank, remove
+		if ( touching_rock ) {
+			if ( this.x < 0 || this.x > window.vc.tank.width ) { this.Kill(); return; };
+			if ( this.y < 0 || this.y > window.vc.tank.height ) { this.Kill(); return; };
+		}
 		// plant a seed
 		if ( touching_rock && this.seed && this.age > 5 && Math.random() > 0.9999 && 
 			window.vc.tank.plants.length < window.vc.simulation.settings.num_plants ) {

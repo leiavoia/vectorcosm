@@ -478,7 +478,11 @@ export class Boid {
 				this.collision.contact_obstacle = true;
 			}
 		}
-		
+		// if an object pushed us out of bounds and we gets stuck outside tank, remove
+		if ( candidates.length ) {
+			if ( this.x < 0 || this.x > window.vc.tank.width ) { this.Kill(); return; };
+			if ( this.y < 0 || this.y > window.vc.tank.height ) { this.Kill(); return; };
+		}		
 		// update drawing geometry
 		// optimization: if turbo is enabled, draw nothing
 		// if ( !window.vc?.simulation?.turbo ) {
