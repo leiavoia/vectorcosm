@@ -136,7 +136,8 @@ export default class Tank {
 	}
 		
 	CreateDataGrid(w,h) {
-		const gridsize = 300;
+		let gridcell_area = (w*h) / 400; // arbitrary number
+		let gridsize = Math.max( 300, Math.sqrt( gridcell_area ) );
 		this.datagrid = new DataGrid(w,h,gridsize);
 		const largest_dim = Math.max( w, h );
 		// create a few whirlpool points
@@ -146,21 +147,23 @@ export default class Tank {
 		// create vector field
 		for ( let x=0; x < this.datagrid.cells_x; x++ ) {
 			for ( let y=0; y < this.datagrid.cells_y; y++ ) {
-				const cell = this.datagrid.CellAt(x*this.datagrid.cellsize, y*this.datagrid.cellsize) ;
-				cell.current_x = 0;
-				cell.current_y = 0;
-				const cell_x = x * gridsize + gridsize * 0.5;
-				const cell_y = y * gridsize + gridsize * 0.5;
-				for ( let n=0; n < this.whirls.length; n++ ) {
-					const diff_x = this.whirls[n].x - cell_x;
-					const diff_y = this.whirls[n].y - cell_y;
-					const arctan = Math.atan( diff_y / diff_x ) + ( diff_x < 0 ? Math.PI : 0 );
-					// const deflection = ( this.whirls[n].pull + utils.RandomFloat(0.3, 0.7) ) / 2; // local jitter
-					const deflection = 0.5 + ( ( Math.random() - 0.5 ) * this.turbulence ); // local jitter
-					const angle = ( arctan + Math.PI * deflection ) % ( Math.PI * 2 );
-					const dist = Math.sqrt( diff_x * diff_x + diff_y * diff_y ); 
-					cell.current_x += (this.whirls[n].dir ? 1 : -1) * Math.cos(angle) * ( 1 - Math.pow( dist / largest_dim, this.whirls[n].locality ) ) * this.whirls[n].strength;
-					cell.current_y += (this.whirls[n].dir ? 1 : -1) * Math.sin(angle) * ( 1 - Math.pow( dist / largest_dim, this.whirls[n].locality ) ) * this.whirls[n].strength;
+				const cell = this.datagrid.CellAt(x*this.datagrid.cellsize, y*this.datagrid.cellsize);
+				if ( cell ) {
+					cell.current_x = 0;
+					cell.current_y = 0;
+					const cell_x = x * this.datagrid.cellsize + this.datagrid.cellsize * 0.5;
+					const cell_y = y * this.datagrid.cellsize + this.datagrid.cellsize * 0.5;
+					for ( let n=0; n < this.whirls.length; n++ ) {
+						const diff_x = this.whirls[n].x - cell_x;
+						const diff_y = this.whirls[n].y - cell_y;
+						const arctan = Math.atan( diff_y / diff_x ) + ( diff_x < 0 ? Math.PI : 0 );
+						// const deflection = ( this.whirls[n].pull + utils.RandomFloat(0.3, 0.7) ) / 2; // local jitter
+						const deflection = 0.5 + ( ( Math.random() - 0.5 ) * this.turbulence ); // local jitter
+						const angle = ( arctan + Math.PI * deflection ) % ( Math.PI * 2 );
+						const dist = Math.sqrt( diff_x * diff_x + diff_y * diff_y ); 
+						cell.current_x += (this.whirls[n].dir ? 1 : -1) * Math.cos(angle) * ( 1 - Math.pow( dist / largest_dim, this.whirls[n].locality ) ) * this.whirls[n].strength;
+						cell.current_y += (this.whirls[n].dir ? 1 : -1) * Math.sin(angle) * ( 1 - Math.pow( dist / largest_dim, this.whirls[n].locality ) ) * this.whirls[n].strength;
+					}
 				}
 			}
 		}
@@ -183,7 +186,9 @@ export default class Tank {
 	Resize(w,h) {
 		this.width = w;
 		this.height = h;
-		this.grid = new SpaceGrid(w,h,300);
+		let gridcell_area = (w*h) / 200; // arbitrary number
+		let gridcell_size = Math.max( 300, Math.sqrt( gridcell_area ) );
+		this.grid = new SpaceGrid(w,h,gridcell_size);
 		this.CreateDataGrid(w,h);
 		this.ScaleBackground();
 	}

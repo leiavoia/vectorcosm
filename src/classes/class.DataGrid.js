@@ -2,9 +2,9 @@
 export default class DataGrid {
 
 	constructor( width, height, cellsize = 300 ) {
-		this.cellsize = cellsize;
-		this.cells_x = Math.ceil( width / cellsize );
-		this.cells_y = Math.ceil( height / cellsize );
+		this.cellsize = Math.floor(cellsize); // prevents weird float rounding errors
+		this.cells_x = Math.ceil( width / this.cellsize );
+		this.cells_y = Math.ceil( height / this.cellsize );
 		this.cells = [];
 		for ( let i=0; i < this.cells_x * this.cells_y; i++ ) {
 			this.cells.push({});
