@@ -57,8 +57,7 @@ export class Boid {
 	}
 	
 	constructor( x=0, y=0, tank=null, json=null ) {
-		this.sensor_color = "AEA"; // SHIM: avg color as it appears on vision sensors
-		this.sense = new Array(16);
+		this.sense = new Array(16).fill(0);
 		this.id = Math.random();
 		this.dna = '';
 		this.generation = 1;
@@ -665,19 +664,19 @@ export class Boid {
 	
 		if ( this?.body?.geo ) { this.body.geo.remove(); }
 		this.body = new BodyPlan( this.dna );
-		this.sensor_color = this.body.sensor_color;
 		this.sense[0] = this.body.sensor_colors[0];
 		this.sense[1] = this.body.sensor_colors[1];
 		this.sense[2] = this.body.sensor_colors[2];
-		this.sense[3] = this.dna.mix(0x8B2FC3CE, 0, 1);
-		this.sense[4] = this.dna.mix(0x92C706DE, 0, 1);
-		this.sense[5] = this.dna.mix(0x47A313D3, 0, 1);
-		this.sense[6] = this.dna.mix(0x9C5FE21E, 0, 1);
-		this.sense[7] = this.dna.mix(0xE74231EE, 0, 1);
-		this.sense[8] = this.dna.mix(0x31C75CCA, 0, 1);
-		this.sense[9] = this.dna.mix(0x03F689A8, 0, 1);
-		this.sense[0] = this.dna.mix(0x40C66616, 0, 1);
-		this.sense[1] = this.dna.mix(0x9BC35358, 0, 1);
+		this.sense[3] =  Math.max( 0, this.dna.shapedNumber([0x8B2FC3CE], -0.25, 1, 0.2, 0.2 ) );
+		this.sense[4] =  Math.max( 0, this.dna.shapedNumber([0x92C706DE], -0.25, 1, 0.4, 0.2 ) );
+		this.sense[5] =  Math.max( 0, this.dna.shapedNumber([0x47A313D3], -0.25, 1, 0.6, 0.2 ) );
+		this.sense[6] =  Math.max( 0, this.dna.shapedNumber([0x9C5FE21E], -0.25, 1, 0.8, 0.2 ) );
+		this.sense[7] =  Math.max( 0, this.dna.shapedNumber([0xE74231EE], -0.25, 1, 0.7, 0.2 ) );
+		this.sense[8] =  Math.max( 0, this.dna.shapedNumber([0x31C75CCA], -0.25, 1, 0.5, 0.2 ) );
+		this.sense[9] =  Math.max( 0, this.dna.shapedNumber([0x03F689A8], -0.25, 1, 0.3, 0.2 ) );
+		this.sense[10] = Math.max( 0, this.dna.shapedNumber([0x40C66616], -0.25, 1, 0.1, 0.2 ) );
+		this.sense[11] = Math.max( 0, this.dna.shapedNumber([0x9BC35358], -0.25, 1, 0.05, 0.2 ) );
+
 		this.container.add([this.body.geo]);
 		this.min_mass = this.body.mass * 0.3; // ???
 		this.max_energy = this.dna.shapedInt( [0x4A41941A, 0xCA3254B9], 100, 600 );
@@ -739,8 +738,8 @@ export class Boid {
 				if ( chance_b > 0.20 ) { detect.push([2]); }
 			}
 			if ( !detect.length ) { detect.push([0,1,2]); }
-			this.sensors.push( new Sensor({ type:'sense', name: 'vision1', color: '#99DDFFAA', fov:true, attenuation:true, detect: detect, x: xoff, y: yoff, r: radius, }, this ) );
-			this.sensors.push( new Sensor({ type:'sense', name: 'vision2', color: '#99DDFFAA', fov:true, attenuation:true, detect: detect, x: xoff, y: -yoff, r: radius, }, this ) );
+			this.sensors.push( new Sensor({ type:'sense', name: 'vision1', color: '#99DDFFAA', sensitivity: 2, fov:true, attenuation:true, detect: detect, x: xoff, y: yoff, r: radius, }, this ) );2
+			this.sensors.push( new Sensor({ type:'sense', name: 'vision2', color: '#99DDFFAA', sensitivity: 2, fov:true, attenuation:true, detect: detect, x: xoff, y: -yoff, r: radius, }, this ) );
 		}
 		
 		// smell
@@ -775,12 +774,12 @@ export class Boid {
 				const chance = this.dna.shapedNumber([0x293D00E7,0x380A0056,0x615F00E1]);
 				// mono
 				if ( chance > 0.5 ) {
-					this.sensors.push( new Sensor({ type:'sense', name: 'smell', color: '#FFBB00FF', detect: detect, x: xoff, y: 0, r: radius, }, this ) );
+					this.sensors.push( new Sensor({ type:'sense', name: 'smell', color: '#FFBB00FF', falloff:2, sensitivity: 0.4, detect: detect, x: xoff, y: 0, r: radius, }, this ) );
 				} 
 				// stereo
 				else {
-					this.sensors.push( new Sensor({ type:'sense', name: 'smell1', color: '#FFBB00FF', detect: detect, x: xoff, y: yoff, r: radius, }, this ) );
-					this.sensors.push( new Sensor({ type:'sense', name: 'smell2', color: '#FFBB00FF', detect: detect, x: xoff, y: -yoff, r: radius, }, this ) );
+					this.sensors.push( new Sensor({ type:'sense', name: 'smell1', color: '#FFBB00FF', falloff:2, sensitivity: 0.4, detect: detect, x: xoff, y: yoff, r: radius, }, this ) );
+					this.sensors.push( new Sensor({ type:'sense', name: 'smell2', color: '#FFBB00FF', falloff:2, sensitivity: 0.4, detect: detect, x: xoff, y: -yoff, r: radius, }, this ) );
 				}
 			}
 		}
@@ -794,7 +793,6 @@ export class Boid {
 		for ( let detect of ['food','obstacles'] ) {
 			let base_num_sensors = this.dna.shapedInt( [0xA6940009, 0xAE6200EC],1,3,1.5,0.5); // 1..3
 			// if organism already has vision, we limit the extra food sensors
-			if ( has_food_locator && detect==='food' ) { base_num_sensors = 1; }
 			for ( let n=0; n < base_num_sensors; n++ ) {
 				let sx = 0;
 				let sy = 0;

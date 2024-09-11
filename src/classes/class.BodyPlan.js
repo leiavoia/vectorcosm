@@ -106,13 +106,13 @@ export default class BodyPlan {
 			if ( colors[i] !== 'transparent' ) {
 				const c = utils.HexColorToRGBArray(colors[i]);
 				for ( let color_index=0; color_index < 3; color_index++ ) {
-					this.sensor_colors[color_index] += c[color_index];
+					this.sensor_colors[color_index] += c[color_index] / 256;
 				}
 			}
 		}
 		const sensor_color_divisor = ( colors[0] === 'transparent' || colors[1] === 'transparent' ) ? 1 : 2;
-		this.sensor_colors = this.sensor_colors.map( c => Math.round(c/sensor_color_divisor) );
-		
+		this.sensor_colors = this.sensor_colors.map( c => c/sensor_color_divisor );
+
 		// path points
 		let pts = []; 
 		for ( let n=0; n < 7; n++ ) {

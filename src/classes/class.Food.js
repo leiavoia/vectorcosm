@@ -23,7 +23,7 @@ export default class Food {
 		this.colorval = 1; // Math.random(); // colorval doesnt currently do anything
 		this.edibility = Math.random() * 0.5;
 		this.frictionless = false;
-		this.sense = new Array(16);
+		this.sense = new Array(16).fill(0);
 		this.buoy = 0;
 		this.buoy_start = 0;
 		this.buoy_end = 0;
@@ -35,9 +35,9 @@ export default class Food {
 		let l = this.colorval * 0.8; // 0.8 keeps it from blowing out
 		// sensory data
 		let rgbs = utils.hsl2rgb(h, s, l);
-		this.sense[0] = rgbs[0] * 10; // hack x10 for "brightness"
-		this.sense[1] = rgbs[1] * 10; // hack x10 for "brightness"
-		this.sense[2] = rgbs[2] * 10; // hack x10 for "brightness"
+		this.sense[0] = rgbs[0] * 2; // hack for "brightness"
+		this.sense[1] = rgbs[1] * 2; // hack for "brightness"
+		this.sense[2] = rgbs[2] * 2; // hack for "brightness"
 		// SHIM: SMELL - this should come from DNA / be provided from outside
 		for ( let i=0; i<9; i++ ) { 
 			this.sense[i+3] = Math.random();

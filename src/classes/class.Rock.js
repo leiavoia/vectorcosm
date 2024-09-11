@@ -26,7 +26,10 @@ export default class Rock {
 	// force_corners = BOOL default true
 	// new_points_respect_hull = BOOL default true. if false, new points can be outside hull
 	constructor( params ) {
-		this.sensor_color = '#444444';
+		this.sense = new Array(16).fill(0);
+		this.sense[0] = 0.2; // dull grey appearance
+		this.sense[1] = 0.2;
+		this.sense[2] = 0.2;
 		// the object can either be a saved object with all data
 		if ( params.collision ) {	
 			Object.assign( this, params );	
