@@ -88,6 +88,8 @@ export class DNAPlant extends Plant {
 					colorval: 1, // does nothing right now
 					edibility: this.traits.fruit_edibility, 
 					lifespan: ( this.traits.fruit_lifespan * ( 1 - (Math.random() * 0.1 ) ) ),
+					buoy_start: this.traits.fruit_buoy_start,
+					buoy_end: this.traits.fruit_buoy_end,
 					vx: utils.RandomFloat(100,1000), // boing!
 					vy: utils.RandomFloat(100,1000),
 					} );
@@ -234,6 +236,8 @@ export class DNAPlant extends Plant {
 		this.traits.fruit_interval *= 1 + ( this.traits.fruit_size / 150 ); // big fruit takes longer
 		this.traits.fruit_edibility = this.dna.mix( [0xC8FC97, 0xFA8070], 0.01, 0.4 );
 		this.traits.fruit_lifespan = this.dna.mix( [0x26E100, 0xBACEAB], 20, 150 );
+		this.traits.fruit_buoy_start = this.dna.mix( [0xA9ED78, 0x0532FB], -100, 100 );
+		this.traits.fruit_buoy_end = this.dna.mix( [0x296C80, 0x839806], -100, 100 );
 		this.traits.fruit_lifespan *= 1 + ( this.traits.fruit_size / 250 ); // big fruit lasts longer
 		this.traits.lifespan = this.dna.shapedInt( [0x9708BE, 0x083DE2, 0x9988AE], 3000, 30000, 10000, 0.1 );
 		// this.traits.lifespan = this.dna.shapedInt( [0x9708BE, 0x083DE2, 0x9988AE], 300, 3000, 1000, 0.5 ); // faster for testing

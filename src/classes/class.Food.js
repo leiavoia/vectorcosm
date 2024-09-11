@@ -24,6 +24,9 @@ export default class Food {
 		this.edibility = Math.random() * 0.5;
 		this.frictionless = false;
 		this.sense = new Array(16);
+		this.buoy = 0;
+		this.buoy_start = 0;
+		this.buoy_end = 0;
 		Object.assign( this, params );
 		this.r = Math.sqrt( 2 * this.value / Math.PI );
 		this.geo = window.two.makeCircle(this.x,this.y,this.r);
@@ -69,10 +72,12 @@ export default class Food {
 			this.Kill();
 			return;
 		}
+		// buoyancy
+		this.buoy = this.buoy_start;// + ( this.buoy_end - this.buoy_start ) * Math.max(1, this.age / this.lifespan) ; 
+		this.vy += -this.buoy;
 		// move
 		this.x += this.vx * delta;
 		this.y += this.vy * delta;
-		const margin = 0;
 		// drag slows us down
 		if ( !this.frictionless ) { 
 			let drag = ( 
@@ -84,16 +89,10 @@ export default class Food {
 			drag = 1 - drag;
 			this.vx *= drag;
 			this.vy *= drag;
-			// bounce off edges
-			if ( this.x < margin ) { this.vx = -this.vx; }
-			if ( this.y < margin ) { this.vy = -this.vy; }
-			if ( this.x > window.vc.tank.width-margin ) { this.vx = -this.vx; }
-			if ( this.y > window.vc.tank.height-margin ) { this.vy = -this.vy; }
 		}
-
 		// stay in tank
-		this.x = utils.clamp( this.x, margin, window.vc.tank.width-margin );
-		this.y = utils.clamp( this.y, margin, window.vc.tank.height-margin );
+		this.x = utils.clamp( this.x, 0, window.vc.tank.width );
+		this.y = utils.clamp( this.y, 0, window.vc.tank.height );
 		// update the object in space
 		this.r = Math.sqrt( 2 * this.value / Math.PI );
 		this.collision.radius = this.r;

@@ -358,14 +358,17 @@ export class FoodChaseSimulation extends Simulation {
 				} );				
 				this.tank.foods.push(food);
 			}	
-		}	 
-		const margin = this.settings?.food_bounce_margin ?? 250;
-		for ( let f of this.tank.foods ) {
-			if ( f.x < margin ) { f.vx = -f.vx; }
-			if ( f.y < margin ) { f.vy = -f.vy; }
-			if ( f.x > this.tank.width-margin ) { f.vx = -f.vx; }
-			if ( f.y > this.tank.height-margin ) { f.vy = -f.vy; }
-			f.frictionless = !food_friction;
+		}
+		// enable food to bounce around the map to create a chase target	
+		if ( !food_friction  ) {
+			const margin = this.settings?.food_bounce_margin ?? 250;
+			for ( let f of this.tank.foods ) {
+				if ( f.x < margin ) { f.vx = -f.vx; }
+				if ( f.y < margin ) { f.vy = -f.vy; }
+				if ( f.x > this.tank.width-margin ) { f.vx = -f.vx; }
+				if ( f.y > this.tank.height-margin ) { f.vy = -f.vy; }
+				f.frictionless = !food_friction;
+			}
 		}
 		// // river current
 		if ( this.settings?.river_current ) { 
