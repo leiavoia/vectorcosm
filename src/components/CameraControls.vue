@@ -66,6 +66,11 @@
 		vars.cinema_mode = !vars.cinema_mode;
 		window.vc.CinemaMode( vars.cinema_mode );
 	}
+	function ToggleHyperzoom() {
+		vars.allow_hyperzoom = !vars.allow_hyperzoom;
+		window.vc.allow_hyperzoom = vars.allow_hyperzoom;
+		window.vc.MoveCamera(0,0,0); // triggers update
+	}
 						
 </script>
 
@@ -95,7 +100,7 @@
 		<button @click="vars.animate_plants = !vars.animate_plants" style="width:100%;" :class="{on:vars.animate_plants}">animate_plants</button>
 		<button @click="vars.show_collision_detection = !vars.show_collision_detection" style="width:100%;" :class="{on:vars.show_collision_detection}">show_collision_detection</button>
 		<button @click="vars.responsive_tank_size = !vars.responsive_tank_size" style="width:100%;" :class="{on:vars.responsive_tank_size}">responsive_tank_size</button>
-		<button @click="vars.allow_hyperzoom = !vars.allow_hyperzoom" style="width:100%;" :class="{on:vars.allow_hyperzoom}">allow_hyperzoom</button>
+		<button @click="ToggleHyperzoom()" style="width:100%;" :class="{on:vars.allow_hyperzoom}">allow_hyperzoom</button>
 		<button @click="vars.transitions = !vars.transitions" style="width:100%;" :class="{on:vars.transitions}">transitions</button>
 		<button @click="vars.parallax = !vars.parallax" style="width:100%;" :class="{on:vars.parallax}">parallax</button>
 		<button @click="vars.show_boid_indicator_on_focus = !vars.show_boid_indicator_on_focus" style="width:100%;" :class="{on:vars.show_boid_indicator_on_focus}">show_boid_indicator_on_focus</button>

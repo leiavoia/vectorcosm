@@ -777,7 +777,7 @@ export default class Vectorcosm {
 	// put camera at a specific point in world space / zoom
 	PointCameraAt( x, y, z=null ) {
 		// entire tank is smaller than screen - snap to center
-		if ( z && z * this.tank.width < this.width && z * this.tank.height < this.height ) { 
+		if ( !this.allow_hyperzoom && z && z * this.tank.width < this.width && z * this.tank.height < this.height ) { 
 			const scalex = this.width / this.tank.width;
 			const scaley = this.height / this.tank.height;
 			const scale = Math.min(scalex,scaley); // min = contain, max = cover
@@ -795,17 +795,17 @@ export default class Vectorcosm {
 		// X pos	
 		const target_x = -( x * this.scale ) + ( 0.5 * this.width );
 		const max_x = -0.0001 + (this.tank.width * this.scale) - (this.width);
-		if ( this.scale * this.tank.width < this.width ) { this.renderLayers['tank'].position.x = -max_x / 2; }
-		else if ( target_x > 0 ) { this.renderLayers['tank'].position.x = 0; }  
-		else if ( target_x < -max_x ) { this.renderLayers['tank'].position.x = -max_x; }  
+		if ( this.scale * this.tank.width < this.width && !this.allow_hyperzoom ) { this.renderLayers['tank'].position.x = -max_x / 2; }
+		else if ( target_x > 0 && !this.allow_hyperzoom ) { this.renderLayers['tank'].position.x = 0; }  
+		else if ( target_x < -max_x && !this.allow_hyperzoom ) { this.renderLayers['tank'].position.x = -max_x; }  
 		else { this.renderLayers['tank'].position.x = target_x; }
 		
 		// Y pos
 		const target_y = -( y * this.scale ) + ( 0.5 * this.height );
 		const max_y = -0.0001 + (this.tank.height * this.scale) - (this.height);
-		if ( this.scale * this.tank.height < this.height ) { this.renderLayers['tank'].position.y = -max_y / 2; }
-		else if ( target_y > 0 ) { this.renderLayers['tank'].position.y = 0; }  
-		else if ( target_y < -max_y ) { this.renderLayers['tank'].position.y = -max_y; }
+		if ( this.scale * this.tank.height < this.height && !this.allow_hyperzoom ) { this.renderLayers['tank'].position.y = -max_y / 2; }
+		else if ( target_y > 0 && !this.allow_hyperzoom ) { this.renderLayers['tank'].position.y = 0; }  
+		else if ( target_y < -max_y && !this.allow_hyperzoom ) { this.renderLayers['tank'].position.y = -max_y; }
 		else { this.renderLayers['tank'].position.y = target_y; }
 		
 		// record stats
