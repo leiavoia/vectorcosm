@@ -28,6 +28,7 @@ export default class Simulation {
 			// },
 			species: 'random',
 			fruiting_speed: 1.0,
+			onExtinction: 'random'
 		};
 		if ( settings ) {
 			this.settings = Object.assign(this.settings, settings);
@@ -82,6 +83,15 @@ export default class Simulation {
 		if ( this.killme ) {
 			if ( typeof(this.onComplete) === 'function' ) { this.onComplete(this); }		
 			return;
+		}
+		// extinction check
+		if ( this.tank.boids.length === 0 ) {
+			if ( typeof(this.settings.onExtinction) === 'function' ) {
+				this.settings.onExtinction();
+			}
+			else if ( this.settings.onExtinction === 'random' ) {
+				this.SetNumBoids( this.settings.num_boids );
+			}
 		}
 		// house keeping
 		this.stats.round.time += delta;
