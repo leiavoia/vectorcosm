@@ -28,7 +28,9 @@ export default class Simulation {
 			// },
 			species: 'random',
 			fruiting_speed: 1.0,
-			onExtinction: 'random'
+			onExtinction: 'random',
+			// allow_speciation: false,
+			speciation_rate: 0,
 		};
 		if ( settings ) {
 			this.settings = Object.assign(this.settings, settings);
@@ -147,6 +149,10 @@ export default class Simulation {
 				const mutation_rate = utils.Clamp( this.settings?.max_mutation || 0, 0, 1 );
 				const dna_mutation_rate = utils.Clamp( this.settings?.dna_mutation_rate || mutation_rate, 0, 1 );
 				const brain_mutation_rate = utils.Clamp( this.settings?.brain_mutation_rate || mutation_rate, 0, 1 );
+				let speciation_rate = 
+					('speciation_rate' in this.settings)
+					? utils.Clamp( this.settings.speciation_rate || 0, 0, 1 )
+					: ( this.settings?.allow_speciation ? ( dna_mutation_rate / 1000 ) : 0 ) ;
 				const parent_selection = this.tank.boids.slice();
 				const parentPicker = new utils.RandomPicker(
 					parent_selection.map( b => [b,b.total_fitness_score]) 
@@ -154,7 +160,9 @@ export default class Simulation {
 				for ( let i=0; i < diff; i++ ) {
 					let parent = parent_selection.length ? parentPicker.Pick() : null;
 					let species = parent ? parent.species : this.settings?.species;
-					let b = parent ? parent.Copy(true,dna_mutation_rate,brain_mutation_rate) : BoidFactory( species, 0, 0, this.tank ) ;
+					let b = parent 
+						? parent.Copy(true, dna_mutation_rate, brain_mutation_rate, speciation_rate) 
+						: BoidFactory( species, 0, 0, this.tank ) ;
 					// if no survivors, it automatically has a randomly generated brain
 					this.tank.boids.push(b);
 				}			

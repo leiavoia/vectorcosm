@@ -310,12 +310,12 @@ export default class Vectorcosm {
 		
 		const natural_tank = new FoodChaseSimulation(this.tank,{
 			name: 'Natural Tank',
-			num_boids: 20,
+			num_boids: 60,
 			random_boid_pos: true,
 			random_food_pos: true,
 			time: 1000000,
 			// min_score: 5,
-			max_mutation: 0.1,
+			max_mutation: 0.2,
 			num_rocks: 3,
 			num_plants: 10,
 			target_spread: 400,
@@ -329,7 +329,9 @@ export default class Vectorcosm {
 			food_friction: true,
 			tide: 600,
 			add_decor: true,
-			random_boid_angle: true
+			random_boid_angle: true,
+			// speciation_rate: 0.001
+			allow_speciation: true
 		});		
 				
 		const pitri_dish = new FoodChaseSimulation(this.tank,{

@@ -324,7 +324,7 @@ export class Boid {
 		// UI: toggle collision detection geometry UI
 		if ( ( window.vc.show_collision_detection || this.show_sensors ) && !this.sensor_group ) {
 			this.sensor_group = window.two.makeGroup();
-			this.sensor_group.add( this.sensors.filter( s => s.name=='vision' || s.detect=='food' || s.detect=='obstacles' || s.type==='sense' ).map( i => i.CreateGeometry() ) );
+			this.sensor_group.add( this.sensors.filter( s => s.type=='locater' || s.detect=='food' || s.detect=='obstacles' || s.type==='sense' ).map( i => i.CreateGeometry() ) );
 			this.container.add(this.sensor_group);
 		}
 		else if ( !( window.vc.show_collision_detection || this.show_sensors ) && this.sensor_group ) {
@@ -611,8 +611,12 @@ export class Boid {
 			}
 			if ( m.hasOwnProperty('mitosis') && m.t >= m.this_stoke_time ) {
 				const mutation_rate = utils.Clamp( window.vc?.simulation?.settings?.max_mutation, 0, 1 );
+				const speciation_rate = 
+					('speciation_rate' in window.vc?.simulation?.settings)
+					? utils.Clamp( window.vc?.simulation?.settings?.speciation_rate || 0, 0, 1 )
+					: ( window.vc?.simulation?.settings?.allow_speciation ? ( mutation_rate / 1000 ) : 0 ) ;							
 				for ( let n=0; n < m.mitosis; n++ ) { 
-					let offspring = this.Copy(true, mutation_rate, mutation_rate); // reset state and mutate organism
+					let offspring = this.Copy(true, mutation_rate, mutation_rate, speciation_rate); // reset state and mutate organism
 					offspring.x = this.x;
 					offspring.y = this.y;
 					offspring.angle = utils.RandomFloat(0, Math.PI*2);
@@ -717,12 +721,13 @@ export class Boid {
 			// otherwise use more advanced sine/cosine pair
 			else { detect.push('near_food_sine','near_food_cos'); }
 			this.sensors.push( new Sensor({ 
-				name: 'locate', 
+				name: 'locate',
+				type: 'locater',
 				detect: detect, 
 				x: xoff,
 				y: 0, 
 				r: radius,
-				color: '#33AAFFAA'
+				color: '#1444DDFF'
 				},
 			this ) );
 		}
@@ -745,8 +750,8 @@ export class Boid {
 				if ( chance_b > 0.20 ) { detect.push([2]); }
 			}
 			if ( !detect.length ) { detect.push([0,1,2]); }
-			this.sensors.push( new Sensor({ type:'sense', name: 'vision1', color: '#99DDFFAA', sensitivity: 2, fov:true, attenuation:true, detect: detect, x: xoff, y: yoff, r: radius, }, this ) );2
-			this.sensors.push( new Sensor({ type:'sense', name: 'vision2', color: '#99DDFFAA', sensitivity: 2, fov:true, attenuation:true, detect: detect, x: xoff, y: -yoff, r: radius, }, this ) );
+			this.sensors.push( new Sensor({ type:'sense', name: 'vision1', color: '#AAEEFFBB', sensitivity: 2, fov:true, attenuation:true, detect: detect, x: xoff, y: yoff, r: radius, }, this ) );2
+			this.sensors.push( new Sensor({ type:'sense', name: 'vision2', color: '#AAEEFFBB', sensitivity: 2, fov:true, attenuation:true, detect: detect, x: xoff, y: -yoff, r: radius, }, this ) );
 		}
 		
 		// smell
@@ -1010,7 +1015,7 @@ export class Boid {
 		// }				
 	}
 			
-	Copy( reset=false, dna_mutation=0, brain_mutation=0 ) {
+	Copy( reset=false, dna_mutation=0, brain_mutation=0, speciation_chance=0 ) {
 		brain_mutation = utils.Clamp( brain_mutation, 0, 1 );
 		dna_mutation = utils.Clamp( dna_mutation, 0, 1 );
 		let b = new Boid(this.x, this.y, this.tank);
@@ -1034,7 +1039,15 @@ export class Boid {
 		}
 		if ( dna_mutation ) {
 			const max_dna_muts = 20;
-			b.dna.mutate( utils.RandomInt( 1, Math.ceil( max_dna_muts * dna_mutation ) ) ); 
+			b.dna.mutate( 
+				utils.RandomInt( 1, Math.ceil( max_dna_muts * dna_mutation ) ),
+				(1-speciation_chance)
+			); 
+			// subspecies names
+			if ( b.dna.str.substring(1,256) != this.dna.str.substring(1,256) ) {
+				b.species = b.species.replace(/\s+\w+$/g, '') + ' ' + utils.RandomName(9);
+				// console.log('new species: ' + b.species);
+			}
 		}
 		b.RehydrateFromDNA();
 		b.min_mass = b.body.mass * 0.3;
