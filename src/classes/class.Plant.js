@@ -183,19 +183,19 @@ export class DNAPlant extends Plant {
 		stops[ stops.length-1 ].offset = 1;
 		
 		// whacky stuff we copied from boid BodyPlans
-		const length = this.dna.biasedRand( this.dna.geneFor(`${whatfor} gradient length`), 100, 1000 );
-		const width = this.dna.biasedRand( this.dna.geneFor(`${whatfor} gradient width`), 100, 1000 );
+		const length = this.dna.shapedNumber( this.dna.geneFor(`${whatfor} gradient length`), 100, 1000 );
+		const width = this.dna.shapedNumber( this.dna.geneFor(`${whatfor} gradient width`), 100, 1000 );
 		const longest_dim = Math.max(length,width);
-		let xoff = this.dna.biasedRand( this.dna.geneFor(`${whatfor} gradient xoff`), -length/2, length/2 );
+		let xoff = this.dna.shapedNumber( this.dna.geneFor(`${whatfor} gradient xoff`), -length/2, length/2 );
 		let yoff = 0;
-		let radius = this.dna.biasedRand( this.dna.geneFor(`${whatfor} gradient radius`), longest_dim/10, longest_dim, longest_dim, 0.8 );
-		const flip = this.dna.biasedRand( this.dna.geneFor(`${whatfor} gradient axis flip`) ) < 0.33;
+		let radius = this.dna.shapedNumber( this.dna.geneFor(`${whatfor} gradient radius`), longest_dim/10, longest_dim, longest_dim, 2.5 );
+		const flip = this.dna.shapedNumber( this.dna.geneFor(`${whatfor} gradient axis flip`) ) < 0.33;
 		let grad = null;
 		// radial gradients only - linear looks wrong for plants unless you can orient it per-leaf
 		grad = window.two.makeRadialGradient(xoff, yoff, radius, ...stops );
 		// finishing touches
 		grad.units = 'userSpaceOnUse'; // super important. alt: 'objectBoundingBox'
-		const spreadNum = this.dna.biasedRand( this.dna.geneFor(`${whatfor} gradient repeat`) );
+		const spreadNum = this.dna.shapedNumber( this.dna.geneFor(`${whatfor} gradient repeat`) );
 		grad.spread = (spreadNum > 0.66) ? 'pad' : ( spreadNum > 0.33 ? 'reflect' : 'repeat' );	
 		if ( flip ) { grad.spread = 'reflect'; }
 		return grad;
@@ -235,19 +235,19 @@ export class DNAPlant extends Plant {
 		// determine the other traits
 		this.traits.fruit_hue = this.dna.shapedNumber( [0xBF6670, 0xEC02EA, 0x0A9FB4], 0, 1 );
 		this.traits.fruit_size = this.dna.mix( [0xF4F609, 0x04BC7F, 0x25D6B9], 5, 500 );
-		this.traits.fruit_interval = this.dna.shapedInt( [0xBABA44, 0x9A1234], 10, 60, 30, 0.5 );
+		this.traits.fruit_interval = this.dna.shapedInt( [0xBABA44, 0x9A1234], 10, 60, 30, 2 );
 		this.traits.fruit_interval *= 1 + ( this.traits.fruit_size / 150 ); // big fruit takes longer
 		this.traits.fruit_edibility = this.dna.mix( [0xC8FC97, 0xFA8070], 0.01, 0.4 );
 		this.traits.fruit_lifespan = this.dna.mix( [0x26E100, 0xBACEAB], 20, 150 );
 		this.traits.fruit_buoy_start = this.dna.mix( [0xA9ED78, 0x0532FB], -100, 100 );
 		this.traits.fruit_buoy_end = this.dna.mix( [0x296C80, 0x839806], -100, 100 );
 		this.traits.fruit_lifespan *= 1 + ( this.traits.fruit_size / 250 ); // big fruit lasts longer
-		this.traits.lifespan = this.dna.shapedInt( [0x9708BE, 0x083DE2, 0x9988AE], 3000, 30000, 10000, 0.1 );
-		// this.traits.lifespan = this.dna.shapedInt( [0x9708BE, 0x083DE2, 0x9988AE], 300, 3000, 1000, 0.5 ); // faster for testing
-		this.traits.maturity_age_pct = this.dna.shapedNumber( [0xAB8DE9, 0x5591A1], 0, 1, 0.1, 0.5 );
+		this.traits.lifespan = this.dna.shapedInt( [0x9708BE, 0x083DE2, 0x9988AE], 3000, 30000, 10000, 2.2 );
+		// this.traits.lifespan = this.dna.shapedInt( [0x9708BE, 0x083DE2, 0x9988AE], 300, 3000, 1000, 2 ); // faster for testing
+		this.traits.maturity_age_pct = this.dna.shapedNumber( [0xAB8DE9, 0x5591A1], 0, 1, 0.1, 2 );
 		this.traits.maturity_age = Math.trunc( this.traits.lifespan * this.traits.maturity_age_pct );
-		this.traits.max_germ_density = this.dna.shapedNumber( [0xB53691, 0x1FE002], 0, 10, 4, 0.5 );
-		this.traits.germ_distance = this.dna.shapedNumber( [0xF3FD38, 0xDAAC47], 10, 1000, 200, 0.5 );
+		this.traits.max_germ_density = this.dna.shapedNumber( [0xB53691, 0x1FE002], 0, 10, 4, 2 );
+		this.traits.germ_distance = this.dna.shapedNumber( [0xF3FD38, 0xDAAC47], 10, 1000, 200, 2 );
 		this.traits.linewidth = this.dna.shapedInt( [0x0C66EA, 0x3D9210], 0, 10 );
 		this.traits.growth_overlap_mod = this.dna.shapedNumber( [0x193793, 0x3A9ABB] );
 		this.traits.radius = this.dna.shapedInt( [0x2FDDFF, 0x6EB952], 100, 350 );
@@ -260,8 +260,8 @@ export class DNAPlant extends Plant {
 		this.traits.points_per_shape = this.dna.shapedInt( [0x25C8FB, 0x704D8B], 2, Math.min(4,this.traits.num_points) );
 		this.traits.point_increment = this.dna.shapedInt( [0x7716A3, 0xCF3E1D], 1, (this.traits.points_per_shape - ( (this.traits.centered?1:0) + 1)) || 1 );
 		this.traits.cap = this.dna.shapedNumber( [0x70D0C5, 0xC3C665] ) > 0.6 ? 'round' : '';
-		this.traits.dash1 = this.dna.shapedInt( [0x900F25, 0x8CCD12], 0, 10, 3, 0.95 );
-		this.traits.dash2 = this.dna.shapedInt( [0xB07AA4, 0x400FD3], 0, 10, 3, 0.95 );
+		this.traits.dash1 = this.dna.shapedInt( [0x900F25, 0x8CCD12], 0, 10, 3, 2.8 );
+		this.traits.dash2 = this.dna.shapedInt( [0xB07AA4, 0x400FD3], 0, 10, 3, 2.8 );
 		this.traits.dashes = [ this.traits.dash1, this.traits.dash2 ];
 		this.traits.smeth = this.dna.shapedNumber( [0x1163CD, 0x30FA56] );
 		if ( this.traits.smeth < 0.25 ) { this.traits.smeth = 'x'; }

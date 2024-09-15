@@ -44,7 +44,7 @@ export default class DNA {
 		return str;
 	}
 		
-	// returns a positive 64-bit Number		
+	// returns a positive Number in the 32-bit range.		
 	// `gene` = 2, 4, 6, or 8-char hex code, e.g. 0x12345678
 	// `to_min` and `to_max` optionally constrain output
 	read( gene, to_min=null, to_max=null  ) {
@@ -61,19 +61,20 @@ export default class DNA {
 		for ( let n=0; n < length; n++ ) {
 			str += this.str.charAt( utils.mod( loc + ( n * hshift ) + ( n * vshift * 16 ), max_address) ); 
 		}
-		let n = parseInt(str, 16);
-
-		// scale the number back up if we only read a fraction of characters
-		if ( length < 16 ) { 
-			const max = parseInt( 'f'.repeat(length), 16 );
-			const ratio = n / max;
-			n = Math.round( ratio * 0xFFFFFFFFFFFFFFFF ); 
-		};
-				
+		// scale the number back up if we only read a fraction of characters.
+		// we need to use BigInt if the reading produces a string too big for regular Number format.
+		// BigInt will not produce a nice decimal ratio and will always truncate to zero.
+		// We need to reduce both numerator and denominator to fit into a regular number to do floating point math.
+		// shove the final result back into a regular Number.
+		let n = length <= 8 ? Number('0x'+str) : Number( BigInt('0x'+str) >> BigInt(length-8) );
+		let max_int = length <= 8 ? Number('0x'+'F'.repeat(length)) : Number( BigInt('0x'+'F'.repeat(length)) >> BigInt(length-8) );
+		const ratio = n / max_int;
+		n = Math.round( Number( ratio * 0xFFFFFFFF ) );
+		
 		// scale to range				
 		if ( to_min !== null && to_max !== null ) {
 			const range_min = 0;
-			const range_max = 0xFFFFFFFFFFFFFFFF;
+			const range_max = 0xFFFFFFFF;
 			n = (to_max-to_min) * Math.abs( (n-range_min) / (range_max-range_min) ) + to_min;
 		}
 		return n;
@@ -83,7 +84,7 @@ export default class DNA {
 		let last = null;
 		genes = Array.isArray(genes) ? genes : [genes];
 		for ( let g of genes ) {
-			let v = this.read( g ); // max 0xFFFFFFFFFFFFFFFF
+			let v = this.read( g ); // max 0xFFFFFFFFFFF
 			if ( last === null ) { last = v; }
 			else {
 				const transform = g >>> 28 & 15;
@@ -101,14 +102,14 @@ export default class DNA {
 							break;				
 						}
 						// modulo
-						case 0xD: { last = utils.MapToRange( last % v, 0, v||1, 0, 0xFFFFFFFFFFFFFFFF ); break; }
+						case 0xD: { last = utils.MapToRange( last % v, 0, v||1, 0, 0xFFFFFFFF ); break; }
 						// reverse modulo
-						case 0xE: { last = utils.MapToRange( v % last, 0, last||1, 0, 0xFFFFFFFFFFFFFFFF ); break; }
+						case 0xE: { last = utils.MapToRange( v % last, 0, last||1, 0, 0xFFFFFFFF ); break; }
 						// rotation ( 0xABC -> 0xBCA )
 						case 0x7:
 						case 0x6: {
 							let hex = v.toString(16).padStart(16,'0');
-							let rotations = Math.round( utils.MapToRange(last, 0, 0xFFFFFFFFFFFFFFFF, 0, 15 ) ) || 1;
+							let rotations = Math.round( utils.MapToRange(last, 0, 0xFFFFFFFF, 0, 15 ) ) || 1;
 							for ( let n=0; n < rotations; n++ ) {
 								if ( transform === 0x6 ) {
 									hex = hex.slice(-1) + hex.slice(0,-1);
@@ -121,7 +122,7 @@ export default class DNA {
 							break;
 						}
 						// invert
-						case 0x1: last = 0xFFFFFFFFFFFFFFFF - v; break;
+						case 0x1: last = 0xFFFFFFFF - v; break;
 						// default: step-down average
 						case 0x0:
 						case 0xA:
@@ -130,48 +131,47 @@ export default class DNA {
 				}
 			}
 		}
-		return utils.Clamp( utils.MapToRange( last, 0, 0xFFFFFFFFFFFFFFFF, to_min, to_max ), to_min, to_max ) || 0;
+		let n = utils.MapToRange( last, 0, 0xFFFFFFFF, to_min, to_max );
+		n = utils.Clamp( n, to_min, to_max ) || 0
+		return n;
 
 	}
 	
+	// // bias is the target average number you want, between min and max
+	// shapedNumber( genes, min=0, max=1, bias=0.5, influence=0 ) {
+	// 	let x = this.mix( genes, 0, 1 );
+	// 	if ( influence ) { // ironically, we ignore the influence
+	// 		bias = utils.MapToRange( bias, min, max, 0, 1 );
+	// 		bias = utils.Clamp(bias, 0.005, 0.995);
+	// 		// TODO: make a better shaping function, perhaps based on B-Splines
+	// 		// this is an inverted sigmoid with some constraints. 
+	// 		// this shapes x in range 0..1 to 0..1 on some bias.
+	// 		// this shaping function is not very good but it lets us move on with our lives.
+	// 		x = Math.log(x/(1-x)) * ((0.5-Math.abs(0.5-bias))/5) + bias;
+	// 		x = utils.Clamp(x,0,1);
+	// 	}
+	// 	// map back to desired range
+	// 	if ( min !== 0 || max !== 1 ) {
+	// 		x = utils.MapToRange( x, 0, 1, min, max );
+	// 	}
 	
-	// bias is the target average number you want, between min and max
-	shapedNumber( genes, min=0, max=1, bias=0.5, influence=0 ) {
-		let x = this.mix( genes, 0, 1 );
-		if ( influence ) { // ironically, we ignore the influence
-			bias = utils.MapToRange( bias, min, max, 0, 1 );
-			bias = utils.Clamp(bias, 0.005, 0.995);
-			// TODO: make a better shaping function, perhaps based on B-Splines
-			// this is an inverted sigmoid with some constraints. 
-			// this shapes x in range 0..1 to 0..1 on some bias.
-			// this shaping function is not very good but it lets us move on with our lives.
-			x = Math.log(x/(1-x)) * ((0.5-Math.abs(0.5-bias))/5) + bias;
-			x = utils.Clamp(x,0,1);
-		}
-		// map back to desired range
-		if ( min !== 0 || max !== 1 ) {
-			x = utils.MapToRange( x, 0, 1, min, max );
-		}
+	// `target` is the average number you want, between min and max
+	shapedNumber( genes, min=0, max=1, target=null, influence=1 ) {
+		// shape the target number to a fractional bias
+		if ( target === null ) { target = ( (max-min) / 2 ) + min; }
+		else { target = utils.Clamp( target, min, max ); }
+		const bias = ( target - min ) / ( max - min );
+		// our "random" number
+		let x = this.mix( genes, 0, 0xFFFFFFFF );
+		// skew the number
+		x = utils.shapeNumber( x, 0, 0xFFFFFFFF, bias, influence );
+		// map to desired range
+		x = utils.MapToRange( x, 0, 0xFFFFFFFF, min, max );
 		return x;
 	}
 	
-	shapedInt( genes, min=0, max=0, bias=0.5, influence=0 ) {
-		return Math.round( this.shapedNumber( genes, min, max, bias, influence ) ); 
-	}
-	
-	biasedRand( gene, min=0, max=1, bias=0.5, influence=0 ) {
-		// NOTE: if the first gene is from the read-only group, the second gene must also be
-		let gene2 = gene + 16;
-		if ( !(gene >>> 8 & 0xFF) ) { gene2 = (gene2 & ~(0xFF << 8)) >>> 0; }
-		const r1 = this.read( gene, 0, 1 );
-		const r2 = this.read( gene2, 0, 1 );
-		const rnd = r1 * (max - min) + min;   // random in range
-		const mix = r2 * influence;   // random mixer - higher influence number means more spread
-		return rnd * (1 - mix) + bias * mix;// mix full range and bias
-	}
-		
-	biasedRandInt( gene, min, max, bias=0.5, influence=0 ) {
-		return Math.floor( this.biasedRand(gene, min, max+0.99999, bias, influence) );
+	shapedInt( genes, min=0, max=0, target=0.5, influence=1 ) {
+		return Math.round( this.shapedNumber( genes, min, max, target, influence ) );
 	}
 	
 	// returns string of a single gene created by hashing any arbitrary string

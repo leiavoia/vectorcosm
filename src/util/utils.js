@@ -351,6 +351,40 @@ export function Base64ToNumber( digitsStr ) {
 
 }
 
+// bias: 0..1, default 0.5, which end of the range to concentrate the number
+// weight: 1+, default 1.0, the exponent to use to shape the curve. 
+// 	Tip: General values between 1 (flat) and 5 (extreme spike) are useful
+//	Use reciprocal values (1/weight) to drive numbers away from the bias number
+//	Good "push away" number are from 0.2 (extreme) to 0.9 (mild dip)
+export function shapeNumber( x, min=0, max=1, bias=0.5, weight=1 ) {
+	if ( min === max ) { return min; }
+	x = Clamp( x, min, max );
+	if ( weight === 0 ) { weight = 1; } // what you probably meant
+	const halfway = ( max - min ) * bias + min;
+	const squashed_x = ( 1 / (max - min) ) * ( x - min );
+	let n = 0;
+	if ( bias===0 ) {
+	    n = Math.pow(squashed_x, weight) * (max - min) + min;
+	}
+	else if ( bias===1 ) {
+	    n = Math.pow(squashed_x, 1/weight) * (max - min) + min;
+	}
+	else if ( x <= halfway ) {
+		// exponents < 1 on the left side
+		n = Math.pow(squashed_x / bias, 1/weight) * (halfway - min) + min;
+	}
+	else {
+		// exponents > 1 on the right side
+		const right_side_squash_length = 1-bias;
+		const new_squashed_x = ( squashed_x - bias ) / right_side_squash_length;
+		n = ( 1-Math.pow( new_squashed_x, 1/weight) ) * (max - halfway) + halfway;				
+		// earlier draft has a better graph but worse frequency results:
+		// return Math.pow((squashed_x-bias) / (1-bias), weight) * (max - halfway) + halfway;
+	}
+	if ( isNaN(n) ) { n=0; }
+	return n;
+}
+		
 // x = input (0..1)
 // b = inflection point (0 .. 1)
 // k = steepness (-1 .. 1) - 0 is linear, negative is sigmoid (high center), positive moves towards ends 

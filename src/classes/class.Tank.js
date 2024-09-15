@@ -298,14 +298,21 @@ export default class Tank {
 			}
 
 			// random edge gravity
-			const x_strength = Math.random() * 2 -1;
-			const y_strength = Math.random() * 2 -1;
+			const x_strength = Math.random() * 2 - 1;
+			const y_strength = Math.random() * 2 - 1;
+			// const x_strength = Math.random() * 3;
+			// const y_strength = Math.random() * 3;
 			const x_focus = this.width * 0.5; // ( Math.random() * 0.9 + 0.05 );
-			const y_focus = this.height * 0.5; // ( Math.random() * 0.9 + 0.05 );
+			const y_focus = this.height * 0.5; // ( Math.random() * 0.9 + 0.05 );			
+			// const x_focus = Math.random() * 0.8 + 0.1;
+			// const y_focus = Math.random() * 0.8 + 0.1;
 			for ( let p of bgpts ) {
 				p[0] = utils.SigMap( p[0], 0, this.width, 0, this.width, x_focus, x_strength );
 				p[1] = utils.SigMap( p[1], 0, this.height, 0, this.height, y_focus, y_strength );
+				// p[0] = utils.shapeNumber( p[0], 0, this.width, x_focus, x_strength );
+				// p[1] = utils.shapeNumber( p[1], 0, this.height, y_focus, y_strength );
 			}
+			
 			
 			// randomized color schemes 
 			for ( let n=0; n < 5; n++ ) {

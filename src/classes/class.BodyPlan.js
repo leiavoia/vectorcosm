@@ -20,18 +20,18 @@ export default class BodyPlan {
 		this.curved = false;
 		
 		// setup
-		this.length = dna.biasedRandInt( 0xE3892763, 8,120,25,0.9);
-		this.width = dna.biasedRandInt( 0x92640AE4, 8,70,17,0.9);
+		this.length = dna.shapedInt( 0xE3892763, 8,120,25,3);
+		this.width = dna.shapedInt( 0x92640AE4, 8,70,17,3);
 		this.mass = this.length * this.width;
-		this.max_length = this.length * dna.biasedRand( 0x99DF7776, 1,1.5,1.1,0.3);
-		this.max_width = this.width * dna.biasedRand( 0x84670788, 1,1.5,1.1,0.3);
-		this.min_length = this.length * dna.biasedRand( 0xD204AD99, 0.6,1,0.9,0.3);
-		this.min_width = this.width * dna.biasedRand( 0x001D3F8D, 0.6,1,0.9,0.3);
-		this.curved = dna.biasedRand( 0x657E00CC, 0, 1, 0.5, 0.1 ) > 0.7; // once a pointy, always a pointy
-		if ( dna.biasedRand( 0x16DB6814, 0,1,0.4,0.1) > 0.92 ) {
+		this.max_length = this.length * dna.shapedNumber( 0x99DF7776, 1,1.5,1.1,1.4);
+		this.max_width = this.width * dna.shapedNumber( 0x84670788, 1,1.5,1.1,1.4);
+		this.min_length = this.length * dna.shapedNumber( 0xD204AD99, 0.6,1,0.9,1.4);
+		this.min_width = this.width * dna.shapedNumber( 0x001D3F8D, 0.6,1,0.9,1.4);
+		this.curved = dna.shapedNumber( 0x657E00CC, 0, 1, 0.5, 1.5 ) > 0.7; // once a pointy, always a pointy
+		if ( dna.shapedNumber( 0x16DB6814, 0,1,0.4,1.3) > 0.92 ) {
 			this.dashes = [];
-			this.dashes.push( dna.biasedRandInt( 0x813871F3, 0,10, 4, 0.5) );
-			this.dashes.push( dna.biasedRandInt( 0x0B92214C, 0,10, 4, 0.5) );	
+			this.dashes.push( dna.shapedInt( 0x813871F3, 0, 10, 4, 2) );
+			this.dashes.push( dna.shapedInt( 0x0B92214C, 0, 10, 4, 2) );	
 		}
 		
 		// colors
@@ -45,30 +45,30 @@ export default class BodyPlan {
 		];
 
 		// chance for transparency
-		if ( dna.biasedRand( 0x5B962440, 0, 1, 0.5, 0.5) > 0.65 ) {
+		if ( dna.shapedNumber( 0x5B962440, 0, 1 ) > 0.75 ) {
 			// one or the other but not both
-			const i = ( dna.biasedRand( 0xB789477E, 0, 1, 0.5, 0.5) > 0.5 ) ? 1 : 0;
+			const i = ( dna.shapedNumber( 0xB789477E, 0, 1 ) > 0.5 ) ? 1 : 0;
 			colors[i] = 'transparent';
 		}
-		this.linewidth = dna.biasedRandInt( 0x61406630, 2,8,2,0.8);
+		this.linewidth = dna.shapedInt( 0x66406630, 2, 8, 2, 2.5 );
 		this.stroke = colors[0];
 		this.fill = colors[1]==='transparent' ? colors[1] : `${colors[1]}AA`;
 			
 		const MakeGradient = (label, req_color, transp='FF') => {
 			const stops = [ new Two.Stop(0, req_color+transp), new Two.Stop(1, req_color+transp) ];
-			const num_stops = dna.biasedRandInt(dna.geneFor(`${label} gradient num_stops`), 0, 5, 1, 1);
+			const num_stops = dna.shapedInt(dna.geneFor(`${label} gradient num_stops`), 0, 5, 1, 3);
 			for ( let n=0; n < num_stops; n++ ) {
-				const pct = dna.biasedRand( dna.geneFor(`${label} gradient stop pct n`) );
-				const index = dna.biasedRandInt(dna.geneFor(`${label} gradient stop index n`), 0, colors.length-1);
+				const pct = dna.shapedNumber( dna.geneFor(`${label} gradient stop pct n`) );
+				const index = dna.shapedInt(dna.geneFor(`${label} gradient stop index n`), 0, colors.length-1);
 				stops.push( new Two.Stop(pct, colors[index]+transp));
 			}
 			stops.sort( (a,b) => a.offset - b.offset );
 			const longest_dim = Math.max(this.width,this.length);
-			let xoff = dna.biasedRand( dna.geneFor(`${label} gradient xoff`), -this.length/2, this.length/2 );
+			let xoff = dna.shapedNumber( dna.geneFor(`${label} gradient xoff`), -this.length/2, this.length/2 );
 			let yoff = 0;
-			let radius = dna.biasedRand( dna.geneFor(`${label} gradient radius`), longest_dim/10, longest_dim, longest_dim, 0.8 );
-			const gtype = dna.biasedRand( dna.geneFor(`${label} gradient type`) ) < 0.4 ? 'linear' : 'radial';
-			const flip = dna.biasedRand( dna.geneFor(`${label} gradient axis flip`) ) < 0.33;
+			let radius = dna.shapedNumber( dna.geneFor(`${label} gradient radius`), longest_dim/10, longest_dim, longest_dim, 2.5 );
+			const gtype = dna.shapedNumber( dna.geneFor(`${label} gradient type`) ) < 0.4 ? 'linear' : 'radial';
+			const flip = dna.shapedNumber( dna.geneFor(`${label} gradient axis flip`) ) < 0.33;
 			let grad = null;
 			if ( gtype == 'radial' ) {
 				grad = window.two.makeRadialGradient(xoff, yoff, radius, ...stops );
@@ -86,17 +86,17 @@ export default class BodyPlan {
 				grad = window.two.makeLinearGradient(xoff, yoff, xoff2, yoff2, ...stops );
 			}
 			grad.units = 'userSpaceOnUse'; // super important
-			const spreadNum = dna.biasedRand( dna.geneFor(`${label} gradient repeat`) );
+			const spreadNum = dna.shapedNumber( dna.geneFor(`${label} gradient repeat`) );
 			grad.spread = (spreadNum > 0.66) ? 'pad' : ( spreadNum > 0.33 ? 'reflect' : 'repeat' );	
 			if ( flip ) { grad.spread = 'reflect'; }	
 			return grad;
 		};
 		
 		// chance for gradients
-		if ( colors[0] !== 'transparent' && dna.shapedNumber( [0xE6062539, 0xAF88FAD4], 0, 1, 0.5, 0.5) > 0.65 ) {
+		if ( colors[0] !== 'transparent' && dna.shapedNumber( [0xE6062539, 0xAF88FAD4], 0, 1) > 0.65 ) {
 			this.stroke = MakeGradient('stroke',colors[0]);
 		}
-		if ( colors[1] !== 'transparent' && dna.shapedNumber( [0x2712267A, 0xAF77DEAD], 0, 1, 0.5, 0.5) > 0.65 ) {
+		if ( colors[1] !== 'transparent' && dna.shapedNumber( [0x2712267A, 0xAF77DEAD], 0, 1) > 0.65 ) {
 			this.fill = MakeGradient('fill',colors[1],'BB');
 		}
 		
