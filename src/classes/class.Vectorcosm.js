@@ -612,7 +612,12 @@ export default class Vectorcosm {
 		
 		// fix delta supplied in ms
 		if ( delta && delta > 1 ) { delta /= 1000; }
-		delta = Math.min( (delta || this.two.timeDelta/1000), 0.1); // beware of spikes from pausing
+		
+		// UI stats - reports ACTUAL FPS - not rectified
+		this.fps = Math.round(1/delta);
+				
+		// 20 FPS minimum. beware of spikes from pausing
+		delta = Math.min( (delta || this.two.timeDelta/1000), 0.05); 
 		
 		// update tank conditions
 		if ( this.tank ) {
@@ -657,9 +662,6 @@ export default class Vectorcosm {
 				this.tank.foods.splice(i,1);
 			}
 		}
-		
-		// UI stats
-		this.fps = Math.round(1/delta);
 		
 		// braingraph the leader
 		this.DrawBrainGraph();
