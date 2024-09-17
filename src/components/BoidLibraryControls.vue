@@ -2,6 +2,7 @@
 	// import * as utils from '../util/utils.js'
 	import BoidLibrary from '../classes/class.BoidLibrary.js'
 	import {Boid} from '../classes/class.Boids.js'
+	import FileSaver from 'file-saver';
 	import PubSub from 'pubsub-js'
 	import { ref, reactive, toRaw, markRaw, shallowRef, nextTick, triggerRef, onMounted, watch } from 'vue'
 	
@@ -12,11 +13,8 @@
 	let ascending = false;
 	let star = null;
 	let num_selected = 0;
-				
-	function ExportSelectedRowsToFile() {
-	
-	}
-	
+	let show_file_upload_controls = ref(false);
+			
 	function DeleteSelectedRows( row ) {
 		for ( let i=rows.length-1; i >= 0; i-- ) {
 			if ( rows[i].selected ) {
@@ -88,6 +86,58 @@
 		return date.toLocaleString();	
 	}
 	
+	function ExportSelectedRowsToFile() {
+		for ( let i=rows.length-1; i >= 0; i-- ) {
+			if ( rows[i].selected ) {
+				rows[i].selected = false;
+				num_selected--;
+				let str = JSON.stringify(rows[i]);
+				let filename = rows[i].species + '_' +
+					+ rows[i].count + '_' +
+					+ rows[i].date
+					+ '.roe';
+				filename = filename.replace(/( |\s)+/ig,'_')	
+				let blob = new Blob([str], {type: "text/plain;charset=utf-8"});
+				saveAs(blob, filename);
+				break;
+			}
+		}	
+	}
+	
+	function readFileContent(file) {
+		const reader = new FileReader()
+		return new Promise((resolve, reject) => {
+			reader.onload = event => resolve(event.target.result)
+			reader.onerror = error => reject(error)
+			reader.readAsText(file)
+		})
+	}
+	
+	function ImportFile() {
+		let input = document.getElementById('savefileloader');
+		if ( input && 'files' in input && input.files.length > 0 ) {
+			readFileContent(input.files[0])
+			.then( content => {
+				// strip out stuff we dont want.
+				// TODO: once we get a file format better firmed up, just whitelist fields we allow.
+				let obj = JSON.parse(content);
+				if ( obj ) {
+					if ( obj.id ) { delete(obj.id); }
+					if ( obj.selected ) { delete(obj.selected); }
+					lib.AddRow( obj );
+					// clean up file picker
+					document.getElementById('savefileloader').value = null;
+				}
+				ToggleShowFileUploadControls();
+			} )
+			.catch(error => console.log(error))
+		}
+	}
+	
+	function ToggleShowFileUploadControls() {
+		show_file_upload_controls.value = !show_file_upload_controls.value;
+	}
+		
 	async function QueryLibrary( order_by='date', ascending=false, star=null ) {
 		rows.length = 0;
 		let results = await lib.Get({ order_by, ascending, star });
@@ -116,7 +166,6 @@
 			<button :class="{ghost: !num_selected}" @click="AddSelectedRowsToTank()">Add To Tank</button>
 			<button :class="{ghost: !num_selected}" @click="ToggleFavoriteSelectedRows()">Favorite</button>
 			<button :class="{ghost: !num_selected}" @click="DeleteSelectedRows()">Delete</button>
-			<!-- <button @click="ExportSelectedRowsToFile()">Export</button> -->
 		</div>
 		<div class="button_rack">
 			<button :class="{ghost: !num_selected}" @click="DeselectAll()">None</button>
@@ -156,6 +205,16 @@
 			</table>
 		</div>
 
+		<br/>
+		
+		<div class="button_rack">
+			<button :class="{ghost: num_selected!==1}" @click="ExportSelectedRowsToFile()">Export</button>
+			<button @click="ToggleShowFileUploadControls()">Import</button>
+		</div>
+		<form @submit.prevent.stop="ImportFile()" @change.prevent.stop="ImportFile()" v-show="show_file_upload_controls">
+			<input type="file" accept=".roe" id="savefileloader" />
+		</form>
+		
 		<br/>
 	</div>
 	  

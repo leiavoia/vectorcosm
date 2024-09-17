@@ -21,6 +21,10 @@ export default class BoidLibrary {
 			svg: null,
 			specimens: population.map( _ => _.Export(true) )
 		};
+		return await this.AddRow(row);
+	}
+	
+	async AddRow( row ) {
 		return await db.populations.put(row)
 		.then( _ => {
 			PubSub.publish('boid-library-addition', null);
