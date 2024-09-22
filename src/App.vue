@@ -474,20 +474,26 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 			<!-- <br/> -->
 			<!-- <div id="boidviewer"  style="width:10em; aspect-ratio:1; margin: 0 auto"></div> -->
 			<!-- <br/> -->
-			<p>ID: <output>{{focus_boid_data.id}}</output></p>
-			<p>GENERATION:<output>{{focus_boid_data.generation}}</output></p>
-			<p>SIZE: <output>{{focus_boid_data.length.toFixed(0)}} x {{focus_boid_data.width.toFixed(0)}}</output></p>
-			<p>SCALE: <output>{{focus_boid_data.scale.toFixed(2)}}</output></p>
-			<p>DIET: <output>{{focus_boid_data.diet.toFixed(2)}} (R:{{focus_boid_data.diet_range.toFixed(2)}})</output></p>
-			<!-- <p>INERTIA: {{focus_boid_data.inertia.toFixed(1)}}</p> -->
-			<!-- <p>ANGULAR: {{focus_boid_data.angmo.toFixed(1)}}</p> -->
-			<p>LIFESPAN: <output>{{focus_boid_data.lifespan}}</output></p>
-			<p>MATURITY AGE: <output>{{focus_boid_data.maturity_age}}</output></p>
-			<p>BITE: <output>{{focus_boid_data.base_bite_rate.toFixed(5)}}</output></p>
-			<p>BASE ENERGY: <output>{{focus_boid_data.base_energy.toFixed(5)}}</output></p>
-			<p>BASE METAB: <output>{{focus_boid_data.base_rest_metabolism.toFixed(5)}}</output></p>
-			<p>BASE DIGEST: <output>{{focus_boid_data.base_digestion_rate.toFixed(5)}}</output></p>
-			<p>BASE STOMACH: <output>{{focus_boid_data.base_stomach_size.toFixed(5)}}</output></p>
+			<p style="text-align:center;">GENERATION:<output>{{focus_boid_data.generation}}</output></p>
+			<p style="text-align:center;">SIZE: <output>
+				{{focus_boid_data.length.toFixed(0)}} x {{focus_boid_data.width.toFixed(0)}} 
+				({{(focus_boid_data.scale*100).toFixed()}}%)
+			</output></p>
+			<!-- <p>SCALE: <output>{{focus_boid_data.scale.toFixed(2)}}</output></p> -->
+			<details style="margin-bottom: 0.5em">
+				<summary style="text-align:center; list-style-type: none;">...</summary>
+				<div>
+					<p>ID: <output>{{focus_boid_data.id}}</output></p>
+					<p>DIET: <output>{{focus_boid_data.diet.toFixed(2)}} (R:{{focus_boid_data.diet_range.toFixed(2)}})</output></p>
+					<p>LIFESPAN: <output>{{focus_boid_data.lifespan}}</output></p>
+					<p>MATURITY AGE: <output>{{focus_boid_data.maturity_age}}</output></p>
+					<p>BITE: <output>{{focus_boid_data.base_bite_rate.toFixed(5)}}</output></p>
+					<p>BASE ENERGY: <output>{{focus_boid_data.base_energy.toFixed(5)}}</output></p>
+					<p>BASE METAB: <output>{{focus_boid_data.base_rest_metabolism.toFixed(5)}}</output></p>
+					<p>BASE DIGEST: <output>{{focus_boid_data.base_digestion_rate.toFixed(5)}}</output></p>
+					<p>BASE STOMACH: <output>{{focus_boid_data.base_stomach_size.toFixed(5)}}</output></p>
+				</div>
+			</details>
 			
 			<button @click="SaveBoid()">Save</button>
 			<button @click="SaveSpecies()">Save Species</button>
@@ -496,9 +502,11 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 			
 			<h2>Vitals</h2>
 			<p>
+				<!--
 				<progress :value="focus_boid_data.scale"></progress> 
 				&nbsp; Scale <output>{{(focus_boid_data.scale*100).toFixed(0)}}%</output>
 				<br />
+				-->
 				
 				<progress :value="focus_boid_data.age / focus_boid_data.lifespan"></progress> 
 				&nbsp; Age <output>{{focus_boid_data.age.toFixed(0)}} / {{focus_boid_data.lifespan.toFixed(0)}}</output>
@@ -515,7 +523,7 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 			</p>
 			
 			<h2>Brain</h2>
-			<p class="brain">
+			<p class="brain micro"><!-- remove .micro for larger annotated cells -->
 				<span :class="n.type" :style="{backgroundColor:n.color}" v-for="n of focus_boid_data.brainnodes">{{n.symbol}}</span>
 			</p>
 			
@@ -523,9 +531,10 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 			<div v-for="m of focus_boid_data.motors">			
 				<progress :value="m.this_stoke_time ? m.last_amount : 0"></progress>
 				&nbsp;
-				<span :title="`${m.strokefunc}, &gt;${m.min_act.toFixed(2)}, t${m.t.toFixed(2)}/${m.stroketime.toFixed(2)}, \$${m.cost.toFixed(2)}`">
-					{{m.name}}
-				</span>
+				<span style="margin-right:0.35em;">{{m.name}}</span>
+				<span v-if="m.linear" style="margin-right:0.35em; color:cyan;">{{Math.abs(m.linear.toFixed())}}</span>
+				<span v-if="m.angular" style="margin-right:0.35em; color:pink;">{{Math.abs(m.angular.toFixed())}}</span>
+				<span style="color:#DDD; font-style:italic;">{{m.stroketime.toFixed(1)}}s</span>
 			</div>
 					
 			<h2>Sensors</h2>
@@ -637,7 +646,7 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 		display:inline-block;
 		height:1.5em;
 		width: 1.5em;
-		border: 1px solid #AAA;
+		border: 1px outset #AAA;
 		margin: 0;
 		padding: 0.1em 0.25em;
 		background-color: #000;
@@ -653,6 +662,10 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 	.brain SPAN.input {
 		border-top-right-radius:50%;	
 		border-bottom-right-radius:50%;	
+	}
+	.brain.micro SPAN {
+		font-size: 70%;
+		color: transparent;
 	}
 
 	#draw-shapes {

@@ -597,7 +597,6 @@ export class Boid {
 				case 'step_down' : amount = (m.t < m.this_stoke_time*0.5) ? amount : 0 ; break;
 				case 'burst' : amount = (m.t >= m.this_stoke_time*0.8) ? amount : 0 ; break;
 				case 'spring' : amount = (m.t < m.this_stoke_time*0.2) ? amount : 0 ; break;
-				// case 'complete' : ;;  // alias for 'constant', but no results until it completes
 				// default: ;; // the default is constant time output
 			}
 			// record how much power was activated this stroke - mostly for UI and animation
@@ -749,7 +748,7 @@ export class Boid {
 			
 			const minActGene =  this.dna.geneFor(`motor min_act chance ${n}`);
 			let min_act = this.dna.shapedNumber([minActGene],0,0.7,0.05,4);
-			if ( wheel ) { min_act * 0.5; }
+			if ( wheel ) { min_act *= 0.5; }
 			if ( strokefunc < 0.4 ) { strokefunc = 'linear_down'; }
 			else if ( strokefunc < 0.5 ) { strokefunc = 'linear_up'; }
 			else if ( strokefunc < 0.65 ) { strokefunc = 'bell'; }
@@ -808,17 +807,46 @@ export class Boid {
 				yfunc: Math.random() > 0.5 ? 'time' : 'blend',
 			};
 			
-			// naming
-			motor.name = (motor.linear && motor.angular) ? 'Combo' : (motor.linear ? 'Linear' : 'Angular');
-			if ( motor.wheel ) { motor.name += ' Wheel'; }
+			// naming - symbols we might use: ↰ ↱ ↲ ↳ ↶ ↷ ↸ ↹ ↺ ↻ ← ↑ → ↓ ↔ ↕ ↖ ↗ ↘ ↙ ⇄ ⇅
+			const nameThatMotor = function( m ) {
+				let name = '';
+				if ( m.linear ) {
+					name += m.linear > 0 ? '↑' : '↓';
+				}
+				if ( angular ) {
+					name += m.angular > 0 ? '↶' : '↷'; // ← →
+				}
+				if ( wheel ) { 
+					name = name.replace(/[↑↓]/g,'↕'); 
+					name = name.replace(/[↶↷]/g,'↔'); 
+				}
+				name = name.replace(/↑↶/,'↰'); 
+				name = name.replace(/↑↷/,'↱'); 
+				name = name.replace(/↓↶/,'↲'); 
+				name = name.replace(/↓↷/,'↳'); 
+				name = name.replace(/↕↔/,'✣'); 
+				if ( m.strokefunc == 'constant' ) { name += ' ▻'; }
+				else if ( m.strokefunc == 'linear_down' ) { name += ' ◺'; }
+				else if ( m.strokefunc == 'linear_up' ) { name += ' ◿'; }
+				else if ( m.strokefunc == 'bell' ) { name += ' ⌒'; }
+				else if ( m.strokefunc == 'step_down' ) { name += ' ◳'; }
+				else if ( m.strokefunc == 'step_up' ) { name += ' ◰'; }
+				else if ( m.strokefunc == 'burst' ) { name += ' ∟'; }
+				else if ( m.strokefunc == 'spring' ) { name += ' ⯾'; }
+				return name;
+			}
+
+			motor.name = nameThatMotor(motor);
+			
 			this.motors.push( motor );
 			
-			// if non-wheel motor has angular movement, create a symmetrical counterpart
-			if ( !motor.wheel && motor.angular ) {
+			// create a symmetrical counterpart if it makes sense
+			if ( motor.angular && ( !motor.wheel || motor.linear ) ) {
 				let motor2 = Object.assign( {}, motor );
 				motor2.angular = -motor.angular;
-				motor2.name = motor.name + ' B';
-				motor.name = motor.name + ' A';
+				if ( motor.wheel && motor.linear ) { motor2.linear = -motor.linear; }
+				motor2.name = nameThatMotor(motor2); // + ' B';
+				motor.name = motor.name; // + ' A';
 				motor2.anim = Object.assign( {}, motor.anim );
 				motor2.anim.yval = -motor2.anim.yval;
 				this.motors.push(motor2);
@@ -839,8 +867,8 @@ export class Boid {
 			min_act: this.dna.shapedNumber( 0x193D8CF5, 0.22, 0.9, 0.6, 2),
 			cost: ( this.max_energy * this.dna.shapedNumber( 0x5BD35728, 0.51, 1, 0.65, 2) ) / stroketime, 
 			stroketime: stroketime, 
-			strokefunc: 'complete', 
-			name: 'mitosis',
+			strokefunc: 'linear_up', 
+			name: `mitosis+${mitosis_num}`,
 			min_age: this.maturity_age,
 			min_scale: 0.65, // prevents infinite subdivision
 			use_max: true // prevents cheating on time
