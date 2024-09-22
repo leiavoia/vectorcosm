@@ -272,8 +272,6 @@ export class Boid {
 		
 	Update( delta ) {
 	
-		const frame_skip = 0; // [!]EXPERIMENTAL TODO: make this a game setting
-		
 		if ( !delta ) { return; }
 		
 		// aging out
@@ -306,9 +304,20 @@ export class Boid {
 			return;
 		}
 		
-		// sensor detection				
+		// reset collision detection flags
 		this.collision.contact_obstacle = false;
-		if ( !frame_skip || window.two.frameCount % frame_skip === 0 ) {
+		
+		// sensor detection				
+		// OPTIMIZATION: we can avoid useless calls to sensors by only sensing when there is
+		// one or more motor that is waiting for a signal. If all motors are busy
+		// then the sensors have no practical purpose and are only for UI enjoyment.
+		let do_sensors = false;
+		if ( !window.vc.boid_sensors_every_frame ) {
+			for ( let m of this.motors ) {
+				if ( !m.t && !m.hasOwnProperty('mitosis') ) { do_sensors = true; break; }
+			}
+		}
+		if ( do_sensors ) {
 			this.sensor_outputs = [];
 			for ( let s of this.sensors ) { 
 				s.Sense();
@@ -332,8 +341,8 @@ export class Boid {
 			this.sensor_group = null;
 		}
 		
-		// CPU optimization: we don't need to run AI every frame
-		if ( !frame_skip || window.two.frameCount % frame_skip === 0 ) {
+		// CPU optimization: we don't need to run AI every frame either
+		if ( do_sensors ) {
 			// movement / motor control 				
 			let brain_outputs = this.brain.activate( this.sensor_outputs.map(s=>s.val) );
 			for ( let k in brain_outputs ) {
@@ -343,7 +352,7 @@ export class Boid {
 				this.ActivateMotor( i, Math.tanh(brain_outputs[i]), delta ); // FIXME tanh?
 			}
 		}
-		// shoot blanks but keep the motors running through strokes
+		// shoot blanks and keep the motors running through strokes
 		else {
 			for ( let i=0; i < this.motors.length; i++ ) {
 				this.ActivateMotor( i, 0, delta );
@@ -705,161 +714,7 @@ export class Boid {
 
 		this.ScaleBoidByMass();
 
-		// SENSORS:
-		this.sensors = [];
-		
-		// experimental: food-locator
-		const has_food_locator = this.dna.shapedNumber(0xEF280028) > 0.86;
-		if ( has_food_locator ) {
-			const radius = this.dna.shapedNumber([0x65F000D2, 0x3D5500CB, 0x4893BADE], 150, 900, 450, 1.5 );
-			const xoff = this.dna.shapedNumber([0xED290071, 0xABAB0008, 0x5E0BA7D4], -radius*0.5, radius, radius*0.5, 1.5 );
-			const detect = ['near_food_dist'];
-			// include density 
-			if ( this.dna.shapedNumber(0x6F4A0039) > 0.6 ) { detect.push('food_density'); }
-			// use single angle number
-			if ( this.dna.shapedNumber(0x7DD800D8) > 0.7 ) { detect.push('near_food_angle'); }
-			// otherwise use more advanced sine/cosine pair
-			else { detect.push('near_food_sine','near_food_cos'); }
-			this.sensors.push( new Sensor({ 
-				name: 'locate',
-				type: 'locater',
-				detect: detect, 
-				x: xoff,
-				y: 0, 
-				r: radius,
-				color: '#1444DDFF'
-				},
-			this ) );
-		}
-		
-		// color vision
-		const has_vision = this.dna.shapedNumber(0x28FE00B9) > 0.35;
-		if ( has_vision ) {
-			const radius = this.dna.shapedNumber([0x65F000D2, 0x3D5500CB, 0x4893BADE], 150, 900, 450, 1.5 );
-			const xoff = this.dna.shapedNumber([0xED290071, 0xABAB0008, 0x5E0BA7D4], -radius*0.5, radius, radius*0.5, 1.5 );
-			const yoff = this.dna.shapedNumber([0x53A1008C, 0x811E0305, 0xC98ECC9A], 0, radius, radius*0.5, 1.5 );
-			const chance_r = this.dna.shapedNumber([0x52B500E1, 0xA3E5000E, 0xBCAC00D6], 0, 1 );
-			const chance_g = this.dna.shapedNumber([0xBA6A00CD, 0xBEDC001E, 0x2E4C00C1], 0, 1 );
-			const chance_b = this.dna.shapedNumber([0xD93500A8, 0xDF9C007F, 0xEE02001B], 0, 1 );
-			const chance_i = this.dna.shapedNumber([0x8D1A00A9, 0xD47800C5, 0x5E1800DA], 0, 1 );
-			const detect = [];
-			if ( chance_i < 0.20 ) { detect.push([0,1,2]); } // blended intensity
-			else {
-				if ( chance_r > 0.20 ) { detect.push([0]); }
-				if ( chance_g > 0.20 ) { detect.push([1]); }
-				if ( chance_b > 0.20 ) { detect.push([2]); }
-			}
-			if ( !detect.length ) { detect.push([0,1,2]); }
-			this.sensors.push( new Sensor({ type:'sense', name: 'vision1', color: '#AAEEFFBB', sensitivity: 2, fov:true, attenuation:true, detect: detect, x: xoff, y: yoff, r: radius, }, this ) );2
-			this.sensors.push( new Sensor({ type:'sense', name: 'vision2', color: '#AAEEFFBB', sensitivity: 2, fov:true, attenuation:true, detect: detect, x: xoff, y: -yoff, r: radius, }, this ) );
-		}
-		
-		// smell
-		const has_smell = this.dna.shapedNumber(0xB1570091) > 0.2;
-		if ( has_smell ) {
-			const radius = this.dna.shapedNumber([0xCE240049, 0x45EC0063, 0x3343345A], 300, 1000, 600, 1.5 );
-			const xoff = this.dna.shapedNumber([0x9A22004B, 0x22A000F0, 0x9D2A0107], -radius*0.5, radius, radius*0.5, 1.5 );
-			const yoff = this.dna.shapedNumber([0x40C10059, 0xE0570072, 0x2E2FD071], 0, radius, radius*0.5, 1.5 );
-			const detect = [];
-			const rejects = [];
-			// chance to detect indv channels
-			for ( let i=0; i<9; i++ ) {
-				const g1 = this.dna.geneFor('smell chance ' + i);
-				const chance = this.dna.mix(g1, 0, 1);
-				if ( chance > 0.65 ) { detect.push(i+3); } // first three indexes are vision
-				else { rejects.push(i+3); }
-			}
-			// random chance to have blended channel detection
-			if ( rejects.length ) {
-				rejects.shuffle();
-				while ( rejects.length ) {
-					let num = this.dna.shapedInt( this.dna.geneFor('smell merge ' + rejects.length), 2, 3);
-					num = utils.Clamp( num, 1, rejects.length );
-					const chance = this.dna.mix(this.dna.geneFor('smell merge chance ' + rejects.length), 0, 1);
-					const my_rejects = rejects.splice(0,num);
-					if ( chance > 0.65 ) { 
-						detect.push(my_rejects);
-					}
-				}
-			}
-			if ( detect.length ) {
-				const chance = this.dna.shapedNumber([0x293D00E7,0x380A0056,0x615F00E1]);
-				// mono
-				if ( chance > 0.5 ) {
-					this.sensors.push( new Sensor({ type:'sense', name: 'smell', color: '#FFBB00FF', falloff:2, sensitivity: 0.4, detect: detect, x: xoff, y: 0, r: radius, }, this ) );
-				} 
-				// stereo
-				else {
-					this.sensors.push( new Sensor({ type:'sense', name: 'smell1', color: '#FFBB00FF', falloff:2, sensitivity: 0.4, detect: detect, x: xoff, y: yoff, r: radius, }, this ) );
-					this.sensors.push( new Sensor({ type:'sense', name: 'smell2', color: '#FFBB00FF', falloff:2, sensitivity: 0.4, detect: detect, x: xoff, y: -yoff, r: radius, }, this ) );
-				}
-			}
-		}
-		
-		// food and obstacle sensors are mandatory - its just a matter of how many
-		const my_max_dim = Math.max( this.body.length, this.body.width );
-		const max_sensor_radius = Math.sqrt(my_max_dim) * 50;
-		const min_sensor_radius = Math.min( my_max_dim, max_sensor_radius );
-		for ( let detect of ['food','obstacles'] ) {
-			let base_num_sensors = this.dna.shapedInt( [0xA6940009, 0xAE6200EC],1,3,1.5,2); // 1..3
-			// if organism already has vision, we limit the extra food sensors
-			for ( let n=0; n < base_num_sensors; n++ ) {
-				let sx = 0;
-				let sy = 0;
-				let r = this.dna.shapedNumber( [0x0FD8010D, this.dna.geneFor(`${detect} sensor radius ${n}`)], min_sensor_radius, max_sensor_radius) * (detect=='obstacles' ? 0.6 : 1.0);
-				let d = this.dna.shapedNumber( this.dna.geneFor(`${detect} sensor distance ${n}`), min_sensor_radius, max_sensor_radius);
-				// sensors need to stay close to the body:
-				d = Math.min( d, r );
-				// prefer sensors in front
-				let a = ( this.dna.shapedNumber( [0x0FB756A3, this.dna.geneFor(`${detect} sensor angle ${n}`)], 0, Math.PI * 2) + Math.PI ) % (Math.PI * 2);
-				const symmetryGene = this.dna.geneFor(`${detect} sensor symmetry ${n}`,false,true);
-				let color = detect==='obstacles' ? '#FF22BB77' : null;
-				if ( this.dna.shapedNumber(symmetryGene, 0,1,0.5,0) < 0.33 ) {
-					this.sensors.push( new Sensor({ x:d, y:sy, r, angle:0, detect, color, name:detect }, this ) );			
-				}
-				// symmetry = 1
-				else {
-					for ( let angle of [a, Math.PI*2-a] ) {
-						sx = d * Math.cos(angle);
-						sy = d * Math.sin(angle);				
-						this.sensors.push( new Sensor({ x:sx, y:sy, r, angle, detect, color, name:detect }, this ) );			
-					}
-				}
-			}
-		}
-		
-		// proprioception
-		const proprio_chance = this.dna.shapedNumber( [0xA9B100D5, 0xE4F000E6, 0xD5C10073] );
-		if ( proprio_chance < 0.25 ) { 
-			this.sensors.push( new Sensor({detect:'proprio'}, this) );
-		}
-		
-		// random chance to get any of the non-collision sensors	
-		const non_coll_sensors = {
-			'energy': 		0.5,
-			'inertia': 		0.3,
-			'spin': 		0.1,
-			'angle-sin': 	0.3,
-			'angle-cos': 	0.3,
-			'world-x': 		0.3,
-			'world-y': 		0.3,
-			//'friends': 		0.0,
-			//'enemies': 		0.0,
-			};
-		for ( let k in non_coll_sensors ) {
-			const gene1 = this.dna.geneFor(`has sensor ${k} chance 1`, false, true);
-			const gene2 = this.dna.geneFor(`has sensor ${k} chance 2`, false, true);
-			const n = this.dna.shapedNumber( [gene1, gene2], 0, 1 );
-			if ( n < non_coll_sensors[k] ) {
-				this.sensors.push( new Sensor({detect:k}, this) );
-			}
-		}
-		// if the organism has no inputs at all, they get energy
-		if ( !this.sensors.length ) {
-			this.sensors.push( new Sensor({detect:'energy'}, this) );
-		}
-		
-		// motors
+		// MOTORS ---------------------\/------------------------
 		this.motors = [];
 		let has_linear = false;
 		let has_angular = false;
@@ -1014,7 +869,167 @@ export class Boid {
 		// 			m.anim.index = 0;
 		// 		}
 		// 	}
-		// }				
+		// }	
+		
+
+		// SENSORS ------------------------\/--------------------------
+		this.sensors = [];
+		
+		// experimental: food-locator
+		const has_food_locator = this.dna.shapedNumber(0xEF280028) > 0.86;
+		if ( has_food_locator ) {
+			const radius = this.dna.shapedNumber([0x65F000D2, 0x3D5500CB, 0x4893BADE], 150, 600, 300, 1.5 );
+			const xoff = this.dna.shapedNumber([0xED290071, 0xABAB0008, 0x5E0BA7D4], -radius*0.5, radius, radius*0.5, 1.5 );
+			const detect = ['near_food_dist'];
+			// include density 
+			if ( this.dna.shapedNumber(0x6F4A0039) > 0.6 ) { detect.push('food_density'); }
+			// use single angle number
+			if ( this.dna.shapedNumber(0x7DD800D8) > 0.7 ) { detect.push('near_food_angle'); }
+			// otherwise use more advanced sine/cosine pair
+			else { detect.push('near_food_sine','near_food_cos'); }
+			this.sensors.push( new Sensor({ 
+				name: 'locate',
+				type: 'locater',
+				detect: detect, 
+				x: xoff,
+				y: 0, 
+				r: radius,
+				color: '#1444DDFF'
+				},
+			this ) );
+		}
+		
+		// color vision
+		const has_vision = this.dna.shapedNumber(0x28FE00B9) > 0.35;
+		if ( has_vision ) {
+			const radius = this.dna.shapedNumber([0x65F000D2, 0x3D5500CB, 0x4893BADE], 100, 800, 350, 1.5 );
+			const xoff = this.dna.shapedNumber([0xED290071, 0xABAB0008, 0x5E0BA7D4], -radius*0.5, radius, radius*0.5, 1.5 );
+			const yoff = this.dna.shapedNumber([0x53A1008C, 0x811E0305, 0xC98ECC9A], 0, radius, radius*0.5, 1.5 );
+			const chance_r = this.dna.shapedNumber([0x52B500E1, 0xA3E5000E, 0xBCAC00D6], 0, 1 );
+			const chance_g = this.dna.shapedNumber([0xBA6A00CD, 0xBEDC001E, 0x2E4C00C1], 0, 1 );
+			const chance_b = this.dna.shapedNumber([0xD93500A8, 0xDF9C007F, 0xEE02001B], 0, 1 );
+			const chance_i = this.dna.shapedNumber([0x8D1A00A9, 0xD47800C5, 0x5E1800DA], 0, 1 );
+			const detect = [];
+			if ( chance_i < 0.20 ) { detect.push([0,1,2]); } // blended intensity
+			else {
+				if ( chance_r > 0.20 ) { detect.push([0]); }
+				if ( chance_g > 0.20 ) { detect.push([1]); }
+				if ( chance_b > 0.20 ) { detect.push([2]); }
+			}
+			if ( !detect.length ) { detect.push([0,1,2]); }
+			this.sensors.push( new Sensor({ type:'sense', name: 'vision1', color: '#AAEEFFBB', sensitivity: 2, fov:true, attenuation:true, detect: detect, x: xoff, y: yoff, r: radius, }, this ) );2
+			this.sensors.push( new Sensor({ type:'sense', name: 'vision2', color: '#AAEEFFBB', sensitivity: 2, fov:true, attenuation:true, detect: detect, x: xoff, y: -yoff, r: radius, }, this ) );
+		}
+		
+		// smell
+		const has_smell = this.dna.shapedNumber(0xB1570091) > 0.2;
+		if ( has_smell ) {
+			const radius = this.dna.shapedNumber([0xCE240049, 0x45EC0063, 0x3343345A], 200, 750, 350, 1.5 );
+			const xoff = this.dna.shapedNumber([0x9A22004B, 0x22A000F0, 0x9D2A0107], -radius*0.5, radius, radius*0.5, 1.5 );
+			const yoff = this.dna.shapedNumber([0x40C10059, 0xE0570072, 0x2E2FD071], 0, radius, radius*0.5, 1.5 );
+			const detect = [];
+			const rejects = [];
+			// chance to detect indv channels
+			for ( let i=0; i<9; i++ ) {
+				const g1 = this.dna.geneFor('smell chance ' + i);
+				const chance = this.dna.mix(g1, 0, 1);
+				if ( chance > 0.65 ) { detect.push(i+3); } // first three indexes are vision
+				else { rejects.push(i+3); }
+			}
+			// random chance to have blended channel detection
+			if ( rejects.length ) {
+				rejects.shuffle();
+				while ( rejects.length ) {
+					let num = this.dna.shapedInt( this.dna.geneFor('smell merge ' + rejects.length), 2, 3);
+					num = utils.Clamp( num, 1, rejects.length );
+					const chance = this.dna.mix(this.dna.geneFor('smell merge chance ' + rejects.length), 0, 1);
+					const my_rejects = rejects.splice(0,num);
+					if ( chance > 0.65 ) { 
+						detect.push(my_rejects);
+					}
+				}
+			}
+			if ( detect.length ) {
+				const chance = this.dna.shapedNumber([0x293D00E7,0x380A0056,0x615F00E1]);
+				// mono
+				if ( chance > 0.5 ) {
+					this.sensors.push( new Sensor({ type:'sense', name: 'smell', color: '#FFBB00FF', falloff:2, sensitivity: 0.4, detect: detect, x: xoff, y: 0, r: radius, }, this ) );
+				} 
+				// stereo
+				else {
+					this.sensors.push( new Sensor({ type:'sense', name: 'smell1', color: '#FFBB00FF', falloff:2, sensitivity: 0.4, detect: detect, x: xoff, y: yoff, r: radius, }, this ) );
+					this.sensors.push( new Sensor({ type:'sense', name: 'smell2', color: '#FFBB00FF', falloff:2, sensitivity: 0.4, detect: detect, x: xoff, y: -yoff, r: radius, }, this ) );
+				}
+			}
+		}
+		
+		// food and obstacle sensors
+		const my_max_dim = Math.max( this.body.length, this.body.width );
+		const max_sensor_radius = Math.sqrt(my_max_dim) * 50;
+		const min_sensor_radius = Math.min( my_max_dim, max_sensor_radius );
+		for ( let detect of ['food','obstacles'] ) {
+			let base_num_sensors = this.dna.shapedInt( [0xA6940009, 0xAE6200EC],1,3,1.5,2); // 1..3
+			// if organism already has vision, we limit the extra food sensors
+			for ( let n=0; n < base_num_sensors; n++ ) {
+				let sx = 0;
+				let sy = 0;
+				let r = this.dna.shapedNumber( [0x0FD8010D, this.dna.geneFor(`${detect} sensor radius ${n}`)], min_sensor_radius, max_sensor_radius) * (detect=='obstacles' ? 0.6 : 1.0);
+				let d = this.dna.shapedNumber( this.dna.geneFor(`${detect} sensor distance ${n}`), min_sensor_radius, max_sensor_radius);
+				// sensors need to stay close to the body:
+				d = Math.min( d, r );
+				// prefer sensors in front
+				let a = ( this.dna.shapedNumber( [0x0FB756A3, this.dna.geneFor(`${detect} sensor angle ${n}`)], 0, Math.PI * 2) + Math.PI ) % (Math.PI * 2);
+				const symmetryGene = this.dna.geneFor(`${detect} sensor symmetry ${n}`,false,true);
+				let color = detect==='obstacles' ? '#FF22BB77' : null;
+				// single
+				if ( this.dna.shapedNumber(symmetryGene, 0,1,0.5,0) < 0.33 ) {
+					this.sensors.push( new Sensor({ x:d, y:sy, r, angle:0, detect, color, name:detect }, this ) );			
+				}
+				// double
+				else {
+					for ( let angle of [a, Math.PI*2-a] ) {
+						sx = d * Math.cos(angle);
+						sy = d * Math.sin(angle);				
+						this.sensors.push( new Sensor({ x:sx, y:sy, r, angle, detect, color, name:detect }, this ) );			
+					}
+				}
+			}
+		}
+		
+		// proprioception
+		// NOTE: this only makes sense if there are two or more motors.
+		if ( this.motors.length >= 3 ) { // account for mitosis as a motor
+			const proprio_chance = this.dna.shapedNumber( [0xA9B100D5, 0xE4F000E6, 0xD5C10073] );
+			if ( proprio_chance < 0.25 ) { 
+				this.sensors.push( new Sensor({detect:'proprio'}, this) );
+			}
+		}
+		
+		// random chance to get any of the non-collision sensors	
+		const non_coll_sensors = {
+			'energy': 		0.5,
+			'inertia': 		0.3,
+			'spin': 		0.1,
+			'angle-sin': 	0.3,
+			'angle-cos': 	0.3,
+			'world-x': 		0.3,
+			'world-y': 		0.3,
+			//'friends': 		0.0,
+			//'enemies': 		0.0,
+			};
+		for ( let k in non_coll_sensors ) {
+			const gene1 = this.dna.geneFor(`has sensor ${k} chance 1`, false, true);
+			const gene2 = this.dna.geneFor(`has sensor ${k} chance 2`, false, true);
+			const n = this.dna.shapedNumber( [gene1, gene2], 0, 1 );
+			if ( n < non_coll_sensors[k] ) {
+				this.sensors.push( new Sensor({detect:k}, this) );
+			}
+		}
+		// if the organism has no inputs at all, they get energy
+		if ( !this.sensors.length ) {
+			this.sensors.push( new Sensor({detect:'energy'}, this) );
+		}
+		
 	}
 			
 	Copy( reset=false, dna_mutation=0, brain_mutation=0, speciation_chance=0 ) {

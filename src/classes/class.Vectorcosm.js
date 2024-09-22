@@ -53,6 +53,7 @@ export default class Vectorcosm {
 		this.show_collision_detection = false;
 		this.show_ui = false;
 		this.show_brainmap = false;
+		this.boid_sensors_every_frame = false;
 		this.responsive_tank_size = false;
 		this.allow_hyperzoom = true;
 		this.focus_object = null;
