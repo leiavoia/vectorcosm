@@ -968,8 +968,7 @@ export class Boid {
 		const max_sensor_radius = Math.sqrt(my_max_dim) * 50;
 		const min_sensor_radius = Math.min( my_max_dim, max_sensor_radius );
 		for ( let detect of ['food','obstacles'] ) {
-			let base_num_sensors = this.dna.shapedInt( [0xA6940009, 0xAE6200EC],1,3,1.5,2); // 1..3
-			// if organism already has vision, we limit the extra food sensors
+			let base_num_sensors = this.dna.shapedInt( [0xA6940009, 0xAE6200EC],0,3,1.5,1.2); // 0..3
 			for ( let n=0; n < base_num_sensors; n++ ) {
 				let sx = 0;
 				let sy = 0;
