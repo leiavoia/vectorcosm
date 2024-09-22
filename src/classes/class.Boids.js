@@ -364,7 +364,7 @@ export class Boid {
 		if ( window.vc.animate_boids && !window.vc?.simulation?.turbo ) {
 		
 			// for ( let m of this.motors ) {
-			// 	if ( m.anim.index < 0 || m.anim.index >= this.body.geo.vertices.length ) { break; }
+			// 	if ( !m.anim || m.anim.index < 0 || m.anim.index >= this.body.geo.vertices.length ) { break; }
 				
 			// 	// effect based on stroke power
 			// 	const effect1 = ( m.this_stoke_time && m.last_amount )
@@ -849,6 +849,7 @@ export class Boid {
 				motor.name = motor.name; // + ' A';
 				motor2.anim = Object.assign( {}, motor.anim );
 				motor2.anim.yval = -motor2.anim.yval;
+				if ( motor.wheel && motor.linear ) { motor2.anim.xval = -motor2.anim.xval; }
 				this.motors.push(motor2);
 				motor.sym = this.motors.length - 1; // index links to each partner
 				motor2.sym = this.motors.length - 2;

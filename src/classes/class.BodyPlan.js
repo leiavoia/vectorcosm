@@ -50,7 +50,7 @@ export default class BodyPlan {
 			const i = ( dna.shapedNumber( 0xB789477E, 0, 1 ) > 0.5 ) ? 1 : 0;
 			colors[i] = 'transparent';
 		}
-		this.linewidth = dna.shapedInt( 0x66406630, 2, 8, 2, 2.5 );
+		this.linewidth = dna.shapedInt( 0x66406630, 2, 12, 2, 2.5 );
 		this.stroke = colors[0];
 		this.fill = colors[1]==='transparent' ? colors[1] : `${colors[1]}AA`;
 			
@@ -112,23 +112,24 @@ export default class BodyPlan {
 		}
 		const sensor_color_divisor = ( colors[0] === 'transparent' || colors[1] === 'transparent' ) ? 1 : 2;
 		this.sensor_colors = this.sensor_colors.map( c => c/sensor_color_divisor );
-
+		
 		// path points
 		let pts = []; 
-		for ( let n=0; n < 7; n++ ) {
+		let max_num_points = 22;
+		for ( let n=1; n <= max_num_points; n++ ) {
 			// first point is guaranteed. everything else has random chance to shoot a blank
-			if ( n > 0 ) {
-				const blank = dna.shapedNumber( [dna.geneFor(`body point ${n} blank`)], 0, 1 );
-				if ( blank < 0.75 ) { continue; }
-			}
+			const roll = dna.shapedNumber( [dna.geneFor(`body point ${n} blank`)], 0, 1 );
+			const gotcha = roll <= 1/n; // guaranteed first point
+			if ( !gotcha ) { continue; }
+			if ( n===1 && roll < 0.005 ) { max_num_points = 200; } // rare chance for a real wingding
 			const geneX1A = dna.geneFor(`body point ${n} x 1 A`, false, true);
-			const geneX2A = dna.geneFor(`body point ${n} x 2 A`);
+			const geneX2A = dna.geneFor(`body point ${n} x 2 A`, false, false);
 			const geneY1A = dna.geneFor(`body point ${n} y 1 A`, false, true);
-			const geneY2A = dna.geneFor(`body point ${n} y 2 A`);
+			const geneY2A = dna.geneFor(`body point ${n} y 2 A`, false, false);
 			const geneX1B = dna.geneFor(`body point ${n} x 1 B`, false, true);
-			const geneX2B = dna.geneFor(`body point ${n} x 2 B`);
+			const geneX2B = dna.geneFor(`body point ${n} x 2 B`, false, false);
 			const geneY1B = dna.geneFor(`body point ${n} y 1 B`, false, true);
-			const geneY2B = dna.geneFor(`body point ${n} y 2 B`);
+			const geneY2B = dna.geneFor(`body point ${n} y 2 B`, false, false);
 			let x1 = dna.shapedNumber( [geneX1A, geneX1B], -this.length/2, this.length/2 );
 			let x2 = 0.25 * dna.shapedNumber( [geneX2A, geneX2B], -this.length/2, this.length/2 );
 			let px = x1 + x2;
@@ -137,6 +138,7 @@ export default class BodyPlan {
 			let py = y1 + y2;
 			pts.push([px,py]);
 		}
+
 		// sorting gives a cleaner look which is sometimes wanted, but not always
 		if ( dna.shapedNumber( [0x0F430043], 0, 1 ) > 0.7 ) { pts.sort( (a,b) => b[0] - a[0] ); }
 		// make complimentary points on other side of body

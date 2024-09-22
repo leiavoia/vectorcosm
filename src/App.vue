@@ -528,7 +528,7 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 			</p>
 			
 			<h2>Motors</h2>
-			<div v-for="m of focus_boid_data.motors">			
+			<div v-for="m of focus_boid_data.motors" style="line-height:1.25em;">			
 				<progress :value="m.this_stoke_time ? m.last_amount : 0"></progress>
 				&nbsp;
 				<span style="margin-right:0.35em;">{{m.name}}</span>
@@ -538,7 +538,7 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 			</div>
 					
 			<h2>Sensors</h2>
-			<div v-for="i of focus_boid_data.sensors">
+			<div v-for="i of focus_boid_data.sensors" style="line-height:1.25em;">
 				<progress :value="i.val"></progress> &nbsp; {{i.name}}
 			</div>
 						
