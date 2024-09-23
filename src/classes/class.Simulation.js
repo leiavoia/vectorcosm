@@ -212,21 +212,26 @@ export default class Simulation {
 		this.tank.obstacles.forEach( x => x.Kill() );
 		this.tank.obstacles.length = 0;	
 		if ( this.settings?.num_rocks ) {
-			let margin = 200;
+			let margin = 100;
 			const xscale = utils.RandomFloat(0.2,1.2);
 			const yscale = 1.4-xscale; // utils.RandomFloat(0.2,1.5);
 			const blunt = Math.random() > 0.5;
+			const max_size = Math.min( this.tank.width*0.6, this.tank.height*0.6 );
+			const min_size = Math.max( max_size * 0.05, 150 );
 			for ( let i =0; i < this.settings.num_rocks; i++ ) {
 				let rock = new Rock( {
 					x: utils.RandomInt(margin,this.tank.width-margin)-200, 
 					y: utils.RandomInt(margin,this.tank.height-margin)-150, 
-					w: xscale * Math.sqrt( utils.BiasedRandInt(150,this.tank.width*0.5, 400, 0.9) * utils.BiasedRandInt(150,this.tank.width*0.5, 400, 0.9) ), 
-					h: yscale * Math.sqrt( utils.BiasedRandInt(150,this.tank.height*0.5, 400, 0.9) * utils.BiasedRandInt(150,this.tank.height*0.5, 400, 0.9) ), 
+					w: xscale * utils.MapToRange( utils.shapeNumber( Math.random(), 0, 1, 0.75, 1.5 ), 0, 1, min_size, max_size ), 
+					h: yscale * utils.MapToRange( utils.shapeNumber( Math.random(), 0, 1, 0.5, 1.5 ), 0, 1, min_size, max_size ), 
 					complexity: utils.RandomInt(0,2),
 					new_points_respect_hull: false,
 					blunt
 				})
 				this.tank.obstacles.push(rock);
+			}
+			if ( Math.random() > 0.5 ) {
+				this.tank.SeparateRocks(margin);
 			}
 		}
 		// substrate and placed stones

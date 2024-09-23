@@ -1,9 +1,10 @@
 import Two from "two.js";
 import Delaunator from 'delaunator';
-import * as utils from '../util/utils.js'
-import SpaceGrid from '../classes/class.SpaceGrid.js'
-import DataGrid from '../classes/class.DataGrid.js'
-import Rock from '../classes/class.Rock.js'
+import * as utils from '../util/utils.js';
+import SpaceGrid from '../classes/class.SpaceGrid.js';
+import DataGrid from '../classes/class.DataGrid.js';
+import Rock from '../classes/class.Rock.js';
+import {Polygon, Collisions} from 'collisions';
 
 export default class Tank {
 
@@ -437,6 +438,56 @@ export default class Tank {
 			this.MutateWhirlpools();
 			this.mutate_cycle -= this.mutate_whirls_every; 
 		}
+	}
+
+	SeparateRocks( padding=0 ) {
+		if ( !this.obstacles.length ) { return; }
+		const system = new Collisions();
+		const result = system.createResult(); // recycled on each collision check
+		// provide temporary geometry info
+		for ( let i = 0; i < this.obstacles.length; i++ ) {
+			this.obstacles[i].collider = new Polygon(this.obstacles[i].x, this.obstacles[i].y, this.obstacles[i].collision.hull)
+			this.obstacles[i].collider.scale_x = ( this.obstacles[i].x2 + padding * 2 ) / this.obstacles[i].x2;
+			this.obstacles[i].collider.scale_y = ( this.obstacles[i].y2 + padding * 2 ) / this.obstacles[i].y2;			
+			system.insert(this.obstacles[i].collider);
+		}
+		// move them apart
+		let attempts = 10;
+		while ( attempts-- ) {
+			system.update();
+			this.obstacles.shuffle();
+			let num_collisions = 0;
+			for (let i = 0; i < this.obstacles.length; i++) {
+				let rock = this.obstacles[i];
+				let potentials = rock.collider.potentials();
+				for ( const body of potentials ) {
+					if (rock.collider.collides(body, result)) {
+						num_collisions++;
+						rock.x -= ( result.overlap * result.overlap_x );
+						rock.y -= ( result.overlap * result.overlap_y );
+						// stay in bounds. TODO: a rock.Move() function would be helpful. this is messy
+						if (rock.x < 0 + padding) {rock.x = padding;};
+						if (rock.y < 0 + padding) {rock.y = padding;};
+						if (rock.x + rock.x2 > window.vc.tank.width - padding) {
+							rock.x = (window.vc.tank.width - rock.x2) - padding;
+						};
+						if (rock.y + rock.y2 > window.vc.tank.height - padding) {
+							rock.y = (window.vc.tank.height - rock.y2) - padding;
+						};
+						// update dependant info
+						rock.collider.x = rock.x;
+						rock.collider.y = rock.y;
+						rock.geo.position.x = rock.x;
+						rock.geo.position.y = rock.y;
+					}
+				}
+			}
+			if (!num_collisions) {break;}
+		}
+		// cleanup
+		for ( let i = 0; i < this.obstacles.length; i++ ) {
+			delete this.obstacles[i].collider;
+		}		
 	}
 
 

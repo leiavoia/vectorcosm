@@ -76,14 +76,19 @@ export default class Rock {
 					this.pts.push([ this.x2, utils.RandomInt(0,this.y2) ]); // right
 					// aesthetics: add more points nearby to reduce sharp points
 					if ( params.blunt ) {
-						for ( let i=0; i<4; i++ ) {
-							const max_jitter = 0.3;
-							const damp_x = i < 2 ? 1 : 0.2 ;
-							const damp_y = i >= 2 ? 1 : 0.2 ;
-							this.pts.push([
-								this.pts[i][0] + (params.w * max_jitter * damp_x) - (params.w * max_jitter * 0.5 * damp_x),
-								this.pts[i][1] + (params.h * max_jitter * damp_y) - (params.h * max_jitter * 0.5 * damp_y)
-							]);
+						if ( params.blunt===true ) { params.blunt=1; }
+						const max_jitter = 0.35;
+						const min_jitter = 0.15;
+						for ( let p=0; p < params.blunt; p++ ) {
+							for ( let i=0; i<4; i++ ) {
+								const jitter = Math.random() * (max_jitter - min_jitter) + min_jitter; 
+								const damp_x = i < 2 ? 1 : 0.2 ;
+								const damp_y = i >= 2 ? 1 : 0.2 ;
+								this.pts.push([
+									this.pts[i][0] + (params.w * jitter * damp_x) - (params.w * jitter * 0.5 * damp_x),
+									this.pts[i][1] + (params.h * jitter * damp_y) - (params.h * jitter * 0.5 * damp_y)
+								]);
+							}
 						}
 					}
 				}
