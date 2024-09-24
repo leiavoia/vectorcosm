@@ -52,6 +52,10 @@ let frameUpdateSubscription = PubSub.subscribe('frame-update', (msg,data) => {
 	// but its considered high performance data and we need to stay hands off
 	if ( vc.focus_object ) {
 		if ( !focus_boid_data.value ) { focus_boid_data.value = {}; }
+		// detect if focus object has changed since last frame
+		if ( focus_boid_data.value.id != vc.focus_object.id ) {
+			show_boid_details.value = vc.camera.show_boid_info_on_focus;
+		}
 		for ( let i of ['id','species','generation','max_energy','energy','diet','diet_range',
 			'length','width','inertia','angmo','total_fitness_score','stomach_contents','stomach_size',
 			'age', 'lifespan', 'maturity_age', 'scale',

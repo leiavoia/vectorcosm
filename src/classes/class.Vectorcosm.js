@@ -377,7 +377,8 @@ export default class Vectorcosm {
 		
 	}
 
-	
+	// TODO: this is all technically UI related stuff that should be moved out of the simulation code.
+	// the camera has a hard to accessing and affecting the UI, such as boid info window.
 	CinemaMode( x=true ) { 
 		this.camera.cinema_mode = !!x;
 		if ( x ) {
