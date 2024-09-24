@@ -329,7 +329,7 @@ export default class Vectorcosm {
 			num_foods: 0,
 			food_friction: true,
 			tide: 600,
-			add_decor: true,
+			add_decor: 0.75,
 			random_boid_angle: true,
 			// speciation_rate: 0.001
 			allow_speciation: true
@@ -559,7 +559,7 @@ export default class Vectorcosm {
 				num_foods: 0,
 				food_friction: true,
 				tide: 600,
-				add_decor: true,
+				add_decor: 0.75,
 			});		
 		}
 		this.simulation.onComplete = _ => this.LoadNextSim();

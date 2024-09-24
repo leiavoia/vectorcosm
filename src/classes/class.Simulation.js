@@ -235,8 +235,11 @@ export default class Simulation {
 			}
 		}
 		// substrate and placed stones
-		if ( this.settings?.add_decor ) { 
-			this.tank.MakePrettyDecor();
+		if ( this.settings?.add_decor ) {
+			// we can also take a random chance to add decor
+			if ( this.settings.add_decor === true || Math.random() <= parseFloat( this.settings.add_decor ) ) {
+				this.tank.MakePrettyDecor();
+			}
 		}
 		// plants grow on rocks, so resetting rocks resets plants too
 		this.SetNumPlants(this.settings.num_plants || 0);
