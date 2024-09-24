@@ -447,8 +447,8 @@ export default class Tank {
 		// provide temporary geometry info
 		for ( let i = 0; i < this.obstacles.length; i++ ) {
 			this.obstacles[i].collider = new Polygon(this.obstacles[i].x, this.obstacles[i].y, this.obstacles[i].collision.hull)
-			this.obstacles[i].collider.scale_x = ( this.obstacles[i].x2 + padding * 2 ) / this.obstacles[i].x2;
-			this.obstacles[i].collider.scale_y = ( this.obstacles[i].y2 + padding * 2 ) / this.obstacles[i].y2;			
+			this.obstacles[i].collider.scale_x = ( this.obstacles[i].x2 + padding ) / this.obstacles[i].x2;
+			this.obstacles[i].collider.scale_y = ( this.obstacles[i].y2 + padding ) / this.obstacles[i].y2;			
 			system.insert(this.obstacles[i].collider);
 		}
 		// move them apart

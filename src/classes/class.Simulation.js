@@ -212,7 +212,7 @@ export default class Simulation {
 		this.tank.obstacles.forEach( x => x.Kill() );
 		this.tank.obstacles.length = 0;	
 		if ( this.settings?.num_rocks ) {
-			let margin = 100;
+			let margin = 150;
 			const xscale = utils.RandomFloat(0.2,1.2);
 			const yscale = 1.4-xscale; // utils.RandomFloat(0.2,1.5);
 			const blunt = Math.random() > 0.5;
