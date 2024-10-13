@@ -542,8 +542,8 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 			</div>
 					
 			<h2>Sensors</h2>
-			<div v-for="i of focus_boid_data.sensors" style="line-height:1.25em;">
-				<progress :value="i.val"></progress> &nbsp; {{i.name}}
+			<div v-for="i of focus_boid_data.sensors" style="line-height:1.25em;vertical-align:center;" :class="{'sensor_block':true, 'compact':focus_boid_data.sensors.length>=10}">
+				<progress :value="i.val"></progress>&nbsp;<span>{{i.name}}</span>
 			</div>
 						
 		</section>
@@ -616,7 +616,7 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 		visibility: visible;		
 		/* border: 1px solid white; */
 		display:grid;
-		grid-template-columns: 21rem 0.65fr 0.65fr 17em;
+		grid-template-columns: 21rem 0.65fr 0.65fr 19em;
 		grid-template-rows: 0.5fr 0.5fr 4rem;
 		gap: 1rem;
 		pointer-events:none;
@@ -685,5 +685,15 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 	.hidecursor {
 		cursor: none;
 	}
+	
+	.sensor_block.compact { width: 50%; display:inline-block;}
+	.sensor_block.compact PROGRESS { width: 4em; }
+	.sensor_block.compact SPAN {
+		display:inline-block; 
+		overflow-x:hidden;
+		overflow-y:visible;
+		line-height:1.25em; 
+		width:6em; 
+		}
 	
 </style>

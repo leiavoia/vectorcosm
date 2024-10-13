@@ -814,7 +814,7 @@ export class Boid {
 					name += m.linear > 0 ? '↑' : '↓';
 				}
 				if ( angular ) {
-					name += m.angular > 0 ? '↶' : '↷'; // ← →
+					name += m.angular > 0 ? '↷' : '↶'; // ← →
 				}
 				if ( wheel ) { 
 					name = name.replace(/[↑↓]/g,'↕'); 
