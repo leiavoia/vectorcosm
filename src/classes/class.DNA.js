@@ -187,6 +187,38 @@ export default class DNA {
 		return as_str ? n.toString(16).padStart(8,'0') : n;
 	}
 	
+	// returns a list of deterministic gene codes based on a string.
+	// The codes are based on a hash of the string that uses the first 
+	// 4 chars of the total DNA as an immutable scramble seed. This 
+	// means that gene codes for each organism will be the same, but
+	// the content of the genes will vary between individuals.
+	// SAFE ZONES: use this to create a gene code in the DNA's safe zone
+	// that is relatively free from mutation. Safe zone genes are useful
+	// for species feature stability when sudden changes are not wanted.
+	// - TRUE if you want all genes to be in the safe zone
+	// - postive integer if you want only the first X to be safe.
+	// - negative integer if you want only the last X to be safe.
+	genesFor( str, num=1, use_safe_zone=false ) {
+		const genes = [];
+		for ( let i=0; i < num; i++ ) {
+			// first 4 chars of the DNA are permanent scramble seed
+			let n = utils.murmurhash3_32_gc( str+`${i}`, parseInt( this.str.substr(0,4), 16 ) );
+			// safe zone zeroes out the 3rd and 4th position as a hint to the gene reader, e.g. 0xFFFF00FF 
+			if ( 
+				// if TRUE, use safe zone for all genes
+				(use_safe_zone===true) ||
+				// if its a positive number, we want that many to start with and the rest can be anything 
+				( use_safe_zone > 0 && i < use_safe_zone ) ||
+				// if its a negative number, we want that many to end with and the rest can be anything 
+				( use_safe_zone < 0 && i >= num+use_safe_zone )
+				) {
+				n = (n & ~(0xFF << 8)) >>> 0;
+			}
+			genes.push(n);
+		}
+		return genes;
+	}
+	
 	mutate( num_mutations=1, protect_read_only_zone=true ) {
 		// if protect_read_only_zone is true|false, stick with that.
 		// if it is a number between 0..1, interpret as a chance to flip from false->true.
@@ -199,9 +231,12 @@ export default class DNA {
 		}
 		for ( let n = 0; n < num_mutations; n++ ) {
 			const option = DNA.mutationOptionPicker.Pick();
-			const first_char = (protect_read_only_zone && this.str.length > 0xFF) ? 0xFF+1 : 0;
-			const i = utils.BiasedRandInt( first_char, this.str.length-1, 
-				first_char + (((this.str.length-1)-first_char)/2), 0.5 ); // draw more from the middle
+			const first_char = (protect_read_only_zone && this.str.length > 0xFF) ? 0xFF+1 : 4; // first 4 chars are scramble seed
+			const i = utils.BiasedRandInt( 
+				first_char, this.str.length-1, 
+				first_char + (((this.str.length-1)-first_char)/2), 
+				0.5 // draw more from the middle
+			);
 			const char = this.str.charAt(i);
 			switch ( option ) {
 				case 'increment': {
