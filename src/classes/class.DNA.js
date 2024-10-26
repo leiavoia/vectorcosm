@@ -84,7 +84,7 @@ export default class DNA {
 		let last = null;
 		genes = Array.isArray(genes) ? genes : [genes];
 		for ( let g of genes ) {
-			let v = this.read( g ); // max 0xFFFFFFFFFFF
+			let v = this.read( g );
 			if ( last === null ) { last = v; }
 			else {
 				const transform = g >>> 28 & 15;
@@ -108,13 +108,13 @@ export default class DNA {
 						// rotation ( 0xABC -> 0xBCA )
 						case 0x7:
 						case 0x6: {
-							let hex = v.toString(16).padStart(16,'0');
-							let rotations = Math.round( utils.MapToRange(last, 0, 0xFFFFFFFF, 0, 15 ) ) || 1;
+							let hex = v.toString(16).padStart(8,'0');
+							let rotations = ( last % 8 ) || 1;
 							for ( let n=0; n < rotations; n++ ) {
-								if ( transform === 0x6 ) {
+								if ( transform === 0x6 ) { // forward
 									hex = hex.slice(-1) + hex.slice(0,-1);
 								}
-								else {
+								else { // backward
 									hex = hex.slice(1) + hex.slice(0,1);
 								}
 							}
