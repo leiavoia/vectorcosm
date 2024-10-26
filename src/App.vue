@@ -503,8 +503,23 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 					({{(focus_boid_data.scale*100).toFixed()}}%)
 				</output>
 			</p>
-					
-			<!-- <p>SCALE: <output>{{focus_boid_data.scale.toFixed(2)}}</output></p> -->
+			<p style="text-align:center;">
+				DIET: <output>
+					<span v-if="(focus_boid_data.traits.food_mask||0) & 1">▲ </span>
+					<span v-if="(focus_boid_data.traits.food_mask||0) & 2">■ </span>
+					<span v-if="(focus_boid_data.traits.food_mask||0) & 4">⬟ </span>
+					<span v-if="(focus_boid_data.traits.food_mask||0) & 8">⬢ </span>
+					<span v-if="(focus_boid_data.traits.food_mask||0) & 16">⯃ </span>
+					<span v-if="(focus_boid_data.traits.food_mask||0) & 32">&#9899; </span>
+					🡒
+					<span v-if="(focus_boid_data.traits.poop_complexity==1)">▲ </span>
+					<span v-if="(focus_boid_data.traits.poop_complexity==2)">■ </span>
+					<span v-if="(focus_boid_data.traits.poop_complexity==3)">⬟ </span>
+					<span v-if="(focus_boid_data.traits.poop_complexity==4)">⬢ </span>
+					<span v-if="(focus_boid_data.traits.poop_complexity==5)">⯃ </span>
+					<span v-if="(focus_boid_data.traits.poop_complexity==6)">&#9899; </span>
+				</output>
+			</p>					
 			<details style="margin-bottom: 0.5em">
 				<summary style="text-align:center; list-style-type: none;">...</summary>
 				<div>
@@ -588,22 +603,6 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 					@ <output>{{(focus_boid_data.traits.bite_speed||0).toFixed(1)}}s</output>
 				<br />
 				
-			</p>
-			<p>
-				Diet:
-					<span v-if="(focus_boid_data.traits.food_mask||0) & 1">▲ </span>
-					<span v-if="(focus_boid_data.traits.food_mask||0) & 2">■ </span>
-					<span v-if="(focus_boid_data.traits.food_mask||0) & 4">⬟ </span>
-					<span v-if="(focus_boid_data.traits.food_mask||0) & 8">⬢ </span>
-					<span v-if="(focus_boid_data.traits.food_mask||0) & 16">⯃ </span>
-					<span v-if="(focus_boid_data.traits.food_mask||0) & 32">&#9899; </span>
-					🡒 <!-- ⮕ ➡  ⭬ ⭢ 🡆 🡒 ⇒ ⇒ ⇨ -->
-					<span v-if="(focus_boid_data.traits.poop_complexity==1)">▲ </span>
-					<span v-if="(focus_boid_data.traits.poop_complexity==2)">■ </span>
-					<span v-if="(focus_boid_data.traits.poop_complexity==3)">⬟ </span>
-					<span v-if="(focus_boid_data.traits.poop_complexity==4)">⬢ </span>
-					<span v-if="(focus_boid_data.traits.poop_complexity==5)">⯃ </span>
-					<span v-if="(focus_boid_data.traits.poop_complexity==6)">&#9899; </span>
 			</p>
 			
 			<h2>Brain</h2>
@@ -737,7 +736,7 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 		display:inline-block; 
 		overflow-x:hidden;
 		overflow-y:visible;
-		line-height:1.25em; 
+		line-height:1em; 
 		width:6em; 
 		}
 		
