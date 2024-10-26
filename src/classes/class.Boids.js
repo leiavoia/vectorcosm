@@ -907,12 +907,19 @@ export class Boid {
 		if ( !this.metab.energy ) { this.metab.energy = this.metab.max_energy; }
 		// nutrition and metabolism
 		// TODO: more complex organisms should have more complex diets
-		let food_mask_g1 = this.dna.geneFor(`foodmask g1`, false, true );
-		let food_mask_g2 = this.dna.geneFor(`foodmask g2`, false, true );
-		let food_mask_g3 = this.dna.geneFor(`foodmask g3`, false, false );
-		this.traits.food_mask = this.dna.shapedInt( [food_mask_g1, food_mask_g2, food_mask_g3], 1, 30, 1, 2 );
+		// food mask - determines what complexity levels of food we can eat
+		this.traits.food_mask = 0;
+		for ( let i=0; i < 5; i++ ) {
+			let g1 = this.dna.geneFor(`foodmask-${i}-g1x`, false, true );
+			let g2 = this.dna.geneFor(`foodmask-${i}-g2x`, false, true );
+			const roll = this.dna.shapedNumber( [g1,g2], 0, 1 );
+			const push = ( roll > 0.60 + (i * 0.07) ) ? 1 : 0;
+			this.traits.food_mask = this.traits.food_mask | (push << i);
+		}
+		if ( this.traits.food_mask==31 ) { this.traits.food_mask = 30; } // can't have it all
+		else if ( !this.traits.food_mask ) { this.traits.food_mask = 1; }
+		// nutrition profile
 		for ( let i=0; i < 8; i++ ) {
-			// nutrition profile
 			let g1 = this.dna.geneFor(`nutrition value ${i} g1`, false, false );
 			let g2 = this.dna.geneFor(`nutrition value ${i} g2`, false, false );
 			this.traits.nutrition[i] = this.dna.shapedNumber( [g1,g2], -3, 3, 0.5 - i*0.1, 3 - i*0.2 );
