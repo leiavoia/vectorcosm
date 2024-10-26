@@ -20,55 +20,55 @@ export default class BodyPlan {
 		this.curved = false;
 		
 		// setup
-		this.length = dna.shapedInt( 0xE3892763, 8,120,25,3);
-		this.width = dna.shapedInt( 0x92640AE4, 8,70,17,3);
+		this.length = dna.shapedInt( dna.genesFor('body length',2,1), 8,120,25,3);
+		this.width = dna.shapedInt( dna.genesFor('body width',2,1), 8,70,17,3);
 		this.mass = this.length * this.width;
-		this.max_length = this.length * dna.shapedNumber( 0x99DF7776, 1,1.5,1.1,1.4);
-		this.max_width = this.width * dna.shapedNumber( 0x84670788, 1,1.5,1.1,1.4);
-		this.min_length = this.length * dna.shapedNumber( 0xD204AD99, 0.6,1,0.9,1.4);
-		this.min_width = this.width * dna.shapedNumber( 0x001D3F8D, 0.6,1,0.9,1.4);
-		this.curved = dna.shapedNumber( 0x657E00CC, 0, 1, 0.5, 1.5 ) > 0.7; // once a pointy, always a pointy
-		if ( dna.shapedNumber( 0x16DB6814, 0,1,0.4,1.3) > 0.92 ) {
+		this.max_length = this.length * dna.shapedNumber( dna.genesFor('max_length',2,1), 1,1.5,1.1,1.4);
+		this.max_width = this.width * dna.shapedNumber( dna.genesFor('body max_width',2,1), 1,1.5,1.1,1.4);
+		this.min_length = this.length * dna.shapedNumber( dna.genesFor('body min_length',2,1), 0.6,1,0.9,1.4);
+		this.min_width = this.width * dna.shapedNumber( dna.genesFor('body min_width',2,1), 0.6,1,0.9,1.4);
+		this.curved = dna.shapedNumber( dna.genesFor('body curved',2,1), 0, 1, 0.5, 1.5 ) > 0.7; // once a pointy, always a pointy
+		if ( dna.shapedNumber( dna.genesFor('has dashes',2,1), 0,1,0.4,1.3) > 0.92 ) {
 			this.dashes = [];
-			this.dashes.push( dna.shapedInt( 0x813871F3, 0, 10, 4, 2) );
-			this.dashes.push( dna.shapedInt( 0x0B92214C, 0, 10, 4, 2) );	
+			this.dashes.push( dna.shapedInt( dna.genesFor('body dashes 1 ',2,1), 0, 10, 4, 2) );
+			this.dashes.push( dna.shapedInt( dna.genesFor('body dashes 2 ',2,1), 0, 10, 4, 2) );	
 		}
 		
 		// colors
 		// TODO: we want to guarantee bright colors on all lines and fill-only's 
 		const colors = [
-			'#' + Math.trunc( dna.shapedNumber( [0x91E44CB, 0xA925A5B, 0x578F286], 0, 0xFFFFFF) ).toString(16).padStart(6,0), // line
-			'#' + Math.trunc( dna.shapedNumber( [0x824E854, 0xCDC44DF, 0x6879812], 0, 0xFFFFFF) ).toString(16).padStart(6,0), // fill
-			'#' + Math.trunc( dna.shapedNumber( [0x033C2CB, 0xE103B1F, 0x8C6D170], 0, 0xFFFFFF) ).toString(16).padStart(6,0), // TBD
-			'#' + Math.trunc( dna.shapedNumber( [0xE49A196, 0x39A2170, 0x0E5F975], 0, 0xFFFFFF) ).toString(16).padStart(6,0), // TBD
-			'#' + Math.trunc( dna.shapedNumber( [0x05A9F17, 0x799193E, 0x4850BE7], 0, 0xFFFFFF) ).toString(16).padStart(6,0), // TBD
+			'#' + Math.trunc( dna.shapedNumber( dna.genesFor(`color ${1}`,3), 0, 0xFFFFFF) ).toString(16).padStart(6,0), // line
+			'#' + Math.trunc( dna.shapedNumber( dna.genesFor(`color ${2}`,3), 0, 0xFFFFFF) ).toString(16).padStart(6,0), // fill
+			'#' + Math.trunc( dna.shapedNumber( dna.genesFor(`color ${3}`,3), 0, 0xFFFFFF) ).toString(16).padStart(6,0), // TBD
+			'#' + Math.trunc( dna.shapedNumber( dna.genesFor(`color ${4}`,3), 0, 0xFFFFFF) ).toString(16).padStart(6,0), // TBD
+			'#' + Math.trunc( dna.shapedNumber( dna.genesFor(`color ${5}`,3), 0, 0xFFFFFF) ).toString(16).padStart(6,0), // TBD
 		];
 
 		// chance for transparency
-		if ( dna.shapedNumber( 0x5B962440, 0, 1 ) > 0.75 ) {
+		if ( dna.shapedNumber( dna.genesFor('transparency'), 0, 1 ) > 0.75 ) {
 			// one or the other but not both
-			const i = ( dna.shapedNumber( 0xB789477E, 0, 1 ) > 0.5 ) ? 1 : 0;
+			const i = ( dna.shapedNumber( dna.genesFor('transparency flip'), 0, 1 ) > 0.5 ) ? 1 : 0;
 			colors[i] = 'transparent';
 		}
-		this.linewidth = dna.shapedInt( 0x66406630, 2, 12, 2, 2.5 );
+		this.linewidth = dna.shapedInt( dna.genesFor('line-width'), 2, 12, 2, 2.5 );
 		this.stroke = colors[0];
 		this.fill = colors[1]==='transparent' ? colors[1] : `${colors[1]}AA`;
 			
 		const MakeGradient = (label, req_color, transp='FF') => {
 			const stops = [ new Two.Stop(0, req_color+transp), new Two.Stop(1, req_color+transp) ];
-			const num_stops = dna.shapedInt(dna.geneFor(`${label} gradient num_stops`), 0, 5, 1, 3);
+			const num_stops = dna.shapedInt(dna.genesFor(`${label} gradient num_stops`), 0, 5, 1, 3);
 			for ( let n=0; n < num_stops; n++ ) {
-				const pct = dna.shapedNumber( dna.geneFor(`${label} gradient stop pct n`) );
-				const index = dna.shapedInt(dna.geneFor(`${label} gradient stop index n`), 0, colors.length-1);
+				const pct = dna.shapedNumber( dna.genesFor(`${label} gradient stop pct n`) );
+				const index = dna.shapedInt(dna.genesFor(`${label} gradient stop index n`), 0, colors.length-1);
 				stops.push( new Two.Stop(pct, colors[index]+transp));
 			}
 			stops.sort( (a,b) => a.offset - b.offset );
 			const longest_dim = Math.max(this.width,this.length);
-			let xoff = dna.shapedNumber( dna.geneFor(`${label} gradient xoff`), -this.length/2, this.length/2 );
+			let xoff = dna.shapedNumber( dna.genesFor(`${label} gradient xoff`), -this.length/2, this.length/2 );
 			let yoff = 0;
-			let radius = dna.shapedNumber( dna.geneFor(`${label} gradient radius`), longest_dim/10, longest_dim, longest_dim, 2.5 );
-			const gtype = dna.shapedNumber( dna.geneFor(`${label} gradient type`) ) < 0.4 ? 'linear' : 'radial';
-			const flip = dna.shapedNumber( dna.geneFor(`${label} gradient axis flip`) ) < 0.33;
+			let radius = dna.shapedNumber( dna.genesFor(`${label} gradient radius`), longest_dim/10, longest_dim, longest_dim, 2.5 );
+			const gtype = dna.shapedNumber( dna.genesFor(`${label} gradient type`) ) < 0.4 ? 'linear' : 'radial';
+			const flip = dna.shapedNumber( dna.genesFor(`${label} gradient axis flip`) ) < 0.33;
 			let grad = null;
 			if ( gtype == 'radial' ) {
 				grad = window.two.makeRadialGradient(xoff, yoff, radius, ...stops );
@@ -86,17 +86,17 @@ export default class BodyPlan {
 				grad = window.two.makeLinearGradient(xoff, yoff, xoff2, yoff2, ...stops );
 			}
 			grad.units = 'userSpaceOnUse'; // super important
-			const spreadNum = dna.shapedNumber( dna.geneFor(`${label} gradient repeat`) );
+			const spreadNum = dna.shapedNumber( dna.genesFor(`${label} gradient repeat`) );
 			grad.spread = (spreadNum > 0.66) ? 'pad' : ( spreadNum > 0.33 ? 'reflect' : 'repeat' );	
 			if ( flip ) { grad.spread = 'reflect'; }	
 			return grad;
 		};
 		
 		// chance for gradients
-		if ( colors[0] !== 'transparent' && dna.shapedNumber( [0xE6062539, 0xAF88FAD4], 0, 1) > 0.65 ) {
+		if ( colors[0] !== 'transparent' && dna.shapedNumber( dna.genesFor('grad chance stroke',2), 0, 1) > 0.65 ) {
 			this.stroke = MakeGradient('stroke',colors[0]);
 		}
-		if ( colors[1] !== 'transparent' && dna.shapedNumber( [0x2712267A, 0xAF77DEAD], 0, 1) > 0.65 ) {
+		if ( colors[1] !== 'transparent' && dna.shapedNumber( dna.genesFor('grad chance fill',2), 0, 1) > 0.65 ) {
 			this.fill = MakeGradient('fill',colors[1],'BB');
 		}
 		
@@ -118,34 +118,30 @@ export default class BodyPlan {
 		let max_num_points = 22;
 		for ( let n=1; n <= max_num_points; n++ ) {
 			// first point is guaranteed. everything else has random chance to shoot a blank
-			const roll = dna.shapedNumber( [dna.geneFor(`body point ${n} blank`)], 0, 1 );
+			const roll = dna.shapedNumber( dna.genesFor(`body point ${n} blank`), 0, 1 );
 			const gotcha = roll <= 1/n; // guaranteed first point
 			if ( !gotcha ) { continue; }
 			if ( n===1 && roll < 0.005 ) { max_num_points = 200; } // rare chance for a real wingding
-			const geneX1A = dna.geneFor(`body point ${n} x 1 A`, false, true);
-			const geneX2A = dna.geneFor(`body point ${n} x 2 A`, false, false);
-			const geneY1A = dna.geneFor(`body point ${n} y 1 A`, false, true);
-			const geneY2A = dna.geneFor(`body point ${n} y 2 A`, false, false);
-			const geneX1B = dna.geneFor(`body point ${n} x 1 B`, false, true);
-			const geneX2B = dna.geneFor(`body point ${n} x 2 B`, false, false);
-			const geneY1B = dna.geneFor(`body point ${n} y 1 B`, false, true);
-			const geneY2B = dna.geneFor(`body point ${n} y 2 B`, false, false);
-			let x1 = dna.shapedNumber( [geneX1A, geneX1B], -this.length/2, this.length/2 );
-			let x2 = 0.25 * dna.shapedNumber( [geneX2A, geneX2B], -this.length/2, this.length/2 );
+			const gX1 = dna.genesFor(`body point ${n} x1`, 2, 1);
+			const gX2 = dna.genesFor(`body point ${n} x2`, 2, 1);
+			const gY1 = dna.genesFor(`body point ${n} y1`, 2, 1);
+			const gY2 = dna.genesFor(`body point ${n} y2`, 2, 1);
+			let x1 = dna.shapedNumber( gX1, -this.length/2, this.length/2 );
+			let x2 = 0.25 * dna.shapedNumber( gX2, -this.length/2, this.length/2 );
 			let px = x1 + x2;
-			let y1 = dna.shapedNumber( [geneY1A, geneY1B], 0, this.width/2 );
-			let y2 = dna.shapedNumber( [geneY2A, geneY2B], 0, this.width/2 );
+			let y1 = dna.shapedNumber( gY1, 0, this.width/2 );
+			let y2 = dna.shapedNumber( gY2, 0, this.width/2 );
 			let py = y1 + y2;
 			pts.push([px,py]);
 		}
 
 		// sorting gives a cleaner look which is sometimes wanted, but not always
-		if ( dna.shapedNumber( [0x0F430043], 0, 1 ) > 0.7 ) { pts.sort( (a,b) => b[0] - a[0] ); }
+		if ( dna.shapedNumber( dna.genesFor('sort points',2,true), 0, 1 ) > 0.7 ) { pts.sort( (a,b) => b[0] - a[0] ); }
 		// make complimentary points on other side of body
 		let new_pts = pts.map( p => [ p[0], -p[1] ] );
 		// random chance for extra point in the back
-		if ( dna.shapedNumber( [0x0F600017], 0, 1 ) > 0.5 ) { 
-			const x = dna.shapedNumber( [0x0F998877,0xA8808513], -this.length/2, 0 )
+		if ( dna.shapedNumber( dna.genesFor('has butt point',1,true), 0, 1 ) > 0.5 ) { 
+			const x = dna.shapedNumber( dna.genesFor('butt point x',2), -this.length/2, 0 )
 			new_pts.push( [ x, 0] );
 		}
 		pts.push( ...new_pts.reverse() );

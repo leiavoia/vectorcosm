@@ -201,23 +201,18 @@ export class Boid {
 		]);
 		
 		// threshold to determine if a node exists at all
-		const num_node_threshold = this.dna.shapedNumber( [0x3E0A3D, 0xAD7144, 0x1AA1CB], 0.05, 0.5, 0.28, 2 );
+		const num_node_threshold = this.dna.shapedNumber( this.dna.genesFor('num_node_threshold',3), 0.05, 0.5, 0.28, 2 );
 		// threshold to determine if a connection between two nodes is made
-		const connectivity = this.dna.shapedNumber( [0x3E0A3D, 0xAD7144, 0x1AA1CB], 0.2, 0.6, 0.33, 2 );
+		const connectivity = this.dna.shapedNumber( this.dna.genesFor('connectivity',3), 0.2, 0.6, 0.33, 2 );
 		
 		const hasNode = gene_str => {
-			const gene1 = this.dna.geneFor(gene_str + ' g1');
-			const gene2 = this.dna.geneFor(gene_str + ' g2');
-			const gene3 = this.dna.geneFor(gene_str + ' g3');
-			return this.dna.mix( [gene1, gene2, gene3], 0, 1 ) < num_node_threshold;
+			return this.dna.mix( this.dna.genesFor(gene_str, 3), 0, 1 ) < num_node_threshold;
 		};
 		const geneConnect = gene_str => {
-			const gene = this.dna.geneFor(gene_str);
-			return this.dna.read( gene, 0, 1 ) > connectivity;
+			return this.dna.read( this.dna.genesFor(gene_str), 0, 1 ) > connectivity;
 		};
 		const geneWeight = gene_str => {
-			const gene = this.dna.geneFor(gene_str);
-			return this.dna.read( gene, -1, 1 );
+			return this.dna.read( this.dna.genesFor(gene_str), -1, 1 );
 		};
 		
 		let output_nodes = [];
@@ -232,7 +227,7 @@ export class Boid {
 		for ( let i=0; i < 20; i++ ) { // MAGIC
 			if ( hasNode(`has m node ${i}`) ) {
 				let n = new neataptic.Node('hidden');
-				n.squash = act_picker.Pick( this.dna.shapedNumber( this.dna.geneFor(`m node ${i} act`) ) );
+				n.squash = act_picker.Pick( this.dna.shapedNumber( this.dna.genesFor(`m node ${i} act`) ) );
 				n.bias = geneWeight(`m node ${i} bias`);
 				middle_nodes.push( n );
 			}
@@ -891,28 +886,26 @@ export class Boid {
 		this.sense[0] = this.body.sensor_colors[0];
 		this.sense[1] = this.body.sensor_colors[1];
 		this.sense[2] = this.body.sensor_colors[2];
-		this.sense[3] =  Math.max( 0, this.dna.shapedNumber([0x8B2FC3CE], -0.25, 1, 0.2, 2 ) );
-		this.sense[4] =  Math.max( 0, this.dna.shapedNumber([0x92C706DE], -0.25, 1, 0.4, 2 ) );
-		this.sense[5] =  Math.max( 0, this.dna.shapedNumber([0x47A313D3], -0.25, 1, 0.6, 2 ) );
-		this.sense[6] =  Math.max( 0, this.dna.shapedNumber([0x9C5FE21E], -0.25, 1, 0.8, 2 ) );
-		this.sense[7] =  Math.max( 0, this.dna.shapedNumber([0xE74231EE], -0.25, 1, 0.7, 2 ) );
-		this.sense[8] =  Math.max( 0, this.dna.shapedNumber([0x31C75CCA], -0.25, 1, 0.5, 2 ) );
-		this.sense[9] =  Math.max( 0, this.dna.shapedNumber([0x03F689A8], -0.25, 1, 0.3, 2 ) );
-		this.sense[10] = Math.max( 0, this.dna.shapedNumber([0x40C66616], -0.25, 1, 0.1, 2 ) );
-		this.sense[11] = Math.max( 0, this.dna.shapedNumber([0x9BC35358], -0.25, 1, 0.05, 2 ) );
+		this.sense[3] =  Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 1',2,1), -0.25, 1, 0.2, 2 ) );
+		this.sense[4] =  Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 2',2,1), -0.25, 1, 0.4, 2 ) );
+		this.sense[5] =  Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 3',2,1), -0.25, 1, 0.6, 2 ) );
+		this.sense[6] =  Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 4',2,1), -0.25, 1, 0.8, 2 ) );
+		this.sense[7] =  Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 5',2,1), -0.25, 1, 0.7, 2 ) );
+		this.sense[8] =  Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 6',2,1), -0.25, 1, 0.5, 2 ) );
+		this.sense[9] =  Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 7',2,1), -0.25, 1, 0.3, 2 ) );
+		this.sense[10] = Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 8',2,1), -0.25, 1, 0.1, 2 ) );
+		this.sense[11] = Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 9',2,1), -0.25, 1, 0.05, 2 ) );
 
 		this.container.add([this.body.geo]);
-		this.lifespan = this.dna.shapedInt( [0x306440CD, 0xB949E20B], 60, 1200, 300, 2 );
-		this.maturity_age = this.dna.shapedInt( [0xDC615877, 0x5016E979], 0.1 * this.lifespan, 0.9 * this.lifespan, 0.25 * this.lifespan, 2.5 );
+		this.lifespan = this.dna.shapedInt( this.dna.genesFor('lifespan',2,1), 60, 800, 300, 2 );
+		this.maturity_age = this.dna.shapedInt( this.dna.genesFor('maturity age',2,1), 0.1 * this.lifespan, 0.9 * this.lifespan, 0.25 * this.lifespan, 2.5 );
 		if ( !this.metab.energy ) { this.metab.energy = this.metab.max_energy; }
 		// nutrition and metabolism
 		// TODO: more complex organisms should have more complex diets
 		// food mask - determines what complexity levels of food we can eat
 		this.traits.food_mask = 0;
 		for ( let i=0; i < 5; i++ ) {
-			let g1 = this.dna.geneFor(`foodmask-${i}-g1x`, false, true );
-			let g2 = this.dna.geneFor(`foodmask-${i}-g2x`, false, true );
-			const roll = this.dna.shapedNumber( [g1,g2], 0, 1 );
+			const roll = this.dna.shapedNumber( this.dna.genesFor(`foodmask-${i}`,2,true), 0, 1 );
 			const push = ( roll > 0.60 + (i * 0.07) ) ? 1 : 0;
 			this.traits.food_mask = this.traits.food_mask | (push << i);
 		}
@@ -920,33 +913,27 @@ export class Boid {
 		else if ( !this.traits.food_mask ) { this.traits.food_mask = 1; }
 		// nutrition profile
 		for ( let i=0; i < 8; i++ ) {
-			let g1 = this.dna.geneFor(`nutrition value ${i} g1`, false, false );
-			let g2 = this.dna.geneFor(`nutrition value ${i} g2`, false, false );
-			this.traits.nutrition[i] = this.dna.shapedNumber( [g1,g2], -3, 3, 0.5 - i*0.1, 3 - i*0.2 );
+			this.traits.nutrition[i] = this.dna.shapedNumber( this.dna.genesFor(`nutrition value ${i}`,2,1), -3, 3, 0.5 - i*0.1, 3 - i*0.2 );
 			// inedible zone 0 to -2 clamps to zero
 			if ( this.traits.nutrition[i] > -2 && this.traits.nutrition[i] < 0 ) { this.traits.nutrition[i] = 0; } 
 		}
 		// if nothing is edible, pick one random nutrient
 		if ( 0 == this.traits.nutrition.reduce( (a,c) => a+c, 0 ) ) {
-			let g1 = this.dna.geneFor(`nutrition fallback index g1`, false, false );
-			let g2 = this.dna.geneFor(`nutrition fallback index g2`, false, false );
-			let g3 = this.dna.geneFor(`nutrition value fallback g1`, false, false );
-			let g4 = this.dna.geneFor(`nutrition value fallback g2`, false, false );
-			let i = this.dna.shapedInt( [g1,g2], 0, 7, 0, 2 );
-			this.traits.nutrition[i] = this.dna.shapedNumber( [g3,g4], 0.2, 3, 1, 5 );
+			let i = this.dna.shapedInt( this.dna.genesFor(`nutrition fallback index`,2,1), 0, 7, 0, 2 );
+			this.traits.nutrition[i] = this.dna.shapedNumber( this.dna.genesFor(`nutrition value fallback`,2,1), 0.2, 3, 1, 5 );
 		}
-		this.traits.growth_min_energy_pct	= this.dna.shapedNumber( [0x210B00C4, 0x269C9566], 0.1, 0.9, 0.4, 1.8 );
-		this.traits.growth_cost				= this.dna.shapedNumber( [0xDC4900FA, 0x4B946148], 0.002, 0.05, 0.01, 2 );
-		this.traits.growth_rate				= this.dna.shapedNumber( [0x700C00A6, 0x90BBDB7D], 0.0005, 0.02, 0.01, 2 );
-		this.traits.base_stomach_size		= this.dna.shapedNumber( [0x250300CC, 0x878BC24C], 0.5, 0.02, 0.1, 2 );
-		this.traits.base_bowel_size			= this.dna.shapedNumber( [0x7E8900FE, 0xD4D80C2A], 0.01, 0.2, 0.07, 2 );
-		this.traits.base_metabolic_rate		= this.dna.shapedNumber( [0x4AAF0022, 0xFC57FDF9], 0.002, 0.008, 0.004, 1.4 );
-		this.traits.base_digest_rate		= this.dna.shapedNumber( [0x0DFB0086, 0x4BD1CF7C], 0.001, 0.008, 0.003, 1.5 );
-		this.traits.base_energy_meter		= this.dna.shapedNumber( [0x1F3900ED, 0xDF415404], 0.4, 2, 1, 2 );
-		this.traits.base_bite_size			= this.traits.base_stomach_size * this.dna.shapedNumber( [0x34B200BF, 0x9B2176EC], 0.2, 0.8, 0.4, 2 );
-		this.traits.bite_speed				= this.dna.shapedNumber( [0xF2ED007B, 0xD3A03E49], 0.5, 5, 2, 2 );	
-		this.traits.poop_buoy				= this.dna.shapedNumber( [0x00990099, 0x90099009], 0, 3, 0, 3 );
-		this.traits.poop_complexity			= 0; // = this.dna.shapedInt( [0x5D40004C, 0x59FE9B25], 0, 3, 0, 3 );
+		this.traits.growth_min_energy_pct	= this.dna.shapedNumber( this.dna.genesFor('growth_min_energy_pct',2,1), 0.1, 0.9, 0.4, 1.8 );
+		this.traits.growth_cost				= this.dna.shapedNumber( this.dna.genesFor('growth_cost',2,1), 0.002, 0.05, 0.01, 2 );
+		this.traits.growth_rate				= this.dna.shapedNumber( this.dna.genesFor('growth_rate',2,1), 0.0005, 0.02, 0.01, 2 );
+		this.traits.base_stomach_size		= this.dna.shapedNumber( this.dna.genesFor('base_stomach_size',2,1), 0.5, 0.02, 0.1, 2 );
+		this.traits.base_bowel_size			= this.dna.shapedNumber( this.dna.genesFor('base_bowel_size',2,1), 0.01, 0.2, 0.07, 2 );
+		this.traits.base_metabolic_rate		= this.dna.shapedNumber( this.dna.genesFor('base_metabolic_rate',2,1), 0.002, 0.008, 0.004, 1.4 );
+		this.traits.base_digest_rate		= this.dna.shapedNumber( this.dna.genesFor('base_digest_rate',2,1), 0.001, 0.008, 0.003, 1.5 );
+		this.traits.base_energy_meter		= this.dna.shapedNumber( this.dna.genesFor('base_energy_meter',2,1), 0.4, 2, 1, 2 );
+		this.traits.base_bite_size			= this.traits.base_stomach_size * this.dna.shapedNumber( this.dna.genesFor('base_bite_size',2,1), 0.2, 0.8, 0.4, 2 );
+		this.traits.bite_speed				= this.dna.shapedNumber( this.dna.genesFor('bite_speed',2,1), 0.5, 5, 2, 2 );	
+		this.traits.poop_buoy				= this.dna.shapedNumber( this.dna.genesFor('poop_buoy',2,1), 0, 3, 0, 3 );
+		this.traits.poop_complexity			= 0;
 		// no autotrophy, thats gross - find the first zero bit (simplest shape we cannot eat)
 		for ( let i=0; i<6; i++ ) { // note it goes over a bit to make something interesting for species that consume everything else
 			if ( !( this.traits.food_mask & (1<<i) ) ) {
@@ -959,9 +946,7 @@ export class Boid {
 		this.traits.poop_map = [];
 		let badfood = this.traits.nutrition.map(_=>_).sort( (a,b) => a-b );
 		for ( let i=0; i< this.traits.nutrition.length; i++ ) {
-			let g1 = this.dna.geneFor(`nutrition poopmap ${i} g1`, false, true );
-			let g2 = this.dna.geneFor(`nutrition poopmap ${i} g2`, false, false );
-			let to = this.dna.shapedInt( [g1,g2], 0, 7, 0, 10 );
+			let to = this.dna.shapedInt( this.dna.genesFor(`poopmap ${i}`, 2, 1 ), 0, 7, 0, 10 );
 			this.traits.poop_map[i] = badfood[to];
 		}
 		
@@ -979,10 +964,7 @@ export class Boid {
 		// first loop decides if a motor should be created. 
 		// this helps us set up defaults in case nothing is created.
 		for ( let n=1; n <= max_num_motors; n++ ) {
-			const hasMotorGene1 = this.dna.geneFor(`has motor ${n} 1`, false, true);
-			const hasMotorGene2 = this.dna.geneFor(`has motor ${n} 2`, false, true);
-			const hasMotorGene3 = this.dna.geneFor(`has motor ${n} 3`, false, true);
-			const has_motor_chance = this.dna.shapedNumber([hasMotorGene1, hasMotorGene2, hasMotorGene3], 0, 1);
+			const has_motor_chance = this.dna.shapedNumber( this.dna.genesFor(`has motor ${n}`, 3, true), 0, 1);
 			const gotcha = has_motor_chance <= 1/n; // guaranteed one motor
 			motor_slots.push(gotcha);
 			num_motors += gotcha ? 1 : 0;
@@ -991,17 +973,17 @@ export class Boid {
 		for ( let n=1; n <= motor_slots.length; n++ ) {
 			if ( !motor_slots[n-1] ) { continue; } // a blank for your thoughts
 			
-			const strokeFuncGene =  this.dna.geneFor(`motor stroke function ${n}`);
-			let strokefunc = this.dna.shapedNumber([strokeFuncGene], 0, 1);
+			const strokeFuncGene = this.dna.genesFor(`motor stroke function ${n}`,2,-1);
+			let strokefunc = this.dna.shapedNumber(strokeFuncGene, 0, 1);
 			
-			const wheelChanceGene =  this.dna.geneFor(`motor wheel chance ${n}`, false, true);
-			let wheel = this.dna.shapedNumber([wheelChanceGene], 0, 1) > 0.75 ? true : false;
+			const wheelChanceGene = this.dna.genesFor(`motor wheel chance ${n}`,1,true);
+			let wheel = this.dna.shapedNumber(wheelChanceGene, 0, 1) > 0.75 ? true : false;
 			
-			const stroketimeGene =  this.dna.geneFor(`motor stroke time ${n}`);
-			const stroketime = this.dna.shapedNumber([stroketimeGene],0.1, 3.5, 0.75, 2); 
+			const stroketimeGene = this.dna.genesFor(`motor stroke time ${n}`,2,1);
+			const stroketime = this.dna.shapedNumber(stroketimeGene,0.1, 3.5, 0.75, 2); 
 			
-			const minActGene =  this.dna.geneFor(`motor min_act chance ${n}`);
-			let min_act = this.dna.shapedNumber([minActGene],0,0.7,0.05,4);
+			const minActGene = this.dna.genesFor(`motor min_act chance ${n}`,2,1);
+			let min_act = this.dna.shapedNumber(minActGene,0,0.7,0.05,4);
 			if ( wheel ) { min_act *= 0.5; }
 			if ( strokefunc < 0.4 ) { strokefunc = 'linear_down'; }
 			else if ( strokefunc < 0.5 ) { strokefunc = 'linear_up'; }
@@ -1013,22 +995,22 @@ export class Boid {
 			else { strokefunc = 'constant'; }
 			let motor = { min_act, stroketime, t:0, strokefunc, wheel };
 			
-			const linearGene =  this.dna.geneFor(`motor linear ${n}`);
-			let linear = this.dna.shapedNumber([linearGene],80, 1800, 600, 2.5);
+			const linearGene = this.dna.genesFor(`motor linear ${n}`, 2, 1);
+			let linear = this.dna.shapedNumber(linearGene,80, 1800, 600, 2.5);
 			
-			const angularGene =  this.dna.geneFor(`motor angular ${n}`);
-			let angular = this.dna.shapedNumber([angularGene],3, 100, 20, 2);
+			const angularGene = this.dna.genesFor(`motor angular ${n}`, 2, 1);
+			let angular = this.dna.shapedNumber(angularGene,3, 100, 20, 2);
 			
-			const linearFlipGene =  this.dna.geneFor(`motor linear flip ${n}`, false, true);
-			if ( this.dna.shapedNumber([linearFlipGene],0,1) > 0.65 ) { linear = -linear; }
+			const linearFlipGene = this.dna.genesFor(`motor linear flip ${n}`, 1, true);
+			if ( this.dna.shapedNumber(linearFlipGene,0,1) > 0.65 ) { linear = -linear; }
 			
-			const angularFlipGene =  this.dna.geneFor(`motor angular flip ${n}`, false, true);
-			if ( this.dna.shapedNumber([angularFlipGene],0,1) > 0.65 ) { angular = -angular; }
+			const angularFlipGene = this.dna.genesFor(`motor angular flip ${n}`, 1, true);
+			if ( this.dna.shapedNumber(angularFlipGene,0,1) > 0.65 ) { angular = -angular; }
 			
 			// all organisms must have ability to move forward and turn. 
 			// If there is only one motor on the organism, make it a combo linear+angular.
 			if ( num_motors > 1 ) {
-				const comboChanceGene =  this.dna.geneFor(`motor combo_chance ${n}`, false, true);
+				const comboChanceGene = this.dna.genesFor(`motor combo_chance ${n}`, 1, true);
 				const combo_chance = this.dna.shapedNumber([comboChanceGene],0,1)
 				if ( combo_chance > 0.75 && ( n < num_motors-1 || has_linear ) ) { linear = 0; }
 				else if ( combo_chance < 0.25 && ( n < num_motors-1 || has_angular ) ) { angular = 0; }
@@ -1048,9 +1030,9 @@ export class Boid {
 			}
 			
 			// cost of motor: baseline scales with body mass. random element to represent unique adaptation.
-			const motorCostGene =  this.dna.geneFor(`motor cost ${n}`);
+			const motorCostGene = this.dna.genesFor(`motor cost ${n}`,2,1);
 			motor.cost = (Math.abs(motor.linear||0) / 1800) + (Math.abs(motor.angular||0) / 100);
-			motor.cost += ( motor.cost * this.dna.shapedNumber([motorCostGene],0,1) ) - (motor.cost * 0.5);
+			motor.cost += ( motor.cost * this.dna.shapedNumber(motorCostGene,0,1) ) - (motor.cost * 0.5);
 			
 			// animation
 			motor.anim = {
@@ -1111,8 +1093,8 @@ export class Boid {
 		}
 			
 		// reproductive motors
-		const mitosis_num = this.dna.shapedInt( 0xA67200D2, 1,5,1,3);
-		const stroketime = this.dna.shapedInt( 0x30184FA2, 
+		const mitosis_num = this.dna.shapedInt( this.dna.genesFor('mitosis num',2,true), 1,5,1,3);
+		const stroketime = this.dna.shapedInt( this.dna.genesFor('mitosis stroketime',2,true), 
 			mitosis_num*this.lifespan*0.02, 
 			mitosis_num*this.lifespan*0.10,
 			mitosis_num*this.lifespan*0.05,
@@ -1120,7 +1102,7 @@ export class Boid {
 		const offspring_portion =  (1/(mitosis_num+2)) * mitosis_num;
 		this.motors.push({
 			mitosis: mitosis_num, // number of new organisms
-			min_act: this.dna.shapedNumber( 0x193D8CF5, 0.22, 0.9, 0.6, 2),
+			min_act: this.dna.shapedNumber( this.dna.genesFor('mitosis min act',2), 0.22, 0.9, 0.6, 2),
 			cost: ( 500 * offspring_portion ) / stroketime, // per second per mass, sort of. [!]arbitrary. motor functions factor in mass already
 			stroketime: stroketime, 
 			strokefunc: 'linear_up', 
@@ -1159,15 +1141,15 @@ export class Boid {
 		this.sensors = [];
 		
 		// experimental: food-locator
-		const has_food_locator = this.dna.shapedNumber(0xEF280028) > 0.86;
+		const has_food_locator = this.dna.shapedNumber(this.dna.genesFor('has food locator',1,true)) > 0.86;
 		if ( has_food_locator ) {
-			const radius = this.dna.shapedNumber([0x65F000D2, 0x3D5500CB, 0x4893BADE], 150, 600, 300, 1.5 );
-			const xoff = this.dna.shapedNumber([0xED290071, 0xABAB0008, 0x5E0BA7D4], -radius*0.5, radius, radius*0.5, 1.5 );
+			const radius = this.dna.shapedNumber(this.dna.genesFor('food locator radius',3,2), 150, 600, 300, 1.5 );
+			const xoff = this.dna.shapedNumber(this.dna.genesFor('food locator xoff',3,2), -radius*0.5, radius, radius*0.5, 1.5 );
 			const detect = ['near_food_dist'];
 			// include density 
-			if ( this.dna.shapedNumber(0x6F4A0039) > 0.6 ) { detect.push('food_density'); }
+			if ( this.dna.shapedNumber(this.dna.genesFor('food locator density',1,true)) > 0.6 ) { detect.push('food_density'); }
 			// use single angle number
-			if ( this.dna.shapedNumber(0x7DD800D8) > 0.7 ) { detect.push('near_food_angle'); }
+			if ( this.dna.shapedNumber(this.dna.genesFor('food locator angle',1,true)) > 0.7 ) { detect.push('near_food_angle'); }
 			// otherwise use more advanced sine/cosine pair
 			else { detect.push('near_food_sine','near_food_cos'); }
 			this.sensors.push( new Sensor({ 
@@ -1183,15 +1165,15 @@ export class Boid {
 		}
 		
 		// color vision
-		const has_vision = this.dna.shapedNumber(0x28FE00B9) > 0.35;
+		const has_vision = this.dna.shapedNumber(this.dna.genesFor('has vision',1,true)) > 0.35;
 		if ( has_vision ) {
-			const radius = this.dna.shapedNumber([0x65F000D2, 0x3D5500CB, 0x4893BADE], 100, 800, 350, 1.5 );
-			const xoff = this.dna.shapedNumber([0xED290071, 0xABAB0008, 0x5E0BA7D4], -radius*0.5, radius, radius*0.5, 1.5 );
-			const yoff = this.dna.shapedNumber([0x53A1008C, 0x811E0305, 0xC98ECC9A], 0, radius, radius*0.5, 1.5 );
-			const chance_r = this.dna.shapedNumber([0x52B500E1, 0xA3E5000E, 0xBCAC00D6], 0, 1 );
-			const chance_g = this.dna.shapedNumber([0xBA6A00CD, 0xBEDC001E, 0x2E4C00C1], 0, 1 );
-			const chance_b = this.dna.shapedNumber([0xD93500A8, 0xDF9C007F, 0xEE02001B], 0, 1 );
-			const chance_i = this.dna.shapedNumber([0x8D1A00A9, 0xD47800C5, 0x5E1800DA], 0, 1 );
+			const radius = this.dna.shapedNumber(this.dna.genesFor('vision radius',3,2), 100, 800, 350, 1.5 );
+			const xoff = this.dna.shapedNumber(this.dna.genesFor('vision xoff',3,2), -radius*0.5, radius, radius*0.5, 1.5 );
+			const yoff = this.dna.shapedNumber(this.dna.genesFor('vision yoff',3,2), 0, radius, radius*0.5, 1.5 );
+			const chance_r = this.dna.shapedNumber(this.dna.genesFor('vision chance r',3,2), 0, 1 );
+			const chance_g = this.dna.shapedNumber(this.dna.genesFor('vision chance g',3,2), 0, 1 );
+			const chance_b = this.dna.shapedNumber(this.dna.genesFor('vision chance b',3,2), 0, 1 );
+			const chance_i = this.dna.shapedNumber(this.dna.genesFor('vision chance i',3,2), 0, 1 );
 			const detect = [];
 			if ( chance_i < 0.20 ) { detect.push([0,1,2]); } // blended intensity
 			else {
@@ -1205,16 +1187,16 @@ export class Boid {
 		}
 		
 		// smell
-		const has_smell = this.dna.shapedNumber(0xB1570091) > 0.2;
+		const has_smell = this.dna.shapedNumber(this.dna.genesFor('has smell sense',1,true)) > 0.3;
 		if ( has_smell ) {
-			const radius = this.dna.shapedNumber([0xCE240049, 0x45EC0063, 0x3343345A], 200, 750, 350, 1.5 );
-			const xoff = this.dna.shapedNumber([0x9A22004B, 0x22A000F0, 0x9D2A0107], -radius*0.5, radius, radius*0.5, 1.5 );
-			const yoff = this.dna.shapedNumber([0x40C10059, 0xE0570072, 0x2E2FD071], 0, radius, radius*0.5, 1.5 );
+			const radius = this.dna.shapedNumber( this.dna.genesFor('smell sense radius',3,2), 200, 750, 350, 1.5 );
+			const xoff = this.dna.shapedNumber( this.dna.genesFor('smell sense xoff',3,2), -radius*0.5, radius, radius*0.5, 1.5 );
+			const yoff = this.dna.shapedNumber( this.dna.genesFor('smell sense yoff',3,2), 0, radius, radius*0.5, 1.5 );
 			const detect = [];
 			const rejects = [];
 			// chance to detect indv channels
 			for ( let i=0; i<9; i++ ) {
-				const g1 = this.dna.geneFor('smell chance ' + i);
+				const g1 = this.dna.genesFor('smell chance ' + i, 1, true);
 				const chance = this.dna.mix(g1, 0, 1);
 				if ( chance > 0.65 ) { detect.push(i+3); } // first three indexes are vision
 				else { rejects.push(i+3); }
@@ -1223,9 +1205,9 @@ export class Boid {
 			if ( rejects.length ) {
 				rejects.shuffle();
 				while ( rejects.length ) {
-					let num = this.dna.shapedInt( this.dna.geneFor('smell merge ' + rejects.length), 2, 3);
+					let num = this.dna.shapedInt( this.dna.genesFor('smell merge ' + rejects.length, 1, true), 2, 3);
 					num = utils.Clamp( num, 1, rejects.length );
-					const chance = this.dna.mix(this.dna.geneFor('smell merge chance ' + rejects.length), 0, 1);
+					const chance = this.dna.mix(this.dna.genesFor('smell merge chance ' + rejects.length, 1, true), 0, 1);
 					const my_rejects = rejects.splice(0,num);
 					if ( chance > 0.65 ) { 
 						detect.push(my_rejects);
@@ -1233,7 +1215,7 @@ export class Boid {
 				}
 			}
 			if ( detect.length ) {
-				const chance = this.dna.shapedNumber([0x293D00E7,0x380A0056,0x615F00E1]);
+				const chance = this.dna.shapedNumber(this.dna.genesFor('stereo smell',3,true));
 				// mono
 				if ( chance > 0.5 ) {
 					this.sensors.push( new Sensor({ type:'sense', name: 'smell', color: '#FFBB00FF', falloff:2, sensitivity: 0.4, detect: detect, x: xoff, y: 0, r: radius, }, this ) );
@@ -1251,17 +1233,17 @@ export class Boid {
 		const max_sensor_radius = Math.sqrt(my_max_dim) * 50;
 		const min_sensor_radius = Math.min( my_max_dim, max_sensor_radius );
 		for ( let detect of ['food','obstacles'] ) {
-			let base_num_sensors = this.dna.shapedInt( [0xA6940009, 0xAE6200EC],0,3,1.5,1.2); // 0..3
+			let base_num_sensors = this.dna.shapedInt( this.dna.genesFor('base num sensors',2,true) ,0,3,1.5,1.2); // 0..3
 			for ( let n=0; n < base_num_sensors; n++ ) {
 				let sx = 0;
 				let sy = 0;
-				let r = this.dna.shapedNumber( [0x0FD8010D, this.dna.geneFor(`${detect} sensor radius ${n}`)], min_sensor_radius, max_sensor_radius) * (detect=='obstacles' ? 0.6 : 1.0);
-				let d = this.dna.shapedNumber( this.dna.geneFor(`${detect} sensor distance ${n}`), min_sensor_radius, max_sensor_radius);
+				let r = this.dna.shapedNumber( this.dna.genesFor(`${detect} sensor radius ${n}`,2,1), min_sensor_radius, max_sensor_radius) * (detect=='obstacles' ? 0.6 : 1.0);
+				let d = this.dna.shapedNumber( this.dna.genesFor(`${detect} sensor distance ${n}`,2,1), min_sensor_radius, max_sensor_radius);
 				// sensors need to stay close to the body:
 				d = Math.min( d, r );
 				// prefer sensors in front
-				let a = ( this.dna.shapedNumber( [0x0FB756A3, this.dna.geneFor(`${detect} sensor angle ${n}`)], 0, Math.PI * 2) + Math.PI ) % (Math.PI * 2);
-				const symmetryGene = this.dna.geneFor(`${detect} sensor symmetry ${n}`,false,true);
+				let a = ( this.dna.shapedNumber( this.dna.genesFor(`${detect} sensor angle ${n}`,2,1), 0, Math.PI * 2) + Math.PI ) % (Math.PI * 2);
+				const symmetryGene = this.dna.genesFor(`${detect} sensor symmetry ${n}`,2,1);
 				let color = detect==='obstacles' ? '#FF22BB77' : null;
 				// single
 				if ( this.dna.shapedNumber(symmetryGene, 0,1,0.5,0) < 0.33 ) {
@@ -1281,7 +1263,7 @@ export class Boid {
 		// proprioception
 		// NOTE: this only makes sense if there are two or more motors.
 		if ( this.motors.length >= 3 ) { // account for mitosis as a motor
-			const proprio_chance = this.dna.shapedNumber( [0xA9B100D5, 0xE4F000E6, 0xD5C10073] );
+			const proprio_chance = this.dna.shapedNumber( this.dna.genesFor('has proprio',3,true) );
 			if ( proprio_chance < 0.25 ) { 
 				this.sensors.push( new Sensor({detect:'proprio'}, this) );
 			}
@@ -1300,9 +1282,7 @@ export class Boid {
 			//'enemies': 		0.0,
 			};
 		for ( let k in non_coll_sensors ) {
-			const gene1 = this.dna.geneFor(`has sensor ${k} chance 1`, false, true);
-			const gene2 = this.dna.geneFor(`has sensor ${k} chance 2`, false, true);
-			const n = this.dna.shapedNumber( [gene1, gene2], 0, 1 );
+			const n = this.dna.shapedNumber( this.dna.genesFor(`has sensor ${k} chance`,2,true), 0, 1 );
 			if ( n < non_coll_sensors[k] ) {
 				this.sensors.push( new Sensor({detect:k}, this) );
 			}

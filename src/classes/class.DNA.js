@@ -175,18 +175,6 @@ export default class DNA {
 		return Math.round( this.shapedNumber( genes, min, max, target, influence ) );
 	}
 	
-	// returns string of a single gene created by hashing any arbitrary string
-	// Useage: 
-	// 	let gene = dna.geneFor('likes pie'); // returns 0xABC123
-	geneFor( str, as_str=false, use_safe_zone=true ) {
-		// use the same seed for the entire game
-		// using a different seed per organism creates wild results if seed changes.
-		let n = utils.murmurhash3_32_gc( str, 0x600DF00D );
-		// zero out the 3rd and 4th position as a hint to the gene reader, e.g. 0xFFFF00FF 
-		if ( use_safe_zone ) { n = (n & ~(0xFF << 8)) >>> 0; } 
-		return as_str ? n.toString(16).padStart(8,'0') : n;
-	}
-	
 	// returns a list of deterministic gene codes based on a string.
 	// The codes are based on a hash of the string that uses the first 
 	// 4 chars of the total DNA as an immutable scramble seed. This 
@@ -202,7 +190,7 @@ export default class DNA {
 		const genes = [];
 		for ( let i=0; i < num; i++ ) {
 			// first 4 chars of the DNA are permanent scramble seed
-			let n = utils.murmurhash3_32_gc( str+`${i}`, parseInt( this.str.substr(0,4), 16 ) );
+			let n = utils.murmurhash3_32_gc( str+`.${i}`, parseInt( this.str.substr(0,4), 16 ) );
 			// safe zone zeroes out the 3rd and 4th position as a hint to the gene reader, e.g. 0xFFFF00FF 
 			if ( 
 				// if TRUE, use safe zone for all genes
