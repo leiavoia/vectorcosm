@@ -227,7 +227,7 @@
 		<br/>
 
 		<label for="world_scale_slider">Scale</label>
-		<input v-model.number="vars.scale" @change="updateScale()" type="range" min="0.1" max="2" step="0.1" style="margin-bottom:-0.25em;" id="world_scale_slider" />
+		<input v-model.number="vars.scale" @change="updateScale()" type="range" min="0.04" max="2" step="0.02" style="margin-bottom:-0.25em;" id="world_scale_slider" />
 		<output for="world_scale_slider" id="world_scale_slider_output">{{vars.scale}}x</output>
 
 		<br/>
@@ -264,8 +264,8 @@
 		<br/>
 
 		<label for="fruiting_speed_slider">Fruiting</label>
-		<input v-model.number="vars.fruiting_speed" @change="updateFruitingSpeed()" type="range" min="0.1" max="2.0" step="0.1" style="margin-bottom:-0.25em;" id="fruiting_speed_slider" />
-		<output for="fruiting_speed_slider" id="fruiting_speed_slider_output">{{vars.fruiting_speed.toFixed(1)}}x</output>
+		<input v-model.number="vars.fruiting_speed" @change="updateFruitingSpeed()" type="range" min="0.02" max="2.0" step="0.02" style="margin-bottom:-0.25em;" id="fruiting_speed_slider" />
+		<output for="fruiting_speed_slider" id="fruiting_speed_slider_output">{{vars.fruiting_speed.toFixed(2)}}x</output>
 
 		<br/>
 

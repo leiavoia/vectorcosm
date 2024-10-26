@@ -131,7 +131,7 @@
 		<p>Species: <output>{{vars.num_species.toLocaleString()}}</output></p>
 		<p>Plants: <output>{{vars.num_plants.toLocaleString()}}</output></p>
 		<p>Rocks: <output>{{vars.num_rocks.toLocaleString()}}</output></p>
-		<p>Fruit: <output>{{vars.num_foods.toLocaleString()}}</output></p>
+		<p>Foods: <output>{{vars.num_foods.toLocaleString()}}</output></p>
 		<p>Boid Mass: <output>{{vars.boid_mass.toLocaleString()}}</output></p>
 		<p>Food Mass: <output>{{vars.food_value.toLocaleString()}}</output></p>
 		<p>Tank Size: <output>{{vars.tank_width.toLocaleString()}} x {{vars.tank_height.toLocaleString()}}</output></p>

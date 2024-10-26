@@ -19,43 +19,153 @@ export default class Food {
 		this.value = 300;
 		this.age = 0;
 		this.lifespan = 60 + Math.random() * 120;
-		this.hue = Math.random();
-		this.colorval = 1; // Math.random(); // colorval doesnt currently do anything
-		this.edibility = Math.random() * 0.5;
+		this.nutrients = new Array(8); // as percentages. values add to 1
+		if ( !params || !params.nutrients ) { 
+			for ( let i=0; i < this.nutrients.length; i++ ) { 
+				this.nutrients[i] = Math.random(); 
+			}
+		}
+		this.complexity = utils.RandomInt(1,5);
 		this.frictionless = false;
 		this.sense = new Array(16).fill(0);
 		this.buoy = 0;
 		this.buoy_start = 0;
 		this.buoy_end = 0;
-		Object.assign( this, params );
-		this.r = Math.sqrt( 2 * this.value / Math.PI );
-		this.geo = window.two.makeCircle(this.x,this.y,this.r);
-		let h = this.hue;
-		let s = Math.min(1,this.edibility+0.5);
-		let l = this.colorval * 0.8; // 0.8 keeps it from blowing out
-		// sensory data
-		let rgbs = utils.hsl2rgb(h, s, l);
-		this.sense[0] = rgbs[0] * 2; // hack for "brightness"
-		this.sense[1] = rgbs[1] * 2; // hack for "brightness"
-		this.sense[2] = rgbs[2] * 2; // hack for "brightness"
-		// SHIM: SMELL - this should come from DNA / be provided from outside
-		for ( let i=0; i<9; i++ ) { 
-			this.sense[i+3] = Math.random();
-		}
-		// rendering
-		this.geo.noStroke();
-		this.geo.fill = `hsl(${h*255},${s*100}%,${l*100}%)`;
-		this.geo.stroke = `hsl(${h*255},${s*100}%,50%)`;
-		this.geo.linewidth = 4;
-		this.geo.dashes = [3,3];
-		window.vc.AddShapeToRenderLayer(this.geo); // main layer
-		// this.geo.fill.units = 'objectBoundingBox';
 		this.dead = false;		
-		this.collision = { radius: this.r, shape: 'circle' };
+		Object.assign( this, params );
+		this.r = Math.sqrt( 2 * this.value / Math.PI ) * 10;
+		this.collision = { radius: this.r, shape: 'circle' };		
+		// make sure we have exactly 8 nutrient indexes
+		if ( this.nutrients.length !== 8 ) {
+			for ( let i=0; i < 8; i++ ) {
+				this.nutrients[i] = this.nutrients[i] || 0;
+			}
+		}
+		// make sure nutrients add to 1
+		let nutrient_total = 0;
+		for ( let i=0; i < this.nutrients.length; i++ ) {
+			this.nutrients[i] = Math.max( this.nutrients[i], 0 );
+			nutrient_total += this.nutrients[i];
+		}
+		// prevent divide by zero
+		if ( nutrient_total == 0 ) { 
+			this.nutrients[7] = 1; 
+			nutrient_total = 1; 
+		}
+		// even out the numbers
+		else if ( nutrient_total < 0.999 || nutrient_total > 1.001 ) {
+			this.nutrients = this.nutrients.map( v => v / nutrient_total );
+		}
+			
+		// rendering
+		let points = this.complexity+2;
+		if ( points>=7 ) { points=8 } // unicode doesnt have heptagons ;-( 
+		this.geo = window.two.makeCircle(this.x,this.y,this.r);
+		// this.geo = window.two.makePolygon(this.x,this.y,this.r,points);
+		
+		// colors hardcoded mostly for aesthetics. you could change them.
+		let colors = [
+			'#C42452',
+			'#EB9223',
+			'#EBE313',
+			'#5DD94D',
+			'#2CAED4',
+			'#1F4BE3',
+			'#991FE3',
+			'#FF70E5',
+			'#FFFFFF',
+			'#666666',
+		];
+		
+		// sort nutrients by contribution
+		let components = [];
+		for ( let i=0; i < this.nutrients.length; i++ ) {
+			if ( this.nutrients[i] ) {
+				components.push({
+					color: colors[i],
+					pct: this.nutrients[i],
+				});
+			}
+		}
+		components.sort( (a,b) => a.pct - b.pct );
+		
+		// let render = 'gradient'; // or 'simple
+		let render = 'simple'; // or 'gradient
+		
+		// gradient rendering method
+		if ( render == 'gradient' ) {
+			const stops = [];
+			let running_total = 0;
+			for ( let i=0; i < components.length; i++ ) {
+				// add a zero stop if this is our first color
+				if ( !running_total ) {
+					stops.push( new Two.Stop(0, components[i].color) );
+				}
+				// regular stop
+				running_total += components[i].pct;
+				if ( running_total > 0.999 ) { running_total = 1; }
+				stops.push( new Two.Stop(running_total, components[i].color) ); /// 12 ???
+			}
+			// let grad = window.two.makeRadialGradient(0, 1, 1.2, ...stops );
+			let grad = window.two.makeLinearGradient(0, 1, 0, 0, ...stops );
+			grad.units = 'objectBoundingBox'; // super important
+			grad.spread = 'pad';
+			this.geo.fill = grad;
+			this.geo.stroke = grad; // components[components.length-1].color;
+			this.geo.linewidth = 4; 
+			this.geo.dashes = [2,2];
+		}
+		
+		// simple colors
+		else {
+			// only show the two primary ingredients to keep it simple
+			const maincolor =  components[components.length-1].color;
+			const secondcolor = components.length > 1 ? components[components.length-2].color : maincolor;
+			let rgb = utils.HexColorToRGBArray(maincolor);
+			let hsl = utils.rgb2hsl( rgb[0]/255, rgb[1]/255, rgb[2]/255 );
+			this.geo.fill = `hsl(${hsl[0]*255},${hsl[1]*100}%,${hsl[2]*80}%)`;
+			this.geo.stroke = secondcolor;
+			// make dash pattern create a number of "pips" to represent food complexity.
+			// this is aesthetically better than using polygons to represent complexity.
+			let circ = this.r * 2 * Math.PI;
+			let segment = circ / ( points * 2 );
+			this.geo.linewidth = this.r/2;
+			this.geo.dashes = [segment,segment];
+		}
+		
+		this.geo.rotation = Math.random() * Math.PI; // aesthetic rotation
+		window.vc.AddShapeToRenderLayer(this.geo); // main layer
+		
+		// sensory data comes from nutrient composition unless overridden by creator
+		if ( !params || !params?.sense ) {
+			// visual color comes from mixing the two primary colors
+			const maincomp =  components[components.length-1];
+			const secondcomp = components.length > 1 ? components[components.length-2] : maincomp;
+			const rgb1 = utils.HexColorToRGBArray( maincomp.color );
+			const rgb2 = utils.HexColorToRGBArray( secondcomp.color );
+			let r = ( rgb1[0] * maincomp.pct ) + ( rgb2[0] * secondcomp.pct ) / 2;
+			let g = ( rgb1[1] * maincomp.pct ) + ( rgb2[1] * secondcomp.pct ) / 2;
+			let b = ( rgb1[2] * maincomp.pct ) + ( rgb2[2] * secondcomp.pct ) / 2;
+			this.sense[0] = r * 2; // hack for "brightness"
+			this.sense[1] = g * 2; // hack for "brightness"
+			this.sense[2] = b * 2; // hack for "brightness"
+			// smell
+			let smell_scale = utils.Clamp( this.r / 10, 2, 5 ); // arbitrary
+			this.sense[3] = smell_scale * this.nutrients[0] || 0;
+			this.sense[4] = smell_scale * this.nutrients[1] || 0;
+			this.sense[5] = smell_scale * this.nutrients[2] || 0;
+			this.sense[6] = smell_scale * this.nutrients[3] || 0;
+			this.sense[7] = smell_scale * this.nutrients[4] || 0;
+			this.sense[8] = smell_scale * this.nutrients[5] || 0;
+			this.sense[9] = smell_scale * this.nutrients[6] || 0;
+			this.sense[10] = smell_scale * this.nutrients[7] || 0;
+			this.sense[11] = smell_scale * (this.complexity || 0) / 5;
+		}
+
 	}
 	Export( as_JSON=false ) {
 		let output = {};
-		let datakeys = ['x','y','value','age','lifespan','hue','colorval','edibility','seed','max_germ_density','germ_distance','frictionless','sense'];		
+		let datakeys = ['x','y','value','age','lifespan','seed','max_germ_density','germ_distance','frictionless','sense','nutrients','complexity'];		
 		for ( let k of datakeys ) { 
 			if ( k in this ) {
 				output[k] = this[k]; 
@@ -166,9 +276,24 @@ export default class Food {
 		}
 		// drawing
 		else {
-			this.geo.radius = Math.max(this.r,5);
 			this.geo.position.x = this.x;
 			this.geo.position.y = this.y;
+			// limit expensive redraws
+			let radius = Math.max(this.r,5)
+			if ( radius != this.geo.radius ) {
+				this.geo.radius = radius;
+				let circ = radius * 2 * Math.PI;
+				let points = this.complexity+2;
+				points = points >= 7 ? 8 : points;
+				let segment = circ / ( points * 2 );
+				this.geo.linewidth = radius/2;
+				this.geo.dashes = [segment,segment];				
+			}
+			// fade out
+			if ( window.vc.animate_plants && !this.permafoo && this.age > this.lifespan - 1 ) {
+				let pct = this.age - (this.lifespan-1);
+				this.geo.opacity = 1-pct;
+			}
 		}
 	}
 	// returns the amount eaten
@@ -183,13 +308,9 @@ export default class Food {
 		this.geo.remove();
 		this.dead = true;
 	}
-	// returns TRUE if the food hue is inside the boid's dietary range
+	// returns TRUE if the food is edible by the boid
 	IsEdibleBy( boid ) {
-		let diff = boid.diet - boid.diet_range*0.5;
-		let max = (boid.diet + boid.diet_range*0.5) - diff;
-		let target1 = utils.mod( (this.hue - diff) - (this.edibility*0.5), 1 ).toPrecision(8); // javascript modulus can't handle negatives
-		let target2 = utils.mod( (this.hue - diff) + (this.edibility*0.5), 1 ).toPrecision(8); // javascript modulus can't handle negatives
-		const result =  target1 <= max || target2 <= max || target1 >= target2;	// beware floating point imprecision on comparison
-		return result;
+		if ( this.edibility >= 1 ) { return true; } // legacy hack for simulations
+		return (1 << (this.complexity-1)) & boid.traits.food_mask;
 	}			
 }

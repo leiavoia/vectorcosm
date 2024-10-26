@@ -266,7 +266,7 @@ export default class Sensor {
 						break;
 					}
 					case 'energy' : {
-						val = this.owner.energy / this.owner.max_energy;
+						val = this.owner.metab.energy / this.owner.metab.max_energy;
 						break;
 					} 
 					case 'inertia' : {

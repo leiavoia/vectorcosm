@@ -56,19 +56,35 @@ let frameUpdateSubscription = PubSub.subscribe('frame-update', (msg,data) => {
 		if ( focus_boid_data.value.id != vc.focus_object.id ) {
 			show_boid_details.value = vc.camera.show_boid_info_on_focus;
 		}
-		for ( let i of ['id','species','generation','max_energy','energy','diet','diet_range',
+		// scalar values we can just copy
+		for ( let i of ['id','species','generation',
 			'length','width','inertia','angmo','total_fitness_score','stomach_contents','stomach_size',
-			'age', 'lifespan', 'maturity_age', 'scale',
-			'base_bite_rate', 'base_energy', 'base_rest_metabolism', 'base_digestion_rate', 'base_stomach_size',
+			'age', 'lifespan', 'maturity_age', 'scale', 'mass',
+			'traits' // hacky
 			] ) {
 			focus_boid_data.value[i] = vc.focus_object[i];
 		}
+		
+		// metabolic stuff
+		if ( !focus_boid_data.value.metab ) {
+			focus_boid_data.value.metab = {};
+		}
+		else {
+			for ( let k in vc.focus_object.metab ) {
+				focus_boid_data.value.metab[k] = vc.focus_object.metab[k];
+			}
+		}
+		
+		// sensors
 		focus_boid_data.value.sensors = vc.focus_object.sensor_outputs;
 		
+		// brain output
 		focus_boid_data.value.outputs = vc.focus_object.brain.nodes
 			.filter(n => n.type=='output')
 			.map(n => ({val:n.activation.toFixed(2)}) );
 		focus_boid_data.value.outputs.forEach( (n,i) => n.name = vc.focus_object.motors[i].name );
+		
+		// motors
 		focus_boid_data.value.motors = vc.focus_object.motors.map( m => ({
 			name: m.name,
 			strokefunc: (m.strokefunc || 'constant'),
@@ -479,23 +495,54 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 			<!-- <div id="boidviewer"  style="width:10em; aspect-ratio:1; margin: 0 auto"></div> -->
 			<!-- <br/> -->
 			<p style="text-align:center;">GENERATION:<output>{{focus_boid_data.generation}}</output></p>
-			<p style="text-align:center;">SIZE: <output>
-				{{focus_boid_data.length.toFixed(0)}} x {{focus_boid_data.width.toFixed(0)}} 
-				({{(focus_boid_data.scale*100).toFixed()}}%)
-			</output></p>
+			<p style="text-align:center;">SIZE: 
+				<output>
+					{{focus_boid_data.length.toFixed(0)}} 
+					x {{focus_boid_data.width.toFixed(0)}} 
+					= {{focus_boid_data.mass.toFixed(0)}} 
+					({{(focus_boid_data.scale*100).toFixed()}}%)
+				</output>
+			</p>
+					
 			<!-- <p>SCALE: <output>{{focus_boid_data.scale.toFixed(2)}}</output></p> -->
 			<details style="margin-bottom: 0.5em">
 				<summary style="text-align:center; list-style-type: none;">...</summary>
 				<div>
 					<p>ID: <output>{{focus_boid_data.id}}</output></p>
-					<p>DIET: <output>{{focus_boid_data.diet.toFixed(2)}} (R:{{focus_boid_data.diet_range.toFixed(2)}})</output></p>
 					<p>LIFESPAN: <output>{{focus_boid_data.lifespan}}</output></p>
 					<p>MATURITY AGE: <output>{{focus_boid_data.maturity_age}}</output></p>
-					<p>BITE: <output>{{focus_boid_data.base_bite_rate.toFixed(5)}}</output></p>
-					<p>BASE ENERGY: <output>{{focus_boid_data.base_energy.toFixed(5)}}</output></p>
-					<p>BASE METAB: <output>{{focus_boid_data.base_rest_metabolism.toFixed(5)}}</output></p>
-					<p>BASE DIGEST: <output>{{focus_boid_data.base_digestion_rate.toFixed(5)}}</output></p>
-					<p>BASE STOMACH: <output>{{focus_boid_data.base_stomach_size.toFixed(5)}}</output></p>
+					<p>BITE: <output>{{(focus_boid_data.metab.bite_size||0).toFixed(1)}}</output>
+						@ <output>{{(focus_boid_data.traits.bite_speed||0).toFixed(1)}}s</output></p>
+					<p>METAB: <output>{{(focus_boid_data.metab.metabolic_rate||0).toFixed(1)}}</output></p>
+					<p>DIGEST: <output>{{(focus_boid_data.metab.digest_rate||0).toFixed(1)}}</output></p>
+					<table style="width:100%" id="nutrition_table">
+						<tr>
+							<td>Nutrition</td>
+							<td v-for="v of focus_boid_data.traits.nutrition" :class="{
+								'verybad':(v<=-2), 
+								'verygood':(v>=2),
+								'good':(v>0&&v<2)
+								}">
+								{{v.toFixed(1)}}
+							</td>
+						</tr>	
+						<tr>
+							<td>Stomach</td>
+							<td v-for="v of focus_boid_data.metab.stomach" :class="{
+								'good':(v>0), 
+								'bad':(v<0),
+								}">
+								{{v.toFixed(1)}}
+							</td>
+						</tr>	
+						<tr>
+							<td>Bowel</td>
+							<td v-for="v of focus_boid_data.metab.bowel">
+								{{v.toFixed(1)}}
+							</td>
+						</tr>	
+					</table>
+					<p>Food Mask: <output>{{focus_boid_data.traits.food_mask||0}}</output></p>
 				</div>
 			</details>
 			
@@ -506,24 +553,57 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 			
 			<h2>Vitals</h2>
 			<p>
-				<!--
-				<progress :value="focus_boid_data.scale"></progress> 
-				&nbsp; Scale <output>{{(focus_boid_data.scale*100).toFixed(0)}}%</output>
-				<br />
-				-->
-				
+
+				<!-- age -->
 				<progress :value="focus_boid_data.age / focus_boid_data.lifespan"></progress> 
 				&nbsp; Age <output>{{focus_boid_data.age.toFixed(0)}} / {{focus_boid_data.lifespan.toFixed(0)}}</output>
 				&nbsp; <output v-if="focus_boid_data.age >= focus_boid_data.maturity_age">&#10004;</output>
 				<br />
 				
-				<progress :value="focus_boid_data.stomach_contents / (focus_boid_data.stomach_size * focus_boid_data.scale )"></progress> 
-				&nbsp; Stomach <output>{{focus_boid_data.stomach_contents.toFixed(0)}} / {{(focus_boid_data.stomach_size * focus_boid_data.scale).toFixed(0)}}</output>
+				<!-- energy -->
+				<progress :value="(focus_boid_data.metab.energy / focus_boid_data.metab.max_energy )||0"></progress> 
+				&nbsp; Energy <output>{{(focus_boid_data.metab.energy||0).toFixed(0)}} / {{(focus_boid_data.metab.max_energy||0).toFixed(0)}}</output>
+					<span v-if="focus_boid_data.metab.growing" style="color:lime;"> ▲</span>
 				<br />
 				
-				<progress :value="focus_boid_data.energy / ( focus_boid_data.max_energy )"></progress> 
-				&nbsp; Energy <output>{{focus_boid_data.energy.toFixed(0)}} / {{(focus_boid_data.max_energy ).toFixed(0)}}</output>
+				<!-- stomach -->		
+				<progress :value="((focus_boid_data.metab.stomach_total / focus_boid_data.metab.stomach_size)||0)"></progress>
+				&nbsp; Stomach
+					<output>{{(focus_boid_data.metab.stomach_total||0).toFixed()}}</output> / 
+					<output>{{(focus_boid_data.metab.stomach_size||0).toFixed()}}</output>
+					<span v-if="focus_boid_data.metab.toxins" style="font-weight:bold; color:magenta;"> ☠</span>
+					<span v-if="focus_boid_data.metab.deficient" style="font-weight:bold; color:yellow;"> ⚠</span>
 				<br />
+					
+				<!-- bowel -->	
+				<progress :value="((focus_boid_data.metab.bowel_total / focus_boid_data.metab.bowel_size)||0)"></progress>
+				&nbsp; Bowel
+					<output>{{(focus_boid_data.metab.bowel_total||0).toFixed()}}</output> / 
+					<output>{{(focus_boid_data.metab.bowel_size||0).toFixed()}}</output>
+				<br />
+				
+				<!-- bite -->
+				<progress :value="((focus_boid_data.metab.bite_time / focus_boid_data.traits.bite_speed)||0)"></progress>
+				&nbsp; Bite <output>{{(focus_boid_data.metab.bite_size||0).toFixed(1)}}</output>
+					@ <output>{{(focus_boid_data.traits.bite_speed||0).toFixed(1)}}s</output>
+				<br />
+				
+			</p>
+			<p>
+				Diet:
+					<span v-if="(focus_boid_data.traits.food_mask||0) & 1">▲ </span>
+					<span v-if="(focus_boid_data.traits.food_mask||0) & 2">■ </span>
+					<span v-if="(focus_boid_data.traits.food_mask||0) & 4">⬟ </span>
+					<span v-if="(focus_boid_data.traits.food_mask||0) & 8">⬢ </span>
+					<span v-if="(focus_boid_data.traits.food_mask||0) & 16">⯃ </span>
+					<span v-if="(focus_boid_data.traits.food_mask||0) & 32">&#9899; </span>
+					🡒 <!-- ⮕ ➡  ⭬ ⭢ 🡆 🡒 ⇒ ⇒ ⇨ -->
+					<span v-if="(focus_boid_data.traits.poop_complexity==1)">▲ </span>
+					<span v-if="(focus_boid_data.traits.poop_complexity==2)">■ </span>
+					<span v-if="(focus_boid_data.traits.poop_complexity==3)">⬟ </span>
+					<span v-if="(focus_boid_data.traits.poop_complexity==4)">⬢ </span>
+					<span v-if="(focus_boid_data.traits.poop_complexity==5)">⯃ </span>
+					<span v-if="(focus_boid_data.traits.poop_complexity==6)">&#9899; </span>
 			</p>
 			
 			<h2>Brain</h2>
@@ -533,7 +613,7 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 			
 			<h2>Motors</h2>
 			<div v-for="m of focus_boid_data.motors" style="line-height:1.25em;">			
-				<progress :value="m.this_stoke_time ? m.last_amount : 0"></progress>
+				<progress :value="(m.this_stoke_time ? m.last_amount : 0)||0"></progress>
 				&nbsp;
 				<span style="margin-right:0.35em;">{{m.name}}</span>
 				<span v-if="m.linear" style="margin-right:0.35em; color:cyan;">{{Math.abs(m.linear.toFixed())}}</span>
@@ -543,46 +623,11 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 					
 			<h2>Sensors</h2>
 			<div v-for="i of focus_boid_data.sensors" style="line-height:1.25em;vertical-align:center;" :class="{'sensor_block':true, 'compact':focus_boid_data.sensors.length>=10}">
-				<progress :value="i.val"></progress>&nbsp;<span>{{i.name}}</span>
+				<progress :value="i.val||0"></progress>&nbsp;<span>{{i.name}}</span>
 			</div>
 						
 		</section>
 		
-		<!--
-		<section class="boid-motors" v-if="show_boid_details && focus_boid_data">			
-			<h2>Motors</h2>
-			<div v-for="m of focus_boid_data.motors">			
-				<progress :value="m.this_stoke_time ? m.last_amount : 0"></progress>
-				&nbsp;
-				{{m.name}}, <i>{{m.strokefunc}}</i>, &gt;{{m.min_act.toFixed(2)}}, t{{m.t.toFixed(2)}}/{{m.stroketime.toFixed(2)}}, ${{m.cost.toFixed(2)}}
-			</div>
-		</section>
-		
-		<section class="boid-sensors" v-if="show_boid_details && focus_boid_data">			
-			<h2>Sensors</h2>
-			<div v-for="i of focus_boid_data.sensors">
-				<progress :value="i.val"></progress> &nbsp; {{i.name}}
-			</div>
-		</section>
-		
-		<section class="boid-brain-output" v-if="show_boid_details && focus_boid_data">			
-			<h2>NN Outputs</h2>
-			<div v-for="o of focus_boid_data.outputs">
-				<progress :value="o.val"></progress> &nbsp; {{o.name}}
-			</div>
-		</section> 
-		-->
-		
-		<!-- style="display:flex; flex-flow: column;pointer-events:auto; user-select: none;" -->
-				
-		<!--				
-			<section class="iconmenu" v-show="idle_for < 2" style="text-align:center;">
-				<button @click="ToggleUI();" 						style="background:#AAAA; border:none; border-radius:0.2rem;  width:3rem; aspect-ratio:1/1; display:inline-block; padding:0em; margin: 0 0.25em; font-size:200%;">📊</button>
-				<button @click="ToggleCameraControls();" 			style="background:#AAAA; border:none; border-radius:0.2rem;  width:3rem; aspect-ratio:1/1; display:inline-block; padding:0em; margin: 0 0.25em; font-size:200%;">🎥</button>
-				<button @click="ToggleBoidLibrary();" 				style="background:#AAAA; border:none; border-radius:0.2rem;  width:3rem; aspect-ratio:1/1; display:inline-block; padding:0em; margin: 0 0.25em; font-size:200%;">💾</button>
-				<button @click="ToggleTrainingProgramControls();" 	style="background:#AAAA; border:none; border-radius:0.2rem;  width:3rem; aspect-ratio:1/1; display:inline-block; padding:0em; margin: 0 0.25em; font-size:200%;">🔄</button>
-			</section>
-		-->
 	</main>
 </template>
 
@@ -695,5 +740,15 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 		line-height:1.25em; 
 		width:6em; 
 		}
+		
+	.good { background-color: #171; } 
+	.verygood { font-weight:bold; background-color: #3A3; }
+	.bad { background-color: #611; }
+	.verybad { font-weight:bold; background-color: #911; }
+	
+	#nutrition_table TD {
+		text-align:center;
+		vertical-align:middle;
+	}
 	
 </style>

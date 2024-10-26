@@ -156,6 +156,7 @@ export default class DNA {
 	// 	}
 	
 	// `target` is the average number you want, between min and max
+	// `influence` is 0..1 for push-away, 1-5 for bring-together
 	shapedNumber( genes, min=0, max=1, target=null, influence=1 ) {
 		// shape the target number to a fractional bias
 		if ( target === null ) { target = ( (max-min) / 2 ) + min; }

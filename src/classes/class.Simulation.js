@@ -5,7 +5,7 @@ import * as utils from '../util/utils.js'
 import { BoidFactory } from '../classes/class.Boids.js'
 import neataptic from "neataptic";
 import {Circle} from 'collisions';
-import { RandomPlant, PointCloudPlant, PendantLettuce, VectorGrass, WaveyVectorGrass } from '../classes/class.Plant.js'
+import { RandomPlant, PendantLettuce, VectorGrass, WaveyVectorGrass } from '../classes/class.Plant.js'
 
 export default class Simulation {
 

@@ -17,7 +17,6 @@ export default class Plant {
 		this.lifespan = 100000000;
 		this.fruit_interval = 30; // sane defaults
 		this.next_fruit = 30; // sane defaults
-		this.fruit_hue = 0.5; // 0 .. 1
 		// first param can be JSON to rehydrate entire object from save
 		if ( x && typeof x === 'object' ) {
 			Object.assign(this,x);
@@ -43,7 +42,7 @@ export default class Plant {
 	}
 	Export( as_JSON=false ) {
 		let output = { classname: this.type };
-		let datakeys = ['x','y','fruit_interval','age','lifespan','fruit_hue',
+		let datakeys = ['x','y','fruit_interval','age','lifespan',
 			'next_fruit','maturity_age','growth_overlap_mod','dna','generation'];		
 		for ( let k of datakeys ) { 
 			if ( this.hasOwnProperty(k) ) { 
@@ -84,27 +83,28 @@ export class DNAPlant extends Plant {
 			this.next_fruit = this.age + fudge + ( this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 ) );
 			if ( window.vc.tank.foods.length < 300 ) {
 				// pick a random vertex to spawn from
-				let vertex = this.geo.children.pickRandom().vertices.pickRandom();
-				const f = new Food( this.x + vertex.x, this.y + vertex.y, { 
-					value: ( this.traits.fruit_size * ( 1 - (Math.random() * 0.1 ) ) ), 
-					hue: this.traits.fruit_hue, 
-					colorval: 1, // does nothing right now
-					edibility: this.traits.fruit_edibility, 
-					lifespan: ( this.traits.fruit_lifespan * ( 1 - (Math.random() * 0.1 ) ) ),
-					buoy_start: this.traits.fruit_buoy_start,
-					buoy_end: this.traits.fruit_buoy_end,
-					vx: utils.RandomFloat(100,1000), // boing!
-					vy: utils.RandomFloat(100,1000),
-					} );
-				// if there is room for more plants in the tank, make it a viable seed
-				if ( window.vc.tank.plants.length < window.vc.simulation.settings.num_plants ) {
-					let seed = new DNA(	this.dna.str );
-					seed.mutate( 2, false );
-					f.seed = seed.str;
-					f.max_germ_density = this.traits.max_germ_density;
-					f.germ_distance = this.traits.germ_distance;
+				for ( let n=0; n < this.traits.fruit_num; n++ ) {
+					let vertex = this.geo.children.pickRandom().vertices.pickRandom();
+					const f = new Food( this.x + vertex.x, this.y + vertex.y, { 
+						value: ( this.traits.fruit_size * ( 1 - (Math.random() * 0.1 ) ) ), 
+						lifespan: ( this.traits.fruit_lifespan * ( 1 - (Math.random() * 0.2 ) ) ),
+						buoy_start: this.traits.fruit_buoy_start,
+						buoy_end: this.traits.fruit_buoy_end,
+						nutrients: this.traits.fruit_nutrients,
+						complexity: this.traits.fruit_complexity,
+						vx: utils.RandomFloat(100,1000), // boing!
+						vy: utils.RandomFloat(100,1000),
+						} );
+					// if there is room for more plants in the tank, make it a viable seed
+					if ( window.vc.tank.plants.length < window.vc.simulation.settings.num_plants ) {
+						let seed = new DNA(	this.dna.str );
+						seed.mutate( 2, false );
+						f.seed = seed.str;
+						f.max_germ_density = this.traits.max_germ_density;
+						f.germ_distance = this.traits.germ_distance;
+					}
+					window.vc.tank.foods.push(f);
 				}
-				window.vc.tank.foods.push(f);
 			}
 		}
 		
@@ -233,15 +233,26 @@ export class DNAPlant extends Plant {
 		}
 				
 		// determine the other traits
-		this.traits.fruit_hue = this.dna.shapedNumber( [0xBF6670, 0xEC02EA, 0x0A9FB4], 0, 1 );
-		this.traits.fruit_size = this.dna.mix( [0xF4F609, 0x04BC7F, 0x25D6B9], 5, 500 );
-		this.traits.fruit_interval = this.dna.shapedInt( [0xBABA44, 0x9A1234], 10, 60, 30, 2 );
-		this.traits.fruit_interval *= 1 + ( this.traits.fruit_size / 150 ); // big fruit takes longer
-		this.traits.fruit_edibility = this.dna.mix( [0xC8FC97, 0xFA8070], 0.01, 0.4 );
-		this.traits.fruit_lifespan = this.dna.mix( [0x26E100, 0xBACEAB], 20, 150 );
+		const total_fruit_mass = this.dna.shapedInt( [0xF4F609, 0x04BC7F, 0x25D6B9], 10, 1000, 50, 10 );
+		this.traits.fruit_num = this.dna.shapedInt( [0xAA98F1, 0xBABA0F, 0xBADFAD], 1, 10, 1, 20 );
+		this.traits.fruit_size = Math.round( total_fruit_mass / this.traits.fruit_num );
+		this.traits.fruit_interval = this.dna.shapedInt( [0xBABA44, 0x9A1234], 10, 120, 30, 9 );
+		this.traits.fruit_interval = Math.round( this.traits.fruit_interval * (total_fruit_mass / 80) ); // more fruit takes longer
+		this.traits.fruit_lifespan = this.dna.mix( [0x26E100, 0xBACEAB], 20, 100 );
+		this.traits.fruit_lifespan = Math.round( this.traits.fruit_lifespan * (total_fruit_mass / 100) ); // more fruit lasts longer
 		this.traits.fruit_buoy_start = this.dna.mix( [0xA9ED78, 0x0532FB], -100, 100 );
 		this.traits.fruit_buoy_end = this.dna.mix( [0x296C80, 0x839806], -100, 100 );
-		this.traits.fruit_lifespan *= 1 + ( this.traits.fruit_size / 250 ); // big fruit lasts longer
+		this.traits.fruit_complexity = this.dna.shapedInt( [0xA76058, 0xBE7771], 1, 5, 2, 5 );
+		this.traits.fruit_nutrients = [
+			Math.max( 0, this.dna.mix( [0xD76852, 0x8363AC], -15, 10 ) ),
+			Math.max( 0, this.dna.mix( [0x066428, 0xB34104], -15, 10 ) ),
+			Math.max( 0, this.dna.mix( [0xAED82D, 0x4DDBCB], -15, 10 ) ),
+			Math.max( 0, this.dna.mix( [0x9DC54A, 0xE006E8], -15, 10 ) ),
+			Math.max( 0, this.dna.mix( [0x5AC66A, 0x5E06CB], -15, 10 ) ),
+			Math.max( 0, this.dna.mix( [0xAF5A54, 0xE27EA0], -15, 10 ) ),
+			Math.max( 0, this.dna.mix( [0x8302B6, 0x834B68], -15, 10 ) ),
+			Math.max( 0, this.dna.mix( [0x998877, 0x665544], -15, 10 ) ),
+		];
 		this.traits.lifespan = this.dna.shapedInt( [0x9708BE, 0x083DE2, 0x9988AE], 3000, 30000, 10000, 2.2 );
 		// this.traits.lifespan = this.dna.shapedInt( [0x9708BE, 0x083DE2, 0x9988AE], 300, 3000, 1000, 2 ); // faster for testing
 		this.traits.maturity_age_pct = this.dna.shapedNumber( [0xAB8DE9, 0x5591A1], 0, 1, 0.1, 2 );
@@ -293,7 +304,6 @@ export class DNAPlant extends Plant {
 		// shimmed in to make it work. eventually move everything to "traits" data structure
 		this.maturity_age = this.traits.maturity_age;
 		this.lifespan = this.traits.lifespan;
-		this.fruit_hue = this.traits.fruit_hue;
 		this.fruit_interval = this.traits.fruit_interval;
 	}	
 	CreateBody() {
@@ -431,26 +441,6 @@ export class DNAPlant extends Plant {
 		this.age = this.lifespan * Math.random();
 		this.next_fruit = Math.floor( this.age + this.fruit_interval * Math.random() );
 		this.UpdatePointsByGrowth(true);
-	}
-	RandomShadeOfGreen() {
-		let hue = utils.RandomInt(55,200);		
-		let saturation = utils.RandomInt(20,60);			
-		let lightness = utils.RandomInt(20,55);			
-		let transp = utils.RandomFloat( 0.5, 1.0 );
-		return `hsla(${hue},${saturation}%,${lightness}%,${transp})`;	
-	}
-	RandomGradient() {
-		const c1 = this.RandomShadeOfGreen();
-		const c2 = this.RandomShadeOfGreen();
-		const c3 = utils.RandomColor(true,true,false) ;
-		const stops = [ 
-			new Two.Stop(0, c1),
-			new Two.Stop(utils.BiasedRand(0.1,1.0,0.8,0.8), c2),
-			new Two.Stop(1, c3),
-		]
-		const grad = window.two.makeRadialGradient(0.5, 1, 1, ...stops );
-		grad.units = 'objectBoundingBox'; // userSpaceOnUse
-		return grad;
 	}	
 }
 Plant.PlantTypes.DNAPlant = DNAPlant;
@@ -459,9 +449,8 @@ export class PendantLettuce extends Plant {
 	constructor(x=0, y=0) {
 		super(x,y);
 		this.type = 'PendantLettuce'; // avoids JS classname mangling
-		if ( !this.fruit_interval ) { this.fruit_interval = utils.RandomInt(30,40); }
+		if ( !this.fruit_interval ) { this.fruit_interval = utils.RandomInt(60,120); }
 		if ( !this.next_fruit ) { this.next_fruit = this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 ); }
-		if ( !this.fruit_hue ) { this.fruit_hue = utils.RandomFloat(0.25,0.35);	}
 		// make the unique shape	
 		const n = utils.BiasedRandInt( 3, 16, 8, 0.8 );
 		const r = utils.BiasedRandInt( 50, 200, 100, 0.6);
@@ -477,8 +466,10 @@ export class PendantLettuce extends Plant {
 		const lw = utils.BiasedRandInt( 1, 6, 2, 0.95 );
 		let shape = window.two.makePath( pts.map( p => new Two.Anchor( p[0], p[1] ) ) );
 		// leaf coloring
-		const tip_color = `hsl(${this.fruit_hue*255},85%,75%)`;
-		const stops = [ new Two.Stop(0, '#174D1F'), new Two.Stop(1, '#23682D')/* , new Two.Stop(1, tip_color) */ ];
+		const tip_hue = utils.RandomFloat(0.25,0.85);
+		const tip_color = `hsl(${tip_hue*255},50%,40%)`;
+		// const stops = [ new Two.Stop(0, '#174D1F'), new Two.Stop(1, '#23682D') ];
+		const stops = [ new Two.Stop(0, '#174D1F'), new Two.Stop(1, tip_color) ];
 		shape.fill = window.two.makeRadialGradient(0, 0, r, ...stops );
 		shape.fill.units = 'userSpaceOnUse'; // super important
 		shape.linewidth = lw;
@@ -512,13 +503,12 @@ export class PendantLettuce extends Plant {
 			this.next_fruit = this.age + this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 );
 			if ( window.vc.tank.foods.length < 300 ) {
 				const f = new Food( this.x, this.y, { 
-					value: 50, 
-					hue: this.fruit_hue, 
-					colorval: 1, 
-					edibility: 0.3, 
-					lifespan: 80,
+					value: 120, 
+					lifespan: (80 + utils.RandomInt(0,20)),
 					vx: utils.RandomFloat(0,25),
 					vy: utils.RandomFloat(0,25),
+					nutrients: [10,20,25,0,0,0,5,0],
+					complexity: 3
 					} );
 				window.vc.tank.foods.push(f);
 			}
@@ -540,9 +530,9 @@ export class VectorGrass extends Plant {
 		this.type = 'VectorGrass'; // avoids JS classname mangling
 		if ( !this.fruit_interval ) { this.fruit_interval = utils.RandomInt(20,30); }
 		if ( !this.next_fruit ) { this.next_fruit = this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 ); }
-		if ( !this.fruit_hue ) { this.fruit_hue = utils.RandomFloat(0.55,0.8); }
 		// leaf coloring
-		const tip_color = `hsl(${this.fruit_hue*255},85%,75%)`;
+		const tip_hue = utils.RandomFloat(0.55,0.8);
+		const tip_color = `hsl(${tip_hue*255},85%,75%)`;
 		const stops = [ new Two.Stop(0, '#697'), new Two.Stop(0.68, '#697'), new Two.Stop(1, tip_color) ];		
 		const grad = window.two.makeLinearGradient(0, 1, 0, 0, ...stops );
 		// make the unique shape		
@@ -580,11 +570,10 @@ export class VectorGrass extends Plant {
 						this.x + b.x2, 
 						this.y + b.y2, 
 						{ 
-						value: utils.RandomInt(10,20), 
-						hue: this.fruit_hue, 
-						colorval: 1, 
-						edibility: 0.3,
-						lifespan: 40,
+						value: utils.RandomInt(20,50), 
+						lifespan: (40 + utils.RandomInt(0,15)),
+						nutrients: [0,0,5,20,15,0,0,0],
+						complexity: 1,
 						vx: utils.RandomFloat(0,25),
 						vy: utils.RandomFloat(0,25),
 						} 
@@ -613,9 +602,9 @@ export class WaveyVectorGrass extends Plant {
 		this.type = 'WaveyVectorGrass'; // avoids JS classname mangling
 		if ( !this.fruit_interval ) { this.fruit_interval = utils.RandomInt(45,60); }
 		if ( !this.next_fruit ) { this.next_fruit = this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 ); }
-		if ( !this.fruit_hue ) { this.fruit_hue = utils.RandomFloat(0.05,0.20); }
 		// leaf coloring
-		const tip_color = `hsl(${this.fruit_hue*255},85%,75%)`;
+		const tip_hue = utils.RandomFloat(0.05,0.20);
+		const tip_color = `hsl(${tip_hue*255},85%,75%)`;
 		const stops = [ new Two.Stop(0, '#243'), new Two.Stop(0.86, '#726'), new Two.Stop(1, tip_color) ];		
 		const grad = window.two.makeLinearGradient(0, 1, 0, 0, ...stops );
 		// make the unique shape		
@@ -664,11 +653,10 @@ export class WaveyVectorGrass extends Plant {
 						this.x + b[b.length-1][0], 
 						this.y + b[b.length-1][1], 
 						{ 
-						value: utils.RandomInt(100,120), 
-						hue: this.fruit_hue, 
-						colorval: 1, 
-						edibility: 0.3,
-						lifespan: 40,
+						value: utils.RandomInt(40,80), 
+						lifespan: (40 + utils.RandomInt(0,15)),
+						nutrients: [20,0,5,0,0,5,0,50],
+						complexity: 2,
 						vx: utils.RandomFloat(0,25),
 						vy: utils.RandomFloat(0,25),
 						} 
@@ -717,296 +705,6 @@ export class WaveyVectorGrass extends Plant {
 	}	
 } 
 Plant.PlantTypes.WaveyVectorGrass = WaveyVectorGrass;
-
-export class PointCloudPlant extends Plant {
-	constructor(x=0, y=0) {
-		super(x,y);
-		this.type = 'PointCloudPlant'; // avoids JS classname mangling
-		if ( !this.fruit_interval ) { this.fruit_interval = utils.RandomInt(30,120); }
-		if ( !this.next_fruit ) { this.next_fruit = this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 ); }
-		if ( !this.fruit_hue ) { this.fruit_hue = Math.random(); }
-		if ( !this.lifespan ) { this.lifespan = utils.RandomFloat(30, 300); }
-		if ( !this.growth_overlap_mod ) { this.growth_overlap_mod = Math.random(); }
-		if ( !this.maturity_age ) { this.maturity_age = utils.RandomFloat( 0.1 * this.lifespan, 0.5 * this.lifespan ); }
-		
-		// TODO: IMMORTALITY FOR TESTING  
-		this.age = this.maturity_age;
-		
-		// create point cloud
-		this.radius = utils.RandomInt( 100, 350 );
-		// this.radius = 200;
-		this.points = [];
-		// const num_points = utils.RandomInt( 5, 12 );
-		const num_points = 10;
-		for ( let i=0; i < num_points; i++ ) {
-			this.points.push( [
-				utils.RandomInt( -this.radius, this.radius ),
-				utils.RandomInt( -this.radius, this.radius )
-			]);
-		}
-		
-		// point sorting
-		this.smeth = Math.random();
-		if ( this.smeth < 0.0 ) { this.smeth = null; }
-		else if ( this.smeth < 0.25 ) { this.smeth = this.SortByX; }
-		else if ( this.smeth < 0.50 ) { this.smeth = this.SortByY; }
-		else { this.smeth = this.SortByAngle; }
-		if ( this.smeth ) {
-			this.points.sort( this.smeth );
-		}
-		
-		this.curved = Math.random() > 0.75;
-		
-		// `discreet` creates many individual shapes. continuous create a single shape.
-		this.discreet = Math.random() > 0.35;
-		
-		// slur the points around
-		// TODO: there are lots of fun ways we could do this in the future
-		if ( Math.random() > 0.35 ) {
-			this.points = this.points.map( p => [ p[0], p[1] - this.radius * 2 ] );
-		}
-		
-		// label all of the points with an ID number - we can use this to animate growth later
-		for ( let i=0; i < this.points.length; i++ ) { this.points[i][2] = i+1; }
-		
-		// if the shape is "centered", it threads all points back through the center
-		// when creating individual sub-shapes (petals), creating an aster-like pattern.
-		this.centered = true; //Math.random() > 0.5;
-		
-		// if the shape is NOT centered, use the center point as a starting point
-		if ( !this.centered ) {
-			this.points.unshift([0,0,0]);
-		}
-		
-		// if the shape is "centered", we automatically insert the center point
-		// to begin each shape. Center points are in addition to existing points,
-		// so we need to conditionally subtract one from many of the following calculations.
-		const subtract_one = this.centered ? 1 : 0;
-		
-		// points per shape only applies if we are going to create individual shapes
-		this.points_per_shape = utils.RandomInt(2,Math.min(4,this.points.length));
-		
-		// point increments determines how many indexes to skip when iterating through the point array.
-		// skipping fewer points creates overlapping shapes. Skipping more creates separate, discontinuous shapes.
-		this.point_increment = utils.RandomInt(1,this.points_per_shape-(subtract_one+1)); // use pps-1 to prevent discontinuous shapes
-		
-		// create shapes by iterating over points in different ways
-		const shapes = [];
-		
-		// create discreet shapes
-		if ( this.discreet ) {
-			for ( let i=0; i < this.points.length - (this.points_per_shape-subtract_one); i += this.point_increment ) {
-				const slice = this.points.slice( i, i + ( this.points_per_shape - subtract_one ) );
-				slice.sort( this.SortByAngle ); // not required but usually aesthetically better
-				if ( this.centered ) { slice.unshift([0,0,0]); } // start from zero on every shape
-				shapes.push(slice);
-			}
-		}
-		
-		// create a single continuous shape
-		else {
-			shapes[0] = [];
-			// one big glob
-			if ( Math.random() > 0.5 ) { 
-				this.points_per_shape = this.points.length;
-				this.point_increment = this.points.length;
-			}
-			for ( let i=0; i < this.points.length - (this.points_per_shape-(1+subtract_one)); i += this.point_increment ) {
-				const slice = this.points.slice( i, i + ( this.points_per_shape - subtract_one ) );
-				if ( this.centered ) { slice.unshift([0,0,0]); } // start from zero on every loop
-				shapes[0].push(...slice);
-			}
-		}
-		
-		// when points_per_shape == 2, individual shapes are composed of single lines.
-		// we may wish to handle these differently
-		const is_linear = this.points_per_shape == 2;
-				
-		// colors and features			
-		this.linewidth = utils.RandomInt(1,this.radius/6); 
-		this.fill = this.RandomGradient();							
-		this.stroke = this.RandomGradient();						
-		if ( Math.random() > 0.46 ) {
-			const dash = utils.BiasedRandInt(2,this.linewidth*2,3,0.95);
-			this.dashes =  [dash,dash];
-		}
-		if ( Math.random() > 0.6 ) {
-			this.cap = 'round';
-		}
-		const color_roll = Math.random();
-		// remove fill
-		if ( color_roll < 0.33 ) {
-			this.fill = 'transparent';
-		}
-		// remove stroke
-		else if ( color_roll < 0.66 && !(is_linear && !this.curved) ) {
-			this.stroke = 'transparent';
-			this.linewidth = 0;
-		}
-		
-		// if the shape is composed of line segments, turn off curves (which just look like giant ovals)
-		// TODO: we can keep curves if we want to fiddle with bezier handles later.
-		if ( is_linear ) { 
-			// this.curved = false; 
-			this.linewidth *= 3;
-		}
-				
-		this.animation_method = (this.centered && this.discreet) ? 'sway' : 'skew';
-					
-		// create the final SVG shape(s)
-		for ( let points of shapes ) {
-			let anchors = points.map( p => new Two.Anchor( p[0], p[1] ) );
-			// TODO: add back when full plant lifecycle implemented
-			// let anchors = points.map( p => new Two.Anchor( 0, 0 ) );
-			let shape = window.two.makePath(anchors);
-			// label the vertices for animation later
-			for ( let i=0; i < shape.vertices.length; i++ ) {
-				shape.vertices[i].label = points[i][2];
-			}
-			shape.fill = this.fill;
-			shape.stroke = this.stroke;
-			shape.linewidth = this.linewidth;
-			shape.curved = this.curved;
-			if ( this.dashes ) shape.dashes = this.dashes;		
-			if ( this.cap ) shape.cap = this.cap;		
-			this.geo.add( shape );
-		}
-			
-	}
-	Kill() {
-		this.geo.remove();
-		this.dead = true;
-	}	
-	Update( delta ) {
-		this.age += delta;
-		
-		// TODO: IMMORTALITY FOR TESTING  
-		// if ( this.age >= this.lifespan ) {
-		// 	this.geo.remove();
-		// 	this.Kill();
-		// 	return false;
-		// }
-		
-		// make berries
-		if ( this.age > this.next_fruit ) {
-			this.next_fruit = this.age + this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 );
-			if ( window.vc.tank.foods.length < 300 ) {
-				const f = new Food( this.x, this.y, { 
-					value: 50, 
-					hue: this.fruit_hue, 
-					colorval: 1, 
-					edibility: 0.3, 
-					lifespan: 80,
-					vx: utils.RandomFloat(0,25),
-					vy: utils.RandomFloat(0,25),
-					} );
-				window.vc.tank.foods.push(f);
-			}
-		}
-		
-		// TODO: limit calls to save frame rate
-		// this.UpdatePointsByGrowth();
-		
-		// wave the grass
-		if ( window.vc.animate_plants && !window.vc.simulation.turbo ) {
-			// sway individual shapes
-			// FIXME: make blades wave from base - need to do rotate-around-point math
-			if ( this.animation_method == 'sway' ) {		
-				const cell = window.vc.tank.datagrid.CellAt( this.x, this.y );
-				const strength = Math.sqrt( cell.current_x * cell.current_x + cell.current_y * cell.current_y ); 
-				const cycle_time = utils.clamp( 3 * (1-strength), 1, 3);			
-				for ( let i=0; i < this.geo.children.length; i++ ) {
-					const child = this.geo.children[i];
-					const radius = (child.vertices[0].y - child.vertices[child.vertices.length-1].y) / 2;
-					const effect = strength * 0.10 * Math.cos( ( i + window.vc.simulation.stats.round.time ) / cycle_time );
-					const angle = effect; 
-					child.rotation = angle;
-					if ( !child.x_offset ) { // stash for repeated calls
-						const dims = child.getBoundingClientRect(true);
-						child.x_offset = ( dims.right + dims.left ) / 2;
-					}
-					child.position.x = ( Math.sin(angle) * radius ) + child.x_offset;
-				}
-			}
-			// simpler skew animation
-			else {
-				const cell = window.vc.tank.datagrid.CellAt( this.x, this.y );
-				let strength = Math.sqrt( cell.current_x * cell.current_x + cell.current_y * cell.current_y ); 
-				const cycle_time = utils.clamp( 3 * (1-strength), 1, 3);
-				strength *= Math.PI/10 * ( 1.15-(this.radius/500) );
-				this.geo.skewX = strength * Math.cos( ( window.vc.simulation.stats.round.time ) / cycle_time );
-				this.geo.skewY = strength * Math.sin( ( window.vc.simulation.stats.round.time ) / cycle_time );			
-			}
-		}				
-	}
-	UpdatePointsByGrowth( force=false ) {
-		if ( this.age > this.maturity_age && !force ) { return; } 
-		const maturity = this.maturity_age / this.lifespan;
-		const age = this.age / this.lifespan;
-		const growth = (age >= maturity) ? 1 : (age / maturity);
-		const n = this.points.length;
-		// create a map of where each point should be right now
-		const pts = this.points.map( (p,i) => {
-			const start = (1/n) * i * this.growth_overlap_mod;
-			const end = start + (1/n) / this.growth_overlap_mod;
-			const at = utils.Clamp( (growth - start) / (end - start), 0, 1);
-			const x = p[0] * at;
-			const y = p[1] * at;
-			return [x,y];
-		});
-		if ( pts[0][0] || pts[0][1] ) { pts.unshift([0,0,0]); } 
-		// adjust the points in the actual geometry - there may be multiple occurrences
-		for ( let s of this.geo.children ) {
-			for ( let v of s.vertices ) {
-				if ( v.label ) {
-					v.x = pts[ v.label ][0];
-					v.y = pts[ v.label ][1];
-				}
-			}
-		}
-	}	
-	SortByY(a,b) {
-		return b[1] - a[1];
-	}
-	SortByX(a,b) {
-		return b[0] - a[0];
-	}
-	SortByAngle(a,b) {
-		Math.atan2(b) - Math.atan2(a);
-	}
-	RandomShadeOfGreen() {
-		let hue = utils.RandomInt(55,200);		
-		let saturation = utils.RandomInt(20,60);			
-		let lightness = utils.RandomInt(20,55);			
-		let transp = utils.RandomFloat( 0.5, 1.0 );
-		return `hsla(${hue},${saturation}%,${lightness}%,${transp})`;	
-	}
-	RandomGradient() {
-		const c1 = this.RandomShadeOfGreen();
-		const c2 = this.RandomShadeOfGreen();
-		const c3 = Math.random() > 0.8 
-			? utils.RandomColor(true,true,false) 
-			: ( Math.random() > 0.6 ? this.RandomShadeOfGreen() : c2 );
-		const stops = [ 
-			new Two.Stop(0, c1),
-			new Two.Stop(utils.BiasedRand(0.1,1.0,0.8,0.8), c2),
-			new Two.Stop(1, c3),
-		]
-		if ( Math.random() > 0.7 ) {
-			const scale = utils.BiasedRand( 0.1, 0.9, 0.4, 0.5 );
-			for ( let stop of stops ) {
-				stop.offset *= scale;
-			}
-		}
-		const grad = window.two.makeRadialGradient(0.5, 1, 1, ...stops );
-		grad.units = Math.random > 0.5 ? 'userSpaceOnUse' : 'objectBoundingBox';
-		const spreadNum = Math.random();
-		grad.spread = (spreadNum > 0.66) ? 'pad' : ( spreadNum > 0.33 ? 'reflect' : 'repeat' );	
-		return grad;
-	}
-	
-}
-Plant.PlantTypes.PointCloudPlant = PointCloudPlant;
 
 const plantPicker = new utils.RandomPicker( [
 	[ PendantLettuce, 	50 ],
