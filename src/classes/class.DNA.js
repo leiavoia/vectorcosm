@@ -21,7 +21,7 @@ export default class DNA {
 		}
 		// string literals
 		else if ( str && typeof str=='string' ) {
-			this.str = str.replace(/\s+/g,'').replace(/^[0123456789ABCDEF]/ig, 0).toUpperCase();
+			this.str = str.replace(/\s+/g,'').replace(/[^0123456789ABCDEF]/ig, 0).toUpperCase();
 		}
 		// an object with "str" as a member
 		else if ( typeof str === 'object' && 'str' in str ) {
