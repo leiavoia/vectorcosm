@@ -508,10 +508,10 @@ export class Boid {
 		
 			// dynamic animation - don't animate unless we're on screen and close enough to see
 			if ( ( window.vc.camera.z >= window.vc.camera.animation_min )
-				&& ( this.x - this.collision.radius >= window.vc.camera.xmin )
-				&& ( this.x + this.collision.radius <= window.vc.camera.xmax )
-				&& ( this.y - this.collision.radius >= window.vc.camera.ymin )
-				&& ( this.y + this.collision.radius <= window.vc.camera.ymax )
+				&& ( this.x - this.collision.radius < window.vc.camera.xmax )
+				&& ( this.x + this.collision.radius > window.vc.camera.xmin )
+				&& ( this.y - this.collision.radius < window.vc.camera.ymax )
+				&& ( this.y + this.collision.radius > window.vc.camera.ymin )
 				// you might also consider switching to pixel pitch method
 				// && ( this.collision.radius >= ( window.vc.camera.xmax - window.vc.camera.xmin ) / 100 )
 				) {
