@@ -51,7 +51,17 @@ export default class Plant {
  		}
 		if ( as_JSON ) { output = JSON.stringify(output); }
 		return output;
-	}		
+	}
+	PlantIsInFrame() {
+		if ( window.vc.camera.z < window.vc.camera.animation_min ) { return false; }
+		let dims = this.geo.getBoundingClientRect();
+		let tl = window.vc.ScreenToWorldCoord( dims.left, dims.top );
+		let br = window.vc.ScreenToWorldCoord( dims.right, dims.bottom );
+		return ( tl[0] < window.vc.camera.xmax )
+			&& ( br[0] > window.vc.camera.xmin )
+			&& ( tl[1] < window.vc.camera.ymax )
+			&& ( br[1] > window.vc.camera.ymin );
+	}	
 }
 
 export class DNAPlant extends Plant {
@@ -112,7 +122,7 @@ export class DNAPlant extends Plant {
 		this.UpdatePointsByGrowth();
 		
 		// wave the grass
-		if ( window.vc.animate_plants && !window.vc.simulation.turbo ) {
+		if ( window.vc.animate_plants && !window.vc.simulation.turbo && this.PlantIsInFrame() ) {
 			this.animation_time = ( this.animation_time || 0 ) + delta;
 			// sway individual shapes
 			// FIXME: make blades wave from base - need to do rotate-around-point math
@@ -385,7 +395,7 @@ export class DNAPlant extends Plant {
 		}
 	}
 	UpdatePointsByGrowth( force=false ) {
-		if ( !window.vc.animate_plants || window.vc.simulation.turbo ) { return; }
+		if ( !window.vc.animate_plants || window.vc.simulation.turbo || !this.PlantIsInFrame() ) { return; }
 		// if plant is near end of lifespan, start fading out
 		const old_age_pct = 0.98;
 		if ( this.age > this.lifespan * old_age_pct ) {
@@ -507,7 +517,7 @@ export class PendantLettuce extends Plant {
 				window.vc.tank.foods.push(f);
 			}
 		}
-		if ( window.vc.animate_plants && !window.vc.simulation.turbo ) {
+		if ( window.vc.animate_plants && !window.vc.simulation.turbo && this.PlantIsInFrame() ) {
 			this.animation_time = ( this.animation_time || 0 ) + delta;
 			const cell = window.vc.tank.datagrid.CellAt( this.x, this.y );
 			const strength = Math.sqrt( cell.current_x * cell.current_x + cell.current_y * cell.current_y ); 
@@ -578,7 +588,7 @@ export class VectorGrass extends Plant {
 			}
 		}
 		// wave the grass
-		if ( window.vc.animate_plants && !window.vc.simulation.turbo ) {
+		if ( window.vc.animate_plants && !window.vc.simulation.turbo && this.PlantIsInFrame() ) {
 			this.animation_time = ( this.animation_time || 0 ) + delta;
 			const cell = window.vc.tank.datagrid.CellAt( this.x, this.y );
 			const strength = Math.sqrt( cell.current_x * cell.current_x + cell.current_y * cell.current_y ); 
@@ -662,7 +672,7 @@ export class WaveyVectorGrass extends Plant {
 			}
 		}
 		// wave the grass
-		if ( window.vc.animate_plants && !window.vc.simulation.turbo ) {
+		if ( window.vc.animate_plants && !window.vc.simulation.turbo && this.PlantIsInFrame() ) {
 			this.animation_time = ( this.animation_time || 0 ) + delta;
 			const cell = window.vc.tank.datagrid.CellAt( this.x, this.y );
 			const strength = Math.sqrt( cell.current_x * cell.current_x + cell.current_y * cell.current_y ); 
