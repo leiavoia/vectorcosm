@@ -66,6 +66,10 @@ export default class Vectorcosm {
 			x: 0,
 			y: 0,
 			z: 1,
+			xmin:0, // box used to determine if stuff is in view
+			ymin:0,
+			xmax:0,
+			ymax:0,
 			min_zoom: 1,
 			max_zoom: 1,
 			cinema_mode: false,
@@ -816,6 +820,8 @@ export default class Vectorcosm {
 		
 		// record stats
 		[ this.camera.x, this.camera.y ] = this.ScreenToWorldCoord( this.width * 0.5, this.height * 0.5 );
+		[ this.camera.xmin, this.camera.ymin ] = this.ScreenToWorldCoord( 0, 0 );
+		[ this.camera.xmax, this.camera.ymax ] = this.ScreenToWorldCoord( this.width, this.height );
 		this.camera.z = this.scale;	
 		
 		this.AdjustBackgroundForParallax();

@@ -60,6 +60,14 @@
 		vars.round.time = props.sim.stats.round.time;
 		vars.fps = window.vc.fps;
 		vars.name = props.sim.settings.name;
+		vars.xmin = window.vc.camera.xmin;
+		vars.ymin = window.vc.camera.ymin;
+		vars.xmax = window.vc.camera.xmax;
+		vars.ymax = window.vc.camera.ymax;
+		vars.camx = window.vc.camera.x;
+		vars.camy = window.vc.camera.y;
+		vars.camz = window.vc.camera.z;
+		vars.cinema_mode = window.vc.camera.cinema_mode;
 	}
 	
 	vars = reactive(vars);
@@ -125,9 +133,12 @@
 		}
 	};
 	
-	watch( props, loadCallbacksOnSim );
-
+	// watch for updates
+	watch( props, loadCallbacksOnSim ); 
+	
+	// get started
 	loadCallbacksOnSim();
+
 		 
 	onMounted(() => {
 		simulatorChart = MakeSimulatorChart('simulatorChart', props.sim.stats.chartdata.averages, props.sim.stats.chartdata.highscores);
@@ -305,6 +316,19 @@
 		F: <output id="framenum_output">{{vars.framenum}}</output> |  
 		FPS: <output id="fps_output">{{vars.fps}}</output> 
 
+		<br/>
+
+		Cam: 
+			<output>{{(vars.camx||0).toFixed(0)}}x</output>, 
+			<output>{{(vars.camy||0).toFixed(0)}}y</output>, 
+			<output>{{(vars.camz||0).toFixed(2)}}z</output> 
+			<output v-show="vars.cinema_mode" style="line-height:1em;"> Ⓒ</output>
+
+		<br/>
+		
+		Screen: 
+			[<output>{{(vars.xmin||0).toFixed(0)}}</output>,<output>{{(vars.ymin||0).toFixed(0)}}</output>] 
+			[<output>{{(vars.xmax||0).toFixed(0)}}</output>,<output>{{(vars.ymax||0).toFixed(0)}}</output>]
 		<br/>
 		<canvas id="simulatorChart" style="width: 100%; height: 6em;"></canvas> 
 	</div>
