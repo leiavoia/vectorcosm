@@ -113,6 +113,7 @@ export class DNAPlant extends Plant {
 		
 		// wave the grass
 		if ( window.vc.animate_plants && !window.vc.simulation.turbo ) {
+			this.animation_time = ( this.animation_time || 0 ) + delta;
 			// sway individual shapes
 			// FIXME: make blades wave from base - need to do rotate-around-point math
 			if ( this.traits.animation_method == 'sway' ) {		
@@ -122,7 +123,7 @@ export class DNAPlant extends Plant {
 				for ( let i=0; i < this.geo.children.length; i++ ) {
 					const child = this.geo.children[i];
 					const radius = (child.vertices[0].y - child.vertices[child.vertices.length-1].y) / 2;
-					const effect = strength * 0.10 * Math.cos( ( i + window.vc.simulation.stats.round.time ) / cycle_time );
+					const effect = strength * 0.10 * Math.cos( ( i + this.animation_time ) / cycle_time );
 					const angle = effect; 
 					child.rotation = angle;
 					if ( !child.x_offset ) { // stash for repeated calls
@@ -138,8 +139,8 @@ export class DNAPlant extends Plant {
 				let strength = Math.sqrt( cell.current_x * cell.current_x + cell.current_y * cell.current_y ); 
 				const cycle_time = utils.clamp( 3 * (1-strength), 1, 3);
 				strength *= Math.PI/10 * ( 1.15-(this.traits.radius/500) );
-				this.geo.skewX = strength * Math.cos( ( window.vc.simulation.stats.round.time ) / cycle_time );
-				this.geo.skewY = strength * Math.sin( ( window.vc.simulation.stats.round.time ) / cycle_time );			
+				this.geo.skewX = strength * Math.cos( this.animation_time / cycle_time );
+				this.geo.skewY = strength * Math.sin( this.animation_time / cycle_time );			
 			}
 		}		
 	}
@@ -507,11 +508,12 @@ export class PendantLettuce extends Plant {
 			}
 		}
 		if ( window.vc.animate_plants && !window.vc.simulation.turbo ) {
+			this.animation_time = ( this.animation_time || 0 ) + delta;
 			const cell = window.vc.tank.datagrid.CellAt( this.x, this.y );
 			const strength = Math.sqrt( cell.current_x * cell.current_x + cell.current_y * cell.current_y ); 
 			const cycle_time = utils.clamp( 3 * (1-strength), 1, 3);
-			this.geo.skewX = strength * Math.PI/9 * Math.cos( ( window.vc.simulation.stats.round.time ) / cycle_time );
-			this.geo.skewY = strength * Math.PI/9 * Math.sin( ( window.vc.simulation.stats.round.time ) / cycle_time );
+			this.geo.skewX = strength * Math.PI/9 * Math.cos( ( this.animation_time ) / cycle_time );
+			this.geo.skewY = strength * Math.PI/9 * Math.sin( ( this.animation_time ) / cycle_time );
 		}
 	}
 } 
@@ -577,12 +579,13 @@ export class VectorGrass extends Plant {
 		}
 		// wave the grass
 		if ( window.vc.animate_plants && !window.vc.simulation.turbo ) {
+			this.animation_time = ( this.animation_time || 0 ) + delta;
 			const cell = window.vc.tank.datagrid.CellAt( this.x, this.y );
 			const strength = Math.sqrt( cell.current_x * cell.current_x + cell.current_y * cell.current_y ); 
 			const cycle_time = utils.clamp( 3 * (1-strength), 1, 3);
 			for ( let i=0; i < this.geo.children.length; i++ ) {
 				const child = this.geo.children[i];
-				child.rotation = strength * 0.2 * Math.cos( ( i + window.vc.simulation.stats.round.time ) / cycle_time );
+				child.rotation = strength * 0.2 * Math.cos( ( i + this.animation_time ) / cycle_time );
 			}
 		}		
 	}	
@@ -660,13 +663,14 @@ export class WaveyVectorGrass extends Plant {
 		}
 		// wave the grass
 		if ( window.vc.animate_plants && !window.vc.simulation.turbo ) {
+			this.animation_time = ( this.animation_time || 0 ) + delta;
 			const cell = window.vc.tank.datagrid.CellAt( this.x, this.y );
 			const strength = Math.sqrt( cell.current_x * cell.current_x + cell.current_y * cell.current_y ); 
 			const cycle_time = utils.clamp( 3 * (1-strength), 1, 3);			
 			for ( let i=0; i < this.geo.children.length; i++ ) {
 				const child = this.geo.children[i];
 				const radius = (child.vertices[0].y - child.vertices[child.vertices.length-1].y) / 2;
-				const effect = strength * 0.10 * Math.cos( ( i + window.vc.simulation.stats.round.time ) / cycle_time );
+				const effect = strength * 0.10 * Math.cos( ( i + this.animation_time ) / cycle_time );
 				const angle = effect; 
 				child.rotation = angle;
 				if ( !child.x_offset ) { // stash for repeated calls
@@ -676,25 +680,7 @@ export class WaveyVectorGrass extends Plant {
 				child.position.x = ( Math.sin(angle) * radius ) + child.x_offset;
 				child.position.y = -( Math.cos(angle) * radius );	
 			}
-		}
-		// this code wiggles the vertices, but slaughters frame rate. maybe someday.
-		// if ( !window.vc.simulation.turbo ) {
-		// 	const cycle_time = 2;
-		// 	for ( let child of this.geo.children ) {
-		// 		for ( let vi=1; vi < child.vertices.length; vi++ ) {
-		// 			const effect = Math.cos( ( vi + window.vc.simulation.stats.round.time ) / cycle_time );
-		// 			let v = child.vertices[vi];
-		// 			if ( !v.origin ) { 
-		// 				v.origin = new Two.Vector().copy(v); 
-		// 				v.xoff = (0.1 + Math.random()) * 0.25 * 250 * vi * (Math.random() > 0.5 ? 1 : -1 );
-		// 				v.yoff = (0.1 + Math.random()) * 0.25 * 20 * vi * (Math.random() > 0.5 ? 1 : -1 );
-		// 			}
-		// 			v.x = v.origin.x + v.xoff * effect;
-		// 			v.y = v.origin.y + v.yoff * effect;
-		// 		}
-		// 	}
-		// }
-							
+		}				
 	}	
 } 
 Plant.PlantTypes.WaveyVectorGrass = WaveyVectorGrass;
