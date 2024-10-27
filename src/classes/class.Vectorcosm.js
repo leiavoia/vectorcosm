@@ -70,8 +70,8 @@ export default class Vectorcosm {
 			ymin:0,
 			xmax:0,
 			ymax:0,
-			min_zoom: 1,
-			max_zoom: 1,
+			min_zoom: 0.1,
+			max_zoom: 2,
 			cinema_mode: false,
 			tween: null,
 			cinema_timeout: null,
@@ -435,24 +435,47 @@ export default class Vectorcosm {
 					this.camera.cinema_timeout = setTimeout( _ => this.CinemaMode(), this.camera.focus_time );
 				}
 			}
-			// focus on a non-boid point of interest
+			// focus on a point of interest
 			else if ( r < 0.85 ) {
-				const zoom = Math.random() > 0.5 ? utils.RandomFloat( this.camera.min_zoom, this.camera.max_zoom ) : this.camera.z;
-				// choose a plant, rock, or random point in space
+				// zoom setup
+				let zoom = this.camera.z;
+				// if transitions are enabled, reduce zoom changes to preserve frame rate and viewer sanity
+				let zoom_change_chance = this.camera.transitions ? 0.2 : 0.65;
+				// when changing zoom, pick from the larger perspective most of the time
+				if ( Math.random() < zoom_change_chance ) {
+					zoom = utils.RandomFloat( this.camera.min_zoom, this.camera.max_zoom );
+					zoom = utils.shapeNumber( zoom, this.camera.min_zoom, this.camera.max_zoom, 0.25, 3 );
+				}
+				const roll = Math.random();
+				// random point in space to fall back on if nothing is in tank
 				let target_x = this.tank.width * Math.random();
 				let target_y = this.tank.height * Math.random();
-				if ( this.tank.obstacles.length && Math.random() > 0.5 ) {
+				// rock
+				if ( this.tank.obstacles.length && roll < 0.25 ) {
 					const obj = this.tank.obstacles.pickRandom();
 					// pick a point on the hull, not on the interior
 					const pt = obj.collision.hull.pickRandom();
 					target_x = pt[0];
-					target_y = pt[1]; 
+					target_y = pt[1];
 				}
-				else if ( this.tank.plants.length ) {
+				// plant
+				else if ( this.tank.plants.length && roll < 0.5 ) {
 					const obj = this.tank.plants.pickRandom();
 					// pick a point near but slightly above the base
 					target_x = obj.x;
 					target_y = obj.y - 200;
+				}
+				// boid
+				else if ( this.tank.boids.length && roll < 0.90 ) {
+					const obj = this.tank.boids.pickRandom();
+					target_x = obj.x;
+					target_y = obj.y;
+				}
+				// food particle
+				else if ( this.tank.foods.length ) {
+					const obj = this.tank.foods.pickRandom();
+					target_x = obj.x;
+					target_y = obj.y;
 				}
 				// adjust point to sit inside a margin to avoid pan/zoom jank
 				const margin_x = ( this.width / 2 ) / zoom;
@@ -522,7 +545,7 @@ export default class Vectorcosm {
 		const scaley = this.height / this.tank.height;
 		const scale = Math.min(scalex,scaley); // min = contain, max = cover
 		this.camera.min_zoom = scale;
-		this.camera.max_zoom = Math.min(this.tank.width,this.tank.height) / 1250;
+		// this.camera.max_zoom = 2; // Math.min(this.tank.width,this.tank.height) / 1250;
 		this.PointCameraAt( this.tank.width*0.5, this.tank.height*0.5, scale );	
 	}
 	
