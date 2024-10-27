@@ -84,6 +84,7 @@ export default class Vectorcosm {
 			show_boid_info_on_focus: true,
 			show_boid_sensors_on_focus: true,
 			show_boid_collision_on_focus: false,
+			animation_min: 0.4 // zoom level beyond which we stop animating
 		};
 		
 		// subscriptions to critical events

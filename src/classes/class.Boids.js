@@ -506,60 +506,72 @@ export class Boid {
 		// There is just enough here to be amusing, but its not accurate and needs improvement
 		if ( window.vc.animate_boids && !window.vc?.simulation?.turbo ) {
 		
-			// for ( let m of this.motors ) {
-			// 	if ( !m.anim || m.anim.index < 0 || m.anim.index >= this.body.geo.vertices.length ) { break; }
-				
-			// 	// effect based on stroke power
-			// 	const effect1 = ( m.this_stoke_time && m.last_amount )
-			// 		? (m.this_stoke_time ? m.last_amount : 0)
-			// 		: 0;
-			// 	// effect based on stroke time (smoother but less accurate)
-			// 	const effect2 = m.this_stoke_time 
-			// 		? (Math.sin(((m.t||0)/m.this_stoke_time) * Math.PI))
-			// 		: 0;
-			// 	// blended result
-			// 	const effect = (effect1 + effect2) / 2;
-				
-			// 	let v = this.body.geo.vertices[m.anim.index];
-			// 	if ( !v.origin ) { 
-			// 		v.origin = new Two.Vector().copy(v); 
-			// 	}
-			// 	v.x = v.origin.x + m.anim.xval * effect;
-			// 	v.y = v.origin.y + m.anim.yval * effect;
-			// }
+			// dynamic animation - don't animate unless we're on screen and close enough to see
+			if ( ( window.vc.camera.z >= window.vc.camera.animation_min )
+				&& ( this.x - this.collision.radius >= window.vc.camera.xmin )
+				&& ( this.x + this.collision.radius <= window.vc.camera.xmax )
+				&& ( this.y - this.collision.radius >= window.vc.camera.ymin )
+				&& ( this.y + this.collision.radius <= window.vc.camera.ymax )
+				// you might also consider switching to pixel pitch method
+				// && ( this.collision.radius >= ( window.vc.camera.xmax - window.vc.camera.xmin ) / 100 )
+				) {
 			
-			for ( let m=0; m < this.motors.length; m++ ) {
-				if ( m >= this.body.geo.vertices.length ) { break; }
-				// effect based on stroke power
-				const effect1 = ( this.motors[m].this_stoke_time && this.motors[m].last_amount )
-					? (this.motors[m].this_stoke_time ? this.motors[m].last_amount : 0)
-					: 0;
-				// effect based on stroke time (smoother but less accurate)
-				const effect2 = this.motors[m].this_stoke_time 
-					? (Math.sin(((this.motors[m].t||0)/this.motors[m].this_stoke_time) * Math.PI))
-					: 0;
-				// blended result
-				const effect = (effect1 + effect2) / 2;
+				// for ( let m of this.motors ) {
+				// 	if ( !m.anim || m.anim.index < 0 || m.anim.index >= this.body.geo.vertices.length ) { break; }
+					
+				// 	// effect based on stroke power
+				// 	const effect1 = ( m.this_stoke_time && m.last_amount )
+				// 		? (m.this_stoke_time ? m.last_amount : 0)
+				// 		: 0;
+				// 	// effect based on stroke time (smoother but less accurate)
+				// 	const effect2 = m.this_stoke_time 
+				// 		? (Math.sin(((m.t||0)/m.this_stoke_time) * Math.PI))
+				// 		: 0;
+				// 	// blended result
+				// 	const effect = (effect1 + effect2) / 2;
+					
+				// 	let v = this.body.geo.vertices[m.anim.index];
+				// 	if ( !v.origin ) { 
+				// 		v.origin = new Two.Vector().copy(v); 
+				// 	}
+				// 	v.x = v.origin.x + m.anim.xval * effect;
+				// 	v.y = v.origin.y + m.anim.yval * effect;
+				// }
 				
-				let v = this.body.geo.vertices[m];
-				if ( !v.origin ) { 
-					v.origin = new Two.Vector().copy(v); 
-					v.xoff = (0.1 + Math.random()) * 0.25 * this.body.length * (Math.random() > 0.5 ? 1 : -1 );
-					v.yoff = (0.1 + Math.random()) * 0.25 * this.body.width * (Math.random() > 0.5 ? 1 : -1 );
-				}
-				v.x = v.origin.x + v.xoff * effect;
-				// do opposing vertex
-				const oppo_index = this.body.OppositePoint(m, this.body.geo.vertices.length);
-				if ( oppo_index !== m ) { 
-					v.y = v.origin.y + v.yoff * effect2;
-					const v2 = this.body.geo.vertices[oppo_index]; 
-					if ( !v2.origin ) { 
-						v2.origin = new Two.Vector().copy(v2); 
-						v2.xoff = v.xoff;
-						v2.yoff = -v.yoff;
+				for ( let m=0; m < this.motors.length; m++ ) {
+					if ( m >= this.body.geo.vertices.length ) { break; }
+					// effect based on stroke power
+					const effect1 = ( this.motors[m].this_stoke_time && this.motors[m].last_amount )
+						? (this.motors[m].this_stoke_time ? this.motors[m].last_amount : 0)
+						: 0;
+					// effect based on stroke time (smoother but less accurate)
+					const effect2 = this.motors[m].this_stoke_time 
+						? (Math.sin(((this.motors[m].t||0)/this.motors[m].this_stoke_time) * Math.PI))
+						: 0;
+					// blended result
+					const effect = (effect1 + effect2) / 2;
+					
+					let v = this.body.geo.vertices[m];
+					if ( !v.origin ) { 
+						v.origin = new Two.Vector().copy(v); 
+						v.xoff = (0.1 + Math.random()) * 0.25 * this.body.length * (Math.random() > 0.5 ? 1 : -1 );
+						v.yoff = (0.1 + Math.random()) * 0.25 * this.body.width * (Math.random() > 0.5 ? 1 : -1 );
 					}
-					v2.x = v2.origin.x + v2.xoff * effect;
-					v2.y = v2.origin.y + v2.yoff * effect2;
+					v.x = v.origin.x + v.xoff * effect;
+					// do opposing vertex
+					const oppo_index = this.body.OppositePoint(m, this.body.geo.vertices.length);
+					if ( oppo_index !== m ) { 
+						v.y = v.origin.y + v.yoff * effect2;
+						const v2 = this.body.geo.vertices[oppo_index]; 
+						if ( !v2.origin ) { 
+							v2.origin = new Two.Vector().copy(v2); 
+							v2.xoff = v.xoff;
+							v2.yoff = -v.yoff;
+						}
+						v2.x = v2.origin.x + v2.xoff * effect;
+						v2.y = v2.origin.y + v2.yoff * effect2;
+					}
+				
 				}
 			}
 		}
