@@ -674,8 +674,36 @@ const plantPicker = new utils.RandomPicker( [
 	[ DNAPlant, 250 ],
 ] );
 
+// buffer that holds plants for random remixing to create samey-looking plantscapes
+const motherplants = [];
+
 export function RandomPlant(x=0,y=0) {
 	const type = plantPicker.Pick();
-	return new type(x,y);
+	// legacy hardcoded plants are like you know whatever
+	if ( Plant.PlantTypes.DNAPlant !== type ) { return new type(x,y); }
+	// fun! if we choose DNAPlant, try to make variations on a theme instead of completely random ones
+	else {
+		let plant;
+		let reuse = 0.75;
+		// grab a used plant
+		if ( motherplants.length && Math.random() < reuse ) { 
+			let mother = motherplants.pickRandom();
+			let dna = new DNA( mother.dna.str );
+			dna.mutate( 2, false );
+			plant = new type({dna, x, y}); 
+		}
+		// create a new plant from scratch
+		else {
+			plant = new type(x,y); 
+		}
+		// cache the plant for reuse
+		if ( !motherplants.length || Math.random() > reuse ) { // note inverted comparison
+			motherplants.push(plant);
+			if ( motherplants.length > 10 ) {
+				motherplants.unshift();
+			}
+		}
+		return plant;
+	}
 }
 	
