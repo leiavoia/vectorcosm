@@ -61,7 +61,44 @@ export default class Plant {
 			&& ( br[0] > window.vc.camera.xmin )
 			&& ( tl[1] < window.vc.camera.ymax )
 			&& ( br[1] > window.vc.camera.ymin );
-	}	
+	}
+	Animate(delta) {
+		// wave the grass
+		if ( window.vc.animate_plants && !window.vc.simulation.turbo && this.PlantIsInFrame() ) {
+			const cell = window.vc.tank.datagrid.CellAt( this.x, this.y );
+			let strength = Math.sqrt( cell.current_x * cell.current_x + cell.current_y * cell.current_y ) || 1; 
+			this.animation_time = ( this.animation_time || 0 ) + delta * strength;
+			// sway individual shapes
+			// FIXME: make blades wave from base - need to do rotate-around-point math
+			if ( this?.traits?.animation_method == 'sway' ) {		
+				for ( let i=0; i < this.geo.children.length; i++ ) {
+					const child = this.geo.children[i];
+					const radius = (child.vertices[0].y - child.vertices[child.vertices.length-1].y) / 2;
+					const angle = 0.1 * Math.cos( i + this.animation_time );
+					child.rotation = angle;
+					if ( !child.x_offset ) { // stash for repeated calls
+						const dims = child.getBoundingClientRect(true);
+						child.x_offset = ( dims.right + dims.left ) / 2;
+					}
+					child.position.x = ( Math.sin(angle) * radius ) + child.x_offset;
+				}
+			}
+			// old sway motion for vector grass
+			else if ( this?.traits?.animation_method == 'legacy_sway' ) {
+				for ( let i=0; i < this.geo.children.length; i++ ) {
+					const child = this.geo.children[i];
+					child.rotation = 0.2 * Math.cos( i + this.animation_time );
+				}
+			}
+			// simpler skew animation works for any plant type
+			else {
+				let rad = this?.traits?.radius || 200;
+				let mod = 0.35 * ( 1.15-(rad/500) );
+				this.geo.skewX = mod * Math.cos( this.animation_time );
+				this.geo.skewY = mod * Math.sin( this.animation_time );			
+			}
+		}		
+	}		
 }
 
 export class DNAPlant extends Plant {
@@ -121,40 +158,9 @@ export class DNAPlant extends Plant {
 		// TODO: limit calls to save frame rate, fade in, or use staggered growth spurts
 		this.UpdatePointsByGrowth();
 		
-		// wave the grass
-		if ( window.vc.animate_plants && !window.vc.simulation.turbo && this.PlantIsInFrame() ) {
-			this.animation_time = ( this.animation_time || 0 ) + delta;
-			// sway individual shapes
-			// FIXME: make blades wave from base - need to do rotate-around-point math
-			if ( this.traits.animation_method == 'sway' ) {		
-				const cell = window.vc.tank.datagrid.CellAt( this.x, this.y );
-				const strength = Math.sqrt( cell.current_x * cell.current_x + cell.current_y * cell.current_y ); 
-				const cycle_time = utils.clamp( 3 * (1-strength), 1, 3);			
-				for ( let i=0; i < this.geo.children.length; i++ ) {
-					const child = this.geo.children[i];
-					const radius = (child.vertices[0].y - child.vertices[child.vertices.length-1].y) / 2;
-					const effect = strength * 0.10 * Math.cos( ( i + this.animation_time ) / cycle_time );
-					const angle = effect; 
-					child.rotation = angle;
-					if ( !child.x_offset ) { // stash for repeated calls
-						const dims = child.getBoundingClientRect(true);
-						child.x_offset = ( dims.right + dims.left ) / 2;
-					}
-					child.position.x = ( Math.sin(angle) * radius ) + child.x_offset;
-				}
-			}
-			// simpler skew animation
-			else {
-				const cell = window.vc.tank.datagrid.CellAt( this.x, this.y );
-				let strength = Math.sqrt( cell.current_x * cell.current_x + cell.current_y * cell.current_y ); 
-				const cycle_time = utils.clamp( 3 * (1-strength), 1, 3);
-				strength *= Math.PI/10 * ( 1.15-(this.traits.radius/500) );
-				this.geo.skewX = strength * Math.cos( this.animation_time / cycle_time );
-				this.geo.skewY = strength * Math.sin( this.animation_time / cycle_time );			
-			}
-		}		
+		this.Animate(delta);	
 	}
-	
+		
 	MakeGeneticColor( whatfor, colors ) {
 		let num_colors = Math.round( this.dna.mix( this.dna.genesFor(`plant ${whatfor} num colors gene 2`,2,1), 0, colors.length ) );
 		
@@ -517,14 +523,7 @@ export class PendantLettuce extends Plant {
 				window.vc.tank.foods.push(f);
 			}
 		}
-		if ( window.vc.animate_plants && !window.vc.simulation.turbo && this.PlantIsInFrame() ) {
-			this.animation_time = ( this.animation_time || 0 ) + delta;
-			const cell = window.vc.tank.datagrid.CellAt( this.x, this.y );
-			const strength = Math.sqrt( cell.current_x * cell.current_x + cell.current_y * cell.current_y ); 
-			const cycle_time = utils.clamp( 3 * (1-strength), 1, 3);
-			this.geo.skewX = strength * Math.PI/9 * Math.cos( ( this.animation_time ) / cycle_time );
-			this.geo.skewY = strength * Math.PI/9 * Math.sin( ( this.animation_time ) / cycle_time );
-		}
+		this.Animate(delta);
 	}
 } 
 Plant.PlantTypes.PendantLettuce = PendantLettuce;
@@ -562,6 +561,7 @@ export class VectorGrass extends Plant {
 			if ( dashes.length ) { line.dashes = dashes; }
 			this.geo.add(line);
 		}
+		this.traits = { animation_method:'legacy_sway' }; // shim
 	}
 	Update(delta) {
 		super.Update(delta);
@@ -587,17 +587,7 @@ export class VectorGrass extends Plant {
 				}
 			}
 		}
-		// wave the grass
-		if ( window.vc.animate_plants && !window.vc.simulation.turbo && this.PlantIsInFrame() ) {
-			this.animation_time = ( this.animation_time || 0 ) + delta;
-			const cell = window.vc.tank.datagrid.CellAt( this.x, this.y );
-			const strength = Math.sqrt( cell.current_x * cell.current_x + cell.current_y * cell.current_y ); 
-			const cycle_time = utils.clamp( 3 * (1-strength), 1, 3);
-			for ( let i=0; i < this.geo.children.length; i++ ) {
-				const child = this.geo.children[i];
-				child.rotation = strength * 0.2 * Math.cos( ( i + this.animation_time ) / cycle_time );
-			}
-		}		
+		this.Animate(delta);		
 	}	
 } 
 Plant.PlantTypes.VectorGrass = VectorGrass;
@@ -646,6 +636,7 @@ export class WaveyVectorGrass extends Plant {
 			line.dashes = dashes;
 			this.geo.add(line);
 		}
+		this.traits = { animation_method:'sway' }; // shim
 	}
 	Update(delta) {
 		super.Update(delta);
@@ -671,26 +662,7 @@ export class WaveyVectorGrass extends Plant {
 				}
 			}
 		}
-		// wave the grass
-		if ( window.vc.animate_plants && !window.vc.simulation.turbo && this.PlantIsInFrame() ) {
-			this.animation_time = ( this.animation_time || 0 ) + delta;
-			const cell = window.vc.tank.datagrid.CellAt( this.x, this.y );
-			const strength = Math.sqrt( cell.current_x * cell.current_x + cell.current_y * cell.current_y ); 
-			const cycle_time = utils.clamp( 3 * (1-strength), 1, 3);			
-			for ( let i=0; i < this.geo.children.length; i++ ) {
-				const child = this.geo.children[i];
-				const radius = (child.vertices[0].y - child.vertices[child.vertices.length-1].y) / 2;
-				const effect = strength * 0.10 * Math.cos( ( i + this.animation_time ) / cycle_time );
-				const angle = effect; 
-				child.rotation = angle;
-				if ( !child.x_offset ) { // stash for repeated calls
-					const dims = child.getBoundingClientRect(true);
-					child.x_offset = ( dims.right + dims.left ) / 2;
-				}
-				child.position.x = ( Math.sin(angle) * radius ) + child.x_offset;
-				child.position.y = -( Math.cos(angle) * radius );	
-			}
-		}				
+		this.Animate(delta);				
 	}	
 } 
 Plant.PlantTypes.WaveyVectorGrass = WaveyVectorGrass;
