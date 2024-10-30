@@ -387,10 +387,10 @@ export class Boid {
 				// it absorb into the background ether instead of ignoring it.
 				if ( window.vc.tank.foods.length < 300 ) {
 					const f = new Food( this.x, this.y, { 
-						value: this.metab.bowel_total, 
+						value: this.metab.bowel_total * 0.5, // reduce value to avoid virtuous cycles  
 						lifespan: Math.min( 15, this.metab.bowel_total/3 ),
-						buoy_start: this.traits.poop_buoy,
-						buoy_end: (this.traits.poop_buoy-2),
+						buoy_start: ( this.traits.poop_buoy + ( 1 - (2 * Math.random()) ) ),
+						buoy_end: ( (this.traits.poop_buoy-2) + ( 1 - (2 * Math.random()) ) ),
 						nutrients: this.metab.bowel.map( v => v / this.metab.bowel_total ),
 						complexity: this.traits.poop_complexity
 						} );
