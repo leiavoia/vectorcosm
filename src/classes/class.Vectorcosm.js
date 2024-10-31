@@ -357,6 +357,7 @@ export default class Vectorcosm {
 			food_speed: 0,
 			food_bounce_margin: 200,
 			food_friction: false,
+			food_value:200
 		});			
 					
 		// set up simulations so we have something to watch

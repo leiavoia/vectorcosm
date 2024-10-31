@@ -305,7 +305,7 @@ export class FoodChaseSimulation extends Simulation {
 			let food = new Food( {
 				x: this.tank.width - spawn_x, 
 				y: this.tank.height - spawn_y,
-				value: 2000,
+				value: (this.settings?.food_value || 500),
 				vx: Math.random() * food_speed - (food_speed*0.5),
 				vy: Math.random() * food_speed - (food_speed*0.5),
 				edibility: this.settings?.edibility ?? food.edibility,
@@ -379,7 +379,7 @@ export class FoodChaseSimulation extends Simulation {
 				let food = new Food( {
 					x: this.tank.width * Math.random(), 
 					y: this.tank.height * Math.random(),
-					value: 2000,
+					value: (this.settings?.food_value || 500),
 					vx: Math.random() * food_speed - (food_speed*0.5),
 					vy: Math.random() * food_speed - (food_speed*0.5),
 					edibility: this.settings?.edibility ?? food.edibility,
