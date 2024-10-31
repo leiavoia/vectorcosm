@@ -1194,8 +1194,9 @@ export class Boid {
 				if ( chance_b > 0.20 ) { detect.push([2]); }
 			}
 			if ( !detect.length ) { detect.push([0,1,2]); }
-			this.sensors.push( new Sensor({ type:'sense', name: 'vision1', color: '#AAEEFFBB', sensitivity: 2, fov:true, attenuation:true, detect: detect, x: xoff, y: yoff, r: radius, }, this ) );2
-			this.sensors.push( new Sensor({ type:'sense', name: 'vision2', color: '#AAEEFFBB', sensitivity: 2, fov:true, attenuation:true, detect: detect, x: xoff, y: -yoff, r: radius, }, this ) );
+			const sensitivity = this.dna.shapedNumber(this.dna.genesFor('vision sensitivity',1,1), 0.5, 10, 2, 3 );
+			this.sensors.push( new Sensor({ type:'sense', name: 'vision1', color: '#AAEEFFBB', sensitivity, fov:true, attenuation:true, detect: detect, x: xoff, y: yoff, r: radius, }, this ) );2
+			this.sensors.push( new Sensor({ type:'sense', name: 'vision2', color: '#AAEEFFBB', sensitivity, fov:true, attenuation:true, detect: detect, x: xoff, y: -yoff, r: radius, }, this ) );
 		}
 		
 		// smell
@@ -1227,15 +1228,16 @@ export class Boid {
 				}
 			}
 			if ( detect.length ) {
+				let sensitivity = this.dna.shapedNumber(this.dna.genesFor('smell sensitivity',1,1), 0.1, 3, 0.5, 3 );
 				const chance = this.dna.shapedNumber(this.dna.genesFor('stereo smell',3,true));
 				// mono
 				if ( chance > 0.5 ) {
-					this.sensors.push( new Sensor({ type:'sense', name: 'smell', color: '#FFBB00FF', falloff:2, sensitivity: 0.4, detect: detect, x: xoff, y: 0, r: radius, }, this ) );
+					this.sensors.push( new Sensor({ type:'sense', name: 'smell', color: '#FFBB00FF', falloff:2, sensitivity, detect: detect, x: xoff, y: 0, r: radius, }, this ) );
 				} 
 				// stereo
 				else {
-					this.sensors.push( new Sensor({ type:'sense', name: 'smell1', color: '#FFBB00FF', falloff:2, sensitivity: 0.4, detect: detect, x: xoff, y: yoff, r: radius, }, this ) );
-					this.sensors.push( new Sensor({ type:'sense', name: 'smell2', color: '#FFBB00FF', falloff:2, sensitivity: 0.4, detect: detect, x: xoff, y: -yoff, r: radius, }, this ) );
+					this.sensors.push( new Sensor({ type:'sense', name: 'smell1', color: '#FFBB00FF', falloff:2, sensitivity, detect: detect, x: xoff, y: yoff, r: radius, }, this ) );
+					this.sensors.push( new Sensor({ type:'sense', name: 'smell2', color: '#FFBB00FF', falloff:2, sensitivity, detect: detect, x: xoff, y: -yoff, r: radius, }, this ) );
 				}
 			}
 		}

@@ -146,11 +146,11 @@ export default class Food {
 			let r = ( rgb1[0] * maincomp.pct ) + ( rgb2[0] * secondcomp.pct ) / 2;
 			let g = ( rgb1[1] * maincomp.pct ) + ( rgb2[1] * secondcomp.pct ) / 2;
 			let b = ( rgb1[2] * maincomp.pct ) + ( rgb2[2] * secondcomp.pct ) / 2;
-			this.sense[0] = r * 2; // hack for "brightness"
-			this.sense[1] = g * 2; // hack for "brightness"
-			this.sense[2] = b * 2; // hack for "brightness"
+			this.sense[0] = ( r / 255 ) * 10 ; // buff to help boids see food
+			this.sense[1] = ( g / 255 ) * 10 ; // buff to help boids see food
+			this.sense[2] = ( b / 255 ) * 10 ; // buff to help boids see food
 			// smell
-			let smell_scale = utils.Clamp( this.r / 10, 2, 5 ); // arbitrary
+			let smell_scale = utils.Clamp( Math.pow(this.value,0.5) * 0.2, 0, 3 ); // arbitrary
 			this.sense[3] = smell_scale * this.nutrients[0] || 0;
 			this.sense[4] = smell_scale * this.nutrients[1] || 0;
 			this.sense[5] = smell_scale * this.nutrients[2] || 0;

@@ -109,7 +109,6 @@ export default class Sensor {
 				
 				// Attenuation: signal falls off based on difference of sensor angle to object angle.
 				// used for peripheral vision curve.
-				// we could also enable/disable this with a genetic trait.
 				let attenuation = 1;
 				if ( this.attenuation ) { 
 					// only calculate if we don't have a perfectly centered circle.
@@ -137,13 +136,15 @@ export default class Sensor {
 					detection_index++;
 				}
 			}
-			// sigmoid squash light signals to prevent blinding.
+			// sigmoid squash signals to prevent blinding.
 			// TANH function tends to effectively max out around value of 2,
 			// so it helps to scale the signal back to produce a more effective value for the AI
 			const global_sensitivity_tuning_number = 1; // many sense values are too low to create meaningful signals
 			const sensitivity = ( this.sensitivity || 1 ) * global_sensitivity_tuning_number;
 			for ( let i=0; i<detection.length; i++ ) {
-				let val = Math.tanh( detection[i] * sensitivity );
+				// TANH(LOG(x)) makes a nice curve pretty much no matter what you throw at it
+				// but works best in the 0..20 range. 
+				let val = Math.min( 1, Math.tanh( Math.log( 1 + detection[i] * sensitivity ) ) ); 
 				let name = ( this.name || 'sense' ) + '_';
 				let namemap = {
 					0: 'R',
@@ -166,6 +167,7 @@ export default class Sensor {
 				for ( let c of this.detect[i] ) {
 					name = name + namemap[c];
 				}
+				name += sensitivity.toFixed(1);
 				// CAUTION: naming conventions might change if we change number of channels available for senses
 				// TODO: optimize this out of the main game loop
 				outputs.push( {val:(val||0), name} );
