@@ -233,6 +233,28 @@ export default class Sensor {
 				let val = 0; // reset
 				// output depends on what we are detecting
 				switch ( detect ) {
+					case 'displacement' : {
+						if ( !this.owner.x && !this.owner.y ) { break; }
+						if ( this.next_update && this.next_update > window.vc.simulation.stats.round.time ) { 
+							val = this.last_val || 0;
+							break; 
+						}
+						this.next_update = ( this.next_update || window.vc.simulation.stats.round.time ) + ( this.interval || 1 );
+						if ( !this.history ) { this.history = []; }
+						this.history.push([this.owner.x,this.owner.y]);
+						if ( this.history.length > ( this.intervals || 3 ) ) { this.history.shift(); }
+						let x = this.history ? this.history[0][0] : 0;
+						let y = this.history ? this.history[0][1] : 0;
+						let diff_x = this.owner.x - x;
+						let diff_y = this.owner.y - y;
+						let diff = Math.abs(diff_x + diff_y); // manhatten is fine
+						val = Math.round( diff );
+						val /= ( this.intervals || 3 ) * ( this.interval || 1 ) * 100; // 100 pixels per second
+						val = utils.Clamp( val, 0, 1 );
+						if ( this.invert ) { val = 1-val; }
+						this.last_val = val;
+						break;
+					}
 					case 'proprio' : {
 						let i=0;
 						for ( let m of this.owner.motors ) { 
@@ -363,7 +385,8 @@ export default class Sensor {
 					}
 				}
 				if ( val !== null ) {
-					outputs.push({val,name:detect});
+					let name = this.name || detect;
+					outputs.push({val,name});
 				}
 			}
 		}

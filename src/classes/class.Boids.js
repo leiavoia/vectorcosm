@@ -1283,6 +1283,18 @@ export class Boid {
 			}
 		}
 		
+		// displacement sensor
+		for ( let i=1; i<=3; i++ ) { // short, medium, long
+			const roll = this.dna.shapedNumber( this.dna.genesFor(`has disp sensor ${i}`,2,true) );
+			if ( roll < 0.36 ) {
+				let intervals = i * 3;
+				let interval = i + 1;
+				let invert = roll < 0.1;
+				let name = `disp_${interval}x${intervals}${invert?'i':''}`;
+				this.sensors.push( new Sensor({detect:'displacement',name,interval,intervals,invert}, this) );
+			}
+		}
+		
 		// random chance to get any of the non-collision sensors	
 		const non_coll_sensors = {
 			'energy': 		0.5,
@@ -1301,11 +1313,11 @@ export class Boid {
 				this.sensors.push( new Sensor({detect:k}, this) );
 			}
 		}
-		// if the organism has no inputs at all, they get energy
+		// if the organism has no inputs at all, they get energy and displacement
 		if ( !this.sensors.length ) {
 			this.sensors.push( new Sensor({detect:'energy'}, this) );
+			this.sensors.push( new Sensor({detect:'displacement',name:'disp_1x3',interval:1, intervals:3}, this) );
 		}
-		
 	}
 			
 	Copy( reset=false, dna_mutation=0, brain_mutation=0, speciation_chance=0 ) {
