@@ -1304,6 +1304,10 @@ export class Boid {
 			'angle-cos': 	0.3,
 			'world-x': 		0.3,
 			'world-y': 		0.3,
+			'lifespan':		0.1,
+			'malnurished':	0.05,
+			'toxins': 		0.05,
+			'chaos': 		0.03,
 			//'friends': 		0.0,
 			//'enemies': 		0.0,
 			};
@@ -1313,10 +1317,17 @@ export class Boid {
 				this.sensors.push( new Sensor({detect:k}, this) );
 			}
 		}
-		// if the organism has no inputs at all, they get energy and displacement
+		
+		// if the organism has no inputs at all, they get fun defaults
 		if ( !this.sensors.length ) {
 			this.sensors.push( new Sensor({detect:'energy'}, this) );
-			this.sensors.push( new Sensor({detect:'displacement',name:'disp_1x3',interval:1, intervals:3}, this) );
+			const n = this.dna.shapedNumber( this.dna.genesFor(`roll for chaos`,2,true), 0, 1 );
+			if ( n < 0.5 ) {
+				this.sensors.push( new Sensor({detect:'chaos'}, this) );
+			}	
+			else {		
+				this.sensors.push( new Sensor({detect:'displacement',name:'disp_1x3',interval:1, intervals:3}, this) );
+			}
 		}
 	}
 			

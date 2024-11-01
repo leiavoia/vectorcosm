@@ -182,7 +182,7 @@ export default class Sensor {
 			let sx = this.owner.x + ((this.x * cosAngle) - (this.y * sinAngle));
 			let sy = this.owner.y + ((this.x * sinAngle) + (this.y * cosAngle));
 			// find objects that are detected by this sensor
-			let objs = this.owner.tank.foods.length < 50 // runs faster on small sets
+			let objs = this.owner.tank.foods.length < 20 // runs faster on small sets
 				? this.owner.tank.foods
 				: this.owner.tank.grid.GetObjectsByBox( sx - this.r, sy - this.r, sx + this.r, sy + this.r, Food );
 			let nearest_dist = Infinity;
@@ -272,7 +272,7 @@ export default class Sensor {
 						let sx = this.owner.x + ((this.x * cosAngle) - (this.y * sinAngle));
 						let sy = this.owner.y + ((this.x * sinAngle) + (this.y * cosAngle));
 						// find objects that are detected by this sensor
-						let objs = this.owner.tank.foods.length < 50 // runs faster on small sets
+						let objs = this.owner.tank.foods.length < 20 // runs faster on small sets
 							? this.owner.tank.foods
 							: this.owner.tank.grid.GetObjectsByBox( sx - this.r, sy - this.r, sx + this.r, sy + this.r, Food );
 						for ( let obj of objs ) { 
@@ -286,7 +286,6 @@ export default class Sensor {
 							}
 						}
 						val = utils.clamp( val, 0, 1 );
-						// this.geo.fill = val ? ('#AAEEAA'+utils.DecToHex(Math.trunc(val*128))) : 'transparent';
 						break;
 					}
 					case 'energy' : {
@@ -317,8 +316,21 @@ export default class Sensor {
 						val = this.owner.y / window.vc.tank.height;
 						break;
 					} 
+					case 'lifespan' : {
+						val = utils.Clamp( this.owner.age / this.owner.lifespan, 0, 1 );
+						break;
+					}
+					case 'toxins' : {
+						val = this.owner.metab.toxins ? 1 : 0;
+						break;
+					}
+					case 'malnurished' : {
+						val = this.owner.metab.deficient ? 1 : 0;
+						break;
+					}
 					case 'chaos' : {
-						val = Math.random();
+						val = !this.last_val || Math.random() > 0.95 ? Math.random() : this.last_val;
+						this.last_val = val;
 						break;
 					} 
 					case 'friends' : {
