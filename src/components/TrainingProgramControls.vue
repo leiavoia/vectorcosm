@@ -68,6 +68,7 @@
 			current: 0,
 			num_foods: 1,
 			food_speed: 70,
+			food_value:2000,
 			food_bounce_margin: 300,
 			food_friction: false,
 			// circular_current: true,
@@ -103,6 +104,7 @@
 			current: 0,
 			num_foods: 2,
 			food_speed: 125,
+			food_value:2000,
 			food_bounce_margin: 300,
 			food_friction: false,
 			end: {

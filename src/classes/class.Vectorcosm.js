@@ -139,8 +139,7 @@ export default class Vectorcosm {
 			food_speed: 70,
 			food_bounce_margin: 300,
 			food_friction: false,
-			// circular_current: true,
-			// tide: 300,
+			food_value:2000,
 			end: {
 				avg_score:500,
 				avg_score_rounds: 10,
@@ -172,6 +171,7 @@ export default class Vectorcosm {
 			food_speed: 125,
 			food_bounce_margin: 300,
 			food_friction: false,
+			food_value:2000,
 			end: {
 				avg_score:500,
 				avg_score_rounds: 10,
@@ -203,6 +203,7 @@ export default class Vectorcosm {
 			food_speed: 400,
 			food_bounce_margin: 300,
 			food_friction: false,
+			food_value:2000,
 			end: {
 				avg_score:600,
 				avg_score_rounds: 10,
@@ -234,6 +235,7 @@ export default class Vectorcosm {
 			food_speed: 200,
 			food_bounce_margin: 300,
 			food_friction: false,
+			food_value:2000,
 			end: {
 				rounds:10000
 			},
@@ -357,7 +359,7 @@ export default class Vectorcosm {
 			food_speed: 0,
 			food_bounce_margin: 200,
 			food_friction: false,
-			food_value:200
+			food_value:1000
 		});			
 					
 		// set up simulations so we have something to watch
