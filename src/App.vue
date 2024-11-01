@@ -75,6 +75,16 @@ let frameUpdateSubscription = PubSub.subscribe('frame-update', (msg,data) => {
 			}
 		}
 		
+		// stats
+		if ( !focus_boid_data.value.foodstats ) {
+			focus_boid_data.value.foodstats = {};
+		}
+		else {
+			for ( let k in vc.focus_object.stats.food ) {
+				focus_boid_data.value.foodstats[k] = vc.focus_object.stats.food[k];
+			}
+		}
+		
 		// sensors
 		focus_boid_data.value.sensors = vc.focus_object.sensor_outputs;
 		
@@ -558,6 +568,20 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 						</tr>	
 					</table>
 					<p>Food Mask: <output>{{focus_boid_data.traits.food_mask||0}}</output></p>
+					
+					<h2>Stats</h2>
+					<p>
+						<span style="width:32%; display:inline-block;">bites:&nbsp;<output>{{(focus_boid_data.foodstats.bites||0).toFixed()}}</output></span>
+						<span style="width:32%; display:inline-block;">edible:&nbsp;<output>{{(focus_boid_data.foodstats.edible||0).toFixed()}}</output></span>
+						<span style="width:32%; display:inline-block;">toxins:&nbsp;<output>{{(focus_boid_data.foodstats.toxins||0).toFixed()}}</output></span>
+						<span style="width:32%; display:inline-block;">total:&nbsp;<output>{{(focus_boid_data.foodstats.total||0).toFixed()}}</output></span>
+						<span style="width:32%; display:inline-block;">inedible:&nbsp;<output>{{(focus_boid_data.foodstats.inedible||0).toFixed()}}</output></span>
+						<span style="width:32%; display:inline-block;">tox_dmg:&nbsp;<output>{{(focus_boid_data.foodstats.toxin_dmg||0).toFixed()}}</output></span>
+						<span style="width:32%; display:inline-block;">energy:&nbsp;<output>{{(focus_boid_data.foodstats.energy||0).toFixed()}}</output></span>
+						<span style="width:32%; display:inline-block;">required:&nbsp;<output>{{(focus_boid_data.foodstats.required||0).toFixed()}}</output></span>
+						<span style="width:32%; display:inline-block;">def_dmg:&nbsp;<output>{{(focus_boid_data.foodstats.deficit_dmg||0).toFixed()}}</output></span>
+					</p>
+					<br/>
 				</div>
 			</details>
 			

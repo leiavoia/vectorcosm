@@ -72,10 +72,12 @@ export class Boid {
 				total: 0,
 				toxins:0,
 				edible:0,
+				inedible:0,
 				required:0,
 				toxin_dmg:0,
 				deficit_dmg:0,
-				energy:0
+				energy:0,
+				bites:0
 			}
 		};
 		this.sense = new Array(16).fill(0);
@@ -352,14 +354,23 @@ export class Boid {
 			for ( let i=0; i < this.metab.stomach.length; i++ ) {
 				const v = this.metab.stomach[i];
 				// if the value is positive, digest it
-				if ( v > 0 ) { 
+				if ( v > 0 ) {
 					let morsel = Math.min( v, channelDigestAmount );
 					this.metab.stomach[i] -= morsel; // can go negative
 					this.metab.stomach_total -= morsel;
-					this.metab.energy += morsel * this.traits.nutrition[i] * energy_multiplier;
+					let energy_gain = morsel * this.traits.nutrition[i] * energy_multiplier;
+					this.metab.energy += energy_gain;
 					this.metab.bowel[ this.traits.poop_map[i] ] += morsel;
 					this.metab.bowel_total += morsel;
 					this.metab.toxins = this.metab.toxins || ( this.traits.nutrition[i] < 0 ); // flag for UI
+					// stat tracking 
+					this.stats.food.total += morsel;
+					if ( this.traits.nutrition[i] < 0 ) { this.stats.food.toxins += morsel; }
+					else if ( this.traits.nutrition[i] >= 2 ) { this.stats.food.required += morsel; }
+					else if ( this.traits.nutrition[i] == 0 ) { this.stats.food.inedible += morsel; }
+					else { this.stats.food.edible += morsel; }
+					if ( energy_gain > 0 ) { this.stats.food.energy += energy_gain; } 
+					else if ( energy_gain < 0 ) { this.stats.food.toxin_dmg += energy_gain; } 
 				}
 				// if we're empty but nutrient is required, check for scurvy
 				else if ( v <= 0 && this.traits.nutrition[i] >= 2 ) {
@@ -375,7 +386,9 @@ export class Boid {
 					if ( v < dangerLevel ) {
 						// level of harm scales with level of deficiency and necessity
 						let mod = 1 + v / dangerLevel;
-						this.metab.energy -= morsel * this.traits.nutrition[i] * mod;
+						let damage = morsel * this.traits.nutrition[i] * mod;
+						this.metab.energy -= damage;
+						this.stats.food.deficit_dmg += damage;
 						this.metab.deficient = true; // flag for UI
 					}
 				}
@@ -699,6 +712,7 @@ export class Boid {
 						this.metab.stomach[i] = Math.max( v, this.metab.stomach[i] + v );
 					}
 					this.metab.stomach_total = this.metab.stomach.reduce( (a,c) => a + (c>0?c:0), 0 );
+					this.stats.food.bites++;
 					break; // one bite only!
 				}
 			}		
