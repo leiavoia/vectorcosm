@@ -754,7 +754,7 @@ export class Boid {
 				// m.this_stoke_time = m.stroketime * amount;
 				// use this modified version to make sure stroke times are "kinda normalized"
 				// and can't get too low with very short power values
-				m.this_stoke_time = m.stroketime * ( Math.abs(amount) + ((1-Math.abs(amount))*0.5) );
+				m.this_stoke_time = m.stroketime * ( Math.abs(amount) + ( (1-Math.abs(amount)) * 0.25 ) );
 				// use this if you want a constant stroke time,
 				// however this tends to look a bit robotic
 				// m.this_stoke_time = m.stroketime;
