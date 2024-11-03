@@ -12,7 +12,9 @@ export default class SpaceGrid {
 	}
 	
 	Clear() {
-		this.cells.forEach( a => a.length = 0 );
+		for ( let i=0; i < this.cells.length; i++ ) {
+			this.cells[i].length = 0;
+		}
 	}
 	
 	Add( o ) {
@@ -66,8 +68,6 @@ export default class SpaceGrid {
 	}
 	
 	GetCellFromCoords( x, y ) {
-		// x = x.clamp( 0, this.cells_x * this.cellsize );
-		// y = y.clamp( 0, this.cells_y * this.cellsize );
 		let cell_x = Math.trunc( x / this.cellsize ).clamp( 0, this.cells_x-1 );
 		let cell_y = Math.trunc( y / this.cellsize ).clamp( 0, this.cells_y-1 );
 		return cell_x + ( cell_y * this.cells_x );
@@ -92,12 +92,14 @@ export default class SpaceGrid {
 				}
 			}
 		}
+		if ( cells.length===1 ) { return objs; }
 		return objs.unique();
 	}
 	
 	GetCellsByBox( x1, y1, x2, y2 ) {
 		let tl = this.GetCellFromCoords( x1, y1 );
 		let br = this.GetCellFromCoords( x2, y2 );
+		if ( tl === br ) { return [ this.cells[tl] ]; } // fast exit if only one cell
 		let row_start = Math.floor( tl / this.cells_x );
 		let row_end = Math.floor( br / this.cells_x );
 		let offset_start = tl % this.cells_x;
