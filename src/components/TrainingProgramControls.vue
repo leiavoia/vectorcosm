@@ -45,7 +45,8 @@
 			},
 			poop:false,
 			ignore_other_boids:true,
-			sterile:true
+			sterile:true,
+			on_bite_ignore:true
 		});
 	}
 		

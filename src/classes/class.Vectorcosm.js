@@ -182,7 +182,7 @@ export default class Vectorcosm {
 			},
 			poop:false,
 			ignore_other_boids:true,
-			sterile:true
+			sterile:true,
 		});		
 		
 		const food_training_sim_hard = new FoodChaseSimulation(this.tank,{
@@ -295,7 +295,8 @@ export default class Vectorcosm {
 			},
 			poop:false,
 			ignore_other_boids:true,
-			sterile:true
+			sterile:true,
+			on_bite_ignore:true
 		});
 		const turning_training_medium = new TurningSimulation(this.tank,{
 			name: 'Steering - Medium',
@@ -316,7 +317,8 @@ export default class Vectorcosm {
 			},
 			poop:false,
 			ignore_other_boids:true,
-			sterile:true
+			sterile:true,
+			on_bite_ignore:true
 		});
 		const turning_training_hard = new TurningSimulation(this.tank,{
 			name: 'Steering - Hard',
@@ -337,7 +339,8 @@ export default class Vectorcosm {
 			},
 			poop:false,
 			ignore_other_boids:true,
-			sterile:true
+			sterile:true,
+			on_bite_ignore:true
 		});
 		
 		const natural_tank = new FoodChaseSimulation(this.tank,{

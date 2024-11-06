@@ -694,6 +694,7 @@ export class Boid {
 				// check for collision + edibility
 				for ( let food of foods ) { 
 					if ( !food.IsEdibleBy(this) ) { continue; }
+					if ( this.ignore_list && this.ignore_list.has(food) ) { continue; }
 					const dx = Math.abs(food.x - this.x);
 					const dy = Math.abs(food.y - this.y);
 					const d = Math.sqrt(dx*dx + dy*dy);
@@ -713,6 +714,13 @@ export class Boid {
 					}
 					this.metab.stomach_total = this.metab.stomach.reduce( (a,c) => a + (c>0?c:0), 0 );
 					this.stats.food.bites++;
+					// certain simulations use food for sequential target practice
+					if ( window.vc.simulation.settings?.on_bite_ignore ) {
+						if ( !this.ignore_list ) {
+							this.ignore_list = new WeakSet;
+						}
+						this.ignore_list.add(food);
+					}
 					break; // one bite only!
 				}
 			}		

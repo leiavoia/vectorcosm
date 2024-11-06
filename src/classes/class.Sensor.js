@@ -52,6 +52,8 @@ export default class Sensor {
 				if ( !obj.sense ) { continue; }
 				// simulation override?
 				if ( obj instanceof Boid && window.vc.simulation.settings?.ignore_other_boids===true ) { continue; }
+				// on the ignore list?
+				if ( this.owner.ignore_list && this.owner.ignore_list.has(obj) ) { continue; }
 				
 				// if this is a circle object, get the radius
 				let objsize = 0;
@@ -192,12 +194,14 @@ export default class Sensor {
 			let nearest_angle = 0;
 			let num_edible_foods=0;
 			for ( let obj of objs ) { 
+				if ( !obj.IsEdibleBy(this.owner) ) { continue; }
+				if ( this.owner.ignore_list && this.owner.ignore_list.has(obj) ) { continue; }
 				const dx = Math.abs(obj.x - sx);
 				const dy = Math.abs(obj.y - sy);
 				const d = Math.sqrt(dx*dx + dy*dy);
 				if ( d < nearest_dist ) {
 					let proximity = utils.clamp( 1 - (d / (this.r + obj.r)), 0, 1 );
-					if ( proximity && obj.IsEdibleBy(this.owner) ) {
+					if ( proximity ) {
 						// distance to boid is not the same as distance to center of sensor
 						const dx = obj.x - this.owner.x;
 						const dy = obj.y - this.owner.y;
@@ -278,11 +282,13 @@ export default class Sensor {
 							? this.owner.tank.foods
 							: this.owner.tank.grid.GetObjectsByBox( sx - this.r, sy - this.r, sx + this.r, sy + this.r, Food );
 						for ( let obj of objs ) { 
+							if ( !obj.IsEdibleBy(this.owner) ) { continue; }
+							if ( this.owner.ignore_list && this.owner.ignore_list.has(obj) ) { continue; }
 							const dx = Math.abs(obj.x - sx);
 							const dy = Math.abs(obj.y - sy);
 							const d = Math.sqrt(dx*dx + dy*dy);
 							let proximity = utils.clamp( 1 - (d / (this.r + obj.r)), 0, 1 );
-							if ( proximity && obj.IsEdibleBy(this.owner) ) {
+							if ( proximity ) {
 								// do not factor in food quality. This sensor only detects direction.
 								val += proximity;
 							}

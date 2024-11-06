@@ -316,7 +316,7 @@ export class FoodChaseSimulation extends Simulation {
 		if ( this.settings?.num_rocks ) {
 			this.SetNumRocks(this.settings?.num_rocks);
 		}
-		// substate and placed stones
+		// substrate and placed stones
 		else if ( this.settings?.add_decor ) { 
 			this.tank.MakePrettyDecor();
 		}
@@ -344,14 +344,16 @@ export class FoodChaseSimulation extends Simulation {
 		}
 		// eat food, get win!
 		b.fitness_score = 0;
-		for ( let food of this.tank.foods ) { 
+		for ( let food of this.tank.foods ) {
+			if ( !food.IsEdibleBy(b) ) { continue; }
+		 	if ( b.ignore_list && b.ignore_list.has(food) ) { continue; }
 			const dx = Math.abs(food.x - b.x);
 			const dy = Math.abs(food.y - b.y);
 			const d = Math.sqrt(dx*dx + dy*dy);
 			let r = Math.max( b.body.width, b.body.length ) / 2;
 			let touching = r + food.r;
 			const margin = 150;
-			if ( d < touching + margin && food.IsEdibleBy(b) ) {
+			if ( d < touching + margin ) {
 				// small bonus for getting close
 				let score = ( margin - ( d - touching ) ) / margin ;
 				b.fitness_score += score * ( 20 / Math.max( b.body.width, b.body.length ) );  // bigger creatures get less score
@@ -550,7 +552,7 @@ export class TurningSimulation extends Simulation {
 		food.vx = 0;
 		food.vy = 0;
 		food.edibility = 1; // universal edibility
-		food.value = 1;
+		food.value = 1000;
 		food.permafood = true;
 		this.tank.foods.push(food);
 		this.min_distance_to_score = r;
@@ -559,7 +561,7 @@ export class TurningSimulation extends Simulation {
 		let spawn_x = 0.5 * this.tank.width; 
 		let spawn_y = 0.5 * this.tank.height; 	
 		let angle_spread = (this.settings?.angle_spread || 0 ) * utils.RandomFloat(0.25,1);
-		this.last_side = this.last_side > 0 ? -1 : 1; // alternate evenly between right and left
+		this.last_side = Math.random() < 0.5 ? -1 : 1; // alternate randomly between right and left
 		angle_spread = angle_spread * this.last_side;
 		angle += utils.mod( angle_spread, Math.PI * 2 );
 		for ( let b of this.tank.boids ) {
