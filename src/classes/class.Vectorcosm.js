@@ -145,6 +145,7 @@ export default class Vectorcosm {
 				avg_score_rounds: 10,
 				rounds:200
 			},
+			poop:false
 		});		
 		
 		const food_training_sim_medium = new FoodChaseSimulation(this.tank,{
@@ -177,6 +178,7 @@ export default class Vectorcosm {
 				avg_score_rounds: 10,
 				rounds:500
 			},
+			poop:false
 		});		
 		
 		const food_training_sim_hard = new FoodChaseSimulation(this.tank,{
@@ -209,6 +211,7 @@ export default class Vectorcosm {
 				avg_score_rounds: 10,
 				rounds:500
 			},
+			poop:false
 		});		
 		
 		const food_training_sim_forever = new FoodChaseSimulation(this.tank,{
@@ -239,6 +242,7 @@ export default class Vectorcosm {
 			end: {
 				rounds:10000
 			},
+			poop:false
 		});		
 		
 		const edge_training = new AvoidEdgesSimulation(this.tank,{
@@ -259,6 +263,7 @@ export default class Vectorcosm {
 				// avg_score_rounds: 10,
 				rounds:10000
 			},
+			poop:false
 		});
 		
 		const turning_training_easy = new TurningSimulation(this.tank,{
@@ -278,6 +283,7 @@ export default class Vectorcosm {
 				avg_score_rounds: 7,
 				rounds:200
 			},
+			poop:false
 		});
 		const turning_training_medium = new TurningSimulation(this.tank,{
 			name: 'Steering - Medium',
@@ -296,6 +302,7 @@ export default class Vectorcosm {
 				avg_score_rounds: 7,
 				rounds:100
 			},
+			poop:false
 		});
 		const turning_training_hard = new TurningSimulation(this.tank,{
 			name: 'Steering - Hard',
@@ -314,6 +321,7 @@ export default class Vectorcosm {
 				avg_score_rounds: 7,
 				rounds:100
 			},
+			poop:false
 		});
 		
 		const natural_tank = new FoodChaseSimulation(this.tank,{
@@ -359,7 +367,8 @@ export default class Vectorcosm {
 			food_speed: 0,
 			food_bounce_margin: 200,
 			food_friction: false,
-			food_value:1000
+			food_value:1000,
+			poop:true
 		});			
 					
 		// set up simulations so we have something to watch

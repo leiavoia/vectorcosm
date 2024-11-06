@@ -398,7 +398,7 @@ export class Boid {
 			if ( this.metab.bowel_total >= this.metab.bowel_size ) {
 				// TODO: if there's too much crap on the screen, consider just having 
 				// it absorb into the background ether instead of ignoring it.
-				if ( window.vc.tank.foods.length < 300 ) {
+				if ( window.vc.tank.foods.length < 300 && window.vc.simulation.settings?.poop!==false ) {
 					const f = new Food( this.x, this.y, { 
 						value: this.metab.bowel_total * 0.5, // reduce value to avoid virtuous cycles  
 						lifespan: Math.min( 15, this.metab.bowel_total/3 ),
