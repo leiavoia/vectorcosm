@@ -501,7 +501,7 @@ export class Boid {
 				//
 				// [!]HACK for automitosis
 				//
-				if ( this.motors[i].hasOwnProperty('mitosis') ) { level = 1; };
+				if ( this.motors[i].hasOwnProperty('mitosis') && !window.vc.simulation.settings?.sterile ) { level = 1; };
 				
 				this.ActivateMotor( i, level, delta );
 			}
@@ -751,7 +751,8 @@ export class Boid {
 					return 0; 
 				}
 				// tank capacity sanity cap
-				if ( m.hasOwnProperty('mitosis') && this.tank.boids.length >= (window.vc?.simulation?.settings?.num_boids || 100) ) {
+				if ( m.hasOwnProperty('mitosis') && ( this.tank.boids.length >= (window.vc?.simulation?.settings?.num_boids || 100)
+					|| window.vc.simulation.settings?.sterile ) ) {
 					m.last_amount = 0;
 					m.this_stoke_time = 0;
 					return 0; 

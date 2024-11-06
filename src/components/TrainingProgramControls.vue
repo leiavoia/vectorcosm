@@ -44,7 +44,8 @@
 				rounds:200
 			},
 			poop:false,
-			ignore_other_boids:true
+			ignore_other_boids:true,
+			sterile:true
 		});
 	}
 		
@@ -81,7 +82,8 @@
 				rounds:50
 			},
 			poop:false,
-			ignore_other_boids:true
+			ignore_other_boids:true,
+			sterile:true
 		});
 	}
 	
@@ -117,7 +119,8 @@
 				rounds:500
 			},
 			poop:false,
-			ignore_other_boids:true
+			ignore_other_boids:true,
+			sterile:true
 		});
 	}
 		

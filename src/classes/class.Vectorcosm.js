@@ -146,7 +146,8 @@ export default class Vectorcosm {
 				rounds:200
 			},
 			poop:false,
-			ignore_other_boids:true
+			ignore_other_boids:true,
+			sterile:true
 		});		
 		
 		const food_training_sim_medium = new FoodChaseSimulation(this.tank,{
@@ -180,7 +181,8 @@ export default class Vectorcosm {
 				rounds:500
 			},
 			poop:false,
-			ignore_other_boids:true
+			ignore_other_boids:true,
+			sterile:true
 		});		
 		
 		const food_training_sim_hard = new FoodChaseSimulation(this.tank,{
@@ -214,7 +216,8 @@ export default class Vectorcosm {
 				rounds:500
 			},
 			poop:false,
-			ignore_other_boids:true
+			ignore_other_boids:true,
+			sterile:true
 		});		
 		
 		const food_training_sim_forever = new FoodChaseSimulation(this.tank,{
@@ -246,7 +249,8 @@ export default class Vectorcosm {
 				rounds:10000
 			},
 			poop:false,
-			ignore_other_boids:true
+			ignore_other_boids:true,
+			sterile:true
 		});		
 		
 		const edge_training = new AvoidEdgesSimulation(this.tank,{
@@ -268,7 +272,8 @@ export default class Vectorcosm {
 				rounds:10000
 			},
 			poop:false,
-			ignore_other_boids:true
+			ignore_other_boids:true,
+			sterile:true
 		});
 		
 		const turning_training_easy = new TurningSimulation(this.tank,{
@@ -289,7 +294,8 @@ export default class Vectorcosm {
 				rounds:200
 			},
 			poop:false,
-			ignore_other_boids:true
+			ignore_other_boids:true,
+			sterile:true
 		});
 		const turning_training_medium = new TurningSimulation(this.tank,{
 			name: 'Steering - Medium',
@@ -309,7 +315,8 @@ export default class Vectorcosm {
 				rounds:100
 			},
 			poop:false,
-			ignore_other_boids:true
+			ignore_other_boids:true,
+			sterile:true
 		});
 		const turning_training_hard = new TurningSimulation(this.tank,{
 			name: 'Steering - Hard',
@@ -329,7 +336,8 @@ export default class Vectorcosm {
 				rounds:100
 			},
 			poop:false,
-			ignore_other_boids:true
+			ignore_other_boids:true,
+			sterile:true
 		});
 		
 		const natural_tank = new FoodChaseSimulation(this.tank,{
@@ -377,7 +385,8 @@ export default class Vectorcosm {
 			food_friction: false,
 			food_value:1000,
 			poop:true,
-			ignore_other_boids:false
+			ignore_other_boids:false,
+			sterile:false
 		});			
 					
 		// set up simulations so we have something to watch
