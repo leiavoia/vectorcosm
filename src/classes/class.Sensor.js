@@ -50,6 +50,8 @@ export default class Sensor {
 				if ( obj === this.owner ) { continue; }
 				// does this object have sensory data?
 				if ( !obj.sense ) { continue; }
+				// simulation override?
+				if ( obj instanceof Boid && window.vc.simulation.settings?.ignore_other_boids===true ) { continue; }
 				
 				// if this is a circle object, get the radius
 				let objsize = 0;
@@ -324,7 +326,7 @@ export default class Sensor {
 						val = this.owner.metab.toxins ? 1 : 0;
 						break;
 					}
-					case 'malnurished' : {
+					case 'malnourished' : {
 						val = this.owner.metab.deficient ? 1 : 0;
 						break;
 					}
@@ -335,6 +337,7 @@ export default class Sensor {
 					} 
 					case 'friends' : {
 						val = 0
+						if ( window.vc.simulation.settings?.ignore_other_boids===true ) { break; }
 						// use box for better accuracy, worse CPU
 						let friends = this.owner.tank.grid.GetObjectsByCoords( this.owner.x, this.owner.y );
 						if ( friends ) {
@@ -349,6 +352,7 @@ export default class Sensor {
 					} 
 					case 'enemies' : {
 						val = 0
+						if ( window.vc.simulation.settings?.ignore_other_boids===true ) { break; }
 						// use box for better accuracy, worse CPU
 						let friends = this.owner.tank.grid.GetObjectsByCoords( this.owner.x, this.owner.y );
 						if ( friends ) {

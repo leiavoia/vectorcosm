@@ -1319,7 +1319,7 @@ export class Boid {
 			'world-x': 		0.3,
 			'world-y': 		0.3,
 			'lifespan':		0.1,
-			'malnurished':	0.05,
+			'malnourished':	0.05,
 			'toxins': 		0.05,
 			'chaos': 		0.03,
 			//'friends': 		0.0,

@@ -43,6 +43,8 @@
 				avg_score_rounds: 7,
 				rounds:200
 			},
+			poop:false,
+			ignore_other_boids:true
 		});
 	}
 		
@@ -78,6 +80,8 @@
 				avg_score_rounds: 10,
 				rounds:50
 			},
+			poop:false,
+			ignore_other_boids:true
 		});
 	}
 	
@@ -112,6 +116,8 @@
 				avg_score_rounds: 10,
 				rounds:500
 			},
+			poop:false,
+			ignore_other_boids:true
 		});
 	}
 		

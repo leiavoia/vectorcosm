@@ -145,7 +145,8 @@ export default class Vectorcosm {
 				avg_score_rounds: 10,
 				rounds:200
 			},
-			poop:false
+			poop:false,
+			ignore_other_boids:true
 		});		
 		
 		const food_training_sim_medium = new FoodChaseSimulation(this.tank,{
@@ -178,7 +179,8 @@ export default class Vectorcosm {
 				avg_score_rounds: 10,
 				rounds:500
 			},
-			poop:false
+			poop:false,
+			ignore_other_boids:true
 		});		
 		
 		const food_training_sim_hard = new FoodChaseSimulation(this.tank,{
@@ -211,7 +213,8 @@ export default class Vectorcosm {
 				avg_score_rounds: 10,
 				rounds:500
 			},
-			poop:false
+			poop:false,
+			ignore_other_boids:true
 		});		
 		
 		const food_training_sim_forever = new FoodChaseSimulation(this.tank,{
@@ -242,7 +245,8 @@ export default class Vectorcosm {
 			end: {
 				rounds:10000
 			},
-			poop:false
+			poop:false,
+			ignore_other_boids:true
 		});		
 		
 		const edge_training = new AvoidEdgesSimulation(this.tank,{
@@ -263,7 +267,8 @@ export default class Vectorcosm {
 				// avg_score_rounds: 10,
 				rounds:10000
 			},
-			poop:false
+			poop:false,
+			ignore_other_boids:true
 		});
 		
 		const turning_training_easy = new TurningSimulation(this.tank,{
@@ -283,7 +288,8 @@ export default class Vectorcosm {
 				avg_score_rounds: 7,
 				rounds:200
 			},
-			poop:false
+			poop:false,
+			ignore_other_boids:true
 		});
 		const turning_training_medium = new TurningSimulation(this.tank,{
 			name: 'Steering - Medium',
@@ -302,7 +308,8 @@ export default class Vectorcosm {
 				avg_score_rounds: 7,
 				rounds:100
 			},
-			poop:false
+			poop:false,
+			ignore_other_boids:true
 		});
 		const turning_training_hard = new TurningSimulation(this.tank,{
 			name: 'Steering - Hard',
@@ -321,7 +328,8 @@ export default class Vectorcosm {
 				avg_score_rounds: 7,
 				rounds:100
 			},
-			poop:false
+			poop:false,
+			ignore_other_boids:true
 		});
 		
 		const natural_tank = new FoodChaseSimulation(this.tank,{
@@ -368,7 +376,8 @@ export default class Vectorcosm {
 			food_bounce_margin: 200,
 			food_friction: false,
 			food_value:1000,
-			poop:true
+			poop:true,
+			ignore_other_boids:false
 		});			
 					
 		// set up simulations so we have something to watch
