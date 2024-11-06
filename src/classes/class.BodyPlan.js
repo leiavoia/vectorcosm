@@ -20,14 +20,14 @@ export default class BodyPlan {
 		this.curved = false;
 		
 		// setup
-		this.length = dna.shapedInt( dna.genesFor('body length',2,1), 8,120,25,3);
-		this.width = dna.shapedInt( dna.genesFor('body width',2,1), 8,70,17,3);
+		this.length = dna.shapedInt( dna.genesFor('body length',3,2), 8,120,25,3);
+		this.width = dna.shapedInt( dna.genesFor('body width',3,2), 8,70,17,3);
 		this.mass = this.length * this.width;
-		this.max_length = this.length * dna.shapedNumber( dna.genesFor('max_length',2,1), 1,1.5,1.1,1.4);
-		this.max_width = this.width * dna.shapedNumber( dna.genesFor('body max_width',2,1), 1,1.5,1.1,1.4);
-		this.min_length = this.length * dna.shapedNumber( dna.genesFor('body min_length',2,1), 0.6,1,0.9,1.4);
-		this.min_width = this.width * dna.shapedNumber( dna.genesFor('body min_width',2,1), 0.6,1,0.9,1.4);
-		this.curved = dna.shapedNumber( dna.genesFor('body curved',2,1), 0, 1, 0.5, 1.5 ) > 0.7; // once a pointy, always a pointy
+		this.max_length = this.length * dna.shapedNumber( dna.genesFor('max_length',2,true), 1,1.5,1.1,1.4);
+		this.max_width = this.width * dna.shapedNumber( dna.genesFor('body max_width',2,true), 1,1.5,1.1,1.4);
+		this.min_length = this.length * dna.shapedNumber( dna.genesFor('body min_length',2,true), 0.6,1,0.9,1.4);
+		this.min_width = this.width * dna.shapedNumber( dna.genesFor('body min_width',2,true), 0.6,1,0.9,1.4);
+		this.curved = dna.shapedNumber( dna.genesFor('body curved',2,true), 0, 1, 0.5, 1.5 ) > 0.7; // once a pointy, always a pointy
 		if ( dna.shapedNumber( dna.genesFor('has dashes',2,1), 0,1,0.4,1.3) > 0.92 ) {
 			this.dashes = [];
 			this.dashes.push( dna.shapedInt( dna.genesFor('body dashes 1 ',2,1), 0, 10, 4, 2) );
@@ -35,19 +35,18 @@ export default class BodyPlan {
 		}
 		
 		// colors
-		// TODO: we want to guarantee bright colors on all lines and fill-only's 
 		const colors = [
-			'#' + Math.trunc( dna.shapedNumber( dna.genesFor(`color ${1}`,3), 0, 0xFFFFFF) ).toString(16).padStart(6,0), // line
-			'#' + Math.trunc( dna.shapedNumber( dna.genesFor(`color ${2}`,3), 0, 0xFFFFFF) ).toString(16).padStart(6,0), // fill
-			'#' + Math.trunc( dna.shapedNumber( dna.genesFor(`color ${3}`,3), 0, 0xFFFFFF) ).toString(16).padStart(6,0), // TBD
-			'#' + Math.trunc( dna.shapedNumber( dna.genesFor(`color ${4}`,3), 0, 0xFFFFFF) ).toString(16).padStart(6,0), // TBD
-			'#' + Math.trunc( dna.shapedNumber( dna.genesFor(`color ${5}`,3), 0, 0xFFFFFF) ).toString(16).padStart(6,0), // TBD
+			'#' + Math.trunc( dna.shapedNumber( dna.genesFor(`color ${1}`,3,2), 0, 0xFFFFFF) ).toString(16).padStart(6,0), // line
+			'#' + Math.trunc( dna.shapedNumber( dna.genesFor(`color ${2}`,3,2), 0, 0xFFFFFF) ).toString(16).padStart(6,0), // fill
+			'#' + Math.trunc( dna.shapedNumber( dna.genesFor(`color ${3}`,3,1), 0, 0xFFFFFF) ).toString(16).padStart(6,0), // TBD
+			'#' + Math.trunc( dna.shapedNumber( dna.genesFor(`color ${4}`,3,1), 0, 0xFFFFFF) ).toString(16).padStart(6,0), // TBD
+			'#' + Math.trunc( dna.shapedNumber( dna.genesFor(`color ${5}`,3,1), 0, 0xFFFFFF) ).toString(16).padStart(6,0), // TBD
 		];
 
 		// chance for transparency
-		if ( dna.shapedNumber( dna.genesFor('transparency'), 0, 1 ) > 0.75 ) {
+		if ( dna.shapedNumber( dna.genesFor('transparency',2,1), 0, 1 ) > 0.75 ) {
 			// one or the other but not both
-			const i = ( dna.shapedNumber( dna.genesFor('transparency flip'), 0, 1 ) > 0.5 ) ? 1 : 0;
+			const i = ( dna.shapedNumber( dna.genesFor('transparency flip',2,true), 0, 1 ) > 0.5 ) ? 1 : 0;
 			colors[i] = 'transparent';
 		}
 		this.linewidth = dna.shapedInt( dna.genesFor('line-width'), 2, 12, 2, 2.5 );
@@ -93,10 +92,10 @@ export default class BodyPlan {
 		};
 		
 		// chance for gradients
-		if ( colors[0] !== 'transparent' && dna.shapedNumber( dna.genesFor('grad chance stroke',2), 0, 1) > 0.65 ) {
+		if ( colors[0] !== 'transparent' && dna.shapedNumber( dna.genesFor('grad chance stroke',2,1), 0, 1) > 0.65 ) {
 			this.stroke = MakeGradient('stroke',colors[0]);
 		}
-		if ( colors[1] !== 'transparent' && dna.shapedNumber( dna.genesFor('grad chance fill',2), 0, 1) > 0.65 ) {
+		if ( colors[1] !== 'transparent' && dna.shapedNumber( dna.genesFor('grad chance fill',2,1), 0, 1) > 0.65 ) {
 			this.fill = MakeGradient('fill',colors[1],'BB');
 		}
 		

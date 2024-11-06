@@ -1006,8 +1006,8 @@ export class Boid {
 			let wheel = this.dna.shapedNumber(wheelChanceGene, 0, 1) > 0.75 ? true : false;
 			
 			const stroketimeGene = this.dna.genesFor(`motor stroke time ${n}`,2,1);
-			const stroketime = this.dna.shapedNumber(stroketimeGene,0.1, 3.5, 0.75, 2); 
-			
+			const stroketime = this.dna.shapedNumber(stroketimeGene,0.1, 3.5, 0.5, 4); 
+
 			const minActGene = this.dna.genesFor(`motor min_act chance ${n}`,2,1);
 			let min_act = this.dna.shapedNumber(minActGene,0,0.7,0.05,4);
 			if ( wheel ) { min_act *= 0.5; }
@@ -1196,10 +1196,10 @@ export class Boid {
 			const radius = this.dna.shapedNumber(this.dna.genesFor('vision radius',3,2), 100, 800, 350, 1.5 );
 			const xoff = this.dna.shapedNumber(this.dna.genesFor('vision xoff',3,2), -radius*0.5, radius, radius*0.5, 1.5 );
 			const yoff = this.dna.shapedNumber(this.dna.genesFor('vision yoff',3,2), 0, radius, radius*0.5, 1.5 );
-			const chance_r = this.dna.shapedNumber(this.dna.genesFor('vision chance r',3,2), 0, 1 );
-			const chance_g = this.dna.shapedNumber(this.dna.genesFor('vision chance g',3,2), 0, 1 );
-			const chance_b = this.dna.shapedNumber(this.dna.genesFor('vision chance b',3,2), 0, 1 );
-			const chance_i = this.dna.shapedNumber(this.dna.genesFor('vision chance i',3,2), 0, 1 );
+			const chance_r = this.dna.shapedNumber(this.dna.genesFor('vision chance r',3,true), 0, 1 );
+			const chance_g = this.dna.shapedNumber(this.dna.genesFor('vision chance g',3,true), 0, 1 );
+			const chance_b = this.dna.shapedNumber(this.dna.genesFor('vision chance b',3,true), 0, 1 );
+			const chance_i = this.dna.shapedNumber(this.dna.genesFor('vision chance i',3,true), 0, 1 );
 			const detect = [];
 			if ( chance_i < 0.20 ) { detect.push([0,1,2]); } // blended intensity
 			else {
@@ -1208,9 +1208,9 @@ export class Boid {
 				if ( chance_b > 0.20 ) { detect.push([2]); }
 			}
 			if ( !detect.length ) { detect.push([0,1,2]); }
-			const sensitivity = this.dna.shapedNumber(this.dna.genesFor('vision sensitivity',1,1), 0.5, 10, 2, 3 );
-			this.sensors.push( new Sensor({ type:'sense', name: 'vision1', color: '#AAEEFFBB', sensitivity, fov:true, attenuation:true, detect: detect, x: xoff, y: yoff, r: radius, }, this ) );2
-			this.sensors.push( new Sensor({ type:'sense', name: 'vision2', color: '#AAEEFFBB', sensitivity, fov:true, attenuation:true, detect: detect, x: xoff, y: -yoff, r: radius, }, this ) );
+			const sensitivity = this.dna.shapedNumber(this.dna.genesFor('vision sensitivity',2,1), 0.5, 10, 2, 3 );
+			this.sensors.push( new Sensor({ type:'sense', name: 'vis1', color: '#AAEEFFBB', sensitivity, fov:true, attenuation:true, detect: detect, x: xoff, y: yoff, r: radius, }, this ) );2
+			this.sensors.push( new Sensor({ type:'sense', name: 'vis2', color: '#AAEEFFBB', sensitivity, fov:true, attenuation:true, detect: detect, x: xoff, y: -yoff, r: radius, }, this ) );
 		}
 		
 		// smell
@@ -1242,7 +1242,7 @@ export class Boid {
 				}
 			}
 			if ( detect.length ) {
-				let sensitivity = this.dna.shapedNumber(this.dna.genesFor('smell sensitivity',1,1), 0.1, 3, 0.5, 3 );
+				let sensitivity = this.dna.shapedNumber(this.dna.genesFor('smell sensitivity',2,1), 0.1, 3, 0.5, 3 );
 				const chance = this.dna.shapedNumber(this.dna.genesFor('stereo smell',3,true));
 				// mono
 				if ( chance > 0.5 ) {
@@ -1271,7 +1271,7 @@ export class Boid {
 				d = Math.min( d, r );
 				// prefer sensors in front
 				let a = ( this.dna.shapedNumber( this.dna.genesFor(`${detect} sensor angle ${n}`,2,1), 0, Math.PI * 2) + Math.PI ) % (Math.PI * 2);
-				const symmetryGene = this.dna.genesFor(`${detect} sensor symmetry ${n}`,2,1);
+				const symmetryGene = this.dna.genesFor(`${detect} sensor symmetry ${n}`,2,true);
 				let color = detect==='obstacles' ? '#FF22BB77' : null;
 				// single
 				if ( this.dna.shapedNumber(symmetryGene, 0,1,0.5,0) < 0.33 ) {
