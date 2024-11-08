@@ -268,11 +268,11 @@
 
 		<br/>
 
-		<label for="culling_slider">Culling</label>
-		<input v-model.number="vars.cullpct" @change="updateCulling()" type="range" min="0.1" max="0.9" step="0.1" style="margin-bottom:-0.25em;" id="culling_slider" />
-		<output for="culling_slider" id="culling_slider_output">{{(vars.cullpct*100).toFixed(0)}}%</output>
-
-		<br/>
+		<div v-if="vars.time">
+			<label for="culling_slider">Culling</label>
+			<input v-model.number="vars.cullpct" @change="updateCulling()" type="range" min="0.1" max="0.9" step="0.1" style="margin-bottom:-0.25em;" id="culling_slider" />
+			<output for="culling_slider" id="culling_slider_output">{{(vars.cullpct*100).toFixed(0)}}%</output>
+		</div>
 
 		<label for="fruiting_speed_slider">Fruiting</label>
 		<input v-model.number="vars.fruiting_speed" @change="updateFruitingSpeed()" type="range" min="0.02" max="2.0" step="0.02" style="margin-bottom:-0.25em;" id="fruiting_speed_slider" />
@@ -292,27 +292,28 @@
 
 		<br/>
 
-		<label for="round_time_slider">Timeout</label>
-		<input v-model.number="vars.time" @change="updateTimeout()" type="range" min="10" max="180" step="1" style="margin-bottom:-0.25em;" id="round_time_slider" />
-		<output for="round_time_slider" id="round_time_slider_output">{{vars.time}}</output>
+		<div v-if="vars.time">
+			<label for="round_time_slider">Timeout</label>
+			<input v-model.number="vars.time" @change="updateTimeout()" type="range" min="1" max="180" step="1" style="margin-bottom:-0.25em;" id="round_time_slider" />
+			<output for="round_time_slider" id="round_time_slider_output">{{vars.time}}</output>
+		</div>
 
-		<br/>
 		<br/>
 
 		<p v-if="vars.name"><output>{{vars.name}}</output></p>
 		
-		Round: <output id="round_output">{{vars.round.num}}</output> / 
-			<output id="round_output">{{vars.rounds||'∞'}}</output> | 
-		Best: <output id="best_score_output">{{vars.round.best_score.toFixed()}}</output> | 
-		Avg: <output id="avg_score_output">{{vars.round.avg_score.toFixed()}}</output>
+		<div v-if="vars.time">
+			Round: <output id="round_output">{{vars.round.num}}</output> / 
+				<output id="round_output">{{vars.rounds||'∞'}}</output> | 
+			Best: <output id="best_score_output">{{vars.round.best_score.toFixed()}}</output> | 
+			Avg: <output id="avg_score_output">{{vars.round.avg_score.toFixed()}}</output>
+		</div>
 
-		<br />
-
-		Sim Best: <output id="total_score_output">{{vars.best_score.toFixed()}}</output> | 
-		Best Avg: <output id="best_avg_score_output">{{vars.best_avg_score.toFixed()}}</output>
-
-		<br/>
-
+		<div v-if="vars.time">
+			Sim Best: <output id="total_score_output">{{vars.best_score.toFixed()}}</output> | 
+			Best Avg: <output id="best_avg_score_output">{{vars.best_avg_score.toFixed()}}</output>
+		</div>
+		
 		T: <output id="sim_time_output">{{vars.round.time.toFixed(1)}}</output> | 
 		F: <output id="framenum_output">{{vars.framenum}}</output> |  
 		FPS: <output id="fps_output">{{vars.fps}}</output> 

@@ -11,7 +11,7 @@ import Tank from '../classes/class.Tank.js'
 import Rock from '../classes/class.Rock.js'
 import Food from '../classes/class.Food.js'
 import Plant from '../classes/class.Plant.js'
-import { SimulationFactory } from '../classes/class.Simulation.js'
+import { SimulationFactory, NaturalTankSimulation } from '../classes/class.Simulation.js'
 import BrainGraph from '../classes/class.BrainGraph.js'
 import { BoidFactory, Boid } from '../classes/class.Boids.js'
 import PubSub from 'pubsub-js'
@@ -685,12 +685,11 @@ export default class Vectorcosm {
 	}
 
 	RunSimulator()	{
-		if ( this.simulation && this.simulation.turbo && this.simulation.stats.round.time <= this.simulation.settings.time ) {
+		if ( this.simulation && this.simulation.turbo && ( !this.simulation.settings?.time
+			|| this.simulation.stats.round.time <= this.simulation.settings.time ) ) {
 			if ( this.two.playing ) { this.two.pause(); }
 			for ( let n=0; n < 100; n++ ) {
 				++this.two.frameCount; // fake it
-				// this.update( this.two.frameCount, 0.055 );
-				// this.update( this.two.frameCount, 1/60 );
 				this.update( this.two.frameCount, 1/30 ); // TODO: make this an app setting
 			}
 			--this.two.frameCount;
@@ -778,22 +777,20 @@ export default class Vectorcosm {
 			this.tank = new Tank( scene.tank );
 			this.tank.MakeBackground();
 			this.ResetCameraZoom();
-			this.sim_queue.push( new FoodChaseSimulation(this.tank,{
+			this.sim_queue.push( new NaturalTankSimulation(this.tank,{
 				name: 'Saved Tank',
-				time: 1000000,
+				time: 0,
 				num_boids: 0,
 				num_plants: 0,
 				num_rocks: 0,
 				num_foods: 0,
 				food_friction:true,
-				// random_boid_pos: true,
-				// random_food_pos: true,
-				max_mutation: 0.1,
-				cullpct: 0,
-				// scale: 0.5,
+				random_boid_pos: true,
+				max_mutation: 0.2,
 				current: 0.1,
 				food_friction: true,
 				tide: 600,
+				// scale: 0.5,
 			}));
 			this.LoadNextSim();
 			this.tank.boids = scene.boids.map( o => {

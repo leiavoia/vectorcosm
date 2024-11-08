@@ -107,30 +107,6 @@ export default {
 		sterile:true
 	},
 	
-	edge_training: {
-		simtype: 'AvoidEdgesSimulation',
-		name: 'Obstacle Course',
-		num_boids: 60,
-		time: 20,
-		punishment: 0.05,
-		max_segment_spread: 70,
-		segments: 7,
-		max_mutation: 0.1,
-		num_rocks: 2,
-		angle_spread: 0.3,
-		food_proximity_bonus: 100,
-		tunnel: true,
-		// spiral:true,
-		end: {
-			// avg_score:400,
-			// avg_score_rounds: 10,
-			rounds:10000
-		},
-		poop:false,
-		ignore_other_boids:true,
-		sterile:true
-	},
-	
 	turning_training_easy: {
 		simtype: 'TurningSimulation',
 		name: 'Steering - Easy',
@@ -264,30 +240,25 @@ export default {
 	},
 	
 	natural_tank: {
-		simtype: 'FoodChaseSimulation',
+		simtype: 'NaturalTankSimulation',
 		name: 'Natural Tank',
 		num_boids: 60,
 		random_boid_pos: true,
 		random_food_pos: true,
-		time: 1000000,
+		time: 0,
 		// min_score: 5,
 		max_mutation: 0.2,
 		num_rocks: 3,
 		num_plants: 10,
-		target_spread: 400,
 		species:'random',
-		cullpct: 0.3,
-		edibility: 1,
 		scale: 0.5,
-		// angle_spread: 0.2,
 		current: 0.1,
 		num_foods: 0,
 		food_friction: true,
 		tide: 600,
 		add_decor: 0.75,
 		random_boid_angle: true,
-		// speciation_rate: 0.001
-		allow_speciation: true
+		allow_speciation: false // temporary until we get brain rewiring figured out
 	},
 			
 	petri_dish: {
