@@ -287,7 +287,7 @@ export default class Vectorcosm {
 			cullpct: 0.5,
 			distance: 500,
 			scale:0.5,
-			distance_variance: 0.2,
+			distance_variance: 0.4,
 			end: {
 				avg_score:90,
 				avg_score_rounds: 7,
@@ -296,51 +296,111 @@ export default class Vectorcosm {
 			poop:false,
 			ignore_other_boids:true,
 			sterile:true,
-			on_bite_ignore:true
+			on_bite_ignore:true,
+			edibility: 1
 		});
 		const turning_training_medium = new TurningSimulation(this.tank,{
 			name: 'Steering - Medium',
 			num_boids: 100,
-			num_foods: 1,
-			time: 2,
-			max_mutation: 0.1,
+			num_foods: 2,
+			time: 5,
+			max_mutation: 0.2,
 			brain_mutation_rate: 0.25,
-			angle_spread: 2, // radians
-			cullpct: 0.5,
-			distance: 600,
-			scale:0.5,
+			angle_spread: 1.0, // radians
+			cullpct: 0.3,
+			distance: 500,
+			scale:0.45,
 			distance_variance: 0.3,
 			end: {
-				avg_score:80,
-				avg_score_rounds: 7,
+				avg_score:88,
+				avg_score_rounds: 10,
 				rounds:100
 			},
 			poop:false,
 			ignore_other_boids:true,
 			sterile:true,
-			on_bite_ignore:true
+			on_bite_ignore:true,
+			edibility: 1
 		});
 		const turning_training_hard = new TurningSimulation(this.tank,{
 			name: 'Steering - Hard',
 			num_boids: 100,
-			num_foods: 1,
-			time: 2.3,
-			max_mutation: 0.1,
+			num_foods: 5,
+			time: 16,
+			num_rocks:1,
+			max_mutation: 0.2,
 			brain_mutation_rate: 0.25,
-			angle_spread: 3, // radians
-			cullpct: 0.5,
-			distance: 750,
-			scale:0.5,
-			distance_variance: 0.5,
+			angle_spread: 1, // radians
+			cullpct: 0.3,
+			distance: 450,
+			scale:0.25,
+			distance_variance: 0.2,
 			end: {
-				avg_score:80,
+				avg_score:88,
 				avg_score_rounds: 7,
-				rounds:100
+				rounds:120
 			},
 			poop:false,
 			ignore_other_boids:true,
 			sterile:true,
-			on_bite_ignore:true
+			on_bite_ignore:true,
+			edibility: 1
+		});
+		const turning_training_xhard = new TurningSimulation(this.tank,{
+			name: 'Steering - Extra Hard',
+			num_boids: 100,
+			num_foods: 5,
+			num_rocks: 5,
+			time: 20,
+			max_mutation: 0.2,
+			brain_mutation_rate: 0.25,
+			angle_spread: 1, // radians
+			cullpct: 0.3,
+			distance: 450,
+			scale:0.25,
+			distance_variance: 0.2,
+			end: {
+				avg_score:86,
+				avg_score_rounds: 7,
+				rounds:150
+			},
+			poop:false,
+			ignore_other_boids:true,
+			sterile:true,
+			on_bite_ignore:true,
+			edibility: 1
+		});
+		const treasure_hunt_training = new FoodChaseSimulation(this.tank,{
+			name: 'Treasure Hunt',
+			num_boids: 60,
+			num_foods: 25,
+			num_rocks: 8,
+			time: 120,
+			max_mutation: 0.3,
+			cullpct: 0.2,
+			scale:0.3,
+			end: {
+				avg_score:86,
+				avg_score_rounds: 7,
+				rounds:150
+			},
+			poop:false,
+			ignore_other_boids:true,
+			sterile:true,
+			on_bite_ignore:true,
+			target_spread: 0,
+			edibility: 1,
+			permafood:true,
+			food_speed: 0.00001,
+			random_food_pos: true,
+			food_bounce_margin: 100,
+			food_friction: true,
+			food_value:1000,
+			end: {
+				// avg_score:600,
+				// avg_score_rounds: 10,
+				rounds:150
+			}
 		});
 		
 		const natural_tank = new FoodChaseSimulation(this.tank,{
@@ -397,6 +457,8 @@ export default class Vectorcosm {
 			// turning_training_easy,
 			// turning_training_medium,
 			// turning_training_hard,
+			// turning_training_xhard,
+			// treasure_hunt_training,
 			// food_training_sim_easy,
 			// food_training_sim_medium,
 			// food_training_sim_hard,

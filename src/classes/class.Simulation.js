@@ -309,6 +309,7 @@ export class FoodChaseSimulation extends Simulation {
 				vx: Math.random() * food_speed - (food_speed*0.5),
 				vy: Math.random() * food_speed - (food_speed*0.5),
 				edibility: this.settings?.edibility ?? food.edibility,
+				permafood: this.settings?.permafood ?? false
 			} );
 			this.tank.foods.push(food);
 		}
@@ -538,24 +539,34 @@ export class TurningSimulation extends Simulation {
 		this.Reset();
 	}
 	Reset() {
+		// randomize rocks
+		if ( this.settings?.num_rocks ) {
+			this.SetNumRocks(this.settings?.num_rocks);
+		}	
 		// respawn food
 		this.tank.foods.forEach( x => x.Kill() );
 		this.tank.foods.length = 0;
-		const distance = (this.settings?.distance || 300 );
-		const distance_variance = (this.settings?.distance_variance || 0.3);
-		const distance_offset = distance * distance_variance * Math.random();
-		let r = distance - distance_offset * 0.5;
+		const num_foods = this.settings?.num_foods || 1;
 		let angle = Math.random() * Math.PI * 2;
-		let dx = r * Math.cos(angle); 
-		let dy = r * Math.sin(angle);
-		let food = new Food( this.tank.width*0.5 + dx, this.tank.height*0.5 + dy );
-		food.vx = 0;
-		food.vy = 0;
-		food.edibility = 1; // universal edibility
-		food.value = 1000;
-		food.permafood = true;
-		this.tank.foods.push(food);
-		this.min_distance_to_score = r;
+		for ( let i=1; i <= num_foods; i++ ) { 
+			const distance = (this.settings?.distance || 300 ) * i;
+			const distance_variance = (this.settings?.distance_variance || 0.3);
+			const distance_offset = distance * distance_variance * Math.random();
+			let r = distance - distance_offset * 0.5;
+			if ( i===1 ) { this.min_distance_to_score = r; }
+			else {
+				angle = angle + /* (this.settings?.angle_spread || 1 ) *  */utils.RandomFloat(-0.45,0.45);
+			}
+			let dx = r * Math.cos(angle); 
+			let dy = r * Math.sin(angle);
+			let food = new Food( this.tank.width*0.5 + dx, this.tank.height*0.5 + dy );
+			food.vx = 0;
+			food.vy = 0;
+			food.edibility = 1; // universal edibility
+			food.value = 1000;
+			food.permafood = true;
+			this.tank.foods.push(food);
+		}
 		// reset entire population
 		this.SetNumBoids( this.settings.num_boids ); // top up the population
 		let spawn_x = 0.5 * this.tank.width; 
@@ -569,30 +580,30 @@ export class TurningSimulation extends Simulation {
 			b.angle = angle;
 			b.x = spawn_x;
 			b.y = spawn_y;
-			b.total_fitness_score = this.min_distance_to_score; // golf!
+			b.total_fitness_score = this.min_distance_to_score * this.tank.foods.length; // golf!
 			b.fitness_score = 0;
+			b.food_scores = new Array( this.tank.foods.length ).fill(this.min_distance_to_score);
 		}
 	}	
 	ScoreBoidPerFrame(b) {
 		// record minimum distance to food circle that is LESS than the scoring threshold
-		const food = this.tank.foods[0];
-		if ( food ) { 
+		if ( !b.food_scores ) { 
+			b.food_scores = new Array( this.tank.foods.length ).fill(this.min_distance_to_score); 
+		}
+		for ( let i=0; i < this.tank.foods.length; i++ ) {
+			const food = this.tank.foods[i];
 			const dx = Math.abs(food.x - b.x);
 			const dy = Math.abs(food.y - b.y);
 			const d = Math.sqrt(dx*dx + dy*dy);
-			b.total_fitness_score = Math.min( d, b.total_fitness_score, this.min_distance_to_score );
+			b.food_scores[i] = Math.min( d, b.food_scores[i], this.min_distance_to_score );
 		}
 	}	
-	ScoreBoidPerRound(b) {
-		// golf!
-		b.total_fitness_score = 
-			( this.min_distance_to_score - (b.total_fitness_score || 0) ) 
-			/ this.min_distance_to_score
-			* 100;
+	ScoreBoidPerRound(b) { // golf!
+		let food_score = b.food_scores.reduce( (a,c) => a+c, 0 );
+		const base = this.min_distance_to_score * this.tank.foods.length;
+		// we need to flip the score upside down so it look good on a graph
+		b.total_fitness_score = ( base - food_score ) / base * 100;
 	}	
-	// Update(delta) {
-	// 	super.Update(delta);
-	// }		
 }
 
 export class AvoidEdgesSimulation extends Simulation {

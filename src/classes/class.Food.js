@@ -290,7 +290,7 @@ export default class Food {
 				this.geo.dashes = [segment,segment];				
 			}
 			// fade out
-			if ( window.vc.animate_plants && !this.permafoo && this.age > this.lifespan - 1 ) {
+			if ( window.vc.animate_plants && !this.permafood && this.age > this.lifespan - 1 ) {
 				let pct = this.age - (this.lifespan-1);
 				this.geo.opacity = 1-pct;
 			}

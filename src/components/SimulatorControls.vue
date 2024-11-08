@@ -34,7 +34,6 @@
 		vars.min_score = props.sim.settings.min_score;
 		vars.num_foods = props.sim.settings.num_foods;
 		vars.time = props.sim.settings.time;
-		vars.rounds = props.sim.settings.rounds;
 		vars.species = props.sim.settings.species;
 		vars.viscosity = props.sim.tank.viscosity;
 		vars.fruiting_speed = props.sim.tank.fruiting_speed || 1.0;
@@ -48,6 +47,7 @@
 		vars.round.avg_score = props.sim.stats.round.avg_score;
 		vars.round.time = props.sim.stats.round.time;
 		vars.name = props.sim.settings.name;
+		vars.rounds = props.sim.settings.end?.rounds;
 	}
 	
 	function copyStats() {
@@ -239,7 +239,7 @@
 
 		<label for="world_scale_slider">Scale</label>
 		<input v-model.number="vars.scale" @change="updateScale()" type="range" min="0.04" max="2" step="0.02" style="margin-bottom:-0.25em;" id="world_scale_slider" />
-		<output for="world_scale_slider" id="world_scale_slider_output">{{vars.scale}}x</output>
+		<output for="world_scale_slider" id="world_scale_slider_output">{{(vars.scale||1).toFixed(2)}}x</output>
 
 		<br/>
 
@@ -301,7 +301,8 @@
 
 		<p v-if="vars.name"><output>{{vars.name}}</output></p>
 		
-		Round: <output id="round_output">{{vars.round.num}}</output> | 
+		Round: <output id="round_output">{{vars.round.num}}</output> / 
+			<output id="round_output">{{vars.rounds||'∞'}}</output> | 
 		Best: <output id="best_score_output">{{vars.round.best_score.toFixed()}}</output> | 
 		Avg: <output id="avg_score_output">{{vars.round.avg_score.toFixed()}}</output>
 
