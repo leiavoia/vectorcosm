@@ -3,9 +3,24 @@ import Food from '../classes/class.Food.js'
 import Rock from '../classes/class.Rock.js'
 import * as utils from '../util/utils.js'
 import { BoidFactory } from '../classes/class.Boids.js'
-import neataptic from "neataptic";
+import SimulationLibrary from "./SimulationLibrary.js";
 import {Circle} from 'collisions';
 import { RandomPlant, PendantLettuce, VectorGrass, WaveyVectorGrass } from '../classes/class.Plant.js'
+
+export function SimulationFactory( tank, name_or_settings ) {
+	if ( name_or_settings in SimulationLibrary ) {
+		name_or_settings = SimulationLibrary[name_or_settings];
+	}
+	let our_settings = structuredClone(name_or_settings);
+	let simtype = our_settings?.simtype || 'Simulation';
+	switch ( simtype ) {
+		case 'FoodChaseSimulation': return new FoodChaseSimulation( tank, our_settings );
+		case 'TurningSimulation': return new TurningSimulation( tank, our_settings );
+		case 'BasicTravelSimulation': return new BasicTravelSimulation( tank, our_settings );
+		case 'AvoidEdgesSimulation': return new AvoidEdgesSimulation( tank, our_settings );
+		default: return new Simulation( tank, our_settings );
+	}
+}
 
 export default class Simulation {
 

@@ -5,7 +5,7 @@
 	import PubSub from 'pubsub-js'
 	import Tank from '../classes/class.Tank.js'
 	import { ref, reactive, toRaw, markRaw, shallowRef, nextTick, triggerRef, onMounted, watch } from 'vue'
-	import { AvoidEdgesSimulation, TurningSimulation, FoodChaseSimulation, BasicTravelSimulation } from '../classes/class.Simulation.js'	
+	import { SimulationFactory } from '../classes/class.Simulation.js'
 	
 	// const lib = new BoidLibrary();
 	let rows = reactive([]);
@@ -23,132 +23,83 @@
 	// let libraryUpdateSubscription = PubSub.subscribe('boid-library-addition', (msg,data) => {
 	// 	QueryLibrary( order_by, ascending, star );
 	// });
-	
-	function MakeTurningSim() { 
-		return new TurningSimulation(window.vc.tank,{
-			name: 'Steering - Easy',
-			num_boids: 100,
-			num_foods: 1,
-			num_rocks: 0,
-			time: 1.6,
-			max_mutation: 0.5,
-			brain_mutation_rate: 0.25,
-			angle_spread: 0.7, // radians
-			cullpct: 0.5,
-			distance: 500,
-			scale:0.5,
-			distance_variance: 0.2,
-			end: {
-				avg_score:90,
-				avg_score_rounds: 7,
-				rounds:200
-			},
-			poop:false,
-			ignore_other_boids:true,
-			sterile:true,
-			on_bite_ignore:true
-		});
-	}
-		
-	function MakeFoodChaseSimEasy() { 
-		return new FoodChaseSimulation(window.vc.tank,{
-			name: 'Food Chase - Easy',
-			num_boids: 50,
-			random_boid_pos: true,
-			random_food_pos: true,
-			time: 20,
-			max_mutation: 0.1,
-			// you can separately define DNA and brain mutations, in case you want just one or the other
-			// dna_mutation_rate: 0.1,
-			// brain_mutation_rate: 0.1,
-			num_rocks: 0,
-			num_plants: 0,
-			target_spread: 200,
-			species:'random',
-			cullpct: 0.4,
-			edibility: 1,
-			scale: 1.1,
-			angle_spread: 0.2,
-			current: 0,
-			num_foods: 1,
-			food_speed: 70,
-			food_value:2000,
-			food_bounce_margin: 300,
-			food_friction: false,
-			// circular_current: true,
-			// tide: 300,
-			end: {
-				avg_score:500,
-				avg_score_rounds: 10,
-				rounds:50
-			},
-			poop:false,
-			ignore_other_boids:true,
-			sterile:true
-		});
-	}
-	
-	function MakeFoodChaseSimMedium() { 
-		return new FoodChaseSimulation(window.vc.tank,{
-			name: 'Food Chase - Medium',
-			num_boids: 80,
-			// random_boid_pos: true,
-			// random_food_pos: true,
-			time: 45,
-			// min_score: 5,
-			max_mutation: 0.1,
-			// you can separately define DNA and brain mutations, in case you want just one or the other
-			// dna_mutation_rate: 0.1,
-			// brain_mutation_rate: 0.1,
-			num_rocks: 0,
-			num_plants: 0,
-			target_spread: 200,
-			species:'random',
-			cullpct: 0.4,
-			edibility: 1,
-			scale: 0.7,
-			angle_spread: 0.2,
-			current: 0,
-			num_foods: 2,
-			food_speed: 125,
-			food_value:2000,
-			food_bounce_margin: 300,
-			food_friction: false,
-			end: {
-				avg_score:500,
-				avg_score_rounds: 10,
-				rounds:500
-			},
-			poop:false,
-			ignore_other_boids:true,
-			sterile:true
-		});
-	}
-		
-	function RunProgram( program_num ) {
+			
+	function RunProgram( program_name ) {
 		window.vc.tank.Kill();
 		window.vc.tank = new Tank( 100,100 );
 		window.vc.tank.MakeBackground();
 		window.vc.ResetCameraZoom();
 		// TODO: this would probably appreciate a defined API instead of overreaching
 		window.vc.sim_queue.length = 0;
-		switch (program_num) {
-			case 1: {
-				window.vc.sim_queue.push(MakeTurningSim());
+		switch (program_name) {
+			case 'quickstart' : {
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_easy' ) );
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_medium' ) );
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'food_training_sim_easy' ) );
 				break;
 			}
-			case 2: {
-				window.vc.sim_queue.push(MakeFoodChaseSimEasy());
+			case 'the_works' : {
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_easy' ) );
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_medium' ) );
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_hard' ) );
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_xhard' ) );
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'treasure_hunt_training' ) );
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'food_training_sim_medium' ) );
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'food_training_sim_hard' ) );
 				break;
 			}
-			case 3: {
-				window.vc.sim_queue.push(MakeFoodChaseSimMedium());
+			case 'natural_tank' : {
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'natural_tank' ) );
 				break;
 			}
-			default: {
-				window.vc.sim_queue.push(MakeTurningSim());
-				window.vc.sim_queue.push(MakeFoodChaseSimEasy());
-				window.vc.sim_queue.push(MakeFoodChaseSimMedium());
+			case 'petri_dish' : {
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'petri_dish' ) );
+				break;
+			}
+			case 'turning_training_easy' : {
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_easy' ) );
+				break;
+			}
+			case 'turning_training_medium' : {
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_medium' ) );
+				break;
+			}
+			case 'turning_training_hard' : {
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_hard' ) );
+				break;
+			}
+			case 'turning_training_xhard' : {
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_xhard' ) );
+				break;
+			}
+			case 'treasure_hunt_training' : {
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'treasure_hunt_training' ) );
+				break;
+			}
+			case 'steering_comp' : {
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_easy' ) );
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_medium' ) );
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_hard' ) );
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_xhard' ) );
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'treasure_hunt_training' ) );
+				break;
+			}
+			case 'food_training_sim_easy' : {
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'food_training_sim_easy' ) );
+				break;
+			}
+			case 'food_training_sim_medium' : {
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'food_training_sim_medium' ) );
+				break;
+			}
+			case 'food_training_sim_hard' : {
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'food_training_sim_hard' ) );
+				break;
+			}
+			case 'food_training_sim_comp' : {
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'food_training_sim_easy' ) );
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'food_training_sim_medium' ) );
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'food_training_sim_hard' ) );
 				break;
 			}
 		}
@@ -164,11 +115,21 @@
 		<button @click="$emit('close')" style="width:100%;">Close</button>
 		<br/>
 		<br/>
-				
-		<button @click="RunProgram(1)" style="width:100%; margin-bottom:0.25rem;">Basic Steering</button>
-		<button @click="RunProgram(2)" style="width:100%; margin-bottom:0.25rem;">Food Chase - Easy</button>
-		<button @click="RunProgram(3)" style="width:100%; margin-bottom:0.25rem;">Food Chase - Medium</button>
-		<button @click="RunProgram(4)" style="width:100%; margin-bottom:0.25rem;">The Works</button>
+
+		<button @click="RunProgram('quickstart')" style="width:100%; margin-bottom:0.25rem;">Quickstart</button>
+		<button @click="RunProgram('the_works')" style="width:100%; margin-bottom:0.25rem;">The Works</button>
+		<button @click="RunProgram('natural_tank')" style="width:100%; margin-bottom:0.25rem;">Natural Tank</button>
+		<button @click="RunProgram('petri_dish')" style="width:100%; margin-bottom:0.25rem;">Petri Dish</button>
+		<button @click="RunProgram('turning_training_easy')" style="width:100%; margin-bottom:0.25rem;">Steering - Easy</button>
+		<button @click="RunProgram('turning_training_medium')" style="width:100%; margin-bottom:0.25rem;">Steering - Medium</button>
+		<button @click="RunProgram('turning_training_hard')" style="width:100%; margin-bottom:0.25rem;">Steering - Hard</button>
+		<button @click="RunProgram('turning_training_xhard')" style="width:100%; margin-bottom:0.25rem;">Steering - Extra Hard</button>
+		<button @click="RunProgram('treasure_hunt_training')" style="width:100%; margin-bottom:0.25rem;">Steering - Treasure Hunt</button>
+		<button @click="RunProgram('steering_comp')" style="width:100%; margin-bottom:0.25rem;">Steering - Comprehensive</button>
+		<button @click="RunProgram('food_training_sim_easy')" style="width:100%; margin-bottom:0.25rem;">Food Chase - Easy</button>
+		<button @click="RunProgram('food_training_sim_medium')" style="width:100%; margin-bottom:0.25rem;">Food Chase - Medium</button>
+		<button @click="RunProgram('food_training_sim_hard')" style="width:100%; margin-bottom:0.25rem;">Food Chase - Hard</button>
+		<button @click="RunProgram('food_training_sim_comp')" style="width:100%; margin-bottom:0.25rem;">Food Chase - Comprehensive</button>
 		
 		
 		<!-- Programs -->
