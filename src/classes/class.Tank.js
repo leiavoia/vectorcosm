@@ -326,17 +326,46 @@ export default class Tank {
 				Tank.background_themes[`random-${n}`] = colors;
 			}
 			
+			// color tinting points from more interesting variations
+			let tint_points = [];
+			const num_tint_points = utils.RandomInt(0,5);
+			for ( let i=0; i < num_tint_points; i++ ) {
+				tint_points.push({
+					x: this.width * Math.random(), 
+					y: this.height * Math.random(), 
+					v: ( Math.random() - 0.68 ), // more dark than light
+					r: Math.min(this.width,this.height) * Math.random()
+				});
+			}
+			
 			const delaunay = Delaunator.from(bgpts);
 			let triangles = delaunay.triangles;
 			let bgcolors = Object.values(Tank.background_themes).pickRandom();
 			for (let i = 0; i < triangles.length; i += 3) {
 				let c = bgcolors[ Math.trunc( Math.random() * bgcolors.length ) ]; 
 				
+				// color tinting based on triangle location
+				let adjustment = 0;
+				
 				// fade up the tank 
-				const color_variance = Math.random();
 				let center = (bgpts[triangles[i]][1] + bgpts[triangles[i+1]][1] + bgpts[triangles[i+2]][1]) / 3;
-				const r = (0.5-(center/this.height)) * color_variance + (Math.random()*color_variance*0.5-0.5); 
-				c = utils.adjustColor(c,r);
+				const color_variance = Math.random();
+				adjustment = (0.5-(center/this.height)) * color_variance + (Math.random()*color_variance*0.5-0.5); 
+				
+				// 3DFX
+				for ( let tp of tint_points ) {
+					let tri_x = (bgpts[triangles[i]][0] + bgpts[triangles[i+1]][0] + bgpts[triangles[i+2]][0]) / 3;
+					let tri_y = (bgpts[triangles[i]][1] + bgpts[triangles[i+1]][1] + bgpts[triangles[i+2]][1]) / 3;
+					const d = Math.abs( Math.sqrt( 
+						( tp.x - tri_x ) * ( tp.x - tri_x ) + 
+						( tp.y - tri_y ) * ( tp.y - tri_y )
+					) );
+					adjustment += tp.v * ( Math.max( 0, tp.r - d ) / tp.r );
+				}
+				
+				// final color tint
+				adjustment = utils.Clamp( adjustment, -1, 1 );
+				c = utils.adjustColor(c,adjustment);
 				
 				// save triangle data for later
 				this.background_triangles.push( [
@@ -360,7 +389,7 @@ export default class Tank {
 		}		
 		if ( this.bg_opacity ) {	
 			if ( this.bg_opacity == 'random' ) {	
-				this.bg_opacity = Math.random()
+				this.bg_opacity = 0.1 + Math.random() * 0.8;
 				this.bg.opacity = this.bg_opacity;
 			}
 			else {
