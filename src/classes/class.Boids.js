@@ -57,6 +57,16 @@ export class Boid {
 			m.this_stoke_time = 0;
 			m.strokepow = 0; 
 		}				
+		// simulation-specific settings
+		this.immortal = window.vc.simulation.settings?.immortal	? true : false;	
+		if ( window.vc.simulation.settings?.full_grown ) {
+			this.mass = this.body.mass;
+			// b.mass = ( 0.5 +Math.random() * 0.5 ) * b.body.mass; // random size
+			this.ScaleBoidByMass();	
+		}
+		if ( window.vc.simulation.settings?.randomize_age ) {
+			this.age = utils.RandomInt( 0, this.lifespan * 0.5 );
+		}
 	}
 	
 	constructor( x=0, y=0, tank=null, json=null ) {
@@ -312,7 +322,7 @@ export class Boid {
 		
 		// aging out
 		this.age += delta;
-		if ( this.age > this.lifespan ) {
+		if ( this.age > this.lifespan && !this.immortal ) {
 			// chance to live a while longer
 			if ( Math.random() < 0.002 ) {
 				this.Kill();
@@ -433,19 +443,19 @@ export class Boid {
 				this.metab.growing = true; // mostly for UI
 			}
 			
-			// max energy cap
-			this.metab.energy = utils.Clamp( this.metab.energy, 0, this.metab.max_energy );
-			
 		}		
 		
+		// min/max energy cap
+		this.metab.energy = utils.Clamp( this.metab.energy, 0, this.metab.max_energy );
+		
 		// you ded?
-		if ( this.metab.energy <= 0 ) {
+		if ( this.metab.energy <= 0 && !this.immortal ) {
 			this.Kill();
 			return;
 		}
 		
 		// you almost ded?
-		if ( window.vc.animate_boids && (this.metab.energy / this.metab.max_energy ) < 0.01 ) {
+		if ( window.vc.animate_boids && (this.metab.energy / this.metab.max_energy ) < 0.01 && !this.immortal ) {
 			let pct = this.metab.energy / ( this.metab.max_energy * 0.01 );
 			this.container.opacity = pct;
 		}
@@ -896,7 +906,6 @@ export class Boid {
 		this.stats.death.energy_remaining_pct = Math.floor( ( this.stats.death.energy_remaining / this.metab.max_energy ) * 100 );
 		this.stats.death.age_remaining = Math.floor( this.lifespan - this.age );
 		this.stats.death.age_remaining_pct = Math.floor( ( 1 - (this.age / this.lifespan) ) * 100 );
-		// console.log(this.stats.death);
 	}
 
 	static Random(x,y,tank) {

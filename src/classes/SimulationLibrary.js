@@ -32,7 +32,9 @@ export default {
 		},
 		poop:false,
 		ignore_other_boids:true,
-		sterile:true
+		sterile:true,
+		immortal:true,
+		full_grown:true,
 	},
 	
 	food_training_sim_medium: {
@@ -69,6 +71,8 @@ export default {
 		poop:false,
 		ignore_other_boids:true,
 		sterile:true,
+		immortal:true,
+		full_grown:true,
 	},
 	
 	food_training_sim_hard: {
@@ -104,7 +108,9 @@ export default {
 		},
 		poop:false,
 		ignore_other_boids:true,
-		sterile:true
+		sterile:true,
+		immortal:true,
+		full_grown:true,
 	},
 	
 	turning_training_easy: {
@@ -129,7 +135,9 @@ export default {
 		ignore_other_boids:true,
 		sterile:true,
 		on_bite_ignore:true,
-		edibility: 1
+		edibility: 1,
+		immortal:true,
+		full_grown:true,
 	},
 	turning_training_medium: {
 		simtype: 'TurningSimulation',
@@ -153,7 +161,9 @@ export default {
 		ignore_other_boids:true,
 		sterile:true,
 		on_bite_ignore:true,
-		edibility: 1
+		edibility: 1,
+		immortal:true,
+		full_grown:true,
 	},
 	turning_training_hard: {
 		simtype: 'TurningSimulation',
@@ -178,7 +188,9 @@ export default {
 		ignore_other_boids:true,
 		sterile:true,
 		on_bite_ignore:true,
-		edibility: 1
+		edibility: 1,
+		immortal:true,
+		full_grown:true,
 	},
 	turning_training_xhard: {
 		simtype: 'TurningSimulation',
@@ -203,7 +215,9 @@ export default {
 		ignore_other_boids:true,
 		sterile:true,
 		on_bite_ignore:true,
-		edibility: 1
+		edibility: 1,
+		immortal:true,
+		full_grown:true,
 	},
 	treasure_hunt_training: {
 		simtype: 'FoodChaseSimulation',
@@ -223,6 +237,8 @@ export default {
 		poop:false,
 		ignore_other_boids:true,
 		sterile:true,
+		immortal:true,
+		full_grown:true,
 		on_bite_ignore:true,
 		target_spread: 0,
 		edibility: 1,
@@ -258,6 +274,7 @@ export default {
 		tide: 600,
 		add_decor: 0.75,
 		random_boid_angle: true,
+		randomize_age:true,
 		allow_speciation: false // temporary until we get brain rewiring figured out
 	},
 			
@@ -282,6 +299,7 @@ export default {
 		food_value:1000,
 		poop:true,
 		ignore_other_boids:false,
-		sterile:false
+		sterile:false,
+		randomize_age:true,
 	}
 };
