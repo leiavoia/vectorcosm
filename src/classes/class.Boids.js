@@ -459,6 +459,10 @@ export class Boid {
 			let pct = this.metab.energy / ( this.metab.max_energy * 0.01 );
 			this.container.opacity = pct;
 		}
+		// must check if bounced back from near death
+		else if ( this.container.opacity !== 1.0 ) {
+			this.container.opacity = 1.0;
+		}
 		
 		// SENSORS ----------------------------\/---------------------------------------
 		
