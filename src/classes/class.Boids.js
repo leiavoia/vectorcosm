@@ -512,11 +512,6 @@ export class Boid {
 			}
 			for ( let i=0; i < brain_outputs.length; i++ ) {
 				let level = Math.tanh(brain_outputs[i]); // FIXME tanh?
-				//
-				// [!]HACK for automitosis
-				//
-				if ( this.motors[i].hasOwnProperty('mitosis') && !window.vc.simulation.settings?.sterile ) { level = 1; };
-				
 				this.ActivateMotor( i, level, delta );
 			}
 		}
@@ -844,10 +839,11 @@ export class Boid {
 					: ( window.vc?.simulation?.settings?.allow_speciation ? ( mutation_rate / 1000 ) : 0 ) ;							
 				for ( let n=0; n < m.mitosis; n++ ) { 
 					let offspring = this.Copy(true, mutation_rate, mutation_rate, speciation_rate); // reset state and mutate organism
+					offspring.age = 0; // simulation can assign a random age on Copy
 					offspring.x = this.x;
 					offspring.y = this.y;
 					offspring.angle = utils.RandomFloat(0, Math.PI*2);
-					offspring.mass = offspring.body.mass / ( m.mitosis + 1 );
+					offspring.mass = this.mass / ( m.mitosis + 1 );
 					offspring.ScaleBoidByMass();
 					// we're going to say that babies start with some energy because
 					// we've spent all this time producing them. However if they are
@@ -1150,7 +1146,7 @@ export class Boid {
 		const offspring_portion =  (1/(mitosis_num+2)) * mitosis_num;
 		this.motors.push({
 			mitosis: mitosis_num, // number of new organisms
-			min_act: this.dna.shapedNumber( this.dna.genesFor('mitosis min act',2), 0.22, 0.9, 0.6, 2),
+			min_act: this.dna.shapedNumber( this.dna.genesFor('mitosis min act',2), 0.05, 0.9, 0.2, 5),
 			cost: ( 500 * offspring_portion ) / stroketime, // per second per mass, sort of. [!]arbitrary. motor functions factor in mass already
 			stroketime: stroketime, 
 			strokefunc: 'linear_up', 
