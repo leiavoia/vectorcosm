@@ -314,7 +314,6 @@ export default class Tank {
 				// p[1] = utils.shapeNumber( p[1], 0, this.height, y_focus, y_strength );
 			}
 			
-			
 			// randomized color schemes 
 			for ( let n=0; n < 5; n++ ) {
 				const colors = [];
@@ -340,8 +339,42 @@ export default class Tank {
 			
 			const delaunay = Delaunator.from(bgpts);
 			let triangles = delaunay.triangles;
-			let bgcolors = Object.values(Tank.background_themes).pickRandom();
+			
+			// multiple themes at once? are you crazy?
+			let themes = [];
+			let num_themes = utils.RandomInt(1,4);
+			for ( let i = 0; i < num_themes; i++ ) {
+				themes.push({
+					x: utils.shapeNumber( this.width * Math.random(), 0, this.width, 0.5, 0.6 ), 
+					y: utils.shapeNumber( this.height * Math.random(), 0, this.height, 0.5, 0.6 ), 
+					theme: Object.values(Tank.background_themes).pickRandom()
+				});
+			}
 			for (let i = 0; i < triangles.length; i += 3) {
+				
+				// tint the triangle based on its location
+				let tri_x = (bgpts[triangles[i]][0] + bgpts[triangles[i+1]][0] + bgpts[triangles[i+2]][0]) / 3;
+				let tri_y = (bgpts[triangles[i]][1] + bgpts[triangles[i+1]][1] + bgpts[triangles[i+2]][1]) / 3;
+				
+				// decide which theme we want to pull colors out of	
+				let bgcolors = themes[0].theme; // default
+				if ( themes.length > 1 ) { 
+					let distances = themes.map( t => {
+						return 1 / ( ( t.x - tri_x ) * ( t.x - tri_x ) + ( t.y - tri_y ) * ( t.y - tri_y ) );
+					});
+					let total_distances = distances.reduce( (a,c) => a+c, 0 );
+					let roll = Math.random() * total_distances;
+					let roll_thresh = 0;
+					for ( let t=0; t < themes.length; t++ ) {
+						roll_thresh += distances[t];
+						if ( roll <= roll_thresh ) {
+							bgcolors = themes[t].theme;
+							break;
+						}
+					}
+				}
+				
+				// single-theme settings just pick a random color from the theme
 				let c = bgcolors[ Math.trunc( Math.random() * bgcolors.length ) ]; 
 				
 				// color tinting based on triangle location
@@ -354,8 +387,6 @@ export default class Tank {
 				
 				// 3DFX
 				for ( let tp of tint_points ) {
-					let tri_x = (bgpts[triangles[i]][0] + bgpts[triangles[i+1]][0] + bgpts[triangles[i+2]][0]) / 3;
-					let tri_y = (bgpts[triangles[i]][1] + bgpts[triangles[i+1]][1] + bgpts[triangles[i+2]][1]) / 3;
 					const d = Math.abs( Math.sqrt( 
 						( tp.x - tri_x ) * ( tp.x - tri_x ) + 
 						( tp.y - tri_y ) * ( tp.y - tri_y )
@@ -389,7 +420,7 @@ export default class Tank {
 		}		
 		if ( this.bg_opacity ) {	
 			if ( this.bg_opacity == 'random' ) {	
-				this.bg_opacity = 0.1 + Math.random() * 0.8;
+				this.bg_opacity = 0.15 + Math.random() * 0.7;
 				this.bg.opacity = this.bg_opacity;
 			}
 			else {
