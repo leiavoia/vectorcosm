@@ -32,9 +32,7 @@ export default {
 		},
 		poop:false,
 		ignore_other_boids:true,
-		sterile:true,
-		immortal:true,
-		full_grown:true,
+		ignore_lifecycle:true,
 	},
 	
 	food_training_sim_medium: {
@@ -70,9 +68,7 @@ export default {
 		},
 		poop:false,
 		ignore_other_boids:true,
-		sterile:true,
-		immortal:true,
-		full_grown:true,
+		ignore_lifecycle:true,
 	},
 	
 	food_training_sim_hard: {
@@ -108,9 +104,7 @@ export default {
 		},
 		poop:false,
 		ignore_other_boids:true,
-		sterile:true,
-		immortal:true,
-		full_grown:true,
+		ignore_lifecycle:true,
 	},
 	
 	turning_training_easy: {
@@ -133,11 +127,9 @@ export default {
 		},
 		poop:false,
 		ignore_other_boids:true,
-		sterile:true,
 		on_bite_ignore:true,
 		edibility: 1,
-		immortal:true,
-		full_grown:true,
+		ignore_lifecycle:true,
 	},
 	turning_training_medium: {
 		simtype: 'TurningSimulation',
@@ -159,11 +151,9 @@ export default {
 		},
 		poop:false,
 		ignore_other_boids:true,
-		sterile:true,
 		on_bite_ignore:true,
 		edibility: 1,
-		immortal:true,
-		full_grown:true,
+		ignore_lifecycle:true,
 	},
 	turning_training_hard: {
 		simtype: 'TurningSimulation',
@@ -186,11 +176,9 @@ export default {
 		},
 		poop:false,
 		ignore_other_boids:true,
-		sterile:true,
 		on_bite_ignore:true,
 		edibility: 1,
-		immortal:true,
-		full_grown:true,
+		ignore_lifecycle:true,
 	},
 	turning_training_xhard: {
 		simtype: 'TurningSimulation',
@@ -213,11 +201,9 @@ export default {
 		},
 		poop:false,
 		ignore_other_boids:true,
-		sterile:true,
 		on_bite_ignore:true,
 		edibility: 1,
-		immortal:true,
-		full_grown:true,
+		ignore_lifecycle:true,
 	},
 	treasure_hunt_training: {
 		simtype: 'FoodChaseSimulation',
@@ -236,9 +222,6 @@ export default {
 		},
 		poop:false,
 		ignore_other_boids:true,
-		sterile:true,
-		immortal:true,
-		full_grown:true,
 		on_bite_ignore:true,
 		target_spread: 0,
 		edibility: 1,
@@ -248,6 +231,7 @@ export default {
 		food_bounce_margin: 100,
 		food_friction: true,
 		food_value:1000,
+		ignore_lifecycle:true,
 		end: {
 			// avg_score:600,
 			// avg_score_rounds: 10,
@@ -274,7 +258,7 @@ export default {
 		tide: 600,
 		add_decor: 0.75,
 		random_boid_angle: true,
-		randomize_age:true,
+		randomize_age:false,
 		allow_speciation: false // temporary until we get brain rewiring figured out
 	},
 			
@@ -299,7 +283,6 @@ export default {
 		food_value:1000,
 		poop:true,
 		ignore_other_boids:false,
-		sterile:false,
-		randomize_age:true,
+		randomize_age:false,
 	}
 };

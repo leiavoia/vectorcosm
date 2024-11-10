@@ -58,13 +58,12 @@ export class Boid {
 			m.strokepow = 0; 
 		}				
 		// simulation-specific settings
-		this.immortal = window.vc.simulation.settings?.immortal	? true : false;	
-		if ( window.vc.simulation.settings?.full_grown ) {
+		if ( window.vc.simulation.settings?.ignore_lifecycle ) {
 			this.mass = this.body.mass;
-			// b.mass = ( 0.5 +Math.random() * 0.5 ) * b.body.mass; // random size
 			this.ScaleBoidByMass();	
 		}
-		if ( window.vc.simulation.settings?.randomize_age ) {
+		// random age
+		if ( !window.vc.simulation.settings?.ignore_lifecycle ) {
 			this.age = utils.RandomInt( 0, this.lifespan * 0.5 );
 		}
 	}
@@ -322,7 +321,7 @@ export class Boid {
 		
 		// aging out
 		this.age += delta;
-		if ( this.age > this.lifespan && !this.immortal ) {
+		if ( this.age > this.lifespan && !window.vc.simulation.settings?.ignore_lifecycle ) {
 			// chance to live a while longer
 			if ( Math.random() < 0.002 ) {
 				this.Kill();
@@ -334,7 +333,10 @@ export class Boid {
 		
 		// reduce total energy by resting metabolic rate.
 		// motor actuation costs are handled separately.
-		this.metab.energy -= this.metab.metabolic_rate * delta;
+		let energy_to_burn = this.metab.metabolic_rate * delta;
+		// larva get a discount for doing nothing
+		if ( !window.vc.simulation.settings?.ignore_lifecycle && this.age < this.larval_age ) { energy_to_burn *= 0.5; }
+		this.metab.energy -= energy_to_burn;
 		
 		// digestion (optimized by not processing stomach contents every single frame)
 		const digestInterval = 0.5; // we can factor this out when tuning optimization is balanced
@@ -449,13 +451,13 @@ export class Boid {
 		this.metab.energy = utils.Clamp( this.metab.energy, 0, this.metab.max_energy );
 		
 		// you ded?
-		if ( this.metab.energy <= 0 && !this.immortal ) {
+		if ( this.metab.energy <= 0 && !window.vc.simulation.settings?.ignore_lifecycle ) {
 			this.Kill();
 			return;
 		}
 		
 		// you almost ded?
-		if ( window.vc.animate_boids && (this.metab.energy / this.metab.max_energy ) < 0.01 && !this.immortal ) {
+		if ( window.vc.animate_boids && (this.metab.energy / this.metab.max_energy ) < 0.01 && !window.vc.simulation.settings?.ignore_lifecycle ) {
 			let pct = this.metab.energy / ( this.metab.max_energy * 0.01 );
 			this.container.opacity = pct;
 		}
@@ -537,63 +539,74 @@ export class Boid {
 				// you might also consider switching to pixel pitch method
 				// && ( this.collision.radius >= ( window.vc.camera.xmax - window.vc.camera.xmin ) / 100 )
 				) {
-			
-				// for ( let m of this.motors ) {
-				// 	if ( !m.anim || m.anim.index < 0 || m.anim.index >= this.body.geo.vertices.length ) { break; }
-					
-				// 	// effect based on stroke power
-				// 	const effect1 = ( m.this_stoke_time && m.last_amount )
-				// 		? (m.this_stoke_time ? m.last_amount : 0)
-				// 		: 0;
-				// 	// effect based on stroke time (smoother but less accurate)
-				// 	const effect2 = m.this_stoke_time 
-				// 		? (Math.sin(((m.t||0)/m.this_stoke_time) * Math.PI))
-				// 		: 0;
-				// 	// blended result
-				// 	const effect = (effect1 + effect2) / 2;
-					
-				// 	let v = this.body.geo.vertices[m.anim.index];
-				// 	if ( !v.origin ) { 
-				// 		v.origin = new Two.Vector().copy(v); 
-				// 	}
-				// 	v.x = v.origin.x + m.anim.xval * effect;
-				// 	v.y = v.origin.y + m.anim.yval * effect;
-				// }
 				
-				for ( let m=0; m < this.motors.length; m++ ) {
-					if ( m >= this.body.geo.vertices.length ) { break; }
-					// effect based on stroke power
-					const effect1 = ( this.motors[m].this_stoke_time && this.motors[m].last_amount )
-						? (this.motors[m].this_stoke_time ? this.motors[m].last_amount : 0)
-						: 0;
-					// effect based on stroke time (smoother but less accurate)
-					const effect2 = this.motors[m].this_stoke_time 
-						? (Math.sin(((this.motors[m].t||0)/this.motors[m].this_stoke_time) * Math.PI))
-						: 0;
-					// blended result
-					const effect = (effect1 + effect2) / 2;
-					
-					let v = this.body.geo.vertices[m];
-					if ( !v.origin ) { 
+				// setup - record original position
+				if ( !this.body.geo.vertices[0].origin ) {
+					for ( let v of this.body.geo.vertices ) {
 						v.origin = new Two.Vector().copy(v); 
-						v.xoff = (0.1 + Math.random()) * 0.25 * this.body.length * (Math.random() > 0.5 ? 1 : -1 );
-						v.yoff = (0.1 + Math.random()) * 0.25 * this.body.width * (Math.random() > 0.5 ? 1 : -1 );
+						v.a = Math.atan2( v.y, v.x ); // note y normally goes first
 					}
-					v.x = v.origin.x + v.xoff * effect;
-					// do opposing vertex
-					const oppo_index = this.body.OppositePoint(m, this.body.geo.vertices.length);
-					if ( oppo_index !== m ) { 
-						v.y = v.origin.y + v.yoff * effect2;
-						const v2 = this.body.geo.vertices[oppo_index]; 
-						if ( !v2.origin ) { 
-							v2.origin = new Two.Vector().copy(v2); 
-							v2.xoff = v.xoff;
-							v2.yoff = -v.yoff;
-						}
-						v2.x = v2.origin.x + v2.xoff * effect;
-						v2.y = v2.origin.y + v2.yoff * effect2;
-					}
+				}
 				
+				// if we are a "larva", unfold from a sphere
+				if ( this.age < this.larval_age && !window.vc.simulation.settings?.ignore_lifecycle ) {
+					// setup: sort vertices in radial order and assign starting positions
+					if ( !( 'xp' in this.body.geo.vertices[0] ) ) {
+						// the nose point is always at zero degrees
+						for ( let i=0; i < this.body.geo.vertices.length; i++ ) {
+							this.body.geo.vertices[i].a = i * ( ( 2*Math.PI ) / this.body.geo.vertices.length );
+							this.body.geo.vertices[i].xp = Math.cos(this.body.geo.vertices[i].a) * Math.min(this.body.length, this.body.width) * 0.5;
+							this.body.geo.vertices[i].yp = Math.sin(this.body.geo.vertices[i].a) * Math.min(this.body.length, this.body.width) * 0.5;
+						}
+					}
+					// blend larval position and adult position
+					const effect = 1 - ( this.larval_age - this.age ) / this.larval_age;
+					for ( let i=0; i<this.body.geo.vertices.length; i++ ) {
+						let v = this.body.geo.vertices[i];
+						v.x = v.xp + ( v.origin.x - v.xp ) * effect;
+						v.y = v.yp + ( v.origin.y - v.yp ) * effect;
+					}				
+				}
+				
+				// normal adult animation cycle
+				else {
+					for ( let m=0; m < this.motors.length; m++ ) {
+						if ( m >= this.body.geo.vertices.length ) { break; }
+						// effect based on stroke power
+						const effect1 = ( this.motors[m].this_stoke_time && this.motors[m].last_amount )
+							? (this.motors[m].this_stoke_time ? this.motors[m].last_amount : 0)
+							: 0;
+						// effect based on stroke time (smoother but less accurate)
+						const effect2 = this.motors[m].this_stoke_time 
+							? (Math.sin(((this.motors[m].t||0)/this.motors[m].this_stoke_time) * Math.PI))
+							: 0;
+						// blended result
+						const effect = (effect1 + effect2) / 2;
+						
+						let v = this.body.geo.vertices[m];
+						if ( !( 'xoff' in v ) ) { 
+							v.x = v.origin.x
+							v.y = v.origin.y
+							v.xoff = (0.1 + Math.random()) * 0.25 * this.body.length * (Math.random() > 0.5 ? 1 : -1 );
+							v.yoff = (0.1 + Math.random()) * 0.25 * this.body.width * (Math.random() > 0.5 ? 1 : -1 );
+							delete v.xp; delete v.xy; // larval stuff
+						}
+						v.x = v.origin.x + v.xoff * effect;
+						// do opposing vertex
+						const oppo_index = this.body.OppositePoint(m, this.body.geo.vertices.length);
+						if ( oppo_index !== m ) { 
+							v.y = v.origin.y + v.yoff * effect2;
+							const v2 = this.body.geo.vertices[oppo_index]; 
+							if ( !( 'xoff' in v2 ) ) { 
+								v2.x = v2.origin.x
+								v2.y = v2.origin.y
+								v2.xoff = v.xoff;
+								v2.yoff = -v.yoff;
+							}
+							v2.x = v2.origin.x + v2.xoff * effect;
+							v2.y = v2.origin.y + v2.yoff * effect2;
+						}
+					}
 				}
 			}
 		}
@@ -756,7 +769,7 @@ export class Boid {
 					return 0; 
 				}
 				// age restricted
-				if ( m.hasOwnProperty('min_age') && this.age < m.min_age ) { 
+				if ( m.hasOwnProperty('min_age') && ( this.age < m.min_age && !window.vc.simulation.settings?.ignore_lifecycle ) ) { 
 					m.last_amount = 0;
 					m.this_stoke_time = 0;
 					return 0; 
@@ -769,7 +782,7 @@ export class Boid {
 				}
 				// tank capacity sanity cap
 				if ( m.hasOwnProperty('mitosis') && ( this.tank.boids.length >= (window.vc?.simulation?.settings?.num_boids || 100)
-					|| window.vc.simulation.settings?.sterile ) ) {
+					|| window.vc.simulation.settings?.ignore_lifecycle ) ) {
 					m.last_amount = 0;
 					m.this_stoke_time = 0;
 					return 0; 
@@ -943,6 +956,7 @@ export class Boid {
 		this.container.add([this.body.geo]);
 		this.lifespan = this.dna.shapedInt( this.dna.genesFor('lifespan',2,1), 60, 800, 300, 2 );
 		this.maturity_age = this.dna.shapedInt( this.dna.genesFor('maturity age',2,1), 0.1 * this.lifespan, 0.9 * this.lifespan, 0.25 * this.lifespan, 2.5 );
+		this.larval_age = Math.min( this.maturity_age, this.dna.shapedInt( this.dna.genesFor('larval_age',2,1), 2, 25, 5, 4 ) );
 		if ( !this.metab.energy ) { this.metab.energy = this.metab.max_energy; }
 		// nutrition and metabolism
 		// TODO: more complex organisms should have more complex diets
@@ -1025,6 +1039,9 @@ export class Boid {
 			
 			const stroketimeGene = this.dna.genesFor(`motor stroke time ${n}`,2,1);
 			const stroketime = this.dna.shapedNumber(stroketimeGene,0.1, 3.5, 0.5, 4); 
+			
+			const min_ageGene = this.dna.genesFor(`motor min_age ${n}`,2,1);
+			const min_age = this.larval_age * this.dna.shapedNumber(min_ageGene, 0.2, 1.0, 0.7, 3 ); 
 
 			const minActGene = this.dna.genesFor(`motor min_act chance ${n}`,2,1);
 			let min_act = this.dna.shapedNumber(minActGene,0,0.7,0.05,4);
@@ -1037,7 +1054,7 @@ export class Boid {
 			else if ( strokefunc < 0.78 ) { strokefunc = 'burst'; }
 			else if ( strokefunc < 0.84 ) { strokefunc = 'spring'; }
 			else { strokefunc = 'constant'; }
-			let motor = { min_act, stroketime, t:0, strokefunc, wheel };
+			let motor = { min_act, stroketime, t:0, strokefunc, wheel, min_age };
 			
 			const linearGene = this.dna.genesFor(`motor linear ${n}`, 2, 1);
 			let linear = this.dna.shapedNumber(linearGene,80, 1800, 600, 2.5);
