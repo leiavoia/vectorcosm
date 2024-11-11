@@ -1244,8 +1244,19 @@ export class Boid {
 			}
 			if ( !detect.length ) { detect.push([0,1,2]); }
 			const sensitivity = this.dna.shapedNumber(this.dna.genesFor('vision sensitivity',2,1), 0.5, 10, 2, 3 );
-			this.sensors.push( new Sensor({ type:'sense', name: 'vis1', color: '#AAEEFFBB', sensitivity, fov:true, attenuation:true, detect: detect, x: xoff, y: yoff, r: radius, }, this ) );2
-			this.sensors.push( new Sensor({ type:'sense', name: 'vis2', color: '#AAEEFFBB', sensitivity, fov:true, attenuation:true, detect: detect, x: xoff, y: -yoff, r: radius, }, this ) );
+			
+			// segmented vision
+			const segmented_vision = this.dna.shapedNumber(this.dna.genesFor('segmented_vision',2,true));
+			if ( segmented_vision ) {
+				const segments = this.dna.shapedInt(this.dna.genesFor('vision num segments',2,true), 2, 18, 6, 5 );
+				const cone = this.dna.shapedNumber(this.dna.genesFor('vision cone',2,true), Math.PI*0.5, Math.PI*2, Math.PI, 2 );
+				this.sensors.push( new Sensor({ type:'sense', name: 'v1', segments, cone, color: '#FFFFFFBB', sensitivity:sensitivity/2, detect: detect, x: 0, y: 0, r: radius*1.25, falloff:1.5 }, this ) );
+			}
+			// binary vision
+			else {
+				this.sensors.push( new Sensor({ type:'sense', name: 'v1', color: '#AAEEFFBB', sensitivity, fov:true, attenuation:true, detect: detect, x: xoff, y: yoff, r: radius, }, this ) );2
+				this.sensors.push( new Sensor({ type:'sense', name: 'v2', color: '#AAEEFFBB', sensitivity, fov:true, attenuation:true, detect: detect, x: xoff, y: -yoff, r: radius, }, this ) );
+			}
 		}
 		
 		// smell

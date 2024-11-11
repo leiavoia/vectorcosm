@@ -36,11 +36,24 @@ export default class Sensor {
 			let sy = this.owner.y + ((this.x * sinAngle) + (this.y * cosAngle));
 			
 			// accumulate sensory levels on each channel that we need to detect
-			let detection = new Array( this.detect?.length || 1 ).fill(0);
+			let detection = new Array( (this?.segments || 1) * (this.detect?.length || 1) ).fill(0);
 			
 			// force all detections into array format: NOTE: should do this once on creation of sensor
 			for ( let i=0; i<this.detect.length; i++ ) {
 				this.detect[i] = this.detect[i]?.length ? this.detect[i] : [this.detect[i]]; 
+			}
+			
+			// precompute some stuff for segmented vision
+			if ( this.segments && !this.segdata ) {
+				this.segdata = [];
+				const start = Math.PI - this.cone * 0.5;
+				this.seglength = this.cone / this.segments;
+				for ( let i=0; i<this.segments; i++ ) {
+					this.segdata.push({
+						left: start + (this.seglength * i),
+						right: start + (this.seglength * (i+1))
+					});
+				}
 			}
 			
 			// find all objects that are detected by this sensor
@@ -74,70 +87,117 @@ export default class Sensor {
 				}
 				
 				// is the object inside the sensor circle?
-				const sdx = Math.abs(objx - sx);
-				const sdy = Math.abs(objy - sy);
-				const sd = Math.sqrt(sdx*sdx + sdy*sdy); // OPTIMIZE: can factor out square root
-				const on_sensor = sd <= (this.r + objsize/2);
+				const obj_dist_x = Math.abs(objx - sx);
+				const obj_dist_y = Math.abs(objy - sy);
+				const obj_dist = Math.sqrt(obj_dist_x*obj_dist_x + obj_dist_y*obj_dist_y);
+				const on_sensor = obj_dist <= (this.r + objsize/2);
 				if ( !on_sensor ) { continue; }	
 				
-				// distance from center of object to boid.
-				// stereo sensors that both calculate to the boid's location produce the same result.
-				// to create a stereoscopic effect, measure to a reference point instead, 
-				// a small distance away from boid along a line to center of sensor.
-				// Think of a snail's eyestocks.
-				const sensor_eyestock_pct = 0.1; // this could be genetic
-				const sense_pt_x = this.owner.x + (sx - this.owner.x) * sensor_eyestock_pct;
-				const sense_pt_y = this.owner.y + (sy - this.owner.y) * sensor_eyestock_pct;
-				const dx = Math.abs(objx - sense_pt_x);
-				const dy = Math.abs(objy - sense_pt_y);
-				let d = Math.sqrt(dx*dx + dy*dy); // OPTIMIZE: can factor out square root
-				const max_dist = this.r + Math.abs(this.x) + Math.abs(this.y); // not correct math but good enough to cover most situations.
-				let percent_nearness = 1 - ( d / max_dist );
-				if ( percent_nearness < 0.01 ) { continue; } // not worth calculating
-				
-				// signal falloff exponent
-				if ( this.falloff ) {
-					percent_nearness = Math.pow( percent_nearness, this.falloff );
-				}
-				
-				// Field of View: reduce sensation based on physical size of target and distance.
-				let pct_field_of_view = percent_nearness;
-				if ( this.fov ) { 
-					// apparent size is a number we can fudge and still get decent results.
-					// simple division is a cheat. you can use square-of-distance for more accuracy.
-					// for signal purposes, objects have a minimum size
-					const virtual_size = Math.max( objsize, 20 );
-					const apparent_size = Math.min( 4, Math.pow(virtual_size,1+percent_nearness) / (this.r*2) );
-					pct_field_of_view = apparent_size / 8; // 0..1
-				}
-				
-				// Attenuation: signal falls off based on difference of sensor angle to object angle.
-				// used for peripheral vision curve.
-				let attenuation = 1;
-				if ( this.attenuation ) { 
-					// only calculate if we don't have a perfectly centered circle.
-					if ( this.x || this.y ) {
-						const v1x = sense_pt_x - this.owner.x;
-						const v1y = sense_pt_y - this.owner.y;
-						const v2x = objx - this.owner.x;
-						const v2y = objy - this.owner.y;
-						const dotProduct = v1x * v2x + v1y * v2y;
-						const magnitude1 = Math.sqrt(v1x * v1x + v1y * v1y) || 0.001;
-						const magnitude2 = Math.sqrt(v2x * v2x + v2y * v2y) || 0.001;
-						const cosTheta = dotProduct / (magnitude1 * magnitude2); // -1 .. 1
-						attenuation = 1 - ( Math.cos( (0.5 + 0.5 * cosTheta) * Math.PI ) / 2 + 0.5 );
+				if ( this.segments ) {
+					// calculate angle to boid (not circle center)
+					const dx = objx - this.owner.x;
+					const dy = objy - this.owner.y;
+					const d = Math.sqrt(dx*dx + dy*dy);
+					const touchdist = d - (objsize*0.5);
+					// if we are dealing with a rock, we need to go back to treating it like a polygon and not a circle.
+					// otherwise the collision circle engulfs the sensor and we get blinded. We can fake the data by
+					// using a smaller circle in that general direction. This hack prevents us from ever being "inside".
+					if ( touchdist <= 0 ) { objsize = d * 0.4; }
+					const theta = Math.sin( objsize*0.5 / d ); // angle of view from center of object to tangent edge of object 
+					let a = -Math.atan2( -dy, dx ); // note reversal for clockwise calculation (-π .. +π)
+					a -= this.owner.angle; // align sensor with boid direction
+					a += Math.PI; // rotate so that zero starts at butt and positive numbers are clockwise
+					a = utils.mod( (a + Math.PI * 2), (Math.PI * 2) ); // now in range of 0..2π
+					const obj_left = a - theta;
+					const obj_right = a + theta;
+					// TODO: check if object is in viewing cone
+					// check each segment for overlap
+					for ( let s=0; s<this.segments; s++ ) {
+						const overlap1 = utils.Clamp( this.segdata[s].right - obj_left, 0, theta );
+						const overlap2 = utils.Clamp( obj_right - this.segdata[s].left, 0, theta );
+						const overlap = overlap2 - ( theta - overlap1 );
+						let overlap_pct = overlap / this.seglength;
+						// signal falloff exponent
+						if ( this.falloff ) {
+							let prox = 1 - ( d / this.r );
+							if ( prox < 0.01 ) { continue; } // not worth calculating
+							prox = Math.pow( prox, this.falloff );
+							overlap_pct *= prox;
+						}
+						// add up signals - signals can be either a single channel or an average of several channels
+						let detection_index = 0;
+						for ( let sensation of this.detect ) {
+							let value = 0;
+							for ( let channel of sensation ) {
+								value += (obj.sense[channel]||0) * overlap_pct;
+							}
+							detection[detection_index+(s*this.detect.length)] += value / sensation.length; // average multiple channels
+							detection_index++;
+						}
 					}
 				}
 				
-				// add up signals - signals can be either a single channel or an average of several channels
-				let detection_index = 0;
-				for ( let sensation of this.detect ) {
-					let value = 0;
-					for ( let channel of sensation ) {
-						value += (obj.sense[channel]||0) * pct_field_of_view /* * attention */ * attenuation;
+				else {
+					
+					// distance from center of object to boid.
+					// stereo sensors that both calculate to the boid's location produce the same result.
+					// to create a stereoscopic effect, measure to a reference point instead, 
+					// a small distance away from boid along a line to center of sensor.
+					// Think of a snail's eyestocks.
+					const sensor_eyestock_pct = 0.1; // this could be genetic
+					const sense_pt_x = this.owner.x + (sx - this.owner.x) * sensor_eyestock_pct;
+					const sense_pt_y = this.owner.y + (sy - this.owner.y) * sensor_eyestock_pct;
+					const dx = Math.abs(objx - sense_pt_x);
+					const dy = Math.abs(objy - sense_pt_y);
+					let d = Math.sqrt(dx*dx + dy*dy); // OPTIMIZE: can factor out square root
+					const max_dist = this.r + Math.abs(this.x) + Math.abs(this.y); // not correct math but good enough to cover most situations.
+					let percent_nearness = 1 - ( d / max_dist );
+					if ( percent_nearness < 0.01 ) { continue; } // not worth calculating
+					
+					// signal falloff exponent
+					if ( this.falloff ) {
+						percent_nearness = Math.pow( percent_nearness, this.falloff );
 					}
-					detection[detection_index] += value / sensation.length;
-					detection_index++;
+					
+					// Field of View: reduce sensation based on physical size of target and distance.
+					let pct_field_of_view = percent_nearness;
+					if ( this.fov ) { 
+						// apparent size is a number we can fudge and still get decent results.
+						// simple division is a cheat. you can use square-of-distance for more accuracy.
+						// for signal purposes, objects have a minimum size
+						const virtual_size = Math.max( objsize, 20 );
+						const apparent_size = Math.min( 4, Math.pow(virtual_size,1+percent_nearness) / (this.r*2) );
+						pct_field_of_view = apparent_size / 8; // 0..1
+					}
+					
+					// Attenuation: signal falls off based on difference of sensor angle to object angle.
+					// used for peripheral vision curve.
+					let attenuation = 1;
+					if ( this.attenuation ) { 
+						// only calculate if we don't have a perfectly centered circle.
+						if ( this.x || this.y ) {
+							const v1x = sense_pt_x - this.owner.x;
+							const v1y = sense_pt_y - this.owner.y;
+							const v2x = objx - this.owner.x;
+							const v2y = objy - this.owner.y;
+							const dotProduct = v1x * v2x + v1y * v2y;
+							const magnitude1 = Math.sqrt(v1x * v1x + v1y * v1y) || 0.001;
+							const magnitude2 = Math.sqrt(v2x * v2x + v2y * v2y) || 0.001;
+							const cosTheta = dotProduct / (magnitude1 * magnitude2); // -1 .. 1
+							attenuation = 1 - ( Math.cos( (0.5 + 0.5 * cosTheta) * Math.PI ) / 2 + 0.5 );
+						}
+					}
+					
+					// add up signals - signals can be either a single channel or an average of several channels
+					let detection_index = 0;
+					for ( let sensation of this.detect ) {
+						let value = 0;
+						for ( let channel of sensation ) {
+							value += (obj.sense[channel]||0) * pct_field_of_view /* * attention */ * attenuation;
+						}
+						detection[detection_index] += value / sensation.length;
+						detection_index++;
+					}
 				}
 			}
 			// sigmoid squash signals to prevent blinding.
@@ -149,7 +209,10 @@ export default class Sensor {
 				// TANH(LOG(x)) makes a nice curve pretty much no matter what you throw at it
 				// but works best in the 0..20 range. 
 				let val = Math.min( 1, Math.tanh( Math.log( 1 + detection[i] * sensitivity ) ) ); 
-				let name = ( this.name || 'sense' ) + '_';
+				let name = ( this.name || 'sense' );
+				const segments = this.segments || 1;
+				const segment = Math.trunc( i / this.detect.length );
+				name = name + 's' + segment;
 				let namemap = {
 					0: 'R',
 					1: 'G',
@@ -168,7 +231,7 @@ export default class Sensor {
 					14: '3',
 					15: '4',
 				};
-				for ( let c of this.detect[i] ) {
+				for ( let c of this.detect[i%this.detect.length]) {
 					name = name + namemap[c];
 				}
 				name += sensitivity.toFixed(1);
