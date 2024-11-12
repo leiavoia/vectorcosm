@@ -444,7 +444,7 @@ export class FoodChaseSimulation extends Simulation {
 			b.starty = b.y;
 			b.total_fitness_score = 0.01; // wink
 		}
-		else {
+		else if ( this.settings?.score_on_travel ) {
 			b.max_travel = b.max_travel || 0;
 			let travel = Math.abs(b.x - b.startx) + Math.abs(b.y - b.starty);
 			if ( travel >  b.max_travel ) {
@@ -465,8 +465,11 @@ export class FoodChaseSimulation extends Simulation {
 			const margin = 150;
 			if ( d < touching + margin ) {
 				// small bonus for getting close
-				let score = ( margin - ( d - touching ) ) / margin ;
-				b.fitness_score += score * ( 20 / Math.max( b.body.width, b.body.length ) );  // bigger creatures get less score
+				let score = 0;
+				if ( this.settings?.score_on_proximity ) {
+					score = ( margin - ( d - touching ) ) / margin ;
+					b.fitness_score += score * ( 20 / Math.max( b.body.width, b.body.length ) );  // bigger creatures get less score
+				}
 				// big points if touching
 				if ( d <= touching ) { 
 					b.fitness_score += 5 * ( 20 / Math.max( b.body.width, b.body.length ) );  // bigger creatures get less score

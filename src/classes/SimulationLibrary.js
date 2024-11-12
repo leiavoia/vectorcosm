@@ -33,6 +33,8 @@ export default {
 		poop:false,
 		ignore_other_boids:true,
 		ignore_lifecycle:true,
+		score_on_travel:true,
+		score_on_proximity:true,
 	},
 	
 	food_training_sim_medium: {
@@ -69,6 +71,8 @@ export default {
 		poop:false,
 		ignore_other_boids:true,
 		ignore_lifecycle:true,
+		score_on_travel:false,
+		score_on_proximity:true,
 	},
 	
 	food_training_sim_hard: {
@@ -105,6 +109,8 @@ export default {
 		poop:false,
 		ignore_other_boids:true,
 		ignore_lifecycle:true,
+		score_on_travel:false,
+		score_on_proximity:true,
 	},
 	
 	turning_training_easy: {
@@ -236,7 +242,9 @@ export default {
 			// avg_score:600,
 			// avg_score_rounds: 10,
 			rounds:150
-		}
+		},
+		score_on_travel:false,
+		score_on_proximity:false,
 	},
 	
 	natural_tank: {
