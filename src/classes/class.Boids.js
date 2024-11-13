@@ -1250,7 +1250,7 @@ export class Boid {
 			if ( segmented_vision ) {
 				const segments = this.dna.shapedInt(this.dna.genesFor('vision num segments',2,true), 2, 18, 6, 5 );
 				const cone = this.dna.shapedNumber(this.dna.genesFor('vision cone',2,true), Math.PI*0.5, Math.PI*2, Math.PI, 2 );
-				this.sensors.push( new Sensor({ type:'sense', name: 'v1', segments, cone, color: '#FFFFFFBB', sensitivity:sensitivity/2, detect: detect, x: 0, y: 0, r: radius*1.25, falloff:1.5 }, this ) );
+				this.sensors.push( new Sensor({ type:'sense', name: 'v1', segments, cone, color: '#FFFFFFBB', sensitivity:sensitivity/2, detect: detect, x: 0, y: 0, r: radius*1.25, falloff:1.2 }, this ) );
 			}
 			// binary vision
 			else {

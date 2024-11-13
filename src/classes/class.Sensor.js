@@ -102,37 +102,44 @@ export default class Sensor {
 					// if we are dealing with a rock, we need to go back to treating it like a polygon and not a circle.
 					// otherwise the collision circle engulfs the sensor and we get blinded. We can fake the data by
 					// using a smaller circle in that general direction. This hack prevents us from ever being "inside".
-					if ( touchdist <= 0 ) { objsize = d * 0.4; }
-					const theta = Math.sin( objsize*0.5 / d ); // angle of view from center of object to tangent edge of object 
+					if ( touchdist <= 0 ) { objsize = d * 0.49; }
+					const theta = Math.abs( Math.tan( objsize*0.5 / d ) ); // angle of view from center of object to tangent edge of object 
 					let a = -Math.atan2( -dy, dx ); // note reversal for clockwise calculation (-π .. +π)
 					a -= this.owner.angle; // align sensor with boid direction
 					a += Math.PI; // rotate so that zero starts at butt and positive numbers are clockwise
 					a = utils.mod( (a + Math.PI * 2), (Math.PI * 2) ); // now in range of 0..2π
-					const obj_left = a - theta;
-					const obj_right = a + theta;
-					// TODO: check if object is in viewing cone
-					// check each segment for overlap
-					for ( let s=0; s<this.segments; s++ ) {
-						const overlap1 = utils.Clamp( this.segdata[s].right - obj_left, 0, theta );
-						const overlap2 = utils.Clamp( obj_right - this.segdata[s].left, 0, theta );
-						const overlap = overlap2 - ( theta - overlap1 );
-						let overlap_pct = overlap / this.seglength;
-						// signal falloff exponent
-						if ( this.falloff ) {
-							let prox = 1 - ( d / this.r );
-							if ( prox < 0.01 ) { continue; } // not worth calculating
-							prox = Math.pow( prox, this.falloff );
-							overlap_pct *= prox;
-						}
-						// add up signals - signals can be either a single channel or an average of several channels
-						let detection_index = 0;
-						for ( let sensation of this.detect ) {
-							let value = 0;
-							for ( let channel of sensation ) {
-								value += (obj.sense[channel]||0) * overlap_pct;
+					const obj_left = utils.mod( a - theta, Math.PI * 2 );
+					const obj_right = utils.mod( a + theta, Math.PI * 2 );
+					// check if object is in our viewing cone
+					const proceed = 
+						( obj_right > obj_left && obj_right >= this.segdata[0].left && obj_left <= this.segdata[this.segdata.length-1].right ) ||
+						( obj_right < obj_left && obj_right >= this.segdata[0].left || obj_left <= this.segdata[this.segdata.length-1].right ) ;
+					if ( proceed ) {
+						// check each segment for overlap
+						for ( let s=0; s<this.segments; s++ ) {
+							const overlap1 = utils.Clamp( this.segdata[s].right - obj_left, 0, this.seglength );
+							const overlap2 = utils.Clamp( obj_right - this.segdata[s].left, 0, this.seglength );
+							const overlap = ( obj_right > obj_left )
+								? ( overlap1 - ( this.seglength - overlap2 ) ) // normal situation for most small objects
+								: ( overlap1 + overlap2 ) ; // spans 2π
+							let overlap_pct = overlap / this.seglength;
+							// signal falloff exponent
+							if ( this.falloff ) {
+								let prox = 1 - ( d / this.r );
+								if ( prox < 0.01 ) { continue; } // not worth calculating
+								prox = Math.pow( prox, this.falloff );
+								overlap_pct *= prox;
 							}
-							detection[detection_index+(s*this.detect.length)] += value / sensation.length; // average multiple channels
-							detection_index++;
+							// add up signals - signals can be either a single channel or an average of several channels
+							let detection_index = 0;
+							for ( let sensation of this.detect ) {
+								let value = 0;
+								for ( let channel of sensation ) {
+									value += (obj.sense[channel]||0) * overlap_pct;
+								}
+								detection[detection_index+(s*this.detect.length)] += value / sensation.length; // average multiple channels
+								detection_index++;
+							}
 						}
 					}
 				}
