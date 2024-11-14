@@ -496,3 +496,20 @@ export function murmurhash3_32_gc(key, seed=1) {
 
 	return h1 >>> 0;
 }
+
+// returns false if no collision.
+// returns {x,y} intersect point if collision
+export function getLineIntersection(p0_x, p0_y, p1_x, p1_y, p2_x, p2_y, p3_x, p3_y) {
+	let s1_x = p1_x - p0_x; 
+	let s1_y = p1_y - p0_y; 
+	let s2_x = p3_x - p2_x; 
+	let s2_y = p3_y - p2_y; 
+	let s = (-s1_y * (p0_x - p2_x) + s1_x * (p0_y - p2_y)) / (-s2_x * s1_y + s1_x * s2_y); 
+	if ( s < 0 || s > 1 ) { return false; }
+	let t = (s2_x * (p0_y - p2_y) - s2_y * (p0_x - p2_x)) / (-s2_x * s1_y + s1_x * s2_y);
+	if ( t < 0 || t > 1 ) { return false; }
+	return {
+		x: p0_x + (t * s1_x),
+		y: p0_y + (t * s1_y)
+	};	
+}

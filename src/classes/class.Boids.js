@@ -497,7 +497,7 @@ export class Boid {
 		// UI: toggle collision detection geometry UI
 		if ( ( window.vc.show_collision_detection || this.show_sensors ) && !this.sensor_group ) {
 			this.sensor_group = window.two.makeGroup();
-			this.sensor_group.add( this.sensors.filter( s => s.type=='locater' || s.detect=='food' || s.detect=='obstacles' || s.type==='sense' ).map( i => i.CreateGeometry() ) );
+			this.sensor_group.add( this.sensors.filter( s => s.type=='locater' || s.detect=='food' || s.type=='whisker' || s.detect=='obstacles' || s.type==='sense' ).map( i => i.CreateGeometry() ) );
 			this.container.add(this.sensor_group);
 		}
 		else if ( !( window.vc.show_collision_detection || this.show_sensors ) && this.sensor_group ) {
@@ -1201,6 +1201,38 @@ export class Boid {
 		// SENSORS ------------------------\/--------------------------
 		this.sensors = [];
 		
+		// whiskers
+		const has_whiskers = this.dna.shapedNumber(this.dna.genesFor('has whiskers',2,true)) > 0.18;
+		if ( has_whiskers ) {
+			let whiskers = [];
+			// up to three sets of side whiskers
+			for ( let i=0; i<3; i++ ) {
+				if ( this.dna.shapedNumber(this.dna.genesFor(`side whisker ${i}`,1,true)) < 0.25 ) {
+					const length = this.dna.shapedNumber(this.dna.genesFor(`side whisker ${i} length`,2,1), 0.35, 1, 1, 3 );
+					let angle = this.dna.shapedNumber(this.dna.genesFor(`side whisker ${i} angle`,2,1), 0, Math.PI);
+					// don't get too close to front/rear 
+					angle = utils.Clamp( angle, Math.PI/20, Math.PI-(Math.PI/20) );
+					whiskers.push({l:length, a:angle});
+					whiskers.push({l:length, a:-angle});
+				}
+			}
+			// rear
+			if ( this.dna.shapedNumber(this.dna.genesFor('rear whisker',1,true)) > 0.4 ) {
+				const length = this.dna.shapedNumber(this.dna.genesFor('rear whisker length',2,1), 0.35, 1, 1, 3 );
+				whiskers.push({l:length, a:-Math.PI});
+			}
+			// front - default if no other rolls
+			const radius = this.dna.shapedNumber(this.dna.genesFor('whisker radius',3,2), 80, 700, 300, 3 );
+			if ( !whiskers.length || this.dna.shapedNumber(this.dna.genesFor('front whisker',1,true)) > 0.25 ) {
+				const length = this.dna.shapedNumber(this.dna.genesFor('front whisker length',2,1), 0.35, 1, 1, 3 );
+				whiskers.push({l:length, a:0});
+			}
+			// normalize length values
+			let longest = whiskers.reduce( (a,c) => Math.max(a,c.l), 0 );
+			for ( let w of whiskers ) { w.l = w.l / longest; }
+			this.sensors.push( new Sensor({ whiskers, x:0, y:0, r:radius, type:'whisker', detect:'whisker', color:'#FF22BB77', name:'whisker' }, this ) );		
+		}
+				
 		// experimental: food-locator
 		const has_food_locator = this.dna.shapedNumber(this.dna.genesFor('has food locator',1,true)) > 0.86;
 		if ( has_food_locator ) {
@@ -1305,8 +1337,8 @@ export class Boid {
 		// food and obstacle sensors
 		const my_max_dim = Math.max( this.body.length, this.body.width );
 		const max_sensor_radius = Math.sqrt(my_max_dim) * 50;
-		const min_sensor_radius = Math.min( my_max_dim, max_sensor_radius );
-		for ( let detect of ['food','obstacles'] ) {
+		const min_sensor_radius = Math.min( my_max_dim*1.5, max_sensor_radius );
+		for ( let detect of ['food'/* ,'obstacles' */] ) {
 			let base_num_sensors = this.dna.shapedInt( this.dna.genesFor('base num sensors',2,true) ,0,3,1.5,1.2); // 0..3
 			for ( let n=0; n < base_num_sensors; n++ ) {
 				let sx = 0;
@@ -1389,6 +1421,7 @@ export class Boid {
 				this.sensors.push( new Sensor({detect:'displacement',name:'disp_1x3',interval:1, intervals:3}, this) );
 			}
 		}
+		
 	}
 			
 	Copy( reset=false, dna_mutation=0, brain_mutation=0, speciation_chance=0 ) {

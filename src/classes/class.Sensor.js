@@ -25,8 +25,112 @@ export default class Sensor {
 	// does sensor checks and puts detected values into this.val
 	Sense() {
 		let outputs = [];
+		// compound touch sensor
+		if ( this.type === 'whisker' ) {
+			if ( !this.whiskers ) {
+				this.whiskers = [
+					{a:0, l:1, v:0},
+					{a:-1, l:0.75, v:0},
+					{a:1, l:0.75, v:0}
+				];
+			}
+			this.whiskers.forEach( w => w.v=this.r ); // reset collected values
+			// calc sensor x/y coords in world space
+			let sx = this.owner.x; // + ((this.x * cosAngle) - (this.y * sinAngle));
+			let sy = this.owner.y; // + ((this.x * sinAngle) + (this.y * cosAngle));
+			// find objects that are detected by this sensor
+			let candidates = this.owner.tank.grid.GetObjectsByBox( 
+				sx - this.r,
+				sy - this.r,
+				sx + this.r,
+				sy + this.r,
+				Rock
+			);
+			for ( let o of candidates ) {
+				const circle  = new Circle(sx, sy, this.r);
+				const polygon = new Polygon(o.x, o.y, o.collision.hull);
+				const result  = new Result();
+				if ( circle.collides(polygon, result) ) {
+					for ( let w of this.whiskers ) {
+						// if we are in immediate contact, break. we can't do better. 
+						if ( !w.v ) { continue; }
+						const whisker_length = Math.max( this.owner.collision.radius * 1.5, this.r * (w?.l || 1) );
+						const whisker_angle = this.owner.angle + (w?.a || 0);
+						const ax1 = sx;
+						const ay1 = sy;
+						const ax2 = sx + (whisker_length * Math.cos(whisker_angle)); 
+						const ay2 = sy + (whisker_length * Math.sin(whisker_angle));
+						for( let ix = 0, iy = 1; ix < polygon._edges.length; ix += 2, iy += 2 ) {
+							const next	= ix + 2 < polygon._edges.length ? ix + 2 : 0;
+							const bx1	= polygon._coords[ix];
+							const by1	= polygon._coords[iy];
+							const bx2	= polygon._coords[next];
+							const by2	= polygon._coords[next + 1];
+							const intersect = utils.getLineIntersection(ax1, ay1, ax2, ay2, bx1, by1, bx2, by2);
+							if ( intersect ) {
+								// calculate distance to intersect point
+								const d = Math.sqrt( (intersect.x - sx) * (intersect.x - sx) + (intersect.y - sy) * (intersect.y - sy) );
+								const v = ( d - this.owner.collision.radius ) / whisker_length;
+								if ( v < w.v ) { 
+									w.v = v; 
+									// can't do better than zero
+									if ( v < 0.005 ) { w.v=0; break; }
+								}
+							}
+						}
+					}
+				}
+			}
+			// also check tank edges
+			let lines = [];
+			if ( sx - this.r < 0 ) { // left 
+				lines.push([0,0,0,window.vc.tank.height]);
+			}
+			else if ( sx + this.r > window.vc.tank.width ) { // right
+				lines.push([window.vc.tank.width,0,window.vc.tank.width,window.vc.tank.height]);
+			}
+			if ( sy - this.r < 0 ) { // top 
+				lines.push([0,0,window.vc.tank.width,0]);
+			}
+			else if ( sy + this.r > window.vc.tank.height ) { // bottom
+				lines.push([0,window.vc.tank.height,window.vc.tank.width,window.vc.tank.height]);
+			}
+			if ( lines.length ) {
+				for ( let w of this.whiskers ) {
+					if ( !w.v ) { continue; } // if we are in immediate contact, break. we can't do better. 
+					const whisker_length = Math.max( this.owner.collision.radius * 1.5, this.r * (w?.l || 1) );
+					const whisker_angle = this.owner.angle + (w?.a || 0);
+					const ax1 = sx;
+					const ay1 = sy;
+					const ax2 = sx + (whisker_length * Math.cos(whisker_angle)); 
+					const ay2 = sy + (whisker_length * Math.sin(whisker_angle));
+					for( let l of lines ) {
+						const intersect = utils.getLineIntersection(ax1, ay1, ax2, ay2, ...l);
+						if ( intersect ) {
+							// calculate distance to intersect point
+							const d = Math.sqrt( (intersect.x - sx) * (intersect.x - sx) + (intersect.y - sy) * (intersect.y - sy) );
+							const v = ( d - this.owner.collision.radius ) / whisker_length;
+							if ( v < w.v ) { 
+								w.v = v; 
+								// can't do better than zero
+								if ( v < 0.005 ) { w.v=0; break; }
+							}
+						}
+					}
+				}
+								
+			}
+			// publish the final values
+			for ( let i=0; i < this.whiskers.length; i++ ) {
+				// note inversion: signal goes up as whisker gets shorter
+				this.whiskers[i].v = 1 - utils.clamp( this.whiskers[i].v, 0, 1 );
+				let name = ( this.name || 'whisker' ) + i;
+				outputs.push( {val:(this.whiskers[i].v||0), name} );
+			}
+		}
+		
 		// this is a general purpose sensor for vision, smell, and audio
-		if ( this.type === 'sense' ) {
+		else if ( this.type === 'sense' ) {
 			
 			let sinAngle = Math.sin(this.owner.angle);
 			let cosAngle = Math.cos(this.owner.angle);				
@@ -486,11 +590,63 @@ export default class Sensor {
 		return this.val;
 	}
 	CreateGeometry() {
-		// this can be differentiated by geometry type later. just circles for now.
-		let geo = window.two.makeCircle(this.x, this.y, this.r);
-		geo.fill = 'transparent';
-		geo.linewidth = 1;
-		geo.stroke = this.color || '#AAEEAA77';
-		return geo;
+		let container = window.two.makeGroup();
+		
+		// segmented vision
+		if ( this.segments) {
+			let geo = window.two.makeCircle(this.x, this.y, this.r);
+			geo.fill = 'transparent';
+			geo.linewidth = 1;
+			geo.stroke = this.color || '#AAEEAA77';
+			container.add(geo);
+			// segment lines 
+			for ( let i=0; i<this.segdata.length; i++ ) {
+				const x2 = this.x + (this.r * Math.cos(Math.PI + this.segdata[i].left)); 
+				const y2 = this.y + (this.r * Math.sin(Math.PI + this.segdata[i].left));			
+				let line = window.two.makeLine(this.x, this.y, x2, y2);
+				line.fill = 'transparent';
+				if ( i > 0 ) { line.dashes = [2,8]; }
+				line.linewidth = 1;
+				line.stroke = this.color || '#AAEEAA77';
+				container.add(line);	
+			}
+			// final line
+			const x2 = this.x + (this.r * Math.cos(Math.PI + this.segdata[this.segdata.length-1].right)); 
+			const y2 = this.y + (this.r * Math.sin(Math.PI + this.segdata[this.segdata.length-1].right));			
+			let line = window.two.makeLine(this.x, this.y, x2, y2);
+			line.fill = 'transparent';
+			// line.dashes = [2,8];
+			line.linewidth = 1;
+			line.stroke = this.color || '#AAEEAA77';
+			container.add(line);	
+		}
+		
+		// whisker lines
+		else if ( this.whiskers ) {
+			for ( let w of this.whiskers ) {
+				const whisker_length = Math.max( this.owner.collision.radius * 1.5, this.r * (w?.l || 1) );
+				const whisker_angle = /* this.owner.angle + */ (w?.a || 0);
+				const sx = 0;
+				const sy = 0;
+				const ax2 = sx + (whisker_length * Math.cos(whisker_angle)); 
+				const ay2 = sy + (whisker_length * Math.sin(whisker_angle));
+				let line = window.two.makeLine(sx, sy, ax2, ay2);
+				line.fill = 'transparent';
+				line.linewidth = 2;
+				line.stroke = this.color || '#AAEEAA77';
+				container.add(line);
+			}
+		}
+		
+		// basic circle
+		else {
+			let geo = window.two.makeCircle(this.x, this.y, this.r);
+			geo.fill = 'transparent';
+			geo.linewidth = 1;
+			geo.stroke = this.color || '#AAEEAA77';
+			container.add(geo);
+		}
+						
+		return container;
 	}
 }
