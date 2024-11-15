@@ -43,9 +43,7 @@
 				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_medium' ) );
 				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_hard' ) );
 				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_xhard' ) );
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'treasure_hunt_training' ) );
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'food_training_sim_medium' ) );
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'food_training_sim_hard' ) );
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'treasure_hunt_perpetual' ) );
 				break;
 			}
 			case 'natural_tank' : {
@@ -72,8 +70,16 @@
 				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_xhard' ) );
 				break;
 			}
-			case 'treasure_hunt_training' : {
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'treasure_hunt_training' ) );
+			case 'treasure_hunt_easy' : {
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'treasure_hunt_easy' ) );
+				break;
+			}
+			case 'treasure_hunt_hard' : {
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'treasure_hunt_hard' ) );
+				break;
+			}
+			case 'treasure_hunt_perpetual' : {
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'treasure_hunt_perpetual' ) );
 				break;
 			}
 			case 'steering_comp' : {
@@ -81,7 +87,7 @@
 				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_medium' ) );
 				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_hard' ) );
 				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_xhard' ) );
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'treasure_hunt_training' ) );
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'treasure_hunt_easy' ) );
 				break;
 			}
 			case 'food_training_sim_easy' : {
@@ -124,7 +130,9 @@
 		<button @click="RunProgram('turning_training_medium')" style="width:100%; margin-bottom:0.25rem;">Steering - Medium</button>
 		<button @click="RunProgram('turning_training_hard')" style="width:100%; margin-bottom:0.25rem;">Steering - Hard</button>
 		<button @click="RunProgram('turning_training_xhard')" style="width:100%; margin-bottom:0.25rem;">Steering - Extra Hard</button>
-		<button @click="RunProgram('treasure_hunt_training')" style="width:100%; margin-bottom:0.25rem;">Steering - Treasure Hunt</button>
+		<button @click="RunProgram('treasure_hunt_easy')" style="width:100%; margin-bottom:0.25rem;">Treasure Hunt - Easy</button>
+		<button @click="RunProgram('treasure_hunt_hard')" style="width:100%; margin-bottom:0.25rem;">Treasure Hunt - Hard</button>
+		<button @click="RunProgram('treasure_hunt_perpetual')" style="width:100%; margin-bottom:0.25rem;">Treasure Hunt - Perpetual</button>
 		<button @click="RunProgram('steering_comp')" style="width:100%; margin-bottom:0.25rem;">Steering - Comprehensive</button>
 		<button @click="RunProgram('food_training_sim_easy')" style="width:100%; margin-bottom:0.25rem;">Food Chase - Easy</button>
 		<button @click="RunProgram('food_training_sim_medium')" style="width:100%; margin-bottom:0.25rem;">Food Chase - Medium</button>

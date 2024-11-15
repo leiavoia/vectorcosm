@@ -121,14 +121,16 @@ export default class Vectorcosm {
 			// SimulationFactory(this.tank, 'turning_training_medium'),
 			// SimulationFactory(this.tank, 'turning_training_hard'),
 			// SimulationFactory(this.tank, 'turning_training_xhard'),
-			// SimulationFactory(this.tank, 'treasure_hunt_training'),
 			// SimulationFactory(this.tank, 'food_training_sim_easy'),
 			// SimulationFactory(this.tank, 'food_training_sim_medium'),
 			// SimulationFactory(this.tank, 'food_training_sim_hard'),
 			// SimulationFactory(this.tank, 'food_training_sim_forever'),
 			// SimulationFactory(this.tank, 'edge_training')
-			SimulationFactory(this.tank, 'natural_tank'),
-			// SimulationFactory(this.tank, 'pitri_dish')
+			// SimulationFactory(this.tank, 'natural_tank'),
+			// SimulationFactory(this.tank, 'petri_dish')
+			// SimulationFactory(this.tank, 'treasure_hunt_easy'),
+			// SimulationFactory(this.tank, 'treasure_hunt_hard'),
+			SimulationFactory(this.tank, 'treasure_hunt_perpetual'),
 		];
 		
 		this.LoadNextSim();
