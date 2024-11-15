@@ -460,20 +460,16 @@ export class FoodChaseSimulation extends Simulation {
 			const dx = Math.abs(food.x - b.x);
 			const dy = Math.abs(food.y - b.y);
 			const d = Math.sqrt(dx*dx + dy*dy);
-			let r = Math.max( b.body.width, b.body.length ) / 2;
-			let touching = r + food.r;
+			let touching = b.collision.radius + food.collision.radius;
 			const margin = 150;
-			if ( d < touching + margin ) {
+			if ( this.settings?.score_on_proximity && d < touching + margin ) {
 				// small bonus for getting close
-				let score = 0;
-				if ( this.settings?.score_on_proximity ) {
-					score = ( margin - ( d - touching ) ) / margin ;
-					b.fitness_score += score * ( 20 / Math.max( b.body.width, b.body.length ) );  // bigger creatures get less score
-				}
-				// big points if touching
-				if ( d <= touching ) { 
-					b.fitness_score += 5 * ( 20 / Math.max( b.body.width, b.body.length ) );  // bigger creatures get less score
-				}
+				let score = ( margin - ( d - touching ) ) / margin ;
+				b.fitness_score += score * ( 20 / Math.max( b.body.width, b.body.length ) );  // bigger creatures get less score
+			}
+			// big points if touching
+			if ( d <= touching ) { 
+				b.fitness_score += 5 * ( 20 / Math.max( b.body.width, b.body.length ) );  // bigger creatures get less score
 			}
 						
 		}		
