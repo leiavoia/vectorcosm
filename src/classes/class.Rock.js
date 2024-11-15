@@ -105,6 +105,8 @@ export default class Rock {
 				else if ( p[1] + this.y > window.vc.tank.height ) { p[1] = window.vc.tank.height - this.y; }
 			}
 			// recalculate bounds in case adjustments were made
+			this.x1 = 0;
+			this.y1 = 0;
 			this.x2 = 0;
 			this.y2 = 0;
 			for ( let p of this.pts ) {
