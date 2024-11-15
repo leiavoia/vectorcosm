@@ -206,14 +206,14 @@ export default class Simulation {
 			
 			// remove deadbeats
 			if ( this.settings.min_score !== null ) {
-				this.tank.boids.filter( x => x.total_fitness_score < this.settings.min_score ).forEach( x => x.Kill() );
+				this.tank.boids.filter( x => x.total_fitness_score < this.settings.min_score ).forEach( x => x.Kill('culled') );
 			}
 			this.tank.boids = this.tank.boids.filter( x => !x.dead );
 			// sort boids by fitness score ASC
 			this.tank.boids.sort( (a,b) => a.total_fitness_score - b.total_fitness_score );
 			// cull the herd, keep the winners
 			const numkill = Math.trunc(this.tank.boids.length * this.settings.cullpct);
-			this.tank.boids.splice(0,numkill).forEach( x=> x.Kill() );
+			this.tank.boids.splice(0,numkill).forEach( x=> x.Kill('culled') );
 			// create boids to make up the difference
 			let n = this.settings.num_boids;
 			let diff = n - this.tank.boids.length;	
@@ -275,7 +275,7 @@ export default class Simulation {
 			}			
 		}
 		else if ( diff < 0 ) {		
-			this.tank.boids.splice(0,-diff).forEach( x => x.Kill() );
+			this.tank.boids.splice(0,-diff).forEach( x => x.Kill('overpopulated') );
 		}
 	}
 	

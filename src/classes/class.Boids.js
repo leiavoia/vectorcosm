@@ -324,7 +324,7 @@ export class Boid {
 		if ( this.age > this.lifespan && !window.vc.simulation.settings?.ignore_lifecycle ) {
 			// chance to live a while longer
 			if ( Math.random() < 0.002 ) {
-				this.Kill();
+				this.Kill('age');
 				return;
 			}
 		}
@@ -452,7 +452,7 @@ export class Boid {
 		
 		// you ded?
 		if ( this.metab.energy <= 0 && !window.vc.simulation.settings?.ignore_lifecycle ) {
-			this.Kill();
+			this.Kill('energy');
 			return;
 		}
 		
@@ -683,9 +683,9 @@ export class Boid {
 			}
 		}
 		// if an object pushed us out of bounds and we gets stuck outside tank, remove
-		if ( candidates.length ) {
-			if ( this.x < 0 || this.x > window.vc.tank.width ) { this.Kill(); return; };
-			if ( this.y < 0 || this.y > window.vc.tank.height ) { this.Kill(); return; };
+		if ( candidates.length && window.vc.simulation.stats.round.time < 1 ) { // limit to startup
+			if ( this.x < 0 || this.x > window.vc.tank.width ) { this.Kill('OOB'); return; };
+			if ( this.y < 0 || this.y > window.vc.tank.height ) { this.Kill('OOB'); return; };
 		}		
 		// update drawing geometry
 		// optimization: if turbo is enabled, draw nothing
@@ -769,7 +769,7 @@ export class Boid {
 					return 0; 
 				}
 				// age restricted
-				if ( m.hasOwnProperty('min_age') && ( this.age < m.min_age && !window.vc.simulation.settings?.ignore_lifecycle ) ) { 
+				if ( m.hasOwnProperty('min_age') && this.age < m.min_age && !window.vc.simulation.settings?.ignore_lifecycle ) { 
 					m.last_amount = 0;
 					m.this_stoke_time = 0;
 					return 0; 
@@ -901,14 +901,17 @@ export class Boid {
 			this.collision.radius = Math.max(this.length, this.width) / 2;
 		}
 	}
-	Kill() {
+	Kill( cause='unknown' ) {
 		this.body.geo.remove();
 		this.container.remove();
 		this.dead = true;
 		// autopsy
-		if ( this.metab.energy < 0.01 ) {
+		if ( cause ) {
+			this.stats.death.cause = cause
+		}
+		else if ( this.metab.energy < 0.01 ) {
 			this.stats.death.cause = 'energy';
-			}
+		}
 		else if ( this.age > this.lifespan ) {
 			this.stats.death.cause = 'age';
 		}
@@ -919,6 +922,7 @@ export class Boid {
 		this.stats.death.energy_remaining_pct = Math.floor( ( this.stats.death.energy_remaining / this.metab.max_energy ) * 100 );
 		this.stats.death.age_remaining = Math.floor( this.lifespan - this.age );
 		this.stats.death.age_remaining_pct = Math.floor( ( 1 - (this.age / this.lifespan) ) * 100 );
+		// console.log(this.stats.death);
 	}
 
 	static Random(x,y,tank) {

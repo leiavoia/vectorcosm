@@ -78,7 +78,7 @@ export default class Tank {
 	}
 
 	Sterilize() {
-		this.boids.forEach( x => x.Kill() );
+		this.boids.forEach( x => x.Kill('sterilized') );
 		this.boids.length = 0;
 		this.foods.forEach( x => x.Kill() );
 		this.foods.length = 0;
