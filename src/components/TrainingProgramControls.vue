@@ -102,6 +102,14 @@
 				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'food_training_sim_hard' ) );
 				break;
 			}
+			case 'obstacle_course' : {
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'obstacle_course' ) );
+				break;
+			}
+			case 'race_track' : {
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'race_track' ) );
+				break;
+			}
 			case 'food_training_sim_comp' : {
 				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'food_training_sim_easy' ) );
 				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'food_training_sim_medium' ) );
@@ -138,6 +146,8 @@
 		<button @click="RunProgram('food_training_sim_medium')" style="width:100%; margin-bottom:0.25rem;">Food Chase - Medium</button>
 		<button @click="RunProgram('food_training_sim_hard')" style="width:100%; margin-bottom:0.25rem;">Food Chase - Hard</button>
 		<button @click="RunProgram('food_training_sim_comp')" style="width:100%; margin-bottom:0.25rem;">Food Chase - Comprehensive</button>
+		<button @click="RunProgram('obstacle_course')" style="width:100%; margin-bottom:0.25rem;">Obstacle Course</button>
+		<button @click="RunProgram('race_track')" style="width:100%; margin-bottom:0.25rem;">Race Track</button>
 		
 		
 		<!-- Programs -->
