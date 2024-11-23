@@ -1,11 +1,12 @@
 import Tank from '../classes/class.Tank.js'
+import TankMaker from '../classes/class.TankMaker.js'
 import Food from '../classes/class.Food.js'
 import Rock from '../classes/class.Rock.js'
 import * as utils from '../util/utils.js'
 import { BoidFactory } from '../classes/class.Boids.js'
 import SimulationLibrary from "./SimulationLibrary.js";
 import {Circle} from 'collisions';
-import { RandomPlant, PendantLettuce, VectorGrass, WaveyVectorGrass } from '../classes/class.Plant.js'
+import { RandomPlant } from '../classes/class.Plant.js'
 
 export function SimulationFactory( tank, name_or_settings ) {
 	if ( name_or_settings in SimulationLibrary ) {
@@ -343,7 +344,7 @@ export class NaturalTankSimulation extends Simulation {
 		this.Reset();
 	}
 	Reset() {
-		// reset entire population
+		// reset existing population
 		let spawn_x = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.width; 
 		let spawn_y = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.height; 			
 		let new_angle = Math.random() * Math.PI * 2;
@@ -358,6 +359,11 @@ export class NaturalTankSimulation extends Simulation {
 			b.y = spawn_y;
 			b.total_fitness_score = 0;
 			b.fitness_score = 0;
+		}
+		// make default decor
+		if ( this.settings?.random_terrain ) {
+			const tm = new TankMaker( this.tank, {} );
+			tm.Make();
 		}
 		// randomize rocks
 		if ( this.settings?.num_rocks ) {

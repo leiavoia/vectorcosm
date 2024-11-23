@@ -30,12 +30,10 @@ export default class Tank {
 		'Sunrise': ['#301A30','#4E2237','#2b0a36'],
 		'Basalt': ['#333333','#383533'],
 		'Obsidian': ['#0a0a0a','#111111','#1a1a1a'],
-		'Kelp': ['#07290C','#001B04','transparent'],
+		'Kelp': ['#07290C','#001B04','#112902','transparent'],
 		'Moss Garden': ['#07290C','#001B04','#0C1F01'],
 		'Moonlight': ['#001C41','#001C41','#00355e','#05080f','#001C41','#001C41','#00355e','#05080f','#004b9b'],
 		'Crushed Grapes': ['#081212','#2D1F04','#3A2905','#2D2908','#1F132B','#140C1C','#0F2222','#132C2C'],
-		// 'Emeralds': ['#09FFFF09','#10FFFF0D','#20FFFF14','2DEEEE2D'],
-		// 'Glass': ['#FFFFFF04','#FFFFFF08','#FFFFFF0C','#FFFFFF10'],
 	};
 						
 	constructor( w, h ) {

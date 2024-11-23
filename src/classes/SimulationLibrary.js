@@ -334,13 +334,13 @@ export default {
 	natural_tank: {
 		simtype: 'NaturalTankSimulation',
 		name: 'Natural Tank',
-		num_boids: 60,
+		num_boids: 40,
 		random_boid_pos: true,
 		random_food_pos: true,
 		time: 0,
 		// min_score: 5,
 		max_mutation: 0.2,
-		num_rocks: 3,
+		num_rocks: 0,
 		num_plants: 10,
 		species:'random',
 		scale: 0.5,
@@ -348,9 +348,10 @@ export default {
 		num_foods: 0,
 		food_friction: true,
 		tide: 600,
-		add_decor: 0.75,
+		add_decor: false,
 		random_boid_angle: true,
 		randomize_age:false,
+		random_terrain:true,
 		allow_speciation: false // temporary until we get brain rewiring figured out
 	},
 			
