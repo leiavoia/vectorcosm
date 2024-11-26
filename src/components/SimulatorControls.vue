@@ -4,10 +4,9 @@
 	// you can optimize package size by not including everything. see:
 	// https://www.chartjs.org/docs/latest/getting-started/integration.html
 	import * as utils from '../util/utils.js'
+	import TankMaker from '../classes/class.TankMaker.js'
 	import Tank from '../classes/class.Tank.js'
-	import Simulation from '../classes/class.Simulation.js'
 	import { ref, reactive, markRaw, shallowRef, nextTick, triggerRef, onMounted, watch } from 'vue'
-	import { BoidFactory } from '../classes/class.Boids.js'
 
 	// graphing and chart setup				
 	Chart.defaults.color = '#FFF';
@@ -219,6 +218,22 @@
 	function LoadPopulation() {
 		window.vc.LoadPopulation();
 	}
+	
+	function RandomTank() {
+		// this is really overreaching and we should make something cleaner
+		const w = window.vc.tank.width;
+		const h = window.vc.tank.height;
+		const boids = window.vc.tank.boids.splice(0,window.vc.tank.boids.length);
+		window.vc.tank.Kill();
+		window.vc.tank = new Tank( w, h );
+		window.vc.tank.boids = boids;
+		window.vc.tank.boids.forEach( b => b.tank = window.vc.tank );
+		props.sim.tank = window.vc.tank;
+		window.vc.tank.MakeBackground();
+		const tm = new TankMaker( window.vc.tank, {} );
+		tm.Make();
+		window.vc.ResetCameraZoom();
+	}
 				
 </script>
 
@@ -227,12 +242,13 @@
 
 		<button @click="TogglePause()" id="pause_button">Pause</button>
 		<button @click="ToggleSimulatorFF()" id="fast_forward_button">FF</button>
-		<button @click="endSim()">EndSim</button>
+		<button @click="endSim()">End</button>
 		<button @click="$emit('close')" id="hide_ui_button">UI</button>
 		<!-- <button @click="ToggleShowSensors()" id="show_sensors_button">Sensors</button> -->
 		<button @click="ToggleShowBrainmap()" id="show_brainmap_button">Brain</button>
 		<button @click="SavePopulation()" id="save_leader_button">Save</button>
 		<button @click="LoadPopulation()" id="load_leader_button">Load</button>
+		<button @click="RandomTank()" id="random_tank_button">🎲</button>
 		
 		<br />
 		<br/>
