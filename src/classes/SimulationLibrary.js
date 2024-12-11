@@ -336,7 +336,7 @@ export default {
 		name: 'Natural Tank',
 		num_boids: 40,
 		random_boid_pos: true,
-		random_food_pos: true,
+		safe_spawn: true,
 		time: 0,
 		// min_score: 5,
 		max_mutation: 0.2,

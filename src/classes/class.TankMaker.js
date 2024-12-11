@@ -65,6 +65,9 @@ export default class TankMaker {
 			this.tank.MakePrettyDecor();
 		}
 		
+		// find safe spawning points for plants and boids
+		this.tank.FindSafeZones();
+		
 		// plants grow on rocks, so resetting rocks resets plants too
 		if ( window.vc.simulation ) {
 			window.vc.simulation.SetNumPlants(window.vc.simulation.settings.num_plants || 0);	

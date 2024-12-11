@@ -273,6 +273,11 @@ export default class Simulation {
 				b.angle = Math.random() * Math.PI * 2;
 				b.x = (Math.random() * this.tank.width * 0.8) + this.tank.width * 0.1;
 				b.y = (Math.random() * this.tank.height * 0.6) + this.tank.height * 0.1; // stay away from the bottom
+				if ( this.settings?.safe_spawn && this.tank.safe_pts?.length ) {
+					const p = this.tank.safe_pts.pickRandom();
+					b.x = p[0] + ( Math.random() * p[2]*1.4 - p[2]*0.7 ); 
+					b.y = p[1] + ( Math.random() * p[2]*1.4 - p[2]*0.7 ); 
+				}				
 				this.tank.boids.push(b);
 			}			
 		}
@@ -315,6 +320,9 @@ export default class Simulation {
 				this.tank.MakePrettyDecor();
 			}
 		}
+		// redefine safe spawn points now that landscape has changed
+		this.tank.FindSafeZones();
+		
 		// plants grow on rocks, so resetting rocks resets plants too
 		this.SetNumPlants(this.settings.num_plants || 0);
 	}
@@ -344,6 +352,24 @@ export class NaturalTankSimulation extends Simulation {
 		this.Reset();
 	}
 	Reset() {
+		// make default decor
+		if ( this.settings?.random_terrain ) {
+			const tm = new TankMaker( this.tank, {} );
+			tm.Make();
+		}
+		// randomize rocks
+		else if ( this.settings?.num_rocks ) {
+			this.SetNumRocks(this.settings?.num_rocks);
+		}
+		// substrate and placed stones
+		if ( this.settings?.add_decor ) { 
+			this.tank.MakePrettyDecor();
+		}
+		// plants
+		if ( this.settings?.num_plants ) { 
+			this.SetNumPlants(this.settings?.num_plants);
+		}
+		// this.tank.FindSafeZones();
 		// reset existing population
 		let spawn_x = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.width; 
 		let spawn_y = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.height; 			
@@ -352,6 +378,11 @@ export class NaturalTankSimulation extends Simulation {
 			if ( this.settings?.random_boid_pos ) {
 				spawn_x = Math.random() * this.tank.width; 
 				spawn_y = Math.random() * this.tank.height; 			
+				if ( this.settings?.safe_spawn && this.tank.safe_pts?.length ) {
+					const p = this.tank.safe_pts.pickRandom();
+					spawn_x = p[0] + ( Math.random() * p[2]*1.4 - p[2]*0.7 ); 
+					spawn_y = p[1] + ( Math.random() * p[2]*1.4 - p[2]*0.7 ); 
+				}
 			}
 			b.Reset();
 			b.angle = ( this.settings?.random_boid_angle ? (Math.random() * Math.PI * 2) : new_angle ),
@@ -359,23 +390,6 @@ export class NaturalTankSimulation extends Simulation {
 			b.y = spawn_y;
 			b.total_fitness_score = 0;
 			b.fitness_score = 0;
-		}
-		// make default decor
-		if ( this.settings?.random_terrain ) {
-			const tm = new TankMaker( this.tank, {} );
-			tm.Make();
-		}
-		// randomize rocks
-		if ( this.settings?.num_rocks ) {
-			this.SetNumRocks(this.settings?.num_rocks);
-		}
-		// substrate and placed stones
-		else if ( this.settings?.add_decor ) { 
-			this.tank.MakePrettyDecor();
-		}
-		// plants
-		if ( this.settings?.num_plants ) { 
-			this.SetNumPlants(this.settings?.num_plants);
 		}
 	}	
 }

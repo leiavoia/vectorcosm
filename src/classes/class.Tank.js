@@ -4,7 +4,7 @@ import * as utils from '../util/utils.js';
 import SpaceGrid from '../classes/class.SpaceGrid.js';
 import DataGrid from '../classes/class.DataGrid.js';
 import Rock from '../classes/class.Rock.js';
-import {Polygon, Collisions} from 'collisions';
+import {Circle, Polygon, Result, Collisions} from 'collisions';
 
 export default class Tank {
 
@@ -74,6 +74,7 @@ export default class Tank {
 	Kill() {
 		if ( this.bg ) { this.bg.remove(); }
 		if ( this.tankframe ) { this.tankframe.remove(); }
+		if ( this.spgeo ) { this.spgeo.remove(); }
 		this.DrawDebugBoundaryRectangle(false);
 		for ( let r of this.obstacles ) { r.Kill(); }
 		this.Sterilize();
@@ -550,6 +551,63 @@ export default class Tank {
 			delete this.obstacles[i].collider;
 		}		
 	}
-
+	
+	FindSafeZones() {
+		// [!]HACKY - in order to get collision detection to work with recently added rocks, 
+		// we have to insert the rocks into the system temporarily here. Grid data
+		// will be automatically cleared and reset on the next frame anyway.
+		this.grid.Clear();
+		for ( let o of this.obstacles ) { this.grid.Add(o); }
+		// find safe points using a grid pattern
+		this.safe_pts = [];
+		let steps = 6;
+		let x_step = this.width / steps;
+		let y_step = this.height / steps;
+		for ( let x = x_step*0.5; x < this.width; x += x_step ) {
+			for ( let y = y_step*0.5; y < this.height; y += y_step ) {
+				let r = utils.RandomInt( 125, 600 );
+				let my_x = utils.Clamp( x + ( Math.random() * x_step - x_step/2 ), r, this.width - r );
+				let my_y =  utils.Clamp( y + ( Math.random() * y_step - y_step/2 ), r, this.height - r );
+				// look for collisions
+				const result = new Result();
+				let touching = false;
+				let attempts = 3;
+				do {
+					touching = false;
+					let candidates = this.grid.GetObjectsByBox( my_x - r, my_y - r, my_x + r, my_y + r, Rock );
+					for ( let o of candidates ) {
+						const circle  = new Circle(my_x, my_y, r);
+						const polygon = new Polygon(o.x, o.y, o.collision.hull);
+						let gotcha = circle.collides(polygon, result);
+						// response
+						if ( gotcha ) {
+							my_x -= result.overlap * result.overlap_x;
+							my_y -= result.overlap * result.overlap_y;
+							// stay in the box
+							if ( my_x < r ) { my_x = r; }
+							else if ( my_x > this.width - r ) { my_x = this.width - r; }
+							if ( my_y < r ) { my_y = r; }
+							else if ( my_y > this.height - r ) { my_y = this.height - r; }
+						}
+						touching = touching || gotcha;
+					}					
+				} while ( touching && attempts-- )
+				if ( !touching ) {
+					this.safe_pts.push( [my_x, my_y, r] );
+				}
+			} 
+		} 
+		// debug visualization
+		// if ( this.spgeo ) { this.spgeo.remove(); }
+		// this.spgeo = window.two.makeGroup();
+		// for ( let p of this.safe_pts ) {
+		// 	let c = window.two.makeCircle( p[0], p[1], p[2] );
+		// 	c.fill = 'transparent';
+		// 	c.stroke = 'red';
+		// 	c.linewidth = 5;
+		// 	this.spgeo.add( c );
+		// }
+		// window.vc.AddShapeToRenderLayer(this.spgeo, +2);	
+	}	
 
 }
