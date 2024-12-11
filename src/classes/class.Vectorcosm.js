@@ -155,11 +155,11 @@ export default class Vectorcosm {
 			if ( this.tank.bg ) { this.tank.bg.visible = false; }
 			window.vc.animate_boids = false;
 			window.vc.animate_plants = false;
-			if ( style == 'Zen' ) { this.tank.bg_theme = 'White'; }
-			else if ( style == 'Grey' ) { this.tank.bg_theme = 'Grey'; }
-			else { this.tank.bg_theme = 'Abysmal'; }
-			this.tank.bg_theme = Tank.backdrop_themes.find( t => t.name == this.tank.bg_theme );
-			document.body.setAttribute("class", document.body.getAttribute("class").replace(/\s*bg-theme-\w+/, '') + ' ' + this.tank.bg_theme.class );
+			let bg_theme = 'Abysmal';
+			if ( style == 'Zen' ) { bg_theme = 'White'; }
+			else if ( style == 'Grey' ) { bg_theme = 'Grey'; }
+			bg_theme = Tank.backdrop_themes.find( t => t.name == bg_theme );
+			document.body.setAttribute("class", document.body.getAttribute("class").replace(/\s*bg-theme-\w+/, '') + ' ' + bg_theme.class );
 		}
 		else {
 			if ( this.tank.bg ) { this.tank.bg.visible = true; }
