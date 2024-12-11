@@ -721,8 +721,10 @@ export class Boid {
 					const dy = Math.abs(food.y - this.y);
 					const d = Math.sqrt(dx*dx + dy*dy);
 					if ( d > this.collision.radius + food.r ) { continue; }
-					// take a bite
-					this.metab.bite_time = this.traits.bite_speed; // reset bite, regardless of morsel size
+					// take a bite - reset bite, regardless of morsel size
+					if ( !window.vc.simulation.settings?.ignore_lifecycle ) {
+						this.metab.bite_time = this.traits.bite_speed;
+					}
 					const space_left = this.metab.stomach_size - this.metab.stomach_total;
 					const bitesize = Math.min( space_left, this.metab.bite_size );
 					const morsel = food.Eat( bitesize );
