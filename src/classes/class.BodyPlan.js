@@ -186,11 +186,37 @@ export default class BodyPlan {
 				// technical: two.js has update hooks connected to splice function
 				this.geo.vertices.splice(0, this.geo.vertices.length, ...anchors);
 			}
-			this.geo.linewidth = this.linewidth;
-			this.geo.stroke = this.stroke;
-			this.geo.fill = this.fill;
-			this.geo.curved = this.curved;
-			this.geo.dashes = this.dashes;
+			
+			// Vector style
+			if ( window.vc.render_style == 'Vector' ) {
+				// vectrex mode
+				this.geo.linewidth = 2;
+				this.geo.stroke = '#6cf';
+				this.geo.fill = 'transparent';
+			}
+			// Zen white
+			else if ( window.vc.render_style == 'Zen' ) {
+				// vectrex mode
+				this.geo.linewidth = 2;
+				this.geo.stroke = '#000';
+				this.geo.fill = 'transparent';
+			}
+			// Grey
+			// else if ( window.vc.render_style == 'Grey' ) {
+			// 	// vectrex mode
+			// 	this.geo.linewidth = 2;
+			// 	this.geo.stroke = '#FFF';
+			// 	this.geo.fill = 'transparent';
+			// }
+			// Natural style
+			else {
+				this.geo.linewidth = this.linewidth;
+				this.geo.stroke = this.stroke;
+				this.geo.fill = this.fill;
+				this.geo.curved = this.curved;
+				this.geo.dashes = this.dashes;
+			}
+			
 		}
 	}
 	

@@ -154,7 +154,7 @@ export class Boid {
 		this.container.position.x = x;
 		this.container.position.y = y;
 		this.container.visible = true;
-		window.vc.AddShapeToRenderLayer(this.container); // main layer
+		window.vc.AddShapeToRenderLayer(this.container,1); // layer on top to prevent poor drawing order
 		// neuro stuff
 		this.brain = null;
 		// vision and sensors

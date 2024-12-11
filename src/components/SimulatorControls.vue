@@ -232,6 +232,7 @@
 		window.vc.tank.MakeBackground();
 		const tm = new TankMaker( window.vc.tank, {} );
 		tm.Make();
+		window.vc.SetRenderStyle( window.vc.render_style );
 		window.vc.ResetCameraZoom();
 	}
 				

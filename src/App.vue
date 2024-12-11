@@ -45,6 +45,8 @@ let braingraph = null;
 
 let focus_boid_data = ref();
 
+let render_styles = ['Natural', 'Vector', 'Zen', 'Grey'];
+
 // subscriptions to critical events
 let frameUpdateSubscription = PubSub.subscribe('frame-update', (msg,data) => {
 	// copy data from boid in focus. 
@@ -243,7 +245,9 @@ const keyFunctionMap = {
 			vc.LoadTank();
 		},
 	'1': _ => {
-			vc.ToggleShowSensors();
+			// vc.ToggleShowSensors();
+			render_styles.push( render_styles.shift() );
+			vc.SetRenderStyle( render_styles[0] );
 		},
 	'2': _ => {
 			ToggleUI();

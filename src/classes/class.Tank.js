@@ -9,6 +9,10 @@ import {Polygon, Collisions} from 'collisions';
 export default class Tank {
 
 	static backdrop_themes = [
+		{ name: 'White', class: 'bg-theme-white', omitFromRandom:true },
+		{ name: 'Black', class: 'bg-theme-black', omitFromRandom:true },
+		{ name: 'Grey', class: 'bg-theme-grey', omitFromRandom:true },
+		{ name: 'Abysmal', class: 'bg-theme-abysmal' },
 		{ name: 'Deepwater', class: 'bg-theme-deepwater' },
 		{ name: 'Algae', class: 'bg-theme-algae' },
 		{ name: 'Bleak', class: 'bg-theme-bleak' },
@@ -48,7 +52,7 @@ export default class Tank {
 		this.plants = [];
 		this.whirls = []; // defined later for generating currents
 		this.bg_opacity = 'random'; // 'random', zero, or 0..1
-		this.bg_visible = true; 		
+		this.bg_visible = window.vc.render_style == 'Natural'; 		
 		this.bg_theme = 'random';
 		// first param can be JSON to rehydrate entire object from save
 		if ( w && typeof w === 'object' ) {
@@ -253,7 +257,7 @@ export default class Tank {
 		// backdrop theme
 		let bg_theme;
 		if ( this.bg_theme == 'random' ) { 
-			bg_theme = Tank.backdrop_themes.pickRandom()
+			bg_theme = Tank.backdrop_themes.filter( x => !x.omitFromRandom ).pickRandom();
 		}
 		else {
 			bg_theme = Tank.backdrop_themes.find( x => x.name == this.bg_theme );
@@ -264,14 +268,13 @@ export default class Tank {
 		document.body.setAttribute("class", document.body.getAttribute("class").replace(/\s*bg-theme-\w+/, '') + ' ' + bg_theme.class );
 		
 		// tank frame
+		if ( this.tankframe ) { this.tankframe.remove(); }
 		this.tankframe = window.two.makeRectangle(this.width/2, this.height/2, this.width, this.height );
 		this.tankframe.stroke = "#888888";
 		this.tankframe.linewidth = '2';
 		this.tankframe.fill = 'transparent';		
 		window.vc.AddShapeToRenderLayer(this.tankframe, '-2');
 						
-		// return;
-		
 		if ( this.bg ) { this.bg.remove(); }
 		this.bg = window.two.makeGroup();
 		

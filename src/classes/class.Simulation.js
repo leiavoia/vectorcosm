@@ -331,8 +331,8 @@ export default class Simulation {
 				if ( 'RandomizeAge' in plant ) { plant.RandomizeAge(); }
 				this.tank.plants.push(plant);
 				// [!] inconsistent behavior with rocks which automatically place themselves
-				window.vc.AddShapeToRenderLayer( plant.geo, Math.random() > 0.5 ? '0' : '-1' );
-				// window.vc.AddShapeToRenderLayer( plant.geo, '-1' );
+				// window.vc.AddShapeToRenderLayer( plant.geo, Math.random() > 0.5 ? '0' : '-1' );
+				window.vc.AddShapeToRenderLayer( plant.geo, '0' );
 			}
 		}
 	}

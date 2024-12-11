@@ -21,7 +21,7 @@ export default class Food {
 		this.lifespan = 60 + Math.random() * 120;
 		this.nutrients = new Array(8); // as percentages. values add to 1
 		if ( !params || !params.nutrients ) { 
-			for ( let i=0; i < this.nutrients.length; i++ ) { 
+			for ( let i=0; i < this.nutrients.length; i++ ) {
 				this.nutrients[i] = Math.random(); 
 			}
 		}
@@ -57,12 +57,6 @@ export default class Food {
 			this.nutrients = this.nutrients.map( v => v / nutrient_total );
 		}
 			
-		// rendering
-		let points = this.complexity+2;
-		if ( points>=7 ) { points=8 } // unicode doesnt have heptagons ;-( 
-		this.geo = window.two.makeCircle(this.x,this.y,this.r);
-		// this.geo = window.two.makePolygon(this.x,this.y,this.r,points);
-		
 		// colors hardcoded mostly for aesthetics. you could change them.
 		let colors = [
 			'#C42452',
@@ -89,52 +83,7 @@ export default class Food {
 		}
 		components.sort( (a,b) => a.pct - b.pct );
 		
-		// let render = 'gradient'; // or 'simple
-		let render = 'simple'; // or 'gradient
-		
-		// gradient rendering method
-		if ( render == 'gradient' ) {
-			const stops = [];
-			let running_total = 0;
-			for ( let i=0; i < components.length; i++ ) {
-				// add a zero stop if this is our first color
-				if ( !running_total ) {
-					stops.push( new Two.Stop(0, components[i].color) );
-				}
-				// regular stop
-				running_total += components[i].pct;
-				if ( running_total > 0.999 ) { running_total = 1; }
-				stops.push( new Two.Stop(running_total, components[i].color) ); /// 12 ???
-			}
-			// let grad = window.two.makeRadialGradient(0, 1, 1.2, ...stops );
-			let grad = window.two.makeLinearGradient(0, 1, 0, 0, ...stops );
-			grad.units = 'objectBoundingBox'; // super important
-			grad.spread = 'pad';
-			this.geo.fill = grad;
-			this.geo.stroke = grad; // components[components.length-1].color;
-			this.geo.linewidth = 4; 
-			this.geo.dashes = [2,2];
-		}
-		
-		// simple colors
-		else {
-			// only show the two primary ingredients to keep it simple
-			const maincolor =  components[components.length-1].color;
-			const secondcolor = components.length > 1 ? components[components.length-2].color : maincolor;
-			let rgb = utils.HexColorToRGBArray(maincolor);
-			let hsl = utils.rgb2hsl( rgb[0]/255, rgb[1]/255, rgb[2]/255 );
-			this.geo.fill = `hsl(${hsl[0]*255},${hsl[1]*100}%,${hsl[2]*80}%)`;
-			this.geo.stroke = secondcolor;
-			// make dash pattern create a number of "pips" to represent food complexity.
-			// this is aesthetically better than using polygons to represent complexity.
-			let circ = this.r * 2 * Math.PI;
-			let segment = circ / ( points * 2 );
-			this.geo.linewidth = this.r/2;
-			this.geo.dashes = [segment,segment];
-		}
-		
-		this.geo.rotation = Math.random() * Math.PI; // aesthetic rotation
-		window.vc.AddShapeToRenderLayer(this.geo); // main layer
+		this.UpdateGeometry();
 		
 		// sensory data comes from nutrient composition unless overridden by creator
 		if ( !params || !params?.sense ) {
@@ -270,7 +219,7 @@ export default class Food {
 				plant.age = 0; // shim
 				window.vc.tank.plants.push(plant);
 				// [!] inconsistent behavior with rocks which automatically place themselves
-				window.vc.AddShapeToRenderLayer( plant.geo, Math.random() > 0.5 ? '0' : '-1' );			
+				window.vc.AddShapeToRenderLayer( plant.geo, 0 );			
 				this.Kill();
 			}
 		}
@@ -282,12 +231,15 @@ export default class Food {
 			let radius = Math.max(this.r,5)
 			if ( radius != this.geo.radius ) {
 				this.geo.radius = radius;
-				let circ = radius * 2 * Math.PI;
-				let points = this.complexity+2;
-				points = points >= 7 ? 8 : points;
-				let segment = circ / ( points * 2 );
-				this.geo.linewidth = radius/2;
-				this.geo.dashes = [segment,segment];				
+				// Natural style represents specific number of dots on the circle
+				if ( window.vc.render_style == 'Natural' ) {
+					let circ = radius * 2 * Math.PI;
+					let points = this.complexity+2;
+					points = points >= 7 ? 8 : points;
+					let segment = circ / ( points * 2 );
+					this.geo.linewidth = radius/2;
+					this.geo.dashes = [segment,segment];				
+				}
 			}
 			// fade out
 			if ( window.vc.animate_plants && !this.permafood && this.age > this.lifespan - 1 ) {
@@ -312,5 +264,94 @@ export default class Food {
 	IsEdibleBy( boid ) {
 		if ( this.edibility >= 1 ) { return true; } // legacy hack for simulations
 		return (1 << (this.complexity-1)) & boid.traits.food_mask;
-	}			
+	}		
+	UpdateGeometry() {
+
+		if ( this.geo ) { this.geo.remove(); }
+
+		// rendering
+		let points = this.complexity+2;
+		if ( points>=7 ) { points=8 } // unicode doesnt have heptagons ;-( 
+				
+		// colors hardcoded mostly for aesthetics. you could change them.
+		let colors = [
+			'#C42452',
+			'#EB9223',
+			'#EBE313',
+			'#5DD94D',
+			'#2CAED4',
+			'#1F4BE3',
+			'#991FE3',
+			'#FF70E5',
+			'#FFFFFF',
+			'#666666',
+		];
+		
+		// sort nutrients by contribution
+		let components = [];
+		for ( let i=0; i < this.nutrients.length; i++ ) {
+			if ( this.nutrients[i] ) {
+				components.push({
+					color: colors[i],
+					pct: this.nutrients[i],
+				});
+			}
+		}
+		components.sort( (a,b) => a.pct - b.pct );
+		
+		// Vector style - single color polygon
+		if ( window.vc.render_style == 'Vector' ) {
+			this.geo = window.two.makePolygon(this.x,this.y,this.r,points);
+			// const maincolor =  components[components.length-1].color;
+			// const secondcolor = components.length > 1 ? components[components.length-2].color : maincolor;
+			// let rgb = utils.HexColorToRGBArray(maincolor);
+			// let hsl = utils.rgb2hsl( rgb[0]/255, rgb[1]/255, rgb[2]/255 );
+			// this.geo.fill = `hsl(${hsl[0]*255},${hsl[1]*100}%,${hsl[2]*80}%)`;
+			// this.geo.stroke = maincolor;
+			this.geo.fill = 'transparent';
+			this.geo.stroke = '#F99';
+			this.geo.linewidth = 4;
+		}
+		
+		// Zen white style - 
+		else if ( window.vc.render_style == 'Zen' ) {
+			this.geo = window.two.makePolygon(this.x,this.y,this.r,points);
+			this.geo.fill = 'transparent';
+			this.geo.stroke = '#666';
+			this.geo.linewidth = 4;
+		}
+		
+		// Grey style - uses colors
+		else if ( window.vc.render_style == 'Grey' ) {
+			this.geo = window.two.makePolygon(this.x,this.y,this.r,points);
+			const maincolor =  components[components.length-1].color;
+			const secondcolor = components.length > 1 ? components[components.length-2].color : maincolor;
+			let rgb = utils.HexColorToRGBArray(maincolor);
+			let hsl = utils.rgb2hsl( rgb[0]/255, rgb[1]/255, rgb[2]/255 );
+			this.geo.fill = `hsl(${hsl[0]*255},${hsl[1]*100}%,${hsl[2]*80}%)`;
+			this.geo.stroke = maincolor;
+			this.geo.linewidth = 4;
+		}
+		
+		// Natural style - 2-color dashed circle
+		else {
+			this.geo = window.two.makeCircle(this.x,this.y,this.r);
+			// only show the two primary ingredients to keep it simple
+			const maincolor =  components[components.length-1].color;
+			const secondcolor = components.length > 1 ? components[components.length-2].color : maincolor;
+			let rgb = utils.HexColorToRGBArray(maincolor);
+			let hsl = utils.rgb2hsl( rgb[0]/255, rgb[1]/255, rgb[2]/255 );
+			this.geo.fill = `hsl(${hsl[0]*255},${hsl[1]*100}%,${hsl[2]*80}%)`;
+			this.geo.stroke = secondcolor;
+			// make dash pattern create a number of "pips" to represent food complexity.
+			// this is aesthetically better than using polygons to represent complexity.
+			let circ = this.r * 2 * Math.PI;
+			let segment = circ / ( points * 2 );
+			this.geo.linewidth = this.r/2;
+			this.geo.dashes = [segment,segment];
+		}
+		
+		this.geo.rotation = Math.random() * Math.PI; // aesthetic rotation
+		window.vc.AddShapeToRenderLayer(this.geo,1); // main layer	
+	}
 }

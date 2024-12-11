@@ -46,6 +46,7 @@ export default class Vectorcosm {
 		this.braingraph = null; // move me some day
 		
 		// world settings
+		this.render_style = 'Natural'; // Natural, Vector, Zen, Grey
 		this.animate_boids = true;
 		this.animate_plants = true;
 		this.plant_intro_method = 'grow'; // 'grow' or 'fade'
@@ -107,6 +108,9 @@ export default class Vectorcosm {
 		this.tank = new Tank( this.width, this.height );
 		this.tank.MakeBackground();
 		
+		// set visual theme
+		this.SetRenderStyle( this.render_style );
+		
 		// default screen scaling based on user window
 		if ( this.two.width < 500 ) { this.SetViewScale(0.4); }
 		else if ( this.two.width < 1200 ) { this.SetViewScale(0.6); }
@@ -144,6 +148,32 @@ export default class Vectorcosm {
 		
 	}
 
+	SetRenderStyle( style ) {
+		this.render_style = style;
+		// there are a few global issues we need to sort out first
+		if ( style != 'Natural' ) {
+			if ( this.tank.bg ) { this.tank.bg.visible = false; }
+			window.vc.animate_boids = false;
+			window.vc.animate_plants = false;
+			if ( style == 'Zen' ) { this.tank.bg_theme = 'White'; }
+			else if ( style == 'Grey' ) { this.tank.bg_theme = 'Grey'; }
+			else { this.tank.bg_theme = 'Abysmal'; }
+			this.tank.bg_theme = Tank.backdrop_themes.find( t => t.name == this.tank.bg_theme );
+			document.body.setAttribute("class", document.body.getAttribute("class").replace(/\s*bg-theme-\w+/, '') + ' ' + this.tank.bg_theme.class );
+		}
+		else {
+			if ( this.tank.bg ) { this.tank.bg.visible = true; }
+			document.body.setAttribute("class", document.body.getAttribute("class").replace(/\s*bg-theme-\w+/, '') + ' ' + this.tank.bg_theme.class );
+			window.vc.animate_boids = true;
+			window.vc.animate_plants = true;
+		}
+		// we need to update all the objects currently in the world and force them to switch geometry
+		for ( let x of this.tank.boids ) { x.body.UpdateGeometry(); }
+		for ( let x of this.tank.obstacles ) { x.UpdateGeometry(); }
+		for ( let x of this.tank.foods ) { x.UpdateGeometry(); }
+		for ( let x of this.tank.plants ) { x.CreateBody(); }
+	}
+	
 	// TODO: this is all technically UI related stuff that should be moved out of the simulation code.
 	// the camera has a hard to accessing and affecting the UI, such as boid info window.
 	CinemaMode( x=true ) { 
@@ -809,7 +839,7 @@ export default class Vectorcosm {
 			this.tank.plants = scene.plants.map( x => new Plant.PlantTypes[x.classname](x) );
 			// [!]hack
 			for ( let p of this.tank.plants ) {
-				window.vc.AddShapeToRenderLayer( p.geo, Math.random() > 0.5 ? '0' : '-1' );
+				window.vc.AddShapeToRenderLayer( p.geo, 0 );
 			}
 			// hack settings back in
 			this.simulation.settings.num_boids = scene.boids.length;

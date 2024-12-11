@@ -153,7 +153,7 @@ export default class Rock {
 			}
 			this.collision.hull.reverse(); // reverse for collision compatibility
 			
-			// make triangles
+			// make triangles, even if we don't use them in the current rendering mode
 			const color_scheme = Rock.color_schemes[params.color_scheme] || Object.values(Rock.color_schemes).pickRandom();
 			const height = this.y2 - this.y1;
 			let triangles = delaunay.triangles;
@@ -180,24 +180,8 @@ export default class Rock {
 				]);
 			}
 		}
-		// geometry for two.js
-		for ( let t of this.triangles ) {
-			let p = window.two.makePath( ...t.slice(null, -1) );
-			p.linewidth = 1;
-			p.fill = t[6];
-			p.stroke = t[6];
-			this.geo.add(p);
-		}
-		
-		// outline (used for dark-mode and when not using triangle fill)
-		let anchors = this.collision.hull.map( p => new Two.Anchor( p[0], p[1] ) );
-		let outline = window.two.makePath(anchors);
-		outline.linewidth = 4;
-		outline.fill = 'transparent';
-		outline.stroke = '#AAA';
-		outline.visible = false;
-		outline.outline = true; // hint for UI to switch modes
-		this.geo.add( outline );
+
+		this.UpdateGeometry();
 				
 		// do this last or the scaling gets confused
 		window.vc.AddShapeToRenderLayer(this.geo,'0'); 
@@ -218,5 +202,36 @@ export default class Rock {
 		for ( let k of datakeys ) { output[k] = this[k]; }
 		if ( as_JSON ) { output = JSON.stringify(output); }
 		return output;
-	}	
+	}
+	// for use with switching visual styles	
+	UpdateGeometry() {
+		// out with the old
+		if ( this.geo ) { this.geo.remove( this.geo.children ); }
+		
+		// Natural style - triangles
+		if ( window.vc.render_style == 'Natural' ) {
+			for ( let t of this.triangles ) {
+				let p = window.two.makePath( ...t.slice(null, -1) );
+				p.linewidth = 1;
+				p.fill = t[6];
+				p.stroke = t[6];
+				this.geo.add(p);
+			}
+		}	
+		
+		// representational vector styles - only renders hull outline
+		else {
+			let anchors = this.collision.hull.map( p => new Two.Anchor( p[0], p[1] ) );
+			let outline = window.two.makePath(anchors);
+			outline.linewidth = 4;
+			outline.fill = 'transparent';
+			outline.stroke = '#AAA';
+			outline.visible = true;
+			if ( window.vc.render_style == 'Grey' ) { 
+				outline.stroke = 'transparent'; 
+				outline.fill='#222';
+			}
+			this.geo.add( outline );
+		}
+	}
 }

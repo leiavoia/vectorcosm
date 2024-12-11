@@ -28,6 +28,7 @@
 		window.vc.tank.Kill();
 		window.vc.tank = new Tank( 100,100 );
 		window.vc.tank.MakeBackground();
+		window.vc.SetRenderStyle( window.vc.render_style );
 		window.vc.ResetCameraZoom();
 		// TODO: this would probably appreciate a defined API instead of overreaching
 		window.vc.sim_queue.length = 0;

@@ -99,6 +99,44 @@ export default class Plant {
 			}
 		}		
 	}		
+	CreateGeometricBody( points ) {
+		if ( this.geo ) { this.geo.remove( this.geo.children ); }
+		// boundary box instead of leaves
+		let least_x = 1000000;
+		let most_x = -1000000;		
+		let least_y = 1000000;
+		let most_y = -1000000;		
+		for ( let p of [ ...points, [0,0] ] ) {
+			if ( p[0] > most_x ) { most_x = p[0]; } 		
+			if ( p[0] < least_x ) { least_x = p[0]; } 		
+			if ( p[1] > most_y ) { most_y = p[1]; } 		
+			if ( p[1] < least_y ) { least_y = p[1]; } 		
+		}
+		// squares
+		// let shape = window.two.makePath([
+		// 	new Two.Anchor( least_x, least_y ),	
+		// 	new Two.Anchor( least_x, most_y ),	
+		// 	new Two.Anchor( most_x, most_y ),	
+		// 	new Two.Anchor( most_x, least_y ),	
+		// ]);
+		// diamonds
+		let mid_x = least_x + ( most_x - least_x ) / 2;
+		let mid_y = least_y + ( most_y - least_y ) / 2;
+		let shape = window.two.makePath([
+			new Two.Anchor( mid_x, least_y ),	
+			new Two.Anchor( most_x, mid_y ),	
+			new Two.Anchor( mid_x, most_y ),	
+			new Two.Anchor( least_x, mid_y ),	
+		]);
+		// shape.fill = '#AEA2';
+		// shape.stroke = 'transparent';
+		shape.fill = 'transparent';
+		shape.dashes = [20,10];
+		shape.linewidth = 2;
+		shape.stroke = '#AEA';
+		if ( window.vc.render_style == 'Zen' ) { shape.stroke = '#BBB'; }
+		this.geo.add( shape );			
+	}
 }
 
 export class DNAPlant extends Plant {
@@ -248,7 +286,7 @@ export class DNAPlant extends Plant {
 		this.traits.fruit_lifespan = Math.round( this.traits.fruit_lifespan * (total_fruit_mass / 100) ); // more fruit lasts longer
 		this.traits.fruit_buoy_start = this.dna.mix( this.dna.genesFor('fruit_buoy_start',2), -100, 100 );
 		this.traits.fruit_buoy_end = this.dna.mix( this.dna.genesFor('fruit_buoy_end',2), -100, 100 );
-		this.traits.fruit_complexity = this.dna.shapedInt( this.dna.genesFor('fruit_complexity',2,true), 1, 5, 2, 5 );
+		this.traits.fruit_complexity = Math.ceil( this.dna.shapedInt( this.dna.genesFor('fruit_complexity',1,true), 0, 500, 200, 1.5 ) / 100 );
 		this.traits.fruit_nutrients = [
 			Math.max( 0, this.dna.mix( this.dna.genesFor('fruit nutrient 1',2,1), -15, 10 ) ),
 			Math.max( 0, this.dna.mix( this.dna.genesFor('fruit nutrient 2',2,1), -15, 10 ) ),
@@ -307,10 +345,7 @@ export class DNAPlant extends Plant {
 			const multiplier = Math.round( this.dna.mix( this.dna.genesFor('LWM'), 2, 6 ) );
 			this.traits.linewidth *= multiplier;
 		}
-				
-		this.points = [];
-		this.shapes = [];
-		
+
 		// shimmed in to make it work. eventually move everything to "traits" data structure
 		this.maturity_age = this.traits.maturity_age;
 		this.lifespan = this.traits.lifespan;
@@ -319,85 +354,98 @@ export class DNAPlant extends Plant {
 	CreateBody() {
 		const t = this.traits; // alias for cleanliness
 		
-		// create shapes by iterating over points in different ways
-		const shapes = [];
+		if ( this.geo ) { this.geo.remove( this.geo.children ); }
+		
+		if ( !this.shapes?.length ) { 
 				
-		// points are truly random, not derived from DNA
-		for ( let i=0; i < t.num_points; i++ ) {
-			this.points.push( [
-				utils.RandomInt( -t.radius, t.radius ),
-				utils.RandomInt( -t.radius, t.radius )
-			]);
-		}	
-		
-		// point sorting
-		if ( t.smeth == 'x' ) { this.points.sort( this.SortByX ); }
-		else if ( t.smeth == 'y' ) { this.points.sort( this.SortByX ); }
-		else if ( t.smeth == 'a' ) { this.points.sort( this.SortByAngle ); }
-				
-		// if the shape is "centered", it threads all points back through the center
-		// when creating individual sub-shapes (petals), creating an aster-like pattern.
-		
-		// slur the points around.
-		// TODO: there are lots of fun ways we could do this in the future.
-		// For now, "slur" just means shift all points upwards to make an upright plant.
-		if ( t.points_slur ) {
-			this.points = this.points.map( p => [ p[0], p[1] - t.radius * 2 ] );
-		}
-		
-		// label all of the points with an ID number - we can use this to animate growth later
-		for ( let i=0; i < this.points.length; i++ ) { this.points[i][2] = i+1; }
-		
-		// if the shape is NOT centered, use the center point as a starting point
-		if ( !t.centered ) { this.points.unshift([0,0,0]); }
-		
-		// if the shape is "centered", we automatically insert the center point
-		// to begin each shape. Center points are in addition to existing points,
-		// so we need to conditionally subtract one from many of the following calculations.
-		const subtract_one = t.centered ? 1 : 0;
-		
-		// points per shape only applies if we are going to create individual shapes
-		
-		// point increments determines how many indexes to skip when iterating through the point array.
-		// skipping fewer points creates overlapping shapes. Skipping more creates separate, discontinuous shapes.
-		
-		// create discreet shapes
-		if ( t.discreet ) {
-			for ( let i=0; i < this.points.length - (t.points_per_shape-subtract_one); i += t.point_increment ) {
-				const slice = this.points.slice( i, i + ( t.points_per_shape - subtract_one ) );
-				slice.sort( this.SortByAngle ); // not required but usually aesthetically better
-				if ( t.centered ) { slice.unshift([0,0,0]); } // start from zero on every shape
-				shapes.push(slice);
+			this.points = [];
+			this.shapes = [];
+					
+			
+			// points are truly random, not derived from DNA
+			for ( let i=0; i < t.num_points; i++ ) {
+				this.points.push( [
+					utils.RandomInt( -t.radius, t.radius ),
+					utils.RandomInt( -t.radius, t.radius )
+				]);
+			}	
+			
+			// point sorting
+			if ( t.smeth == 'x' ) { this.points.sort( this.SortByX ); }
+			else if ( t.smeth == 'y' ) { this.points.sort( this.SortByX ); }
+			else if ( t.smeth == 'a' ) { this.points.sort( this.SortByAngle ); }
+					
+			// if the shape is "centered", it threads all points back through the center
+			// when creating individual sub-shapes (petals), creating an aster-like pattern.
+			
+			// slur the points around.
+			// TODO: there are lots of fun ways we could do this in the future.
+			// For now, "slur" just means shift all points upwards to make an upright plant.
+			if ( t.points_slur ) {
+				this.points = this.points.map( p => [ p[0], p[1] - t.radius * 2 ] );
 			}
+			
+			// label all of the points with an ID number - we can use this to animate growth later
+			for ( let i=0; i < this.points.length; i++ ) { this.points[i][2] = i+1; }
+			
+			// if the shape is NOT centered, use the center point as a starting point
+			if ( !t.centered ) { this.points.unshift([0,0,0]); }
+			
+			// if the shape is "centered", we automatically insert the center point
+			// to begin each shape. Center points are in addition to existing points,
+			// so we need to conditionally subtract one from many of the following calculations.
+			const subtract_one = t.centered ? 1 : 0;
+			
+			// points per shape only applies if we are going to create individual shapes
+			
+			// point increments determines how many indexes to skip when iterating through the point array.
+			// skipping fewer points creates overlapping shapes. Skipping more creates separate, discontinuous shapes.
+			
+			// create discreet shapes
+			if ( t.discreet ) {
+				for ( let i=0; i < this.points.length - (t.points_per_shape-subtract_one); i += t.point_increment ) {
+					const slice = this.points.slice( i, i + ( t.points_per_shape - subtract_one ) );
+					slice.sort( this.SortByAngle ); // not required but usually aesthetically better
+					if ( t.centered ) { slice.unshift([0,0,0]); } // start from zero on every shape
+					this.shapes.push(slice);
+				}
+			}
+			
+			// create a single continuous shape
+			else {
+				this.shapes[0] = [];
+				const points_per_shape = t.globular ? this.points.length : t.points_per_shape ;
+				const point_increment = t.globular ? this.points.length : t.point_increment ;
+				for ( let i=0; i < this.points.length - (points_per_shape-(1+subtract_one)); i += point_increment ) {
+					const slice = this.points.slice( i, i + ( points_per_shape - subtract_one ) );
+					if ( t.centered ) { slice.unshift([0,0,0]); } // start from zero on every loop
+					this.shapes[0].push(...slice);
+				}
+			}
+		
+		}
+			
+		if ( window.vc.render_style != 'Natural' ) {
+			this.CreateGeometricBody(this.points);		
 		}
 		
-		// create a single continuous shape
+		// Natural style - create the final SVG shape(s)
 		else {
-			shapes[0] = [];
-			const points_per_shape = t.globular ? this.points.length : t.points_per_shape ;
-			const point_increment = t.globular ? this.points.length : t.point_increment ;
-			for ( let i=0; i < this.points.length - (points_per_shape-(1+subtract_one)); i += point_increment ) {
-				const slice = this.points.slice( i, i + ( points_per_shape - subtract_one ) );
-				if ( t.centered ) { slice.unshift([0,0,0]); } // start from zero on every loop
-				shapes[0].push(...slice);
+			for ( let points of this.shapes ) {
+				let anchors = points.map( p => new Two.Anchor( p[0], p[1] ) );
+				let shape = window.two.makePath(anchors);
+				// label the vertices for animation later
+				for ( let i=0; i < shape.vertices.length; i++ ) {
+					shape.vertices[i].label = points[i][2];
+				}
+				shape.fill = t.fill;
+				shape.stroke = t.stroke;
+				shape.linewidth = t.linewidth;
+				shape.curved = t.curved;
+				if ( t.dashes ) shape.dashes = t.dashes;		
+				if ( t.cap ) shape.cap = t.cap;		
+				this.geo.add( shape );
 			}
-		}
-				
-		// create the final SVG shape(s)
-		for ( let points of shapes ) {
-			let anchors = points.map( p => new Two.Anchor( p[0], p[1] ) );
-			let shape = window.two.makePath(anchors);
-			// label the vertices for animation later
-			for ( let i=0; i < shape.vertices.length; i++ ) {
-				shape.vertices[i].label = points[i][2];
-			}
-			shape.fill = t.fill;
-			shape.stroke = t.stroke;
-			shape.linewidth = t.linewidth;
-			shape.curved = t.curved;
-			if ( t.dashes ) shape.dashes = t.dashes;		
-			if ( t.cap ) shape.cap = t.cap;		
-			this.geo.add( shape );
 		}
 	}
 	UpdatePointsByGrowth( force=false ) {
@@ -461,48 +509,63 @@ export class PendantLettuce extends Plant {
 		this.type = 'PendantLettuce'; // avoids JS classname mangling
 		if ( !this.fruit_interval ) { this.fruit_interval = utils.RandomInt(60,120); }
 		if ( !this.next_fruit ) { this.next_fruit = this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 ); }
-		// make the unique shape	
-		const n = utils.BiasedRandInt( 3, 16, 8, 0.8 );
-		const r = utils.BiasedRandInt( 50, 200, 100, 0.6);
-		const max_variance = r*0.3; 
-		const seglength = (2*Math.PI) / n;
-		const pts = [];
-		for ( let i=0; i < n; i++ ) {
-			const l = r + utils.RandomInt( -max_variance, max_variance );
-			const a = i * seglength + utils.BiasedRand( -seglength/2, seglength/2, 0, 0.8 ) ;
-			pts.push([ l * Math.cos(a), l * Math.sin(a) ]);
+		this.CreateBody();
+	}
+	CreateBody() {
+		if ( this.geo ) { this.geo.remove( this.geo.children ); }
+		if ( window.vc.render_style != 'Natural' ) {
+			const length = utils.BiasedRandInt( 50, 200, 100, 0.6);
+			const width = length * utils.BiasedRand( 0.1, 0.2, 0.15, 0.5 );
+			this.CreateGeometricBody([
+				[-width/2, -length],
+				[+width/2, 0]
+			]);		
 		}
-		// make the main body shape
-		const lw = utils.BiasedRandInt( 1, 6, 2, 0.95 );
-		let shape = window.two.makePath( pts.map( p => new Two.Anchor( p[0], p[1] ) ) );
-		// leaf coloring
-		const tip_hue = utils.RandomFloat(0.25,0.85);
-		const tip_color = `hsl(${tip_hue*255},50%,40%)`;
-		// const stops = [ new Two.Stop(0, '#174D1F'), new Two.Stop(1, '#23682D') ];
-		const stops = [ new Two.Stop(0, '#174D1F'), new Two.Stop(1, tip_color) ];
-		shape.fill = window.two.makeRadialGradient(0, 0, r, ...stops );
-		shape.fill.units = 'userSpaceOnUse'; // super important
-		shape.linewidth = lw;
-		shape.stroke = 'transparent';
-		this.geo.add(shape);
-		// dash pattern
-		const dashes = [];
-		let num_dashes = utils.RandomInt(0,3);
-		for ( let i=0; i < num_dashes; i++ ) {
-			dashes.push( utils.RandomInt(lw*0,lw*10) );
-			dashes.push( utils.RandomInt(lw*0,lw*10) );
-		}			
-		// make the veins
-		const vein_stops = [ new Two.Stop(0, tip_color), new Two.Stop(1, '#66997799'), ];
-		const vein_grad = window.two.makeRadialGradient(0, 0, r, ...vein_stops );
-		for ( let p of pts ) { 
-			const l = window.two.makeLine( 0, 0, p[0], p[1] );
-			l.stroke = vein_grad; //tip_color;
-			l.stroke.units = 'userSpaceOnUse'; // super important
-			l.linewidth = lw;
-			if ( dashes.length ) { l.dashes = dashes; }
-			// l.cap = 'round';
-			this.geo.add(l);
+		// Natural style - create the final SVG shape(s)
+		else {			
+			// make the unique shape	
+			const n = utils.BiasedRandInt( 3, 16, 8, 0.8 );
+			const r = utils.BiasedRandInt( 50, 200, 100, 0.6);
+			const max_variance = r*0.3; 
+			const seglength = (2*Math.PI) / n;
+			const pts = [];
+			for ( let i=0; i < n; i++ ) {
+				const l = r + utils.RandomInt( -max_variance, max_variance );
+				const a = i * seglength + utils.BiasedRand( -seglength/2, seglength/2, 0, 0.8 ) ;
+				pts.push([ l * Math.cos(a), l * Math.sin(a) ]);
+			}
+			// make the main body shape
+			const lw = utils.BiasedRandInt( 1, 6, 2, 0.95 );
+			let shape = window.two.makePath( pts.map( p => new Two.Anchor( p[0], p[1] ) ) );
+			// leaf coloring
+			const tip_hue = utils.RandomFloat(0.25,0.85);
+			const tip_color = `hsl(${tip_hue*255},50%,40%)`;
+			// const stops = [ new Two.Stop(0, '#174D1F'), new Two.Stop(1, '#23682D') ];
+			const stops = [ new Two.Stop(0, '#174D1F'), new Two.Stop(1, tip_color) ];
+			shape.fill = window.two.makeRadialGradient(0, 0, r, ...stops );
+			shape.fill.units = 'userSpaceOnUse'; // super important
+			shape.linewidth = lw;
+			shape.stroke = 'transparent';
+			this.geo.add(shape);
+			// dash pattern
+			const dashes = [];
+			let num_dashes = utils.RandomInt(0,3);
+			for ( let i=0; i < num_dashes; i++ ) {
+				dashes.push( utils.RandomInt(lw*0,lw*10) );
+				dashes.push( utils.RandomInt(lw*0,lw*10) );
+			}			
+			// make the veins
+			const vein_stops = [ new Two.Stop(0, tip_color), new Two.Stop(1, '#66997799'), ];
+			const vein_grad = window.two.makeRadialGradient(0, 0, r, ...vein_stops );
+			for ( let p of pts ) { 
+				const l = window.two.makeLine( 0, 0, p[0], p[1] );
+				l.stroke = vein_grad; //tip_color;
+				l.stroke.units = 'userSpaceOnUse'; // super important
+				l.linewidth = lw;
+				if ( dashes.length ) { l.dashes = dashes; }
+				// l.cap = 'round';
+				this.geo.add(l);
+			}
 		}
 	}
 	Update(delta) {
@@ -536,34 +599,47 @@ export class VectorGrass extends Plant {
 		this.type = 'VectorGrass'; // avoids JS classname mangling
 		if ( !this.fruit_interval ) { this.fruit_interval = utils.RandomInt(20,30); }
 		if ( !this.next_fruit ) { this.next_fruit = this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 ); }
-		// leaf coloring
-		const tip_hue = utils.RandomFloat(0.55,0.8);
-		const tip_color = `hsl(${tip_hue*255},85%,75%)`;
-		const stops = [ new Two.Stop(0, '#697'), new Two.Stop(0.68, '#697'), new Two.Stop(1, tip_color) ];		
-		const grad = window.two.makeLinearGradient(0, 1, 0, 0, ...stops );
-		// make the unique shape		
-		const n = utils.BiasedRandInt( 1, 5, 3, 0.8 );
-		const r = utils.BiasedRandInt( 100, 500, 180, 0.6);
-		const max_variance = r*0.3; 
-		const spread = 0.25 * Math.PI; 
-		// const dashes = [20,20];
-		const dashes = [2,2];
-		this.blades = [];
-		for ( let i=0; i < n; i++ ) {
-			const l = r + utils.RandomInt( -max_variance, max_variance );
-			const a = 1.5*Math.PI + utils.BiasedRand( -spread, spread, 0, 0.65 ) ;
-			const blade = { x1: 0, y1: 0, x2: l * Math.cos(a), y2: l * Math.sin(a) };
-			this.blades.push(blade);
-			const line = window.two.makeLine( blade.x1, blade.y1, blade.x2, blade.y2 );
-			line.stroke = grad;
-			line.stroke.units = 'objectBoundingBox'; // super important
-			line.linewidth = r * utils.BiasedRand( 0.04, 0.2, 0.08, 0.5 );
-			line.fill = 'transparent';
-			// line.cap = 'round';
-			if ( dashes.length ) { line.dashes = dashes; }
-			this.geo.add(line);
-		}
 		this.traits = { animation_method:'legacy_sway' }; // shim
+		this.CreateBody();
+	}
+	CreateBody() {
+		if ( this.geo ) { this.geo.remove( this.geo.children ); }
+		// make the unique shapes		
+		if ( !this.blades?.length ) {
+			const n = utils.BiasedRandInt( 1, 5, 3, 0.8 );
+			const r = utils.BiasedRandInt( 100, 500, 180, 0.6);
+			const max_variance = r*0.3; 
+			const spread = 0.25 * Math.PI; 
+			this.blades = [];
+			for ( let i=0; i < n; i++ ) {
+				const l = r + utils.RandomInt( -max_variance, max_variance );
+				const a = 1.5*Math.PI + utils.BiasedRand( -spread, spread, 0, 0.65 ) ;
+				const blade = { x1: 0, y1: 0, x2: l * Math.cos(a), y2: l * Math.sin(a), r };
+				this.blades.push(blade);
+			}
+		}
+		if ( window.vc.render_style != 'Natural' ) {
+			this.CreateGeometricBody([ [0,0], ...this.blades.map( b=>[b.x2,b.y2]) ]);
+		}
+		// Natural style - create the final SVG shape(s)
+		else {	
+			// leaf coloring
+			const tip_hue = utils.RandomFloat(0.55,0.8);
+			const tip_color = `hsl(${tip_hue*255},85%,75%)`;
+			const stops = [ new Two.Stop(0, '#697'), new Two.Stop(0.68, '#697'), new Two.Stop(1, tip_color) ];		
+			const grad = window.two.makeLinearGradient(0, 1, 0, 0, ...stops );
+			const dashes = [2,2];
+			for ( let blade of this.blades ) {
+				const line = window.two.makeLine( blade.x1, blade.y1, blade.x2, blade.y2 );
+				line.stroke = grad;
+				line.stroke.units = 'objectBoundingBox'; // super important
+				line.linewidth = blade.r * utils.BiasedRand( 0.04, 0.2, 0.08, 0.5 );
+				line.fill = 'transparent';
+				// line.cap = 'round';
+				if ( dashes.length ) { line.dashes = dashes; }
+				this.geo.add(line);
+			}
+		}
 	}
 	Update(delta) {
 		super.Update(delta);
@@ -602,45 +678,59 @@ export class WaveyVectorGrass extends Plant {
 		this.type = 'WaveyVectorGrass'; // avoids JS classname mangling
 		if ( !this.fruit_interval ) { this.fruit_interval = utils.RandomInt(45,60); }
 		if ( !this.next_fruit ) { this.next_fruit = this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 ); }
-		// leaf coloring
-		const tip_hue = utils.RandomFloat(0.05,0.20);
-		const tip_color = `hsl(${tip_hue*255},85%,75%)`;
-		const stops = [ new Two.Stop(0, '#243'), new Two.Stop(0.86, '#726'), new Two.Stop(1, tip_color) ];		
-		const grad = window.two.makeLinearGradient(0, 1, 0, 0, ...stops );
-		// make the unique shape		
-		const blades = utils.BiasedRandInt( 1, 5, 3, 0.8 );
-		const avglength = utils.BiasedRandInt( 500, 2000, 900, 0.6);
-		const max_variance = length*0.3; 
-		const spread = 0.25 * Math.PI; 
-		this.blades = [];
-		for ( let i=0; i < blades; i++ ) {
-			const length = avglength + utils.RandomInt( -max_variance, max_variance );
-			const width = length * utils.BiasedRand( 0.02, 0.1, 0.03, 0.5 );
-			// const dashes = [width,width*0.8];
-			const dashes = [2,2];
-			const blade = [];
-			// create points
-			const num_points = utils.RandomInt(3,5);
-			for ( let n=0; n<num_points; n++ ) {
-				let l = (length/num_points) * n;
-				let a2 = 1.5*Math.PI + utils.BiasedRand( -spread/(n||1), spread/(n||1), 0, 0.65 ) ;
-				blade.push([ l * Math.cos(a2), l * Math.sin(a2) ]);
-			}
-			this.blades.push(blade);
-			// make the geometry
-			const anchors = blade.map( p => new Two.Anchor( p[0], p[1] ) );
-			const line = window.two.makePath(anchors);
-			line.stroke = grad;
-			line.stroke.units = 'objectBoundingBox'; // super important
-			line.linewidth = width;
-			line.fill = 'transparent';
-			line.closed = false;
-			line.curved = true;
-			// line.cap = 'round';
-			line.dashes = dashes;
-			this.geo.add(line);
-		}
 		this.traits = { animation_method:'sway' }; // shim
+		this.CreateBody();
+	}
+	CreateBody() {
+		if ( this.geo ) { this.geo.remove( this.geo.children ); }
+		// make the unique shape		
+		if ( !this.blades?.length ) {
+			const blades = utils.BiasedRandInt( 1, 5, 3, 0.8 );
+			const avglength = utils.BiasedRandInt( 500, 2000, 900, 0.6);
+			const max_variance = avglength*0.3; 
+			const spread = 0.25 * Math.PI; 
+			this.blades = [];
+			for ( let i=0; i < blades; i++ ) {
+				const length = avglength + utils.RandomInt( -max_variance, max_variance );
+				const blade = [];
+				// create points
+				const num_points = utils.RandomInt(3,5);
+				for ( let n=0; n<num_points; n++ ) {
+					let l = (length/num_points) * n;
+					let a2 = 1.5*Math.PI + utils.BiasedRand( -spread/(n||1), spread/(n||1), 0, 0.65 ) ;
+					blade.push([ l * Math.cos(a2), l * Math.sin(a2) ]);
+				}
+				this.blades.push(blade);
+			}
+		}
+		if ( window.vc.render_style != 'Natural' ) {
+			this.CreateGeometricBody([ [0,0], ...this.blades.map( b => [b[0],b[1]]) ]);
+		}
+		// Natural style - create the final SVG shape(s)
+		else {	
+			// leaf coloring
+			const tip_hue = utils.RandomFloat(0.05,0.20);
+			const tip_color = `hsl(${tip_hue*255},85%,75%)`;
+			const stops = [ new Two.Stop(0, '#243'), new Two.Stop(0.86, '#726'), new Two.Stop(1, tip_color) ];		
+			const grad = window.two.makeLinearGradient(0, 1, 0, 0, ...stops );
+			// make the geometry
+			for ( let blade of this.blades ) {
+				const length = utils.BiasedRandInt( 500, 2000, 900, 0.6);
+				const width = length * utils.BiasedRand( 0.02, 0.1, 0.03, 0.5 );
+				const dashes = [2,2];
+				const anchors = blade.map( p => new Two.Anchor( p[0], p[1] ) );
+				const line = window.two.makePath(anchors);
+				line.stroke = grad;
+				line.stroke.units = 'objectBoundingBox'; // super important
+				line.linewidth = width;
+				line.fill = 'transparent';
+				line.closed = false;
+				line.curved = true;
+				// line.cap = 'round';
+				line.dashes = dashes;
+				this.geo.add(line);
+			}
+		}		
 	}
 	Update(delta) {
 		super.Update(delta);
