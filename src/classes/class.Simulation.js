@@ -334,13 +334,87 @@ export default class Simulation {
 		for ( let n=0; n < this.settings.num_plants; n++ ) {
 			const rock = this.tank.obstacles.pickRandom();
 			if ( rock ) {
-				const p = rock.pts.pickRandom(); 
-				const plant = RandomPlant( rock.x+p[0], rock.y+p[1] );
-				if ( 'RandomizeAge' in plant ) { plant.RandomizeAge(); }
-				this.tank.plants.push(plant);
-				// [!] inconsistent behavior with rocks which automatically place themselves
-				// window.vc.AddShapeToRenderLayer( plant.geo, Math.random() > 0.5 ? '0' : '-1' );
-				window.vc.AddShapeToRenderLayer( plant.geo, '0' );
+				// with safe spawning
+				if ( this.tank.safe_pts?.length ) {
+					// create a ray from a random safe point to the random rock
+					const safe_pt = this.tank.safe_pts.pickRandom();
+					// find the widest points of the rock to create an arc to shoot between
+					let least_angle = 10000;
+					let most_angle = -10000;
+					let most_x = 0;
+					let most_y = 0;
+					for ( let p of rock.pts ) {
+						let dx = (rock.x + p[0]) - safe_pt[0]; 
+						let dy = (rock.y + p[1]) - safe_pt[1];
+						const angle = Math.atan2( dy, dx ); // y goes first
+						if ( angle < least_angle ) { least_angle = angle; }  
+						if ( angle > most_angle ) { most_angle = angle; }  
+						if ( Math.abs(dx) > most_x ) { most_x = dx; }  
+						if ( Math.abs(dy) > most_y ) { most_y = dy; }  
+						// if the difference between angles is greater than pi, object is in the rear.
+						// wrap the least angle around so it makes numeric sense on the next step. 
+						if ( most_angle - least_angle > Math.PI ) {
+							const tmp = most_angle;
+							most_angle = least_angle + Math.PI  * 2;
+							least_angle = tmp;
+						}
+					}
+					// pick the final striking angle
+					const angle = utils.RandomFloat( least_angle, most_angle );
+					
+					// iterate over all rocks that might collide with the ray
+					let length = Math.abs(most_x) + Math.abs(most_y); // work down from here.
+					let target_x = 0;
+					let target_y = 0; 
+					let candidates = this.tank.grid.GetObjectsByBox( 
+						Math.min( safe_pt[0], safe_pt[0] + most_x ),
+						Math.min( safe_pt[1], safe_pt[1] + most_y ),
+						Math.max( safe_pt[0], safe_pt[0] + most_x ),
+						Math.max( safe_pt[1], safe_pt[1] + most_y ),
+						Rock
+					);
+					for ( let o of candidates ) {
+						const ax1 = safe_pt[0];
+						const ay1 = safe_pt[1];
+						const ax2 = safe_pt[0] + (length * Math.cos(angle)); 
+						const ay2 = safe_pt[1] + (length * Math.sin(angle));
+						for( let i=0; i < o.collision.hull.length; i++ ) {
+							const next	= i+1 >= o.collision.hull.length ? 0 : i+1;
+							const bx1	= o.x + o.collision.hull[i][0];
+							const by1	= o.y + o.collision.hull[i][1];
+							const bx2	= o.x + o.collision.hull[next][0];
+							const by2	= o.y + o.collision.hull[next][1];
+							const intersect = utils.getLineIntersection(ax1, ay1, ax2, ay2, bx1, by1, bx2, by2);
+							if ( intersect ) {
+								// console.log(intersect);
+								// calculate distance to intersect point
+								const dx = Math.abs( intersect.x - ax1 );
+								const dy = Math.abs( intersect.y - ay1 );
+								const d = Math.sqrt( dx * dx + dy * dy );
+								if ( d < length ) {
+									length = d;
+									target_x = intersect.x;	
+									target_y = intersect.y;	
+								}
+							}
+						}
+					}
+					// now make the actual plant
+					const plant = RandomPlant( target_x, target_y );
+					if ( 'RandomizeAge' in plant ) { plant.RandomizeAge(); }
+					this.tank.plants.push(plant);
+					// [!] inconsistent behavior with rocks which automatically place themselves
+					window.vc.AddShapeToRenderLayer( plant.geo, '0' );
+				}
+				// no safe spawning
+				else {
+					const p = rock.pts.pickRandom(); 
+					const plant = RandomPlant( rock.x+p[0], rock.y+p[1] );
+					if ( 'RandomizeAge' in plant ) { plant.RandomizeAge(); }
+					this.tank.plants.push(plant);
+					// [!] inconsistent behavior with rocks which automatically place themselves
+					window.vc.AddShapeToRenderLayer( plant.geo, '0' );
+				}
 			}
 		}
 	}
