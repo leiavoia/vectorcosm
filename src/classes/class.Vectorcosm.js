@@ -158,12 +158,11 @@ export default class Vectorcosm {
 			let bg_theme = 'Abysmal';
 			if ( style == 'Zen' ) { bg_theme = 'White'; }
 			else if ( style == 'Grey' ) { bg_theme = 'Grey'; }
-			bg_theme = Tank.backdrop_themes.find( t => t.name == bg_theme );
-			document.body.setAttribute("class", document.body.getAttribute("class").replace(/\s*bg-theme-\w+/, '') + ' ' + bg_theme.class );
+			this.tank.SetBGTheme( bg_theme, false ); // don't save
 		}
 		else {
 			if ( this.tank.bg ) { this.tank.bg.visible = true; }
-			document.body.setAttribute("class", document.body.getAttribute("class").replace(/\s*bg-theme-\w+/, '') + ' ' + this.tank.bg_theme.class );
+			this.tank.SetBGTheme();
 			window.vc.animate_boids = true;
 			window.vc.animate_plants = true;
 		}

@@ -252,21 +252,31 @@ export default class Tank {
 		}
 	}
 	
-	// background layer
-	MakeBackground() {
-		
-		// backdrop theme
+	SetBGTheme( name, save=true ) {
+		// if no arguments, set to self or default
+		if ( !name ) {
+			name = this.bg_theme || 'Deepwater';
+		}
 		let bg_theme;
-		if ( this.bg_theme == 'random' ) { 
+		if ( name == 'random' ) { 
 			bg_theme = Tank.backdrop_themes.filter( x => !x.omitFromRandom ).pickRandom();
 		}
-		else {
-			bg_theme = Tank.backdrop_themes.find( x => x.name == this.bg_theme );
+		else if ( name ) {
+			bg_theme = Tank.backdrop_themes.find( x => x.name == name );
 		}
-		if ( !bg_theme ) { bg_theme = Tank.background_themes; }
-		this.bg_theme = bg_theme.name;
-		
-		document.body.setAttribute("class", document.body.getAttribute("class").replace(/\s*bg-theme-\w+/, '') + ' ' + bg_theme.class );
+		if ( !bg_theme ) {
+			bg_theme = Tank.backdrop_themes.filter( x => !x.omitFromRandom ).pickRandom();
+		}
+		if ( save ) { this.bg_theme = bg_theme.name; }
+		// update BODY class		
+		let classes = document.body.getAttribute("class")
+			.replace(/\s*bg-theme-.+\b/, '') + ' ' + bg_theme.class;
+		document.body.setAttribute("class", classes.trim() );
+	}
+	
+	// background layer
+	MakeBackground() {
+		this.SetBGTheme();
 		
 		// tank frame
 		if ( this.tankframe ) { this.tankframe.remove(); }
