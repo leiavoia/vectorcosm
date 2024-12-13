@@ -9,9 +9,11 @@ import {Circle, Polygon, Result, Collisions} from 'collisions';
 export default class Tank {
 
 	static backdrop_themes = [
+		// reserved for special rendering styles
 		{ name: 'White', class: 'bg-theme-white', omitFromRandom:true },
 		{ name: 'Black', class: 'bg-theme-black', omitFromRandom:true },
 		{ name: 'Grey', class: 'bg-theme-grey', omitFromRandom:true },
+		// generally available
 		{ name: 'Abysmal', class: 'bg-theme-abysmal' },
 		{ name: 'Deepwater', class: 'bg-theme-deepwater' },
 		{ name: 'Algae', class: 'bg-theme-algae' },
@@ -22,6 +24,11 @@ export default class Tank {
 		{ name: 'Thermal Vent', class: 'bg-theme-thermal-vent' },
 		{ name: 'Asteroid', class: 'bg-theme-asteroid' },
 		{ name: 'Blue Eye', class: 'bg-theme-blue-eye' },
+		{ name: 'Aquamarine', class: 'bg-theme-aquamarine' },
+		{ name: 'Nightmare', class: 'bg-theme-nightmare' },
+		{ name: 'Tropical', class: 'bg-theme-tropical' },
+		{ name: 'Hope', class: 'bg-theme-hope' },
+		{ name: 'Leather', class: 'bg-theme-leather' },
 	];
 				
 	static background_themes = {
