@@ -8,6 +8,7 @@ import * as utils from '../util/utils.js'
 import {Circle, Polygon, Result} from 'collisions';
 const { architect, Network } = neataptic;
 import Two from "two.js";
+import * as TWEEN from '@tweenjs/tween.js'
 
 neataptic.methods.mutation.MOD_ACTIVATION.mutateOutput = false;
 neataptic.methods.mutation.SWAP_NODES.mutateOutput = false;
@@ -478,7 +479,7 @@ export class Boid {
 		let do_sensors = false;
 		if ( !window.vc.boid_sensors_every_frame ) {
 			for ( let m of this.motors ) {
-				if ( !m.t && !m.hasOwnProperty('mitosis') ) { do_sensors = true; break; }
+				if ( !m.t && !m.hasOwnProperty('mitosis') && !m.hasOwnProperty('attack') ) { do_sensors = true; break; }
 			}
 		}
 		if ( do_sensors ) {
@@ -793,6 +794,78 @@ export class Boid {
 				if ( m.hasOwnProperty('use_max') ) {
 					amount = 1; 
 				}
+				// attack executes only on the first frame and only if there is a victim
+				if ( m.hasOwnProperty('attack') && !window.vc.simulation.settings?.ignore_lifecycle ) {
+					// find boids in the local area
+					let victim = this.tank.grid.GetObjectsByBox( 
+						this.x - this.collision.radius, 
+						this.y - this.collision.radius,
+						this.x + this.collision.radius,
+						this.y + this.collision.radius,
+						Boid )
+					.find( b => {
+						if ( b === this ) return false;
+						if ( b.species == this.species ) return false; // no friendly fire... yet
+						let dx = b.x - this.x;
+						let dy = b.y - this.y;
+						let d = Math.sqrt( dx * dx + dy * dy );
+						return d < this.collision.radius + b.collision.radius;
+					} );
+					if ( !victim ) { 
+						m.last_amount = 0;
+						m.this_stoke_time = 0;
+						return 0; 
+					}
+					let attack_force = this.mass * m.attack * amount;
+					// let was = victim.metab.energy;
+					victim.metab.energy -= attack_force;
+					// console.log(`attacking @ ${attack_force.toFixed()} : ${was.toFixed()} -> ${victim.metab.energy.toFixed()}`);
+					if ( victim.metab.energy <= 0 ) {
+						victim.Kill('attack');
+						// prizes!
+						const f = new Food( victim.x, victim.y, { 
+							value: victim.mass * 0.25, // reduce value to avoid virtuous cycles  
+							lifespan: ( victim.mass * 0.05),
+							buoy_start: 5,
+							buoy_end: -20,
+							nutrients: victim.traits.nutrition.map( x => x > 0 ? x : 0 ),
+							complexity: Math.max( victim.traits.nutrition.filter( x => x > 0 ).length, 5 )
+							} );		
+						window.vc.tank.foods.push(f);											
+					}
+					// draw indicator circle
+					if ( !window.vc?.simulation?.turbo ) {
+						let mark = null;
+						let marksize = Math.min( 80, Math.sqrt(attack_force) );
+						if ( victim.dead ) {
+							mark = window.two.makeGroup();
+							mark.add( window.two.makeLine( -marksize, -marksize, marksize, marksize ) );
+							mark.add( window.two.makeLine( -marksize, marksize, marksize, -marksize ) );
+							mark.position.x = victim.x;
+							mark.position.y = victim.y;
+						}
+						else {
+							mark = window.two.makeCircle( victim.x, victim.y, marksize );
+						}
+						mark.stroke = 'red';
+						mark.fill = 'transparent';
+						mark.linewidth = 6;
+						// mark.dashes = [30, 6, 6, 6];
+						window.vc.AddShapeToRenderLayer(mark,1);
+						// make it go away after 2s - 
+						if ( window.vc.animate_boids ) {
+							new TWEEN.Tween(mark)
+								.to( { opacity:0, scale:2 }, 2000 )
+								.easing(TWEEN.Easing.Quadratic.Out)
+								// switch to absolute tracking after chase completed
+								.onComplete( obj => obj.remove() )
+								.start();
+						}
+						else {
+							setTimeout( _ => mark.remove(), 2000 );
+						}
+					}
+				}				
 				// if we decided to activate a new stroke, record the power it was
 				// activated with instead of using a varying stroke each frame.
 				m.strokepow = amount; 
@@ -1177,8 +1250,25 @@ export class Boid {
 			min_age: this.maturity_age,
 			min_scale: 0.65, // prevents infinite subdivision
 			use_max: true // prevents cheating on time
-			// brake: 1
 		});
+		
+		// combat
+		const canAttack = this.dna.shapedNumber( this.dna.genesFor(`attack motor chance`,1,1) );
+		if ( canAttack > 0.5 ) {
+			const attackValue = this.dna.shapedNumber( this.dna.genesFor(`attack motor value`,1,1), 0.2, 2.0, 2, 3 ); 
+			let stroketime = 5;
+			this.motors.push({
+				attack: attackValue,
+				min_act: this.dna.shapedNumber( this.dna.genesFor('attack motor min act',2), 0.25, 0.9, 0.5, 3),
+				cost: (0.2 * 200), // per second per mass / 800. long story. will fix later
+				stroketime: stroketime, 
+				strokefunc: 'linear_down', 
+				name: `attack${attackValue.toFixed(1)}`,
+				min_age: this.larval_age * 3,
+				// TODO: throttle
+			});
+		}
+
 		// // connect motor animations to specific points
 		// let leftside_motors = this.motors.filter( m => typeof(m.sym)=='undefined' || m.sym < this.motors[m.sym].sym );
 		// for ( let i=0; i < leftside_motors.length; i++ ) {
