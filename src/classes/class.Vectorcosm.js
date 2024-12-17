@@ -87,7 +87,10 @@ export default class Vectorcosm {
 			show_boid_collision_on_focus: false,
 			animation_min: 0.4 // zoom level beyond which we stop animating
 		};
-		
+		this.sim_meta_params = {
+			num_boids: null,
+			segments: null
+		};
 		// subscriptions to critical events
 		// this.frameUpdateSubscription = PubSub.subscribe('frame-update', (msg,data) => {
     	// 	console.log( msg, data );
@@ -365,6 +368,9 @@ export default class Vectorcosm {
 		if ( !this.simulation ) { 
 			this.simulation = SimulationFactory(this.tank, 'natural_tank');
 		}
+		// meta params that carry over from sim to sim
+		if ( this.sim_meta_params.num_boids > 0 ) { this.simulation.settings.num_boids = this.sim_meta_params.num_boids; }
+		if ( this.sim_meta_params.segments > 1 ) { this.simulation.settings.segments = this.sim_meta_params.segments; }
 		this.simulation.onComplete = _ => this.LoadNextSim();
 		this.tank.Sterilize(); 
 		this.simulation.tank.boids = boids;

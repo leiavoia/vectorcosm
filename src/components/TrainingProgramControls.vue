@@ -1,29 +1,38 @@
 <script setup>
-	// import * as utils from '../util/utils.js'
-	// import BoidLibrary from '../classes/class.BoidLibrary.js'
-	import {Boid} from '../classes/class.Boids.js'
-	import PubSub from 'pubsub-js'
 	import Tank from '../classes/class.Tank.js'
 	import { ref, reactive, toRaw, markRaw, shallowRef, nextTick, triggerRef, onMounted, watch } from 'vue'
 	import { SimulationFactory } from '../classes/class.Simulation.js'
 	
-	// const lib = new BoidLibrary();
-	let rows = reactive([]);
-			
-	// async function QueryLibrary( order_by='date', ascending=false, star=null ) {
-	// 	rows.length = 0;
-	// 	let results = await lib.Get({ order_by, ascending, star });
-	// 	rows.push( ...results );
-	// 	num_selected = 0;
-	// }
+	// assume there are no set meta params when program begins
+	let meta_params = reactive({
+		num_boids: ( window.vc.sim_meta_params.num_boids || 0 ),
+		segments: ( window.vc.sim_meta_params.segments || 0 )
+	});
 	
-	// QueryLibrary( order_by, ascending, star );
+	function updateNumBoids() {
+		if ( meta_params.num_boids < 2 ) { meta_params.num_boids = 0; } 
+		if ( meta_params.segments && meta_params.num_boids ) {
+			let diff = meta_params.num_boids % meta_params.segments;
+			if ( diff ) {
+				meta_params.num_boids -= diff;
+				window.vc.sim_meta_params.num_boids = meta_params.num_boids;
+			}
+		}
+		window.vc.sim_meta_params.num_boids = meta_params.num_boids;
+	}
 	
-	// // listen for library additions from other components
-	// let libraryUpdateSubscription = PubSub.subscribe('boid-library-addition', (msg,data) => {
-	// 	QueryLibrary( order_by, ascending, star );
-	// });
-			
+	function updateNumSegments() {
+		if ( meta_params.segments < 1 ) { meta_params.segments = 0; } 
+		if ( meta_params.segments && meta_params.num_boids ) {
+			let diff = meta_params.num_boids % meta_params.segments;
+			if ( diff ) {
+				meta_params.num_boids -= diff;
+				window.vc.sim_meta_params.num_boids = meta_params.num_boids;
+			}
+		}
+		window.vc.sim_meta_params.segments = meta_params.segments;
+	}
+	
 	function RunProgram( program_name ) {
 		window.vc.tank.Kill();
 		window.vc.tank = new Tank( 100,100 );
@@ -150,7 +159,19 @@
 		<button @click="RunProgram('obstacle_course')" style="width:100%; margin-bottom:0.25rem;">Obstacle Course</button>
 		<button @click="RunProgram('race_track')" style="width:100%; margin-bottom:0.25rem;">Race Track</button>
 		
+		<!-- meta params -->
+		<h3>Meta Parameters</h3>
+		<label for="num_rocks_slider">Boids</label>
+		<input v-model.number="meta_params.num_boids" @change="updateNumBoids()" type="range" min="1" max="250" step="1" style="margin-bottom:-0.25em;" id="meta_num_boids" />
+		<output for="meta_num_boids" id="meta_num_boids_output">{{meta_params.num_boids < 2 ? 'NOT SET' : meta_params.num_boids}}</output>
+
+		<br/>
 		
+		<label for="num_rocks_slider">Segments</label>
+		<input v-model.number="meta_params.segments" @change="updateNumSegments()" type="range" min="1" max="16" step="1" style="margin-bottom:-0.25em;" id="meta_num_segments" />
+		<output for="meta_num_segments" id="meta_num_segments_output">{{meta_params.segments < 2 ? 'NOT SET' : meta_params.segments}}</output>
+		
+				
 		<!-- Programs -->
 		<!-- <h3>Programs</h3>
 		<div style="border: 1px solid white; margin: 1em 0; padding: 1em 0.5em;">

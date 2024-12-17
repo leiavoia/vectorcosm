@@ -206,41 +206,72 @@ export default class Simulation {
 			this.stats.chartdata.averages.push(avg);
 			this.stats.chartdata.highscores.push(best);
 			
-			// remove deadbeats
-			if ( this.settings.min_score !== null ) {
-				this.tank.boids.filter( x => x.total_fitness_score < this.settings.min_score ).forEach( x => x.Kill('culled') );
+			let segments = this.settings?.segments || 1;
+			let per_segment = Math.floor( this.settings.num_boids / segments );
+			
+			// separate the entire population into equal portions
+			let populations = [];
+			if ( segments > 1 ) {
+				for ( let i=0; i < segments; i++ ) {
+					if ( this.tank.boids.length ) {
+						populations.push(
+							this.tank.boids.splice(0,per_segment)
+						);
+					}
+				}
+				// if there are any extra, they just die
+				if ( this.tank.boids.length ) {
+					populations[ populations.length-1 ].push( ...this.tank.boids.splice(0,this.tank.boids.length) );
+				}	
 			}
-			this.tank.boids = this.tank.boids.filter( x => !x.dead );
-			// sort boids by fitness score ASC
-			this.tank.boids.sort( (a,b) => a.total_fitness_score - b.total_fitness_score );
-			// cull the herd, keep the winners
-			const numkill = Math.trunc(this.tank.boids.length * this.settings.cullpct);
-			this.tank.boids.splice(0,numkill).forEach( x=> x.Kill('culled') );
-			// create boids to make up the difference
-			let n = this.settings.num_boids;
-			let diff = n - this.tank.boids.length;	
-			if ( diff > 0 ) {
-				const mutation_rate = utils.Clamp( this.settings?.max_mutation || 0, 0, 1 );
-				const dna_mutation_rate = utils.Clamp( this.settings?.dna_mutation_rate || mutation_rate, 0, 1 );
-				const brain_mutation_rate = utils.Clamp( this.settings?.brain_mutation_rate || mutation_rate, 0, 1 );
-				let speciation_rate = 
-					('speciation_rate' in this.settings)
-					? utils.Clamp( this.settings.speciation_rate || 0, 0, 1 )
-					: ( this.settings?.allow_speciation ? ( dna_mutation_rate / 1000 ) : 0 ) ;
-				const parent_selection = this.tank.boids.slice();
-				const parentPicker = new utils.RandomPicker(
-					parent_selection.map( b => [b,b.total_fitness_score]) 
-				);
-				for ( let i=0; i < diff; i++ ) {
-					let parent = parent_selection.length ? parentPicker.Pick() : null;
-					let species = parent ? parent.species : this.settings?.species;
-					let b = parent 
-						? parent.Copy(true, dna_mutation_rate, brain_mutation_rate, speciation_rate) 
-						: BoidFactory( species, 0, 0, this.tank ) ;
-					// if no survivors, it automatically has a randomly generated brain
-					this.tank.boids.push(b);
-				}			
+			// shortcut for single segment simulations
+			else {
+				populations.push( this.tank.boids ); // alias
 			}
+				
+			// treat each population separately								
+			for ( let population of populations ) {
+				// remove deadbeats
+				if ( this.settings.min_score !== null ) {
+					population.filter( x => x.total_fitness_score < this.settings.min_score ).forEach( x => x.Kill('culled') );
+				}
+				population.filter( x => !x.dead );
+				// sort boids by fitness score ASC
+				population.sort( (a,b) => a.total_fitness_score - b.total_fitness_score );
+				// cull the herd, keep the winners
+				const numkill = Math.trunc(population.length * this.settings.cullpct);
+				population.splice(0,numkill).forEach( x=> x.Kill('culled') );
+				// create boids to make up the difference
+				let diff = per_segment - population.length;	
+				if ( diff > 0 ) {
+					const mutation_rate = utils.Clamp( this.settings?.max_mutation || 0, 0, 1 );
+					const dna_mutation_rate = utils.Clamp( this.settings?.dna_mutation_rate || mutation_rate, 0, 1 );
+					const brain_mutation_rate = utils.Clamp( this.settings?.brain_mutation_rate || mutation_rate, 0, 1 );
+					let speciation_rate = 
+						('speciation_rate' in this.settings)
+						? utils.Clamp( this.settings.speciation_rate || 0, 0, 1 )
+						: ( this.settings?.allow_speciation ? ( dna_mutation_rate / 1000 ) : 0 ) ;
+					const parent_selection = population.slice();
+					const parentPicker = new utils.RandomPicker(
+						parent_selection.map( b => [b,b.total_fitness_score]) 
+					);
+					for ( let i=0; i < diff; i++ ) {
+						let parent = parent_selection.length ? parentPicker.Pick() : null;
+						let species = parent ? parent.species : this.settings?.species;
+						let b = parent 
+							? parent.Copy(true, dna_mutation_rate, brain_mutation_rate, speciation_rate) 
+							: BoidFactory( species, 0, 0, this.tank ) ;
+						// if no survivors, it automatically has a randomly generated brain
+						population.push(b);
+					}			
+				}
+				// put the separate populations back into the tank
+				if ( segments > 1 ) {
+					this.tank.boids.push( ...population );
+				}
+			}
+			
+		
 			this.Reset();
 			if ( typeof(this.onRound) === 'function' ) { this.onRound(this); }
 			// check if entire simulation is over
@@ -266,6 +297,11 @@ export default class Simulation {
 	
 	SetNumBoids(x) {
 		this.settings.num_boids = parseInt(x);
+		// if this simulation has segments, total population must be a multiple
+		if ( this.settings.segments ) {
+			let diff = this.settings.num_boids % this.settings.segments;
+			if ( diff ) { this.settings.num_boids -= diff; }
+		} 
 		let diff = this.settings.num_boids - this.tank.boids.length;
 		if ( diff > 0 ) {
 			for ( let i=0; i < diff; i++ ) {

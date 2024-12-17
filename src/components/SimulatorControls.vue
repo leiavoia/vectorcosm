@@ -47,6 +47,7 @@
 		vars.round.time = props.sim.stats.round.time;
 		vars.name = props.sim.settings.name;
 		vars.rounds = props.sim.settings.end?.rounds;
+		vars.segments = window.vc.sim_meta_params.segments;
 	}
 	
 	function copyStats() {
@@ -319,7 +320,11 @@
 
 		<p v-if="vars.name"><output>{{vars.name}}</output></p>
 		
+		
 		<div v-if="vars.time">
+			<div v-if="vars.segments">
+				Segments: <output id="segments_output">{{vars.segments}}</output>
+			</div>
 			Round: <output id="round_output">{{vars.round.num}}</output> / 
 				<output id="round_output">{{vars.rounds||'∞'}}</output> | 
 			Best: <output id="best_score_output">{{vars.round.best_score.toFixed()}}</output> | 
