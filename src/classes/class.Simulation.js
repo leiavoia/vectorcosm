@@ -860,7 +860,7 @@ export class AvoidEdgesSimulation extends Simulation {
 			
 			let max_size = this.settings?.max_segment_spread || 200;
 			let min_size = this.settings?.min_segment_spread || 70;
-			let joints = this.settings?.segments || 7;
+			let joints = this.settings?.joints || 7;
 			let jwidth = this.tank.width / joints;
 			let last_shift = 0;
 			let size = Math.random() * max_size + min_size;

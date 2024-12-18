@@ -29,7 +29,7 @@ export default {
 		scale:0.6,
 		punishment: 2,
 		max_segment_spread: 170,
-		segments: 10,
+		joints: 10,
 		max_mutation: 0.3,
 		cullpct: 0.3,
 		angle_spread: 0,
