@@ -87,7 +87,7 @@ export default class Mark {
 			// Smell:
 			else if ( this.strongest_sense >= 3 ) { 
 				this.geo.linewidth = 6;
-				this.geo.dashes = [6,12];
+				this.geo.dashes = [6,24];
 			}
 			// Visual:
 			else { 
@@ -114,7 +114,7 @@ export default class Mark {
 			}
 			// sounds and colors flash
 			else {
-				this.geo.opacity = Math.pow( 1 - this.age / this.lifespan, 10 );
+				this.geo.opacity = Math.pow( 1 - this.age / this.lifespan, 20 );
 			}
 			// this.geo.rotation += 0.2 * delta; // egregious eye candy
 		}

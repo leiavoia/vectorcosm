@@ -1310,7 +1310,7 @@ export class Boid {
 
 		// mark motors (calls, scents, "pheromones", flashes of light, etc...)
 		const hasScent1 = this.dna.shapedNumber( 0x08000000 | this.dna.genesFor(`hasScent1`,1,1) );
-		if ( hasScent1 > 0.65 ) { 
+		if ( hasScent1 > 0.42 ) { 
 			let g1 = 0x08000000 | this.dna.genesFor(`scent1 index 1`,1,1); // this needs full length number spread
 			let g2 = 0x08000000 | this.dna.genesFor(`scent1 index 2`,1,1); // this needs full length number spread
 			let g3 = 0x08000000 | this.dna.genesFor(`scent1 index 3`,1,1); // this needs full length number spread
@@ -1318,8 +1318,8 @@ export class Boid {
 			const i2 = this.dna.shapedInt( g2, 3, 11 );
 			const i3 = this.dna.shapedInt( g3, 3, 11 );
 			let sense = new Array(16).fill(0);
-			const strength = this.dna.shapedNumber( this.dna.genesFor(`scent1 strength`,2,1), 1, 10, 2, 4 );
-			const radius = this.dna.shapedNumber( this.dna.genesFor(`scent1 radius`,2,1), 50, 500, 125, 3 );
+			const strength = this.dna.shapedNumber( this.dna.genesFor(`scent1 strength`,2,1), 1, 10, 2, 3 );
+			const radius = this.dna.shapedNumber( this.dna.genesFor(`scent1 radius`,2,1), 50, 650, 125, 3 );
 			const time = this.dna.shapedNumber( this.dna.genesFor(`scent1 time`,2,1), 5, 30, 10, 3 );
 			const lifespan = this.dna.shapedNumber( this.dna.genesFor(`scent1 lifespan`,2,1), 5, 20, 10, 3 );
 			const act = this.dna.shapedNumber( this.dna.genesFor(`scent1 act`,2,1), 0.5, 1.0, 0.6, 3 );
@@ -1341,15 +1341,15 @@ export class Boid {
 		}
 		
 		const hasScent2 = this.dna.shapedNumber( 0x08000000 | this.dna.genesFor(`hasScent2`,1,1) );
-		if ( hasScent2 > 0.92 ) { 
+		if ( hasScent2 > 0.9 ) { 
 			let g1 = 0x08000000 | this.dna.genesFor(`scent2 index`,1,1); // this needs full length number spread
 			const i = this.dna.shapedInt( g1, 3, 11 );
 			let sense = new Array(16).fill(0);
 			const strength = this.dna.shapedNumber( this.dna.genesFor(`scent2 strength`,2,1), 1, 10, 2, 4 );
-			const radius = this.dna.shapedNumber( this.dna.genesFor(`scent2 radius`,2,1), 50, 500, 125, 3 );
+			const radius = this.dna.shapedNumber( this.dna.genesFor(`scent2 radius`,2,1), 50, 850, 125, 3 );
 			const time = this.dna.shapedNumber( this.dna.genesFor(`scent2 time`,2,1), 5, 30, 10, 3 );
 			const lifespan = this.dna.shapedNumber( this.dna.genesFor(`scent2 lifespan`,2,1), 2, 12, 5, 3 );
-			const act = this.dna.shapedNumber( this.dna.genesFor(`scent2 act`,2,1), 0.75, 1.0, 0.85, 3 );
+			const act = this.dna.shapedNumber( this.dna.genesFor(`scent2 act`,2,1), 0.68, 1.0, 0.78, 3 );
 			sense[i] = strength;
 			this.motors.push({
 				sense,
@@ -1371,10 +1371,10 @@ export class Boid {
 			const i = this.dna.shapedInt( g1, 12, 15 );
 			let sense = new Array(16).fill(0);
 			const strength = this.dna.shapedNumber( this.dna.genesFor(`call1 strength`,2,1), 5, 20, 5, 3 );
-			const radius = this.dna.shapedNumber( this.dna.genesFor(`call1 radius`,2,1), 120, 800, 150, 3 );
-			const time = this.dna.shapedNumber( this.dna.genesFor(`call1 time`,2,1), 5, 30, 10, 3 );
+			const radius = this.dna.shapedNumber( this.dna.genesFor(`call1 radius`,2,1), 125, 1000, 300, 3 );
+			const time = this.dna.shapedNumber( this.dna.genesFor(`call1 time`,2,1), 5, 12, 7, 3 );
 			const lifespan = this.dna.shapedNumber( this.dna.genesFor(`call1 lifespan`,2,1), 2, 5, 2, 3 );
-			const act = this.dna.shapedNumber( this.dna.genesFor(`call1 act`,2,1), 0.8, 1.0, 0.9, 3 );
+			const act = this.dna.shapedNumber( this.dna.genesFor(`call1 act`,2,1), 0.55, 1.0, 0.68, 3 );
 			sense[i] = strength;
 			this.motors.push({
 				sense,
@@ -1391,7 +1391,7 @@ export class Boid {
 		}
 		
 		const hasSignal1 = this.dna.shapedNumber( 0x08000000 | this.dna.genesFor(`hasSignal1`,1,1) );
-		if ( hasSignal1 > 0.96 ) { 
+		if ( hasSignal1 > 0.86 ) { 
 			let g1 = 0x08000000 | this.dna.genesFor(`call1 index 1`,1,1); // this needs full length number spread
 			let g2 = 0x08000000 | this.dna.genesFor(`call1 index 2`,1,1); // this needs full length number spread
 			let g3 = 0x08000000 | this.dna.genesFor(`call1 index 3`,1,1); // this needs full length number spread
@@ -1400,10 +1400,10 @@ export class Boid {
 			const i3 = this.dna.shapedInt( g3, 0, 2 );
 			let sense = new Array(16).fill(0);
 			const strength = this.dna.shapedNumber( this.dna.genesFor(`signal1 strength`,2,1), 5, 10, 5, 3 );
-			const radius = this.dna.shapedNumber( this.dna.genesFor(`signal1 radius`,2,1), 120, 800, 150, 3 );
-			const time = this.dna.shapedNumber( this.dna.genesFor(`signal1 time`,2,1), 5, 30, 10, 3 );
+			const radius = this.dna.shapedNumber( this.dna.genesFor(`signal1 radius`,2,1), 150, 1000, 250, 3 );
+			const time = this.dna.shapedNumber( this.dna.genesFor(`signal1 time`,2,1), 3, 10, 5, 3 );
 			const lifespan = this.dna.shapedNumber( this.dna.genesFor(`signal1 lifespan`,2,1), 2, 5, 2, 3 );
-			const act = this.dna.shapedNumber( this.dna.genesFor(`signal1 act`,2,1), 0.8, 1.0, 0.9, 3 );
+			const act = this.dna.shapedNumber( this.dna.genesFor(`signal1 act`,2,1), 0.6, 0.9, 0.7, 3 );
 			sense[i1] += strength;
 			sense[i2] += strength;
 			sense[i3] += strength;
