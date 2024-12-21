@@ -19,6 +19,7 @@ export function SimulationFactory( tank, name_or_settings ) {
 		case 'FoodChaseSimulation': return new FoodChaseSimulation( tank, our_settings );
 		case 'TurningSimulation': return new TurningSimulation( tank, our_settings );
 		case 'AvoidEdgesSimulation': return new AvoidEdgesSimulation( tank, our_settings );
+		case 'CombatSimulation': return new CombatSimulation( tank, our_settings );
 		default: return new Simulation( tank, our_settings );
 	}
 }
@@ -479,7 +480,6 @@ export class NaturalTankSimulation extends Simulation {
 		if ( this.settings?.num_plants ) { 
 			this.SetNumPlants(this.settings?.num_plants);
 		}
-		// this.tank.FindSafeZones();
 		// reset existing population
 		let spawn_x = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.width; 
 		let spawn_y = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.height; 			
@@ -639,6 +639,60 @@ export class FoodChaseSimulation extends Simulation {
 				if ( f.x > this.tank.width-margin ) { f.vx = -f.vx; }
 				if ( f.y > this.tank.height-margin ) { f.vy = -f.vy; }
 				f.frictionless = !food_friction;
+			}
+		}
+	}	
+}
+
+export class CombatSimulation extends Simulation {
+	Setup() {
+		super.Setup();
+		this.Reset();
+	}
+	Reset() {
+		// randomize rocks
+		if ( this.settings?.num_rocks ) {
+			this.SetNumRocks(this.settings?.num_rocks);
+		}
+		// reset entire population
+		this.SetNumBoids( this.settings.num_boids ); // top up the population
+		let spawn_x = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.width; 
+		let spawn_y = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.height; 			
+		let new_angle = Math.random() * Math.PI * 2;
+		for ( let b of this.tank.boids ) {
+			if ( this.settings?.random_boid_pos ) {
+				spawn_x = Math.random() * this.tank.width; 
+				spawn_y = Math.random() * this.tank.height; 			
+			}
+			b.Reset();
+			b.angle = ( this.settings?.random_boid_angle ? (Math.random() * Math.PI * 2) : new_angle ),
+			b.x = spawn_x;
+			b.y = spawn_y;
+			b.total_fitness_score = 0;
+			b.fitness_score = 0;
+		}
+	}	
+	ScoreBoidPerRound(b) {
+		let per_segment = Math.floor( this.settings.num_boids / ( this.settings.segments || 1 ) );
+		let segment = Math.floor( this.tank.boids.indexOf(b) / per_segment );
+		let has_attack = b.motors.find( m => m.hasOwnProperty('attack') );
+		// defenders - even numbered segments
+		if ( segment % 2 === 0 ) {
+			// filter out attackers entirely
+			if ( has_attack ) { 
+				b.total_fitness_score = 0;
+			}
+			else {
+				b.total_fitness_score = ( this.settings.time / 2 ) - b.stats.combat.attacks_received;
+			}
+		}
+		// attackers - odd numbered segments
+		else {
+			if ( !has_attack ) { 
+				b.total_fitness_score = 0;
+			}
+			else {
+				b.total_fitness_score = b.stats.combat.attacks;
 			}
 		}
 	}	

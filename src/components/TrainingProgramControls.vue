@@ -120,6 +120,10 @@
 				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'race_track' ) );
 				break;
 			}
+			case 'combat' : {
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'combat' ) );
+				break;
+			}
 			case 'food_training_sim_comp' : {
 				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'food_training_sim_easy' ) );
 				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'food_training_sim_medium' ) );
@@ -158,6 +162,7 @@
 		<button @click="RunProgram('food_training_sim_comp')" style="width:100%; margin-bottom:0.25rem;">Food Chase - Comprehensive</button>
 		<button @click="RunProgram('obstacle_course')" style="width:100%; margin-bottom:0.25rem;">Obstacle Course</button>
 		<button @click="RunProgram('race_track')" style="width:100%; margin-bottom:0.25rem;">Race Track</button>
+		<button @click="RunProgram('combat')" style="width:100%; margin-bottom:0.25rem;">Combat</button>
 		
 		<!-- meta params -->
 		<h3>Meta Parameters</h3>

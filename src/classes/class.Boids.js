@@ -67,29 +67,41 @@ export class Boid {
 		if ( !window.vc.simulation.settings?.ignore_lifecycle ) {
 			this.age = utils.RandomInt( 0, this.lifespan * 0.5 );
 		}
+		this.ResetStats();
 	}
 	
-	constructor( x=0, y=0, tank=null, json=null ) {
+	ResetStats() {
 		this.stats = {
 			death: {
 				cause: null,
-				energy_remaining:0,
-				energy_remaining_pct:0,
-				age_remaining:0,
-				age_remaining_pct:0,
+				energy_remaining: 0,
+				energy_remaining_pct: 0,
+				age_remaining: 0,
+				age_remaining_pct: 0,
 			},
 			food: {
 				total: 0,
-				toxins:0,
-				edible:0,
-				inedible:0,
-				required:0,
-				toxin_dmg:0,
-				deficit_dmg:0,
-				energy:0,
-				bites:0
+				toxins: 0,
+				edible: 0,
+				inedible: 0,
+				required: 0,
+				toxin_dmg: 0,
+				deficit_dmg: 0,
+				energy: 0,
+				bites: 0
+			},
+			combat: {
+				attacks: 0,
+				attacks_received: 0,
+				dmg_dealt: 0,
+				dmg_received: 0,
+				kills: 0
 			}
 		};
+	}
+
+	constructor( x=0, y=0, tank=null, json=null ) {
+		this.ResetStats();
 		this.sense = new Array(16).fill(0);
 		this.id = Math.random();
 		this.dna = '';
@@ -795,7 +807,7 @@ export class Boid {
 					amount = 1; 
 				}
 				// attack executes only on the first frame and only if there is a victim
-				if ( m.hasOwnProperty('attack') && !window.vc.simulation.settings?.ignore_lifecycle ) {
+				if ( m.hasOwnProperty('attack') && !window.vc.simulation.settings?.no_combat ) {
 					// find boids in the local area
 					let victim = this.tank.grid.GetObjectsByBox( 
 						this.x - this.collision.radius, 
@@ -820,8 +832,13 @@ export class Boid {
 					// let was = victim.metab.energy;
 					victim.metab.energy -= attack_force;
 					// console.log(`attacking @ ${attack_force.toFixed()} : ${was.toFixed()} -> ${victim.metab.energy.toFixed()}`);
-					if ( victim.metab.energy <= 0 ) {
+					this.stats.combat.attacks++;
+					this.stats.combat.dmg_dealt += attack_force;
+					victim.stats.combat.attacks_received++;
+					victim.stats.combat.dmg_received += attack_force;
+					if ( victim.metab.energy <= 0 && !window.vc.simulation.settings?.ignore_lifecycle ) {
 						victim.Kill('attack');
+						this.stats.combat.kills++;
 						// prizes!
 						const f = new Food( victim.x, victim.y, { 
 							value: victim.mass * 0.25, // reduce value to avoid virtuous cycles  
@@ -833,6 +850,7 @@ export class Boid {
 							} );		
 						window.vc.tank.foods.push(f);											
 					}
+			
 					// draw indicator circle
 					if ( !window.vc?.simulation?.turbo ) {
 						let mark = null;

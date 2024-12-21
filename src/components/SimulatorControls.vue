@@ -47,7 +47,7 @@
 		vars.round.time = props.sim.stats.round.time;
 		vars.name = props.sim.settings.name;
 		vars.rounds = props.sim.settings.end?.rounds;
-		vars.segments = window.vc.sim_meta_params.segments;
+		vars.segments = props.sim.settings?.segments;
 	}
 	
 	function copyStats() {
