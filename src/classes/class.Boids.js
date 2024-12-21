@@ -1582,7 +1582,51 @@ export class Boid {
 			}
 		}
 		
-		// food and obstacle sensors
+		
+		// hearing
+		const has_hearing = this.dna.shapedNumber(this.dna.genesFor('has hearing sense',1,true)) > 0.6;
+		if ( has_hearing ) {
+			const radius = this.dna.shapedNumber( this.dna.genesFor('audio sense radius',3,2), 200, 750, 350, 1.5 );
+			const xoff = this.dna.shapedNumber( this.dna.genesFor('audio sense xoff',3,2), -radius*0.5, radius, radius*0.5, 1.5 );
+			const yoff = this.dna.shapedNumber( this.dna.genesFor('audio sense yoff',3,2), 0, radius, radius*0.5, 1.5 );
+			const detect = [];
+			const rejects = [];
+			// chance to detect indv channels
+			for ( let i=0; i<4; i++ ) {
+				const g1 = this.dna.genesFor('audio chance ' + i, 1, true);
+				const chance = this.dna.mix(g1, 0, 1);
+				if ( chance > 0.65 ) { detect.push(i+12); } // indexes 12,13,14,15 are audio channels
+				else { rejects.push(i+12); }
+			}
+			// random chance to have blended channel detection
+			if ( rejects.length ) {
+				rejects.shuffle();
+				while ( rejects.length ) {
+					let num = this.dna.shapedInt( this.dna.genesFor('audio merge ' + rejects.length, 1, true), 2, 3);
+					num = utils.Clamp( num, 1, rejects.length );
+					const chance = this.dna.mix(this.dna.genesFor('audio merge chance ' + rejects.length, 1, true), 0, 1);
+					const my_rejects = rejects.splice(0,num);
+					if ( chance > 0.65 ) { 
+						detect.push(my_rejects);
+					}
+				}
+			}
+			if ( detect.length ) {
+				let sensitivity = this.dna.shapedNumber(this.dna.genesFor('audio sensitivity',2,1), 0.1, 3, 0.5, 3 );
+				const chance = this.dna.shapedNumber(this.dna.genesFor('stereo audio',3,true));
+				// mono
+				if ( chance > 0.5 ) {
+					this.sensors.push( new Sensor({ type:'sense', name: 'audio', color: '#EE3311FF', falloff:2, sensitivity, detect: detect, x: xoff, y: 0, r: radius, }, this ) );
+				} 
+				// stereo
+				else {
+					this.sensors.push( new Sensor({ type:'sense', name: 'audio1', color: '#EE3311FF', falloff:2, sensitivity, detect: detect, x: xoff, y: yoff, r: radius, }, this ) );
+					this.sensors.push( new Sensor({ type:'sense', name: 'audio2', color: '#EE3311FF', falloff:2, sensitivity, detect: detect, x: xoff, y: -yoff, r: radius, }, this ) );
+				}
+			}
+		}
+		
+		// food sensors
 		const my_max_dim = Math.max( this.body.length, this.body.width );
 		const max_sensor_radius = Math.sqrt(my_max_dim) * 50;
 		const min_sensor_radius = Math.min( my_max_dim*1.5, max_sensor_radius );
