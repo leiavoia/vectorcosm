@@ -1111,6 +1111,7 @@ export class Boid {
 		this.motors = [];
 		let has_linear = false;
 		let has_angular = false;
+		let has_forward = false;
 		// loop through the max number of potential motors and decide on each one individually with a gene.
 		// this way if a gene changes it doesnt affect all subsequent motors in the stack.
 		const max_num_motors = 5;
@@ -1160,7 +1161,9 @@ export class Boid {
 			let angular = this.dna.shapedNumber(angularGene,3, 100, 20, 2);
 			
 			const linearFlipGene = this.dna.genesFor(`motor linear flip ${n}`, 1, true);
-			if ( this.dna.shapedNumber(linearFlipGene,0,1) > 0.65 ) { linear = -linear; }
+			// prefer front-swimmers: don't flip the first motor unless we already have
+			// ability to move forward. this helps with sensor placement which prefers the front.
+			if ( has_forward && this.dna.shapedNumber(linearFlipGene,0,1) > 0.65 ) { linear = -linear; }
 			
 			const angularFlipGene = this.dna.genesFor(`motor angular flip ${n}`, 1, true);
 			if ( this.dna.shapedNumber(angularFlipGene,0,1) > 0.65 ) { angular = -angular; }
@@ -1174,7 +1177,11 @@ export class Boid {
 				else if ( combo_chance < 0.25 && ( n < num_motors-1 || has_angular ) ) { angular = 0; }
 			}
 			
-			if ( linear ) { motor.linear = linear; has_linear = true; }
+			if ( linear ) { 
+				motor.linear = linear; 
+				has_linear = true; 
+				if ( wheel || linear > 0 ) has_forward = true;
+			}
 			if ( angular ) { motor.angular = angular; has_angular = true; }
 			
 			// certain stroke functions alter the power to make sure things dont go bonkers
