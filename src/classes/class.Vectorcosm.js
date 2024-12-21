@@ -46,6 +46,7 @@ export default class Vectorcosm {
 		this.braingraph = null; // move me some day
 		
 		// world settings
+		this.max_foods = 400;
 		this.render_style = 'Natural'; // Natural, Vector, Zen, Grey
 		this.animate_boids = true;
 		this.animate_plants = true;

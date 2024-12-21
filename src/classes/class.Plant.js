@@ -163,14 +163,14 @@ export class DNAPlant extends Plant {
 		
 		// make berries
 		if ( this.age > this.traits.maturity_age && this.age > this.next_fruit ) {
-			let max_fudge = this.fruit_interval * 0.10;
+			let max_fudge = this.fruit_interval * 0.20;
 			let fudge = ( Math.random() * max_fudge ) - ( max_fudge / 2 );
 			this.next_fruit = this.age + fudge + ( this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 ) );
-			if ( window.vc.tank.foods.length < 300 ) {
+			if ( window.vc.tank.foods.length < window.vc.max_foods ) {
 				// pick a random vertex to spawn from
 				for ( let n=0; n < this.traits.fruit_num; n++ ) {
 					let vertex = this.geo.children.pickRandom().vertices.pickRandom();
-					const f = new Food( this.x + vertex.x, this.y + vertex.y, { 
+					const f = new Food( this.x + ( vertex.x * 0.35 ) , this.y + ( vertex.y * 0.35 ) , { 
 						value: ( this.traits.fruit_size * ( 1 - (Math.random() * 0.1 ) ) ), 
 						lifespan: ( this.traits.fruit_lifespan * ( 1 - (Math.random() * 0.2 ) ) ),
 						buoy_start: this.traits.fruit_buoy_start + ( 1 - (2 * Math.random()) ),
@@ -277,10 +277,12 @@ export class DNAPlant extends Plant {
 		}
 				
 		// determine the other traits
-		const total_fruit_mass = this.dna.shapedInt( this.dna.genesFor('total_fruit_mass',2), 10, 1000, 50, 10 );
-		this.traits.fruit_num = this.dna.shapedInt( this.dna.genesFor('fruit_num',2,1), 1, 10, 1, 20 );
+		const total_fruit_mass = Math.round( 0.5 * ( 
+			this.dna.shapedInt( this.dna.genesFor('total_fruit_mass_1',2), 10, 1000, 50, 3 ) +
+			this.dna.shapedInt( this.dna.genesFor('total_fruit_mass_2',1), 10, 1000, 50, 5 ) ) );
+		this.traits.fruit_num = this.dna.shapedInt( this.dna.genesFor('fruit_num',1), 1, 10, 1, 4 );
 		this.traits.fruit_size = Math.round( total_fruit_mass / this.traits.fruit_num );
-		this.traits.fruit_interval = this.dna.shapedInt( this.dna.genesFor('fruit_interval',2), 10, 120, 30, 9 );
+		this.traits.fruit_interval = this.dna.shapedInt( this.dna.genesFor('fruit_interval',2), 10, 120, 30, 6 );
 		this.traits.fruit_interval = Math.round( this.traits.fruit_interval * (total_fruit_mass / 80) ); // more fruit takes longer
 		this.traits.fruit_lifespan = this.dna.mix( this.dna.genesFor('fruit_lifespan',2), 20, 100 );
 		this.traits.fruit_lifespan = Math.round( this.traits.fruit_lifespan * (total_fruit_mass / 100) ); // more fruit lasts longer
@@ -573,8 +575,10 @@ export class PendantLettuce extends Plant {
 		if ( this.dead ) { return; }
 		// make berries
 		if ( this.age > this.next_fruit ) {
-			this.next_fruit = this.age + this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 );
-			if ( window.vc.tank.foods.length < 300 ) {
+			let max_fudge = this.fruit_interval * 0.20;
+			let fudge = ( Math.random() * max_fudge ) - ( max_fudge / 2 );
+			this.next_fruit = this.age + fudge + this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 );
+			if ( window.vc.tank.foods.length < window.vc.max_foods ) {
 				const f = new Food( this.x, this.y, { 
 					value: 120, 
 					lifespan: (80 + utils.RandomInt(0,20)),
@@ -646,8 +650,10 @@ export class VectorGrass extends Plant {
 		if ( this.dead ) { return; }
 		// make berries
 		if ( this.age > this.next_fruit ) {
-			this.next_fruit = this.age + this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 );
-			if ( window.vc.tank.foods.length < 300 ) {
+			let max_fudge = this.fruit_interval * 0.20;
+			let fudge = ( Math.random() * max_fudge ) - ( max_fudge / 2 );
+			this.next_fruit = this.age + fudge + this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 );
+			if ( window.vc.tank.foods.length < window.vc.max_foods ) {
 				for ( const b of this.blades ) {
 					const f = new Food( 
 						this.x + b.x2, 
@@ -737,12 +743,14 @@ export class WaveyVectorGrass extends Plant {
 		if ( this.dead ) { return; }
 		// make berries
 		if ( this.age > this.next_fruit ) {
-			this.next_fruit = this.age + this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 );
-			if ( window.vc.tank.foods.length < 300 ) {
+			let max_fudge = this.fruit_interval * 0.20;
+			let fudge = ( Math.random() * max_fudge ) - ( max_fudge / 2 );
+			this.next_fruit = this.age + fudge + this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 );
+			if ( window.vc.tank.foods.length < window.vc.max_foods ) {
 				for ( const b of this.blades ) {
 					const f = new Food( 
-						this.x + b[b.length-1][0], 
-						this.y + b[b.length-1][1], 
+						this.x + ( b[b.length-1][0] * 0.5 ), 
+						this.y + ( b[b.length-1][1] * 0.5 ), 
 						{ 
 						value: utils.RandomInt(40,80), 
 						lifespan: (40 + utils.RandomInt(0,15)),
