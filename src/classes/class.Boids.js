@@ -4,6 +4,7 @@ import Sensor from '../classes/class.Sensor.js'
 import Rock from '../classes/class.Rock.js'
 import Food from '../classes/class.Food.js'
 import DNA from '../classes/class.DNA.js'
+import Mark from '../classes/class.Mark.js'
 import * as utils from '../util/utils.js'
 import {Circle, Polygon, Result} from 'collisions';
 const { architect, Network } = neataptic;
@@ -491,7 +492,7 @@ export class Boid {
 		let do_sensors = false;
 		if ( !window.vc.boid_sensors_every_frame ) {
 			for ( let m of this.motors ) {
-				if ( !m.t && !m.hasOwnProperty('mitosis') && !m.hasOwnProperty('attack') ) { do_sensors = true; break; }
+				if ( !m.t && !m?.skip_sensor_check ) { do_sensors = true; break; }
 			}
 		}
 		if ( do_sensors ) {
@@ -937,6 +938,17 @@ export class Boid {
 					: utils.clamp(amount*m.brake,0,-this.inertia);
 				this.inertia += v;
 			}
+			if ( m.hasOwnProperty('sense') && m.t <= delta ) { // first frame
+				if ( !window.vc?.simulation?.settings?.no_marks ) {
+					this.tank.marks.push( new Mark({
+						x: this.x,
+						y: this.y,
+						r: (m.r || 100) * m.strokepow,
+						sense: m.sense,
+						lifespan: ( m.lifespan || ( Math.random() * 10 ) )
+					}) );
+				}
+			}
 			if ( m.hasOwnProperty('mitosis') && m.t >= m.this_stoke_time ) {
 				const mutation_rate = utils.Clamp( window.vc?.simulation?.settings?.max_mutation, 0, 1 );
 				const speciation_rate = 
@@ -1274,7 +1286,8 @@ export class Boid {
 			name: `mitosis+${mitosis_num}`,
 			min_age: this.maturity_age,
 			min_scale: 0.65, // prevents infinite subdivision
-			use_max: true // prevents cheating on time
+			use_max: true, // prevents cheating on time
+			skip_sensor_check:true
 		});
 		
 		// combat
@@ -1290,10 +1303,124 @@ export class Boid {
 				strokefunc: 'linear_down', 
 				name: `attack${attackValue.toFixed(1)}`,
 				min_age: this.larval_age * 3,
+				skip_sensor_check:true
 				// TODO: throttle
 			});
 		}
 
+		// mark motors (calls, scents, "pheromones", flashes of light, etc...)
+		const hasScent1 = this.dna.shapedNumber( 0x08000000 | this.dna.genesFor(`hasScent1`,1,1) );
+		if ( hasScent1 > 0.65 ) { 
+			let g1 = 0x08000000 | this.dna.genesFor(`scent1 index 1`,1,1); // this needs full length number spread
+			let g2 = 0x08000000 | this.dna.genesFor(`scent1 index 2`,1,1); // this needs full length number spread
+			let g3 = 0x08000000 | this.dna.genesFor(`scent1 index 3`,1,1); // this needs full length number spread
+			const i1 = this.dna.shapedInt( g1, 3, 11 );
+			const i2 = this.dna.shapedInt( g2, 3, 11 );
+			const i3 = this.dna.shapedInt( g3, 3, 11 );
+			let sense = new Array(16).fill(0);
+			const strength = this.dna.shapedNumber( this.dna.genesFor(`scent1 strength`,2,1), 1, 10, 2, 4 );
+			const radius = this.dna.shapedNumber( this.dna.genesFor(`scent1 radius`,2,1), 50, 500, 125, 3 );
+			const time = this.dna.shapedNumber( this.dna.genesFor(`scent1 time`,2,1), 5, 30, 10, 3 );
+			const lifespan = this.dna.shapedNumber( this.dna.genesFor(`scent1 lifespan`,2,1), 5, 20, 10, 3 );
+			const act = this.dna.shapedNumber( this.dna.genesFor(`scent1 act`,2,1), 0.5, 1.0, 0.6, 3 );
+			sense[i1] += strength;
+			sense[i2] += strength * 0.5;
+			sense[i3] += strength * 0.25;
+			this.motors.push({
+				sense,
+				min_act: act,
+				cost: strength, // ??? don't know yet
+				stroketime: time, 
+				strokefunc: 'linear_down', 
+				name: `scent-${i1}${i2}${i3}`,
+				min_age: this.larval_age * 2,
+				lifespan,
+				r: radius,
+				skip_sensor_check:true
+			});		
+		}
+		
+		const hasScent2 = this.dna.shapedNumber( 0x08000000 | this.dna.genesFor(`hasScent2`,1,1) );
+		if ( hasScent2 > 0.92 ) { 
+			let g1 = 0x08000000 | this.dna.genesFor(`scent2 index`,1,1); // this needs full length number spread
+			const i = this.dna.shapedInt( g1, 3, 11 );
+			let sense = new Array(16).fill(0);
+			const strength = this.dna.shapedNumber( this.dna.genesFor(`scent2 strength`,2,1), 1, 10, 2, 4 );
+			const radius = this.dna.shapedNumber( this.dna.genesFor(`scent2 radius`,2,1), 50, 500, 125, 3 );
+			const time = this.dna.shapedNumber( this.dna.genesFor(`scent2 time`,2,1), 5, 30, 10, 3 );
+			const lifespan = this.dna.shapedNumber( this.dna.genesFor(`scent2 lifespan`,2,1), 2, 12, 5, 3 );
+			const act = this.dna.shapedNumber( this.dna.genesFor(`scent2 act`,2,1), 0.75, 1.0, 0.85, 3 );
+			sense[i] = strength;
+			this.motors.push({
+				sense,
+				min_act: act,
+				cost: strength, // ??? don't know yet
+				stroketime: time, 
+				strokefunc: 'linear_down', 
+				name: `scent-${i}`,
+				min_age: this.larval_age * 2,
+				lifespan,
+				r: radius,
+				skip_sensor_check:true
+			});		
+		}
+		
+		const hasCall1 = this.dna.shapedNumber( 0x08000000 | this.dna.genesFor(`hasCall1`,1,1) );
+		if ( hasCall1 > 0.77 ) { 
+			let g1 = 0x08000000 | this.dna.genesFor(`call1 index`,1,1); // this needs full length number spread
+			const i = this.dna.shapedInt( g1, 12, 15 );
+			let sense = new Array(16).fill(0);
+			const strength = this.dna.shapedNumber( this.dna.genesFor(`call1 strength`,2,1), 5, 20, 5, 3 );
+			const radius = this.dna.shapedNumber( this.dna.genesFor(`call1 radius`,2,1), 120, 800, 150, 3 );
+			const time = this.dna.shapedNumber( this.dna.genesFor(`call1 time`,2,1), 5, 30, 10, 3 );
+			const lifespan = this.dna.shapedNumber( this.dna.genesFor(`call1 lifespan`,2,1), 2, 5, 2, 3 );
+			const act = this.dna.shapedNumber( this.dna.genesFor(`call1 act`,2,1), 0.8, 1.0, 0.9, 3 );
+			sense[i] = strength;
+			this.motors.push({
+				sense,
+				min_act: act,
+				cost: strength, // ??? don't know yet
+				stroketime: time, 
+				strokefunc: 'linear_down', 
+				name: `call-${i}`,
+				min_age: this.larval_age * 2,
+				lifespan,
+				r: radius,
+				skip_sensor_check:true
+			});		
+		}
+		
+		const hasSignal1 = this.dna.shapedNumber( 0x08000000 | this.dna.genesFor(`hasSignal1`,1,1) );
+		if ( hasSignal1 > 0.96 ) { 
+			let g1 = 0x08000000 | this.dna.genesFor(`call1 index 1`,1,1); // this needs full length number spread
+			let g2 = 0x08000000 | this.dna.genesFor(`call1 index 2`,1,1); // this needs full length number spread
+			let g3 = 0x08000000 | this.dna.genesFor(`call1 index 3`,1,1); // this needs full length number spread
+			const i1 = this.dna.shapedInt( g1, 0, 2 );
+			const i2 = this.dna.shapedInt( g2, 0, 2 );
+			const i3 = this.dna.shapedInt( g3, 0, 2 );
+			let sense = new Array(16).fill(0);
+			const strength = this.dna.shapedNumber( this.dna.genesFor(`signal1 strength`,2,1), 5, 10, 5, 3 );
+			const radius = this.dna.shapedNumber( this.dna.genesFor(`signal1 radius`,2,1), 120, 800, 150, 3 );
+			const time = this.dna.shapedNumber( this.dna.genesFor(`signal1 time`,2,1), 5, 30, 10, 3 );
+			const lifespan = this.dna.shapedNumber( this.dna.genesFor(`signal1 lifespan`,2,1), 2, 5, 2, 3 );
+			const act = this.dna.shapedNumber( this.dna.genesFor(`signal1 act`,2,1), 0.8, 1.0, 0.9, 3 );
+			sense[i1] += strength;
+			sense[i2] += strength;
+			sense[i3] += strength;
+			this.motors.push({
+				sense,
+				min_act: act,
+				cost: strength, // ??? don't know yet
+				stroketime: time, 
+				strokefunc: 'linear_down', 
+				name: `signal-${i1}${i2}${i3}`,
+				min_age: this.larval_age * 2,
+				lifespan,
+				r: radius,
+				skip_sensor_check:true
+			});		
+		}
+		
 		// // connect motor animations to specific points
 		// let leftside_motors = this.motors.filter( m => typeof(m.sym)=='undefined' || m.sym < this.motors[m.sym].sym );
 		// for ( let i=0; i < leftside_motors.length; i++ ) {

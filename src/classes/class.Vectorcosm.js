@@ -53,6 +53,7 @@ export default class Vectorcosm {
 		this.plant_intro_method = 'grow'; // 'grow' or 'fade'
 		this.plant_growth_animation_step = 0.05; // in seconds. reduces the number of geometry updates
 		this.show_collision_detection = false;
+		this.show_markers = true;
 		this.show_ui = false;
 		this.show_brainmap = false;
 		this.boid_sensors_every_frame = false;
@@ -175,6 +176,11 @@ export default class Vectorcosm {
 		for ( let x of this.tank.obstacles ) { x.UpdateGeometry(); }
 		for ( let x of this.tank.foods ) { x.UpdateGeometry(); }
 		for ( let x of this.tank.plants ) { x.CreateBody(); }
+	}
+	
+	ToggleShowMarkers() {
+		this.show_markers = !this.show_markers;
+		this.tank.marks.forEach( m => m.geo.visible = this.show_markers );
 	}
 	
 	// TODO: this is all technically UI related stuff that should be moved out of the simulation code.
@@ -446,6 +452,7 @@ export default class Vectorcosm {
 		for ( let b of this.tank.boids ) { this.tank.grid.Add(b); }
 		for ( let o of this.tank.obstacles ) { this.tank.grid.Add(o); }
 		for ( let f of this.tank.foods ) { this.tank.grid.Add(f); }
+		for ( let m of this.tank.marks ) { this.tank.grid.Add(m); }
 		
 		// update all boids
 		for ( let i = this.tank.boids.length-1; i >= 0; i-- ) {
@@ -472,6 +479,15 @@ export default class Vectorcosm {
 			food.Update(delta);
 			if ( food.dead || !food.value ) {
 				this.tank.foods.splice(i,1);
+			}
+		}
+		
+		// update marks
+		for ( let i = this.tank.marks.length-1; i >= 0; i-- ) {
+			const m = this.tank.marks[i];
+			m.Update(delta);
+			if ( m.dead ) {
+				this.tank.marks.splice(i,1);
 			}
 		}
 		

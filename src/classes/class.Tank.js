@@ -57,6 +57,7 @@ export default class Tank {
 		this.foods = [];
 		this.obstacles = [];
 		this.plants = [];
+		this.marks = [];
 		this.whirls = []; // defined later for generating currents
 		this.bg_opacity = 'random'; // 'random', zero, or 0..1
 		this.bg_visible = window.vc.render_style == 'Natural'; 		
@@ -94,6 +95,8 @@ export default class Tank {
 		this.foods.length = 0;
 		this.plants.forEach( x => x.Kill() );
 		this.plants.length = 0;
+		this.marks.forEach( x => x.Kill() );
+		this.marks.length = 0;
 	}
 		
 	MakeWhirlpool() {

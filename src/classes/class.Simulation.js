@@ -480,6 +480,8 @@ export class NaturalTankSimulation extends Simulation {
 		if ( this.settings?.num_plants ) { 
 			this.SetNumPlants(this.settings?.num_plants);
 		}
+		// clean up any messes
+		this.tank.marks.forEach( x => x.Kill() );			
 		// reset existing population
 		let spawn_x = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.width; 
 		let spawn_y = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.height; 			
@@ -517,6 +519,8 @@ export class FoodChaseSimulation extends Simulation {
 		this.Reset();
 	}
 	Reset() {
+		// clean up any messes
+		this.tank.marks.forEach( x => x.Kill() );		
 		// reset entire population
 		let spawn_x = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.width; 
 		let spawn_y = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.height; 			
@@ -708,6 +712,8 @@ export class TurningSimulation extends Simulation {
 		if ( this.settings?.num_rocks ) {
 			this.SetNumRocks(this.settings?.num_rocks);
 		}	
+		// clean up any messes
+		this.tank.marks.forEach( x => x.Kill() );
 		// respawn food
 		this.tank.foods.forEach( x => x.Kill() );
 		this.tank.foods.length = 0;
@@ -777,7 +783,10 @@ export class AvoidEdgesSimulation extends Simulation {
 		this.Reset();
 	}
 	Reset() {
-		this.SetNumBoids( this.settings.num_boids ); // top up the population
+		// clean up any messes
+		this.tank.marks.forEach( x => x.Kill() );	
+		// top up the population
+		this.SetNumBoids( this.settings.num_boids );
 		// reset entire population
 		let spawn_x = 0.05 * this.tank.width; 
 		let spawn_y = 0.5 * this.tank.height; 	

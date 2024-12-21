@@ -17,6 +17,7 @@ export default {
 		poop:false,
 		ignore_other_boids:true,
 		ignore_lifecycle:true,
+		no_marks:true,
 		no_combat:true,
 		score_on_travel:true,
 		score_on_proximity:true,
@@ -41,6 +42,7 @@ export default {
 		poop:false,
 		ignore_other_boids:true,
 		ignore_lifecycle:true,
+		no_marks:true,
 		no_combat:true,
 		score_on_travel:true,
 		score_on_proximity:true,
@@ -80,6 +82,7 @@ export default {
 		poop:false,
 		ignore_other_boids:true,
 		ignore_lifecycle:true,
+		no_marks:true,
 		no_combat:true,
 		score_on_travel:true,
 		score_on_proximity:true,
@@ -119,6 +122,7 @@ export default {
 		poop:false,
 		ignore_other_boids:true,
 		ignore_lifecycle:true,
+		no_marks:true,
 		no_combat:true,
 		score_on_travel:false,
 		score_on_proximity:true,
@@ -158,6 +162,7 @@ export default {
 		poop:false,
 		ignore_other_boids:true,
 		ignore_lifecycle:true,
+		no_marks:true,
 		no_combat:true,
 		score_on_travel:false,
 		score_on_proximity:true,
@@ -186,6 +191,7 @@ export default {
 		on_bite_ignore:true,
 		edibility: 1,
 		ignore_lifecycle:true,
+		no_marks:true,
 		no_combat:true,
 	},
 	turning_training_medium: {
@@ -211,6 +217,7 @@ export default {
 		on_bite_ignore:true,
 		edibility: 1,
 		ignore_lifecycle:true,
+		no_marks:true,
 		no_combat:true,
 	},
 	turning_training_hard: {
@@ -237,6 +244,7 @@ export default {
 		on_bite_ignore:true,
 		edibility: 1,
 		ignore_lifecycle:true,
+		no_marks:true,
 		no_combat:true,
 	},
 	turning_training_xhard: {
@@ -263,6 +271,7 @@ export default {
 		on_bite_ignore:true,
 		edibility: 1,
 		ignore_lifecycle:true,
+		no_marks:true,
 		no_combat:true,
 	},
 	treasure_hunt_easy: {
@@ -287,6 +296,7 @@ export default {
 		food_friction: true,
 		food_value:1000,
 		ignore_lifecycle:true,
+		no_marks:true,
 		no_combat:true,
 		score_on_travel:false,
 		score_on_proximity:false,
@@ -313,6 +323,7 @@ export default {
 		food_friction: true,
 		food_value:1000,
 		ignore_lifecycle:true,
+		no_marks:true,
 		no_combat:true,
 		score_on_travel:false,
 		score_on_proximity:false,
@@ -339,6 +350,7 @@ export default {
 		food_friction: true,
 		food_value:1000,
 		ignore_lifecycle:true,
+		no_marks:true,
 		no_combat:true,
 		score_on_travel:false,
 		score_on_proximity:false,
@@ -364,6 +376,7 @@ export default {
 		random_boid_angle: true,
 		randomize_age:false,
 		random_terrain:true,
+		no_combat:true,
 		allow_speciation: false // temporary until we get brain rewiring figured out
 	},
 			
@@ -411,5 +424,6 @@ export default {
 		ignore_other_boids:false,
 		randomize_age:false,
 		ignore_lifecycle:true,
+		no_marks:true,
 	}
 };

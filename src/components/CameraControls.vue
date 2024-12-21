@@ -18,6 +18,7 @@
 		show_boid_collision_on_focus: window.vc.camera.show_boid_collision_on_focus,
 		transition_time: window.vc.camera.transition_time,
 		focus_time: window.vc.camera.focus_time,
+		show_markers: window.vc.show_markers,
 		// easing: TWEEN.Easing.Sinusoidal.InOut, // SEE: https://github.com/tweenjs/tween.js/blob/main/docs/user_guide.md
 	});
 	
@@ -71,6 +72,10 @@
 		window.vc.allow_hyperzoom = vars.allow_hyperzoom;
 		window.vc.MoveCamera(0,0,0); // triggers update
 	}
+	function ToggleShowMarkers() {
+		window.vc.ToggleShowMarkers();
+		vars.show_markers = window.vc.show_markers;
+	}
 						
 </script>
 
@@ -107,6 +112,7 @@
 		<button @click="vars.show_boid_info_on_focus = !vars.show_boid_info_on_focus" style="width:100%;" :class="{on:vars.show_boid_info_on_focus}">show_boid_info_on_focus</button>
 		<button @click="vars.show_boid_sensors_on_focus = !vars.show_boid_sensors_on_focus" style="width:100%;" :class="{on:vars.show_boid_sensors_on_focus}">show_boid_sensors_on_focus</button>
 		<button @click="vars.show_boid_collision_on_focus = !vars.show_boid_collision_on_focus" style="width:100%;" :class="{on:vars.show_boid_collision_on_focus}">show_boid_collision_on_focus</button>
+		<button @click="ToggleShowMarkers()" style="width:100%;" :class="{on:vars.show_markers}">Show Scents & Sounds</button>
 	
 		<br/>
 
