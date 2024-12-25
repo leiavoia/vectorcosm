@@ -252,7 +252,7 @@ export default class Food {
 	Eat(amount) { 
 		if ( this.dead || !this.value ) { return 0; }
 		const eaten = Math.min( this.value, amount );
-		if ( !this.permafood ) { this.value -= eaten; }
+		if ( !this.permafood && !this.phantomfood ) { this.value -= eaten; }
 		if ( this.value <= 0 ) { this.Kill(); }
 		return eaten;
 	}

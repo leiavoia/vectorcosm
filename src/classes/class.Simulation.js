@@ -9,7 +9,15 @@ import {Circle} from 'collisions';
 import { RandomPlant } from '../classes/class.Plant.js'
 
 export function SimulationFactory( tank, name_or_settings ) {
-	if ( name_or_settings in SimulationLibrary ) {
+	// random pick from the library
+	if ( name_or_settings == 'random' ) {
+		name_or_settings = Object.values( SimulationLibrary )
+			// don't include perpetual stuff or natural tank
+			.filter( x => x.end?.rounds > 0 && x.end?.rounds < 1000 )
+			.pickRandom();
+	}
+	// named sim
+	else if ( name_or_settings in SimulationLibrary ) {
 		name_or_settings = SimulationLibrary[name_or_settings];
 	}
 	let our_settings = structuredClone(name_or_settings);
@@ -20,6 +28,7 @@ export function SimulationFactory( tank, name_or_settings ) {
 		case 'TurningSimulation': return new TurningSimulation( tank, our_settings );
 		case 'AvoidEdgesSimulation': return new AvoidEdgesSimulation( tank, our_settings );
 		case 'CombatSimulation': return new CombatSimulation( tank, our_settings );
+		case 'FinishingSimulation': return new FinishingSimulation( tank, our_settings );
 		default: return new Simulation( tank, our_settings );
 	}
 }
@@ -481,7 +490,9 @@ export class NaturalTankSimulation extends Simulation {
 			this.SetNumPlants(this.settings?.num_plants);
 		}
 		// clean up any messes
-		this.tank.marks.forEach( x => x.Kill() );			
+		this.tank.marks.forEach( x => x.Kill() );		
+		this.tank.foods.forEach( x => x.Kill() );
+		this.tank.foods.length = 0;			
 		// reset existing population
 		let spawn_x = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.width; 
 		let spawn_y = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.height; 			
@@ -553,7 +564,9 @@ export class FoodChaseSimulation extends Simulation {
 				vx: Math.random() * food_speed - (food_speed*0.5),
 				vy: Math.random() * food_speed - (food_speed*0.5),
 				edibility: this.settings?.edibility ?? food.edibility,
-				permafood: this.settings?.permafood ?? false
+				permafood: this.settings?.permafood ?? false,
+				phantomfood: this.settings?.phantomfood ?? false,
+				lifespan: this.settings?.food_lifespan ?? false,
 			} );
 			this.tank.foods.push(food);
 		}
@@ -630,6 +643,9 @@ export class FoodChaseSimulation extends Simulation {
 					vy: Math.random() * food_speed - (food_speed*0.5),
 					edibility: this.settings?.edibility ?? food.edibility,
 					frictionless: !food_friction,
+					permafood: this.settings?.permafood ?? false,
+					phantomfood: this.settings?.phantomfood ?? false,
+					lifespan: this.settings?.food_lifespan ?? false,
 				} );				
 				this.tank.foods.push(food);
 			}	
@@ -644,6 +660,123 @@ export class FoodChaseSimulation extends Simulation {
 				if ( f.y > this.tank.height-margin ) { f.vy = -f.vy; }
 				f.frictionless = !food_friction;
 			}
+		}
+	}	
+}
+
+export class FinishingSimulation extends Simulation {
+	Setup() {
+		super.Setup();
+		// starting population
+		let spawn_x = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.width; 
+		let spawn_y = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.height; 	
+		for ( let i=this.tank.boids.length; i < this.settings.num_boids; i++ ) {
+			const b = BoidFactory(this.settings?.species, spawn_x, spawn_y, this.tank );
+			this.tank.boids.push(b);
+		}
+		this.Reset();
+	}
+	Reset() {
+		// clean up any messes
+		this.tank.marks.forEach( x => x.Kill() );		
+		// reset entire population
+		let spawn_x = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.width; 
+		let spawn_y = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.height; 			
+		let new_angle = Math.random() * Math.PI * 2;
+		for ( let b of this.tank.boids ) {
+			if ( this.settings?.random_boid_pos ) {
+				spawn_x = Math.random() * this.tank.width; 
+				spawn_y = Math.random() * this.tank.height; 			
+			}
+			b.Reset();
+			b.angle = ( this.settings?.random_boid_angle ? (Math.random() * Math.PI * 2) : new_angle ),
+			b.x = spawn_x;
+			b.y = spawn_y;
+			b.total_fitness_score = 0;
+			b.fitness_score = 0;
+		}
+		// respawn food
+		this.tank.foods.forEach( x => x.Kill() );
+		this.tank.foods.length = 0;
+		for ( let i=0; i < this.settings.num_foods; i++ ) {
+			if ( this.settings?.random_food_pos ) {
+				spawn_x = Math.random() * this.tank.width; 
+				spawn_y = Math.random() * this.tank.height; 			
+			}
+			let food_speed = this.settings?.food_speed || 100;
+			let food = new Food( {
+				x: this.tank.width - spawn_x, 
+				y: this.tank.height - spawn_y,
+				value: (this.settings?.food_value || 500),
+				vx: Math.random() * food_speed - (food_speed*0.5),
+				vy: Math.random() * food_speed - (food_speed*0.5),
+				edibility: this.settings?.edibility ?? food.edibility,
+				permafood: this.settings?.permafood ?? false,
+				phantomfood: this.settings?.phantomfood ?? false,
+				lifespan: this.settings?.food_lifespan ?? false,
+			} );
+			this.tank.foods.push(food);
+		}
+		// randomize rocks
+		if ( this.settings?.num_rocks ) {
+			this.SetNumRocks(this.settings?.num_rocks);
+		}
+		// substrate and placed stones
+		else if ( this.settings?.add_decor ) { 
+			this.tank.MakePrettyDecor();
+		}
+		// plants
+		if ( this.settings?.num_plants ) { 
+			this.SetNumPlants(this.settings?.num_plants);
+		}
+	}	
+	ScoreBoidPerFrame(b) {
+		// fecundity
+		outer:
+		for ( let s of b.sensor_outputs ) {
+			if ( s.name.match('itosis') ) {
+				// find corresponding motor minimum action required
+				for ( let m of b.motors ) {
+					if ( m.hasOwnProperty('mitosis') && s.val >= m.min_act ) {
+						b.total_fitness_score += this.stats.delta;
+						break outer;
+					}
+				}
+			}
+		}
+	}	
+	ScoreBoidPerRound(b) {
+		// food
+		b.total_fitness_score += 5 * b.stats.food.bites;
+		b.total_fitness_score += 2 * ( b.stats.food.required / b.mass ) * 10;
+		b.total_fitness_score -= 2 * ( b.stats.food.toxin_dmg / b.mass ) * 10;
+		b.total_fitness_score -= 2 * ( b.stats.food.deficit_dmg / b.mass ) * 10;
+		// attacks
+		b.total_fitness_score += 2 * b.stats.combat.attacks;
+		b.total_fitness_score -= 2 * b.stats.combat.attacks_received;
+	}	
+	Update(delta) {
+		super.Update(delta);
+		const food_friction = typeof(this.settings?.food_friction) === 'boolean' ? this.settings.food_friction : false;
+		// keep the food coming
+		if ( this.settings.num_foods && this.tank.foods.length < this.settings.num_foods ) {
+			let diff = this.settings.num_foods - this.tank.foods.length;
+			for ( let i=0; i < diff; i++ ) {
+				let food_speed = this.settings?.food_speed ?? 100;
+				let food = new Food( {
+					x: this.tank.width * Math.random(), 
+					y: this.tank.height * Math.random(),
+					value: (this.settings?.food_value || 500),
+					vx: Math.random() * food_speed - (food_speed*0.5),
+					vy: Math.random() * food_speed - (food_speed*0.5),
+					edibility: this.settings?.edibility ?? food.edibility,
+					frictionless: !food_friction,
+					permafood: this.settings?.permafood ?? false,
+					phantomfood: this.settings?.phantomfood ?? false,
+					lifespan: this.settings?.food_lifespan ?? false,
+				} );				
+				this.tank.foods.push(food);
+			}	
 		}
 	}	
 }
@@ -785,6 +918,8 @@ export class AvoidEdgesSimulation extends Simulation {
 	Reset() {
 		// clean up any messes
 		this.tank.marks.forEach( x => x.Kill() );	
+		this.tank.foods.forEach( x => x.Kill() );
+		this.tank.foods.length = 0;		
 		// top up the population
 		this.SetNumBoids( this.settings.num_boids );
 		// reset entire population
@@ -881,8 +1016,6 @@ export class AvoidEdgesSimulation extends Simulation {
 			);
 				
 			// food goes along tunnel with special data to act as progress markers
-			this.tank.foods.forEach( x => x.Kill() );
-			this.tank.foods.length = 0;
 			let food_num = 0;
 			let food_spacing = 200;
 			for ( let x = (edge_size + tunnel_width/2); x < w - (edge_size + tunnel_width/2); x += food_spacing ) {
@@ -959,8 +1092,6 @@ export class AvoidEdgesSimulation extends Simulation {
 				last_shift = shift;	
 			}	
 			// food goes at the end of the tunnel
-			this.tank.foods.forEach( x => x.Kill() );
-			this.tank.foods.length = 0;
 			let food = new Food( 
 				this.tank.width,
 				this.tank.height/2 + last_shift
@@ -987,8 +1118,6 @@ export class AvoidEdgesSimulation extends Simulation {
 				);	
 			}	
 			// food goes at the end of the tunnel
-			this.tank.foods.forEach( x => x.Kill() );
-			this.tank.foods.length = 0;
 			let food = new Food( 
 				this.tank.width,
 				this.tank.height/2

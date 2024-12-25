@@ -1,8 +1,9 @@
 <script setup>
 	import Tank from '../classes/class.Tank.js'
 	import { ref, reactive, toRaw, markRaw, shallowRef, nextTick, triggerRef, onMounted, watch } from 'vue'
-	import { SimulationFactory } from '../classes/class.Simulation.js'
-	
+	import { SimulationFactory } from '../classes/class.Simulation.js'	
+	import * as utils from '../util/utils.js'
+
 	// assume there are no set meta params when program begins
 	let meta_params = reactive({
 		num_boids: ( window.vc.sim_meta_params.num_boids || 0 ),
@@ -42,54 +43,23 @@
 		// TODO: this would probably appreciate a defined API instead of overreaching
 		window.vc.sim_queue.length = 0;
 		switch (program_name) {
+			// compound simulation queues need to be defined here
 			case 'quickstart' : {
 				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_easy' ) );
 				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_medium' ) );
 				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'food_training_sim_easy' ) );
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'finishing_school' ) );
 				break;
 			}
 			case 'the_works' : {
 				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_easy' ) );
 				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_medium' ) );
 				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_hard' ) );
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'food_training_sim_medium' ) );
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'food_training_sim_hard' ) );
 				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_xhard' ) );
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'treasure_hunt_perpetual' ) );
-				break;
-			}
-			case 'natural_tank' : {
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'natural_tank' ) );
-				break;
-			}
-			case 'petri_dish' : {
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'petri_dish' ) );
-				break;
-			}
-			case 'turning_training_easy' : {
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_easy' ) );
-				break;
-			}
-			case 'turning_training_medium' : {
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_medium' ) );
-				break;
-			}
-			case 'turning_training_hard' : {
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_hard' ) );
-				break;
-			}
-			case 'turning_training_xhard' : {
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_xhard' ) );
-				break;
-			}
-			case 'treasure_hunt_easy' : {
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'treasure_hunt_easy' ) );
-				break;
-			}
-			case 'treasure_hunt_hard' : {
 				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'treasure_hunt_hard' ) );
-				break;
-			}
-			case 'treasure_hunt_perpetual' : {
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'treasure_hunt_perpetual' ) );
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'finishing_school' ) );
 				break;
 			}
 			case 'steering_comp' : {
@@ -98,36 +68,26 @@
 				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_hard' ) );
 				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_xhard' ) );
 				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'treasure_hunt_easy' ) );
-				break;
-			}
-			case 'food_training_sim_easy' : {
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'food_training_sim_easy' ) );
-				break;
-			}
-			case 'food_training_sim_medium' : {
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'food_training_sim_medium' ) );
-				break;
-			}
-			case 'food_training_sim_hard' : {
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'food_training_sim_hard' ) );
-				break;
-			}
-			case 'obstacle_course' : {
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'obstacle_course' ) );
-				break;
-			}
-			case 'race_track' : {
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'race_track' ) );
-				break;
-			}
-			case 'combat' : {
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'combat' ) );
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'finishing_school' ) );
 				break;
 			}
 			case 'food_training_sim_comp' : {
 				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'food_training_sim_easy' ) );
 				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'food_training_sim_medium' ) );
 				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'food_training_sim_hard' ) );
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'finishing_school' ) );
+				break;
+			}
+			case 'random' : {
+				let num = utils.RandomInt( 3, 7 );
+				for ( let i=0; i < num; i++ ) {
+					window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'random' ) );
+				}
+				break;
+			}
+			// singles can be referenced by name
+			default : {
+				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, program_name ) );
 				break;
 			}
 		}
@@ -160,9 +120,11 @@
 		<button @click="RunProgram('food_training_sim_medium')" style="width:100%; margin-bottom:0.25rem;">Food Chase - Medium</button>
 		<button @click="RunProgram('food_training_sim_hard')" style="width:100%; margin-bottom:0.25rem;">Food Chase - Hard</button>
 		<button @click="RunProgram('food_training_sim_comp')" style="width:100%; margin-bottom:0.25rem;">Food Chase - Comprehensive</button>
+		<button @click="RunProgram('finishing_school')" style="width:100%; margin-bottom:0.25rem;">Finishing School</button>
 		<button @click="RunProgram('obstacle_course')" style="width:100%; margin-bottom:0.25rem;">Obstacle Course</button>
 		<button @click="RunProgram('race_track')" style="width:100%; margin-bottom:0.25rem;">Race Track</button>
 		<button @click="RunProgram('combat')" style="width:100%; margin-bottom:0.25rem;">Combat</button>
+		<button @click="RunProgram('random')" style="width:100%; margin-bottom:0.25rem;">Random Suite</button>
 		
 		<!-- meta params -->
 		<h3>Meta Parameters</h3>
