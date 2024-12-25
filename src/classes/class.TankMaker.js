@@ -16,7 +16,7 @@ export default class TankMaker {
 			individual_separate: (Math.random() > 0.5),
 			individual_max_complexity: 2,
 			voronoi_points: utils.RandomInt( 20, 80 ),
-			voronoi_mask_strat: ['random','hole','burg','sine','depth','cave','trench'].pickRandom(),
+			voronoi_mask_strat: ['zone','xzone','random','hole','burg','sine','depth','cave','trench'].pickRandom(),
 			voronoi_sine_freq: utils.RandomFloat(0.5,20),
 			voronoi_sine_amplitude: utils.RandomFloat(0.05,0.4),
 			voronoi_sine_vshift: utils.RandomFloat(0.0,0.45),
@@ -261,6 +261,60 @@ export default class TankMaker {
 				let r = 1 - 5 * Math.pow( (y+x)/2, 3 );
 				r += ( Math.random() * 0.7 ) - 0.35;
 				return !(y < r && x < r);
+			},
+			zone: ( px, py ) => {
+				if ( !this.zone_boxes ) {
+					this.zone_boxes = [];
+					let n = utils.RandomInt(2,4);
+					const tankw = xmax - xmin;
+					const tankh = ymax - ymin;
+					for ( let i=0; i<n; i++ ) {
+						let m = 0.28;
+						let r = Math.random() * m;
+						let w = ( tankw * r ) + tankw * 0.2 ;
+						let h = ( tankh * m-r ) + tankh * 0.2 ;
+						this.zone_boxes.push({
+							x: ( tankw * Math.random() ) - ( w * 0.5 ),
+							y: ( tankh * Math.random() ) - ( h * 0.5 ),
+							w,
+							h
+						});
+					}
+				}
+				const veto_chance = 0.3;
+				if ( Math.random() < veto_chance ) { return Math.random() > 0.5; }
+				for ( let box of this.zone_boxes ) {
+					let inside = px >= box.x && px <= box.x + box.w && py >= box.y && py <= box.y + box.h;
+					if ( inside ) { return true; }
+				}
+				return false;
+			},
+			xzone: ( px, py ) => {
+				if ( !this.zone_boxes ) {
+					this.zone_boxes = [];
+					let n = utils.RandomInt(5,8);
+					const tankw = xmax - xmin;
+					const tankh = ymax - ymin;
+					for ( let i=0; i<n; i++ ) {
+						let m = 0.4;
+						let r = Math.random() * m;
+						let w = ( tankw * r ) + tankw * 0.2 ;
+						let h = ( tankh * m-r ) + tankh * 0.2 ;
+						this.zone_boxes.push({
+							x: ( tankw * Math.random() ) - ( w * 0.5 ),
+							y: ( tankh * Math.random() ) - ( h * 0.5 ),
+							w,
+							h
+						});
+					}
+				}
+				const veto_chance = 0.1;
+				if ( Math.random() < veto_chance ) { return Math.random() > 0.5; }
+				for ( let box of this.zone_boxes ) {
+					let inside = px >= box.x && px <= box.x + box.w && py >= box.y && py <= box.y + box.h;
+					if ( inside ) { return false; }
+				}
+				return true;
 			}
 		};
 		
