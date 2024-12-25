@@ -38,6 +38,11 @@ export default class TankMaker {
 	}
 	
 	Make() {
+		// if the rock theme is null, chance to pick a homogenous theme
+		if ( this.settings.rock_color_scheme === null && Math.random() > 0.7 ) {
+			this.settings.rock_color_scheme = Object.keys(Rock.color_schemes).pickRandom();
+		}
+		
 		// make rocks according to general strategy selected. If nothing selected, pick one at random.
 		const rock_strats = {
 			voronoi: this.MakeVoronoiRocks,
