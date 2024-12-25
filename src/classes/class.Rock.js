@@ -12,10 +12,8 @@ export default class Rock {
 		'Sandstone': 			['#96806d','#A29276','#9c957b','#94735a','#8a7a77','#b1966c'],
 		'Slate': 				['#AAAAAA','#999999'],
 		'Wavebreak': 			['#878b8a','#4B4E50','#6c7471'],
-		// dark_basalt: ['#333333','#383533'],
-		// driftwood might work as a uncollidable foreground object, 
-		// but looks weird with missing spaces that are still collidable
-		// driftwood:			['#614d33','#664834','#57424a','#725238','#83725e','transparent','transparent','transparent','transparent'],
+		'Mossyrock': 			['#447047','#518545','#679c4f','#425345','#546b59'],
+		'Pink Quartz': 			['#E0B69C','#C08A74','#E2B8A1','#9b6854','#cfcdcd','#c48865','#d8d0cd','#c2b7ac','#c4b6a8'],
 	};
 		
 	// x, y (position)
