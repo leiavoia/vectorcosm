@@ -201,10 +201,14 @@ export class Boid {
 		// ideally we refactor the sensor data structures so that we can know ahead of time what we're dealing with.
 		let inputs = 0;
 		for ( let s of this.sensors ) { 
-			s.Sense(); // need to trigger sensor ince
+			s.Sense(); // need to trigger sensor once
 			inputs += Array.isArray(s.val) ? s.val.length : 1;
 		}	
-			
+		// if boid has synesthesia, combine inputs
+		if ( this.traits.synesthesia ) {
+			inputs = Math.ceil( inputs / this.traits.synesthesia );
+		}
+					
 		const outputs = this.motors.length || 1;
 		
 		const act_picker = new utils.RandomPicker( [
@@ -505,7 +509,19 @@ export class Boid {
 				else {
 					this.sensor_outputs.push( s.val );
 				}
-			}	
+			}
+			// if the boid has synesthesia, combine inputs
+			if ( this.traits.synesthesia ) {
+				const combine = this.traits.synesthesia;
+				let new_outputs = new Array( Math.ceil( this.sensor_outputs.length / combine ) ).fill(0);
+				for ( let i=this.sensor_outputs.length-1; i >= 0; i-- ) {
+					let j = Math.floor(i / combine);
+					new_outputs[j] += this.sensor_outputs[i].val;
+					if ( i % combine == 0 ) { new_outputs[j] /= combine; }
+				}
+				// splice instead of reassignment to keep UI from breaking
+				this.sensor_outputs = new_outputs.map( (v,i) => ({ val:v, name:`syn${combine}-${i}`}) );
+			}
 		}
 		
 		// UI: toggle collision detection geometry UI
@@ -1714,6 +1730,12 @@ export class Boid {
 			}
 		}
 		
+		// syneasthesia combines multiple sensor outputs together for weird results
+		const synRoll = ( this.dna.shapedNumber( 0x08000000 | this.dna.genesFor('synesthesia',1,true) )
+			+ this.dna.shapedNumber( 0x08000000 | this.dna.genesFor('synesthesia',1,true) ) ) / 2;
+		if ( synRoll <= 0.01 ) { this.traits.synesthesia = 4; } // 1%
+		else if ( synRoll <= 0.03 ) { this.traits.synesthesia = 3; } // 2%
+		else if ( synRoll <= 0.07 ) { this.traits.synesthesia = 2; } // 4%
 	}
 			
 	Copy( reset=false, dna_mutation=0, brain_mutation=0, speciation_chance=0 ) {
