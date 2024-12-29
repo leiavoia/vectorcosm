@@ -407,7 +407,9 @@ export default {
 		randomize_age:false,
 		random_terrain:true,
 		no_combat:true,
-		allow_speciation: false // temporary until we get brain rewiring figured out
+		invasives: 5,
+		invasives_freq: 500,
+		allow_speciation: false, // temporary until we get brain rewiring figured out
 	},
 			
 	petri_dish: {

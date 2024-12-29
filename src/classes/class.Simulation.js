@@ -127,6 +127,18 @@ export default class Simulation {
 				}
 			}
 		}
+		// invasive species
+		if ( this.settings?.invasives ) {
+			const freq = this.settings?.invasives_freq || 500;
+			const next = this.next_invasive ?? freq;
+			const t = Math.floor( this.stats.round.time );
+			if ( t > next ) {
+				for ( let i=0; i < this.settings.invasives; i++ ) { 
+					this.AddNewBoidToTank();
+				}
+				this.next_invasive = next + freq;
+			}
+		}
 		// tide
 		if ( this.settings?.tide ) {
 			const tide_freq = this.settings.tide;
@@ -315,21 +327,25 @@ export default class Simulation {
 		let diff = this.settings.num_boids - this.tank.boids.length;
 		if ( diff > 0 ) {
 			for ( let i=0; i < diff; i++ ) {
-				const b = BoidFactory(this.settings?.species, Math.random()*this.tank.width, Math.random()*this.tank.height, this.tank );
-				b.angle = Math.random() * Math.PI * 2;
-				b.x = (Math.random() * this.tank.width * 0.8) + this.tank.width * 0.1;
-				b.y = (Math.random() * this.tank.height * 0.6) + this.tank.height * 0.1; // stay away from the bottom
-				if ( this.settings?.safe_spawn && this.tank.safe_pts?.length ) {
-					const p = this.tank.safe_pts.pickRandom();
-					b.x = p[0] + ( Math.random() * p[2]*1.4 - p[2]*0.7 ); 
-					b.y = p[1] + ( Math.random() * p[2]*1.4 - p[2]*0.7 ); 
-				}				
-				this.tank.boids.push(b);
+				this.AddNewBoidToTank();
 			}			
 		}
 		else if ( diff < 0 ) {		
 			this.tank.boids.splice(0,-diff).forEach( x => x.Kill('overpopulated') );
 		}
+	}
+	
+	AddNewBoidToTank() {
+		const b = BoidFactory(this.settings?.species, Math.random()*this.tank.width, Math.random()*this.tank.height, this.tank );
+		b.angle = Math.random() * Math.PI * 2;
+		b.x = (Math.random() * this.tank.width * 0.8) + this.tank.width * 0.1;
+		b.y = (Math.random() * this.tank.height * 0.6) + this.tank.height * 0.1; // stay away from the bottom
+		if ( this.settings?.safe_spawn && this.tank.safe_pts?.length ) {
+			const p = this.tank.safe_pts.pickRandom();
+			b.x = p[0] + ( Math.random() * p[2]*1.4 - p[2]*0.7 ); 
+			b.y = p[1] + ( Math.random() * p[2]*1.4 - p[2]*0.7 ); 
+		}		
+		this.tank.boids.push(b);	
 	}
 	
 	SetNumRocks(x) {
