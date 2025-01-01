@@ -419,6 +419,10 @@ function ClickMap( event ) {
 	// find objects near pointer click
 	const r = 30 * (1/vc.scale);
 	let objs = vc.tank.grid.GetObjectsByBox( x-r, y-r, x+r, y+y, Boid );
+	// optimization hint: if we are ignoring other boids, they are not in the collision detection grid.
+	if ( vc.simulation.settings?.ignore_other_boids === true ) {
+		objs = vc.tank.boids; // do them all brute force instead
+	}
 	// find the closest object
 	const min_dist = r*r*2 + r*r*2;
 	let closest = null;

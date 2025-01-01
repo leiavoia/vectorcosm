@@ -449,7 +449,11 @@ export default class Vectorcosm {
 		
 		// collision detection setup - not the best place for this, but works for now
 		this.tank.grid.Clear();
-		for ( let b of this.tank.boids ) { this.tank.grid.Add(b); }
+		// only add boids if they need to detect each other. significant speedup
+		// is possible on test environments where boids act in isolation.
+		if ( window.vc.simulation.settings?.ignore_other_boids !== true ) {
+			for ( let b of this.tank.boids ) { this.tank.grid.Add(b); }
+		}
 		for ( let o of this.tank.obstacles ) { this.tank.grid.Add(o); }
 		for ( let f of this.tank.foods ) { this.tank.grid.Add(f); }
 		for ( let m of this.tank.marks ) { this.tank.grid.Add(m); }
