@@ -45,11 +45,10 @@ export default class Sensor {
 				14: 'γ',
 				15: 'δ',
 			};
-			let num_segments = this.segment || 1;
+			let num_segments = this.segments || 1;
 			for ( let i=0; i < num_segments; i++ ) {
 				for ( let sensation of this.detect ) {
 					let name = ( this.name || 'sense' ) + '/' + i + '-';
-					// let name = ( this.name || 'sense' ) + ',' + i + ',';
 					if ( Array.isArray(sensation) ) {
 						for ( let channel of sensation ) {
 							name += channelmap[channel];
@@ -58,9 +57,6 @@ export default class Sensor {
 					else {
 						name += channelmap[sensation];
 					}
-					// const global_sensitivity_tuning_number = 1; // many sense values are too low to create meaningful signals
-					// const sensitivity = ( this.sensitivity || 1 ) * global_sensitivity_tuning_number;
-					// name += ',' + sensitivity.toFixed(1);
 					this.labels.push( name );
 				}
 			}
