@@ -165,7 +165,7 @@ export default class Food {
 			this.y - this.r,
 			this.x + this.r,
 			this.y + this.r,
-			Rock
+			o => o instanceof Rock
 		);
 		// narrow phase collision detection
 		let touching_rock = false;

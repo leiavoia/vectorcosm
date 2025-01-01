@@ -203,15 +203,15 @@ export default class Sensor {
 		let sx = this.owner.x + ((this.x * cosAngle) - (this.y * sinAngle));
 		let sy = this.owner.y + ((this.x * sinAngle) + (this.y * cosAngle));
 		// find objects that are detected by this sensor
-		let objs = this.owner.tank.foods.length < 20 // runs faster on small sets
-			? this.owner.tank.foods
-			: this.owner.tank.grid.GetObjectsByBox( sx - this.r, sy - this.r, sx + this.r, sy + this.r, Food );
+		let objs = this.owner.tank.foods; // runs faster on small sets
+		if ( objs.length > 20 ) {
+			const test = o => { return o instanceof Food && o.IsEdibleBy(this.owner) && !( this.owner.ignore_list && this.owner.ignore_list.has(o) ) };
+			objs = this.owner.tank.grid.GetObjectsByBox( sx - this.r, sy - this.r, sx + this.r, sy + this.r, test );				
+		}
 		let nearest_dist = Infinity;
 		let nearest_angle = 0;
 		let num_edible_foods=0;
 		for ( let obj of objs ) { 
-			if ( !obj.IsEdibleBy(this.owner) ) { continue; }
-			if ( this.owner.ignore_list && this.owner.ignore_list.has(obj) ) { continue; }
 			const dx = Math.abs(obj.x - sx);
 			const dy = Math.abs(obj.y - sy);
 			const d = Math.sqrt(dx*dx + dy*dy);
@@ -260,7 +260,7 @@ export default class Sensor {
 			sy - this.r,
 			sx + this.r,
 			sy + this.r,
-			Rock
+			o => o instanceof Rock
 		);
 		for ( let o of candidates ) {
 			const circle  = new Circle(sx, sy, this.r);
@@ -359,16 +359,18 @@ export default class Sensor {
 		let detection = new Array( this.labels.length ).fill(0);
 		
 		// find all objects that are detected by this sensor
-		let objs = this.owner.tank.grid.GetObjectsByBox( sx - this.r, sy - this.r, sx + this.r, sy + this.r );
-		for ( let obj of objs ) {
-			// is self?
-			if ( obj === this.owner ) { continue; }
+		let testfn = ( o ) => {
 			// does this object have sensory data?
-			if ( !obj.sense ) { continue; }
+			return o.sense
+			// is self?
+			&& o !== this.owner
 			// simulation override?
-			if ( obj instanceof Boid && window.vc.simulation.settings?.ignore_other_boids===true ) { continue; }
+			&& !( o instanceof Boid && window.vc.simulation.settings?.ignore_other_boids===true )
 			// on the ignore list?
-			if ( this.owner.ignore_list && this.owner.ignore_list.has(obj) ) { continue; }
+			&& !( this.owner.ignore_list && this.owner.ignore_list.has(o) )
+		};
+		let objs = this.owner.tank.grid.GetObjectsByBox( sx - this.r, sy - this.r, sx + this.r, sy + this.r, testfn );
+		for ( let obj of objs ) {
 			
 			// if this is a circle object, get the radius
 			let objsize = 0;
@@ -559,10 +561,9 @@ export default class Sensor {
         let sy = this.owner.y + ((this.x * sinAngle) + (this.y * cosAngle));
         let objs = this.owner.tank.foods.length < 20
             ? this.owner.tank.foods
-            : this.owner.tank.grid.GetObjectsByBox(sx - this.r, sy - this.r, sx + this.r, sy + this.r, Food);
+            : this.owner.tank.grid.GetObjectsByBox(sx - this.r, sy - this.r, sx + this.r, sy + this.r, 
+				o => o instanceof Food && o.IsEdibleBy(this.owner) && !( this.owner.ignore_list && this.owner.ignore_list.has(o) ) );
         for (let obj of objs) {
-            if (!obj.IsEdibleBy(this.owner)) continue;
-            if (this.owner.ignore_list && this.owner.ignore_list.has(obj)) continue;
             const dx = Math.abs(obj.x - sx);
             const dy = Math.abs(obj.y - sy);
             const d = Math.sqrt(dx * dx + dy * dy);
@@ -661,7 +662,7 @@ export default class Sensor {
         let cosAngle = Math.cos(this.owner.angle);
         let sx = this.owner.x + ((this.x * cosAngle) - (this.y * sinAngle));
         let sy = this.owner.y + ((this.x * sinAngle) + (this.y * cosAngle));
-        let candidates = this.owner.tank.grid.GetObjectsByBox(sx - this.r, sy - this.r, sx + this.r, sy + this.r, Rock);
+        let candidates = this.owner.tank.grid.GetObjectsByBox(sx - this.r, sy - this.r, sx + this.r, sy + this.r, o => o instanceof Rock);
         for (let o of candidates) {
             const circle = new Circle(sx, sy, this.r);
             const polygon = new Polygon(o.x, o.y, o.collision.hull);

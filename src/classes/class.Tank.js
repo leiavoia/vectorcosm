@@ -594,7 +594,7 @@ export default class Tank {
 				let attempts = 3;
 				do {
 					touching = false;
-					let candidates = this.grid.GetObjectsByBox( my_x - r, my_y - r, my_x + r, my_y + r, Rock );
+					let candidates = this.grid.GetObjectsByBox( my_x - r, my_y - r, my_x + r, my_y + r, o => o instanceof Rock );
 					for ( let o of candidates ) {
 						const circle  = new Circle(my_x, my_y, r);
 						const polygon = new Polygon(o.x, o.y, o.collision.hull);

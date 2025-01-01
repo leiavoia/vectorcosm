@@ -82,12 +82,12 @@ export default class SpaceGrid {
 		return this.cells[cell];
 	}
 	
-	GetObjectsByBox( x1, y1, x2, y2, type ) {
+	GetObjectsByBox( x1, y1, x2, y2, test_func=null ) {
 		let cells = this.GetCellsByBox( x1, y1, x2, y2 );
 		let objs = [];
 		for ( let cell of cells ) { 
 			for ( let o of cell ) {
-				if ( !type || o instanceof type ) {
+				if ( !test_func || test_func(o) ) {
 					objs.push(o);
 				}
 			}

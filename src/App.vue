@@ -418,7 +418,7 @@ function ClickMap( event ) {
 	}
 	// find objects near pointer click
 	const r = 30 * (1/vc.scale);
-	let objs = vc.tank.grid.GetObjectsByBox( x-r, y-r, x+r, y+y, Boid );
+	let objs = vc.tank.grid.GetObjectsByBox( x-r, y-r, x+r, y+y, o => o instanceof Boid );
 	// optimization hint: if we are ignoring other boids, they are not in the collision detection grid.
 	if ( vc.simulation.settings?.ignore_other_boids === true ) {
 		objs = vc.tank.boids; // do them all brute force instead

@@ -433,7 +433,7 @@ export default class Simulation {
 						Math.min( safe_pt[1], safe_pt[1] + most_y ),
 						Math.max( safe_pt[0], safe_pt[0] + most_x ),
 						Math.max( safe_pt[1], safe_pt[1] + most_y ),
-						Rock
+						o => o instanceof Rock
 					);
 					for ( let o of candidates ) {
 						const ax1 = safe_pt[0];
@@ -1155,7 +1155,8 @@ export class AvoidEdgesSimulation extends Simulation {
 				b.x - my_radius,
 				b.y - my_radius,
 				b.x + my_radius,
-				b.y + my_radius
+				b.y + my_radius,
+				o => o instanceof Food
 			);
 			for ( let o of candidates ) {
 				const circle  = new Circle(b.x, b.y, my_radius);

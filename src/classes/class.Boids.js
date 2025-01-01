@@ -704,7 +704,7 @@ export class Boid {
 			this.y - my_radius,
 			this.x + my_radius,
 			this.y + my_radius,
-			Rock
+			o => o instanceof Rock
 		);
 		for ( let o of candidates ) {
 			// narrow phase collision detection
@@ -748,13 +748,13 @@ export class Boid {
 				const grace = 4; // MAGIC NUMBER
 				const r = this.collision.radius + grace;
 				// get a list of collision candidates
-				let foods = this.tank.foods.length < 20 // runs faster on small sets
-					? this.tank.foods			
-					: this.tank.grid.GetObjectsByBox( this.x - r, this.y - r, this.x + r, this.y + r, Food );				
+				let foods = this.tank.foods; // runs faster on small sets
+				if ( foods.length > 20 ) {
+					const test = o => { return o instanceof Food && o.IsEdibleBy(this) && !( this.ignore_list && this.ignore_list.has(o) ) };
+					foods = this.tank.grid.GetObjectsByBox( this.x - r, this.y - r, this.x + r, this.y + r, test );				
+				}
 				// check for collision + edibility
 				for ( let food of foods ) { 
-					if ( !food.IsEdibleBy(this) ) { continue; }
-					if ( this.ignore_list && this.ignore_list.has(food) ) { continue; }
 					const dx = Math.abs(food.x - this.x);
 					const dy = Math.abs(food.y - this.y);
 					const d = Math.sqrt(dx*dx + dy*dy);
@@ -839,10 +839,8 @@ export class Boid {
 						this.y - this.collision.radius,
 						this.x + this.collision.radius,
 						this.y + this.collision.radius,
-						Boid )
+						o => o instanceof Boid && o.species != this.species && o != this )
 					.find( b => {
-						if ( b === this ) return false;
-						if ( b.species == this.species ) return false; // no friendly fire... yet
 						let dx = b.x - this.x;
 						let dy = b.y - this.y;
 						let d = Math.sqrt( dx * dx + dy * dy );
