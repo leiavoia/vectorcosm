@@ -174,6 +174,7 @@ export class Boid {
 		// vision and sensors
 		this.sensors = [];
 		this.sensor_outputs = [];
+		this.sensor_labels = [];
 		this.fitness_score = 0; // per frame
 		this.total_fitness_score = 0; // accumulates over time
 		// motors
@@ -187,9 +188,23 @@ export class Boid {
 			this.brain = neataptic.Network.fromJSON(this.brain);
 			this.ScaleBoidByMass();
 		}
-			
+		
 		// [!]HACKY - move this - we don't know max energy until ScaleBoidByMass runs
 		this.metab.energy = this.metab.max_energy;	
+	}
+	MakeSensorLabels() {
+		this.sensor_labels = [];
+		for ( let s of this.sensors ) {
+			this.sensor_labels.push( ... s.labels );
+		}
+		if ( this.traits.synesthesia ) {	
+			let new_labels = [];
+			let num = Math.ceil( this.sensor_labels.length / this.traits.synesthesia ); 
+			for ( let i=0; i < num; i++ ) {
+				new_labels.push(`syn${this.traits.synesthesia}-${i}`);
+			}
+			this.sensor_labels = new_labels;
+		}	
 	}
 	MakeGeometry() { }
 	MakeMotors() {}
@@ -502,13 +517,7 @@ export class Boid {
 		if ( do_sensors ) {
 			this.sensor_outputs = [];
 			for ( let s of this.sensors ) { 
-				s.Sense();
-				if ( Array.isArray(s.val) ) {
-					this.sensor_outputs.push( ...s.val );
-				}
-				else {
-					this.sensor_outputs.push( s.val );
-				}
+				this.sensor_outputs.push( ... s.Sense() );
 			}
 			// if the boid has synesthesia, combine inputs
 			if ( this.traits.synesthesia ) {
@@ -516,11 +525,10 @@ export class Boid {
 				let new_outputs = new Array( Math.ceil( this.sensor_outputs.length / combine ) ).fill(0);
 				for ( let i=this.sensor_outputs.length-1; i >= 0; i-- ) {
 					let j = Math.floor(i / combine);
-					new_outputs[j] += this.sensor_outputs[i].val;
+					new_outputs[j] += this.sensor_outputs[i];
 					if ( i % combine == 0 ) { new_outputs[j] /= combine; }
 				}
-				// splice instead of reassignment to keep UI from breaking
-				this.sensor_outputs = new_outputs.map( (v,i) => ({ val:v, name:`syn${combine}-${i}`}) );
+				this.sensor_outputs = new_outputs;
 			}
 		}
 		
@@ -538,7 +546,7 @@ export class Boid {
 		// CPU optimization: we don't need to run AI every frame either
 		if ( do_sensors ) {
 			// movement / motor control 				
-			let brain_outputs = this.brain.activate( this.sensor_outputs.map(s=>s.val) );
+			let brain_outputs = this.brain.activate( this.sensor_outputs );
 			for ( let k in brain_outputs ) {
 				if ( Number.isNaN(brain_outputs[k]) ) { brain_outputs[k] = 0; }
 			}
@@ -1661,14 +1669,16 @@ export class Boid {
 				let color = detect==='obstacles' ? '#FF22BB77' : null;
 				// single
 				if ( this.dna.shapedNumber(symmetryGene, 0,1,0.5,0) < 0.33 ) {
-					this.sensors.push( new Sensor({ x:d, y:sy, r, angle:0, detect, color, name:detect }, this ) );			
+					this.sensors.push( new Sensor({ x:d, y:sy, r, angle:0, detect, color, name:`${detect}${n}` }, this ) );			
 				}
 				// double
 				else {
+					let i = 0;
 					for ( let angle of [a, Math.PI*2-a] ) {
 						sx = d * Math.cos(angle);
 						sy = d * Math.sin(angle);				
-						this.sensors.push( new Sensor({ x:sx, y:sy, r, angle, detect, color, name:detect }, this ) );			
+						this.sensors.push( new Sensor({ x:sx, y:sy, r, angle, detect, color, name:`${detect}${n}-${i}` }, this ) );
+						i++;
 					}
 				}
 			}
@@ -1736,6 +1746,8 @@ export class Boid {
 		if ( synRoll <= 0.01 ) { this.traits.synesthesia = 4; } // 1%
 		else if ( synRoll <= 0.03 ) { this.traits.synesthesia = 3; } // 2%
 		else if ( synRoll <= 0.07 ) { this.traits.synesthesia = 2; } // 4%
+		
+		this.MakeSensorLabels();
 	}
 			
 	Copy( reset=false, dna_mutation=0, brain_mutation=0, speciation_chance=0 ) {

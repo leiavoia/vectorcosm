@@ -99,14 +99,13 @@ export default class BrainGraph {
 			this.geo.add(this.nodes_geo);
 			let output_i = 0;
 			let input_i = 0;
-			const input_labels = this.target.sensor_outputs.map(s=>s.name);
 			for ( let i=0; i < this.brain.nodes.length; i++ ) {
 				let node = this.brain.nodes[i];
 				let activation_label = node.activation.toFixed(2);
 				let rect = null;
 				if ( node.type == 'input' ) {
 					rect = this.context.makePolygon(node.my_x, node.my_y, node_r, 3);
-					let text = this.context.makeText( input_labels[input_i++] + ' ' + activation_label, node.my_x, node.my_y, { fill: '#FFF' } );
+					let text = this.context.makeText( this.target.sensor_labels[input_i++] + ' ' + activation_label, node.my_x, node.my_y, { fill: '#FFF' } );
 					text.position.y -= node_r + 8;
 					this.nodes_geo.add(text);
 				}

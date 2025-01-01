@@ -749,7 +749,7 @@ export class FinishingSimulation extends Simulation {
 	ScoreBoidPerFrame(b) {
 		// fecundity
 		outer:
-		for ( let s of b.sensor_outputs ) {
+		for ( let s of b.sensor_labels ) {
 			if ( s.name.match('itosis') ) {
 				// find corresponding motor minimum action required
 				for ( let m of b.motors ) {

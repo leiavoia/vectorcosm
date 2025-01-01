@@ -87,8 +87,17 @@ let frameUpdateSubscription = PubSub.subscribe('frame-update', (msg,data) => {
 			}
 		}
 		
-		// sensors
-		focus_boid_data.value.sensors = vc.focus_object.sensor_outputs;
+		// sensors - combine the sensor values with labels
+		focus_boid_data.value.sensors = [];
+		for ( let i = 0; i < vc.focus_object.sensor_labels.length; i++ ) {
+			let val = vc.focus_object.sensor_outputs[i] || 0;
+			if ( Number.isNaN( val ) ) { val = 0; }; 
+			if ( !Number.isFinite( vc.focus_object.sensor_outputs[i] ) ) { val = 0; }; 
+			focus_boid_data.value.sensors.push({
+				name: vc.focus_object.sensor_labels[i],
+				val
+			});
+		}
 		
 		// brain output
 		focus_boid_data.value.outputs = vc.focus_object.brain.nodes
@@ -444,7 +453,6 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 			boidviewer.appendTo(elem);
 			let geo = obj.body.geo.clone();
 			geo.dashes = obj.body.geo.dashes;
-			console.log(geo);
 			geo.position.x = boidviewer.width * 0.5;
 			geo.position.y = boidviewer.height * 0.5;
 			geo.rotation = -Math.PI * 0.5;
