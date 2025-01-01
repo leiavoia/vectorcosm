@@ -15,7 +15,7 @@ export default class TankMaker {
 			individual_margin: 150,
 			individual_separate: (Math.random() > 0.5),
 			individual_max_complexity: 2,
-			voronoi_points: utils.RandomInt( 20, 80 ),
+			voronoi_points: null,
 			voronoi_mask_strat: ['zone','xzone','random','hole','burg','sine','depth','cave','trench'].pickRandom(),
 			voronoi_sine_freq: utils.RandomFloat(0.5,20),
 			voronoi_sine_amplitude: utils.RandomFloat(0.05,0.4),
@@ -110,9 +110,16 @@ export default class TankMaker {
 	}
 	
 	MakeVoronoiRocks() {
+		// increase the point complexity based on tank volume
+		const volume = this.tank.width * this.tank.height;
+		const min_num_points = Math.max( 20, Math.ceil( Math.sqrt(volume / 5500 ) ) );
+		const max_num_points = Math.max( 80, min_num_points * 3 );
+		let num_points = this.settings.voronoi_points;
+		if ( !num_points ) {
+			num_points = utils.RandomInt( min_num_points, max_num_points );
+		}
 		// Delaunator does not extend boundaries around the outside to the edge of the tank. 
 		// Instead of doing math, just make the point space bigger than the tank space.
-		const num_points = this.settings.voronoi_points;
 		const margin = 0.1;
 		let xmin = -( this.tank.width * margin );
 		let xmax =  ( this.tank.width * margin ) + (this.settings.scale_x * this.tank.width);
