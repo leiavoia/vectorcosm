@@ -210,15 +210,7 @@ export class Boid {
 	MakeMotors() {}
 	// inherit this function
 	MakeBrain() {
-
-		// let inputs = this.sensors.reduce( (n,s) => n + (Array.isArray(s.detect) ? s.detect.length : 1), 0 ) || 1;
-		// WARNING: this way of determining number of inputs may be dangerous if the boid is not in a tank yet.
-		// ideally we refactor the sensor data structures so that we can know ahead of time what we're dealing with.
-		let inputs = 0;
-		for ( let s of this.sensors ) { 
-			s.Sense(); // need to trigger sensor once
-			inputs += Array.isArray(s.val) ? s.val.length : 1;
-		}	
+		let inputs = this.sensor_labels.length;
 		// if boid has synesthesia, combine inputs
 		if ( this.traits.synesthesia ) {
 			inputs = Math.ceil( inputs / this.traits.synesthesia );
