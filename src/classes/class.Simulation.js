@@ -579,10 +579,10 @@ export class FoodChaseSimulation extends Simulation {
 				value: (this.settings?.food_value || 500),
 				vx: Math.random() * food_speed - (food_speed*0.5),
 				vy: Math.random() * food_speed - (food_speed*0.5),
-				edibility: this.settings?.edibility ?? food.edibility,
+				edibility: this.settings?.edibility ?? 0,
 				permafood: this.settings?.permafood ?? false,
 				phantomfood: this.settings?.phantomfood ?? false,
-				lifespan: this.settings?.food_lifespan ?? false,
+				lifespan: this.settings?.food_lifespan ?? 1000,
 			} );
 			this.tank.foods.push(food);
 		}
@@ -657,11 +657,11 @@ export class FoodChaseSimulation extends Simulation {
 					value: (this.settings?.food_value || 500),
 					vx: Math.random() * food_speed - (food_speed*0.5),
 					vy: Math.random() * food_speed - (food_speed*0.5),
-					edibility: this.settings?.edibility ?? food.edibility,
+					edibility: this.settings?.edibility ?? 0,
 					frictionless: !food_friction,
 					permafood: this.settings?.permafood ?? false,
 					phantomfood: this.settings?.phantomfood ?? false,
-					lifespan: this.settings?.food_lifespan ?? false,
+					lifespan: this.settings?.food_lifespan ?? 1000,
 				} );				
 				this.tank.foods.push(food);
 			}	
@@ -726,10 +726,10 @@ export class FinishingSimulation extends Simulation {
 				value: (this.settings?.food_value || 500),
 				vx: Math.random() * food_speed - (food_speed*0.5),
 				vy: Math.random() * food_speed - (food_speed*0.5),
-				edibility: this.settings?.edibility ?? food.edibility,
+				edibility: this.settings?.edibility ?? 0,
 				permafood: this.settings?.permafood ?? false,
 				phantomfood: this.settings?.phantomfood ?? false,
-				lifespan: this.settings?.food_lifespan ?? false,
+				lifespan: this.settings?.food_lifespan ?? 1000,
 			} );
 			this.tank.foods.push(food);
 		}
@@ -785,11 +785,11 @@ export class FinishingSimulation extends Simulation {
 					value: (this.settings?.food_value || 500),
 					vx: Math.random() * food_speed - (food_speed*0.5),
 					vy: Math.random() * food_speed - (food_speed*0.5),
-					edibility: this.settings?.edibility ?? food.edibility,
+					edibility: this.settings?.edibility ?? 0,
 					frictionless: !food_friction,
 					permafood: this.settings?.permafood ?? false,
 					phantomfood: this.settings?.phantomfood ?? false,
-					lifespan: this.settings?.food_lifespan ?? false,
+					lifespan: this.settings?.food_lifespan ?? 1000,
 				} );				
 				this.tank.foods.push(food);
 			}	
