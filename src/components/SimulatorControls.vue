@@ -338,7 +338,7 @@
 		
 		T: <output id="sim_time_output">{{vars.round.time.toFixed(1)}}</output> | 
 		F: <output id="framenum_output">{{vars.framenum}}</output> |  
-		FPS: <output id="fps_output">{{vars.fps}}</output> 
+		FPS: <output id="fps_output">{{(vars.fps||0).toFixed(1)}}</output> 
 
 		<br/>
 

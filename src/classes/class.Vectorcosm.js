@@ -46,6 +46,9 @@ export default class Vectorcosm {
 		this.braingraph = null; // move me some day
 		
 		// world settings
+		this.frames_per_turbo = 100;
+		this.turbo_time_delta = 1/30;
+		this.min_time_delta = 1/20;
 		this.max_foods = 400;
 		this.render_style = 'Natural'; // Natural, Vector, Zen, Grey
 		this.animate_boids = true;
@@ -62,6 +65,7 @@ export default class Vectorcosm {
 		this.focus_object = null;
 		this.focus_geo = null;
 		this.fps = 0;
+		this.fps_recs = [];
 		this.width = 0;
 		this.height = 0;
 		this.scale = 1;
@@ -426,16 +430,21 @@ export default class Vectorcosm {
 
 	// use delta param to supply manual deltas for simulations.
 	// otherwise it will use two.js's built in delta tracking.
-	update(frameNumber, delta=0) {
+	update(frameNumber, delta=0 ) {
 		
 		// fix delta supplied in ms
 		if ( delta && delta > 1 ) { delta /= 1000; }
 		
-		// UI stats - reports ACTUAL FPS - not rectified
-		this.fps = Math.round(1/delta);
+		// Record FPS before it gets rectified next.
+		// NOTE: if turbo is active, it calculates the average outside this function.
+		if ( !this.simulation.turbo ) {
+			this.fps_recs.push(1/delta);
+			if ( this.fps_recs.length > 20 ) { this.fps_recs.shift(); }
+			this.fps = this.fps_recs.reduce( (a,b) => a+b, 0 ) / this.fps_recs.length;
+		}
 				
 		// 20 FPS minimum. beware of spikes from pausing
-		delta = Math.min( (delta || this.two.timeDelta/1000), 0.05); 
+		delta = Math.min( (delta || this.two.timeDelta/1000), this.min_time_delta); 
 		
 		// update tank conditions
 		if ( this.tank ) {
@@ -747,11 +756,20 @@ export default class Vectorcosm {
 	RunSimulator()	{
 		if ( this.simulation && this.simulation.turbo && ( !this.simulation.settings?.time
 			|| this.simulation.stats.round.time <= this.simulation.settings.time ) ) {
+			// freeze automatic  screen drawing
 			if ( this.two.playing ) { this.two.pause(); }
-			for ( let n=0; n < 100; n++ ) {
+			// we want to measure the actual FPS using performance counter
+			let start = performance.now();
+			// process frames in bulk
+			for ( let n=0; n < this.frames_per_turbo; n++ ) {
 				++this.two.frameCount; // fake it
-				this.update( this.two.frameCount, 1/30 ); // TODO: make this an app setting
+				this.update( this.two.frameCount, this.turbo_time_delta );
 			}
+			// measure average performance
+			let end = performance.now();
+			let delta = end - start;
+			this.fps = 1 / ( ( delta / 1000 ) / this.frames_per_turbo );
+			// manually draw the screen once in a while
 			--this.two.frameCount;
 			this.two.update();
 			setTimeout( _ => this.RunSimulator(), 0 );
