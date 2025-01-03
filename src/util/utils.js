@@ -404,44 +404,8 @@ export function shapeNumber( x, min=0, max=1, bias=0.5, weight=1 ) {
 	return n;
 }
 		
-// x = input (0..1)
-// b = inflection point (0 .. 1)
-// k = steepness (-1 .. 1) - 0 is linear, negative is sigmoid (high center), positive moves towards ends 
-// SEE: https://math.stackexchange.com/q/4453261
-// DEMO: https://www.desmos.com/calculator/ym0phzdvll
-export function AdjustableSigmoid( x, b=0.5, k=-0.5 ) {
-	if ( b === 0 ) { b = 0.00001; } // zero not defined for this function
-	else if ( k >= 1 ) { k = 0.99999; } // one not defined for this function
-	// WARNING: misbehavior when b + k interact with high values of k. Not well defined when k > 0.
-	// the useful range of b shrinks as k gets beyond zero.
-	// i don't understand the madness, but this helps with the fever
-	if ( k > 1/3 ) {
-		const half_b_range = 0.5 * ( 1 / Math.pow(k,4.2) );
-		b = MapToRange( b, 0, 1, 0.5 - half_b_range, 0.5 + half_b_range );
-	}
-	const w = b * (k - 1);
-	const z = 4*b*k-k-1;
-	return Clamp( ( (w * (x/b-1)) / (4 * k * Math.abs(x-b) - k - 1) + (w) / (z) ) / ( (w * (1/b-1)) / (4 * k * Math.abs(1-b) - k - 1) + (w) / (z) ), 0, 1 );
-}
-
 export function MapToRange( x, from_min, from_max, to_min=0, to_max=1 ) {
 	return ( (to_max - to_min) / (from_max - from_min) ) * ( x - from_min ) + to_min;
-}
-
-// bias_num 0 (to_min) to 1 (to_max)
-// strength 0 (linear) to 1 (step function)
-export function SigMap( x, from_min, from_max, to_min=0, to_max=1, bias_num=0.5, strength=0.5 ) {
-	// map original number to 0..1
-	x = MapToRange( x, from_min, from_max, 0, 1 );
-	// map the bias number to 0..1
-	bias_num = MapToRange( bias_num, from_min, from_max, 0, 1 );
-	// crunch through sigmoid
-	x = AdjustableSigmoid( x, bias_num, strength );
-	// map to desired range
-	if ( to_min !== 0 || to_max !== 1 ) {
-		x = MapToRange( x, 0, 1, to_min, to_max );
-	}
-	return x;
 }
 
 // SEE: https://github.com/garycourt/murmurhash-js/blob/master/murmurhash3_gc.js

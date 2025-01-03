@@ -302,8 +302,9 @@ export default class Tank {
 		// random delauney background
 		if ( !this.background_triangles ) {
 			this.background_triangles = [];
-			let bgnumpts = Math.trunc(Math.random() * 200) + 10;
+			let bgnumpts = Math.trunc(Math.random() * 100) + 20;
 			let bgpts = [];
+			// sprinkle some points around the exact edges
 			bgpts.push( [0, 0] );
 			bgpts.push( [this.width, 0] );
 			bgpts.push( [0, this.height] );
@@ -316,24 +317,55 @@ export default class Tank {
 				bgpts.push( [0, Math.trunc(Math.random() * this.height)] );
 				bgpts.push( [this.width, Math.trunc(Math.random() * this.height) ] );
 			}
-			for ( let x=0; x < bgnumpts*0.8; x++ ) {
-				bgpts.push( [ Math.trunc(Math.random() * this.width), Math.trunc(Math.random() * this.height)] );
+			// the interior points can use a number of different strategies
+			// blotches
+			if ( Math.random() > 0.5 ) {
+				let num_blotches = utils.RandomInt( 2, 5 );
+				const blotches = [];
+				const xmin = this.width * 0.1;
+				const xmax = this.width * 0.9;
+				const ymin = this.height * 0.1;
+				const ymax = this.height * 0.9;
+				for ( let i=0; i<num_blotches; i++ ) {
+					// blotch #2 is always an inversion of blotch #1 to help evenly distribute points
+					if ( i===1 ) {
+						let b = blotches[0];
+						blotches.push({ x: xmax - b.x, y: ymax - b.y, r: b.r, exp: b.exp });
+					}
+					// the rest are random
+					let x = utils.RandomInt( xmin, xmax );
+					let y = utils.RandomInt( ymin, ymax );
+					let min_dim = Math.min( xmax-xmin, ymax-ymin );
+					let r = utils.RandomInt( min_dim*0.2, min_dim*0.8 );
+					let exp = utils.RandomFloat( 0.97, 1.0 );
+					blotches.push({ x, y, r, exp });
+				}
+				// make points
+				let num_points = bgnumpts*0.8;
+				let max_attempts = num_points*5;
+				for ( let i=0; i<num_points && max_attempts; i++, max_attempts-- ) {
+					let blotch = blotches.pickRandom();
+					let angle = Math.random() * Math.PI * 2;
+					let radius = Math.pow( Math.random() * blotch.r, blotch.exp );
+					let x = blotch.x + Math.cos(angle) * radius;
+					let y = blotch.y + Math.sin(angle) * radius;
+					// make sure the point is in bounds, otherwise roll again
+					if ( x < xmin || x > xmax || y < ymin || y > ymax ) { i--; continue; }
+					bgpts.push([x,y]);
+				}
 			}
-
-			// random edge gravity
-			const x_strength = Math.random() * 2 - 1;
-			const y_strength = Math.random() * 2 - 1;
-			// const x_strength = Math.random() * 3;
-			// const y_strength = Math.random() * 3;
-			const x_focus = this.width * 0.5; // ( Math.random() * 0.9 + 0.05 );
-			const y_focus = this.height * 0.5; // ( Math.random() * 0.9 + 0.05 );			
-			// const x_focus = Math.random() * 0.8 + 0.1;
-			// const y_focus = Math.random() * 0.8 + 0.1;
-			for ( let p of bgpts ) {
-				p[0] = utils.SigMap( p[0], 0, this.width, 0, this.width, x_focus, x_strength );
-				p[1] = utils.SigMap( p[1], 0, this.height, 0, this.height, y_focus, y_strength );
-				// p[0] = utils.shapeNumber( p[0], 0, this.width, x_focus, x_strength );
-				// p[1] = utils.shapeNumber( p[1], 0, this.height, y_focus, y_strength );
+			// x/y gravity
+			else {
+				const x_strength = utils.BiasedRand( 0.5, 5, 1, 0.8 );
+				const y_strength = utils.BiasedRand( 0.5, 5, 1, 0.8 );
+				const x_focus = utils.RandomFloat( 0.1, 0.9 );
+				const y_focus = utils.RandomFloat( 0.1, 0.9 );
+				for ( let x=0; x < bgnumpts*0.8; x++ ) {
+					let p = [Math.trunc(Math.random() * this.width), Math.trunc(Math.random() * this.height)];
+					p[0] = utils.shapeNumber( p[0], 0, this.width, x_focus, x_strength );
+					p[1] = utils.shapeNumber( p[1], 0, this.height, y_focus, y_strength );
+					bgpts.push(p);
+				}
 			}
 			
 			// randomized color schemes 
