@@ -23,7 +23,7 @@ export default class TankMaker {
 			voronoi_sine_hshift: utils.RandomFloat(0,1),
 			voronoi_mask_random_chance: 0.26,
 			voronoi_max_complexity: 2,
-			voronoi_point_strategy: ['random','square','hex'].pickRandom(),
+			voronoi_point_strategy: ['blotch','random','square','hex'].pickRandom(),
 			voronoi_point_slur: (Math.random() > 0.5), // enables number shaping. it rolls random numbers by itself
 			voronoi_point_jitter: (Math.random() * 0.7), // geometric shapes break down over 0.5
 			scale_x: utils.RandomFloat( 0.5, 5 ),
@@ -126,7 +126,7 @@ export default class TankMaker {
 		let ymin = -( this.tank.height * margin );
 		let ymax =  ( this.tank.height * margin ) + (this.settings.scale_y * this.tank.height);
 		// geometric point strategies need a little extra room on the ends for overrun
-		if ( this.settings.voronoi_point_strategy!='random' ) {
+		if ( ['square','hex'].contains(this.settings.voronoi_point_strategy) ) {
 			xmax += this.tank.width * margin;
 			ymax += this.tank.height * margin;
 		}
@@ -148,6 +148,53 @@ export default class TankMaker {
 					utils.shapeNumber( xmin + Math.random() * (xmax-xmin), xmin, xmax, x_focus, x_expo ),
 					utils.shapeNumber( ymin + Math.random() * (ymax-ymin), ymin, ymax, y_focus, y_expo ) 
 				]);
+			}
+		}
+		
+		// blotch
+		else if ( this.settings.voronoi_point_strategy == 'blotch' ) {
+			let num_blotches = utils.RandomInt( 2, 5 );
+			// create a number of circular regions (blotches).
+			// each blotch has an x, y, radius, and exponent.
+			// Create all of the random points within the bounds 
+			// of a random blotch, with higher chance of occurring near 
+			// the center of the blotch selected.
+			const blotches = [];
+			for ( let i=0; i<num_blotches; i++ ) {
+				// blotch #2 is always an inversion of blotch #1 to help evenly distribute points
+				if ( i===1 ) {
+					let b = blotches[0];
+					blotches.push({ x: xmax - b.x, y: ymax - b.y, r: b.r, exp: b.exp });
+				}
+				// the rest are random
+				let x = utils.RandomInt( xmin, xmax );
+				let y = utils.RandomInt( ymin, ymax );
+				let min_dim = Math.min( xmax-xmin, ymax-ymin );
+				let r = utils.RandomInt( min_dim*0.2, min_dim*0.8 );
+				let exp = utils.RandomFloat( 0.94, 1.0 );
+				blotches.push({ x, y, r, exp });
+			}
+			// draw the blotch as a yellow circle using two.js
+			if ( this.settings.visualize ) {
+				for ( let b of blotches ) { 
+					let c = window.two.makeCircle( b.x, b.y, b.r );
+					c.fill = 'transparent';
+					c.stroke = 'yellow';
+					c.linewidth = 20;
+					window.vc.AddShapeToRenderLayer(c, +2);	
+				}
+			}
+			// make points
+			let max_attempts = num_points*5;
+			for ( let i=0; i<num_points && max_attempts; i++, max_attempts-- ) {
+				let blotch = blotches.pickRandom();
+				let angle = Math.random() * Math.PI * 2;
+				let radius = Math.pow( Math.random() * blotch.r, blotch.exp );
+				let x = blotch.x + Math.cos(angle) * radius;
+				let y = blotch.y + Math.sin(angle) * radius;
+				// make sure the point is in bounds, otherwise roll again
+				if ( x < xmin || x > xmax || y < ymin || y > ymax ) { i--; continue; }
+				pts.push([x,y]);
 			}
 		}
 		
@@ -337,7 +384,17 @@ export default class TankMaker {
 		// create rocks from each voronoi cell according to mask
 		let cells =[];
 		forEachVoronoiCell(pts, delaunay, ( vertices, px, py ) => {
-
+			
+			// optional voronoi visualization
+			if ( this.settings.visualize ) {
+				let anchors = vertices.map( p => new Two.Anchor( p[0], p[1] ) );
+				let path = window.two.makePath(anchors);
+				path.fill = 'transparent';
+				path.stroke = utils.RandomColor( true, false, true ); 
+				path.linewidth = 20;		
+				window.vc.AddShapeToRenderLayer(path, +2);	
+			}
+			
 			// apply cell mask to determine if it becomes a rock
 			if ( !cellMaskFunc(px,py) ) { return false; }
 						
@@ -377,16 +434,7 @@ export default class TankMaker {
 				v[0]/this.settings.scale_x, 
 				v[1]/this.settings.scale_y
 			] );
-			
-			// optional voronoi visualization
-			if ( this.settings.visualize ) {
-				let anchors = vertices.map( p => new Two.Anchor( p[0], p[1] ) );
-				let path = window.two.makePath(anchors);
-				path.fill = 'transparent';
-				path.stroke = utils.RandomColor( true, false, true ); 
-				path.linewidth = 20;		
-				window.vc.AddShapeToRenderLayer(path, +2);	
-			}
+
 			
 			// keep rocks entirely within bounds
 			const w = this.tank.width;
