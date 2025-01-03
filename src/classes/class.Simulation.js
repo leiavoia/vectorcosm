@@ -748,15 +748,19 @@ export class FinishingSimulation extends Simulation {
 	}	
 	ScoreBoidPerFrame(b) {
 		// fecundity
-		outer:
-		for ( let s of b.sensor_labels ) {
-			if ( s.name.match('itosis') ) {
-				// find corresponding motor minimum action required
-				for ( let m of b.motors ) {
-					if ( m.hasOwnProperty('mitosis') && s.val >= m.min_act ) {
-						b.total_fitness_score += this.stats.delta;
-						break outer;
-					}
+		let index = -1;
+		for ( let i=0; i < b.sensor_labels.length; i++ ) {
+			if ( b.sensor_labels[i].match('itosis') ) {
+				index = i;
+				break;
+			}
+		}
+		if ( index ) {
+			// find corresponding motor minimum action required
+			for ( let m of b.motors ) {
+				if ( m.hasOwnProperty('mitosis') && b.sensor_outputs[index] >= m.min_act ) {
+					b.total_fitness_score += this.stats.delta;
+					break;
 				}
 			}
 		}
