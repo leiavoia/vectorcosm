@@ -531,14 +531,14 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 					<span v-if="(focus_boid_data.traits.food_mask||0) & 4">⬟ </span>
 					<span v-if="(focus_boid_data.traits.food_mask||0) & 8">⬢ </span>
 					<span v-if="(focus_boid_data.traits.food_mask||0) & 16">⯃ </span>
-					<span v-if="(focus_boid_data.traits.food_mask||0) & 32">&#9899; </span>
+					<span v-if="(focus_boid_data.traits.food_mask||0) & 32">● </span>
 					🡒
 					<span v-if="(focus_boid_data.traits.poop_complexity==1)">▲ </span>
 					<span v-if="(focus_boid_data.traits.poop_complexity==2)">■ </span>
 					<span v-if="(focus_boid_data.traits.poop_complexity==3)">⬟ </span>
 					<span v-if="(focus_boid_data.traits.poop_complexity==4)">⬢ </span>
 					<span v-if="(focus_boid_data.traits.poop_complexity==5)">⯃ </span>
-					<span v-if="(focus_boid_data.traits.poop_complexity==6)">&#9899; </span>
+					<span v-if="(focus_boid_data.traits.poop_complexity==6)">● </span>
 				</output>
 			</p>
 				

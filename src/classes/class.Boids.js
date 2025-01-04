@@ -861,7 +861,7 @@ export class Boid {
 							buoy_start: 5,
 							buoy_end: -20,
 							nutrients: victim.traits.nutrition.map( x => x > 0 ? x : 0 ),
-							complexity: Math.max( victim.traits.nutrition.filter( x => x > 0 ).length, 5 )
+							complexity: Math.max( victim.traits.nutrition.filter( x => x > 0 ).length, 6 )
 							} );		
 						window.vc.tank.foods.push(f);											
 					}
@@ -1085,13 +1085,13 @@ export class Boid {
 		// TODO: more complex organisms should have more complex diets
 		// food mask - determines what complexity levels of food we can eat
 		this.traits.food_mask = 0;
-		for ( let i=0; i < 5; i++ ) {
+		for ( let i=0; i < 6; i++ ) {
 			const roll = this.dna.shapedNumber( this.dna.genesFor(`foodmask-${i}`,2,true), 0, 1 );
-			const push = ( roll > 0.60 + (i * 0.07) ) ? 1 : 0;
+			const push = ( roll > 0.66 + (i * 0.06) ) ? 1 : 0;
 			this.traits.food_mask = this.traits.food_mask | (push << i);
 		}
 		if ( this.traits.food_mask==31 ) { this.traits.food_mask = 30; } // can't have it all
-		else if ( !this.traits.food_mask ) { this.traits.food_mask = 1; }
+		else if ( !this.traits.food_mask ) { this.traits.food_mask = 1; } // need at least something
 		// nutrition profile
 		for ( let i=0; i < 8; i++ ) {
 			this.traits.nutrition[i] = this.dna.shapedNumber( this.dna.genesFor(`nutrition value ${i}`,2,1), -3, 3, 0.5 - i*0.1, 3 - i*0.2 );

@@ -25,7 +25,7 @@ export default class Food {
 				this.nutrients[i] = Math.random(); 
 			}
 		}
-		this.complexity = utils.RandomInt(1,5);
+		this.complexity = utils.RandomInt(1,6);
 		this.frictionless = false;
 		this.sense = new Array(16).fill(0);
 		this.buoy = 0;
@@ -271,8 +271,10 @@ export default class Food {
 
 		// rendering
 		let points = this.complexity+2;
-		if ( points>=7 ) { points=8 } // unicode doesnt have heptagons ;-( 
+		if ( this.complexity==5 ) { points=8 } // unicode doesnt have heptagons ;-( 
+		else if ( this.complexity==6 ) { points=12; } // getting hard to discern at this point 
 				
+			
 		// colors hardcoded mostly for aesthetics. you could change them.
 		let colors = [
 			'#C42452',

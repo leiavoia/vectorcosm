@@ -278,17 +278,17 @@ export class DNAPlant extends Plant {
 				
 		// determine the other traits
 		const total_fruit_mass = Math.round( 0.5 * ( 
-			this.dna.shapedInt( this.dna.genesFor('total_fruit_mass_1',2), 10, 1000, 50, 3 ) +
-			this.dna.shapedInt( this.dna.genesFor('total_fruit_mass_2',1), 10, 1000, 50, 5 ) ) );
+			this.dna.shapedInt( this.dna.genesFor('total_fruit_mass_1',2), 10, 1000, 120, 3 ) +
+			this.dna.shapedInt( this.dna.genesFor('total_fruit_mass_2',1), 10, 1000, 120, 5 ) ) );
 		this.traits.fruit_num = this.dna.shapedInt( this.dna.genesFor('fruit_num',1), 1, 10, 1, 4 );
 		this.traits.fruit_size = Math.round( total_fruit_mass / this.traits.fruit_num );
 		this.traits.fruit_interval = this.dna.shapedInt( this.dna.genesFor('fruit_interval',2), 10, 120, 30, 6 );
-		this.traits.fruit_interval = Math.round( this.traits.fruit_interval * (total_fruit_mass / 80) ); // more fruit takes longer
+		this.traits.fruit_interval = Math.round( this.traits.fruit_interval * (total_fruit_mass / 100) ); // more fruit takes longer
 		this.traits.fruit_lifespan = this.dna.mix( this.dna.genesFor('fruit_lifespan',2), 20, 100 );
 		this.traits.fruit_lifespan = Math.round( this.traits.fruit_lifespan * (total_fruit_mass / 100) ); // more fruit lasts longer
 		this.traits.fruit_buoy_start = this.dna.mix( this.dna.genesFor('fruit_buoy_start',2), -100, 100 );
 		this.traits.fruit_buoy_end = this.dna.mix( this.dna.genesFor('fruit_buoy_end',2), -100, 100 );
-		this.traits.fruit_complexity = Math.ceil( this.dna.shapedInt( this.dna.genesFor('fruit_complexity',1,true), 0, 500, 200, 1.5 ) / 100 );
+		this.traits.fruit_complexity = Math.ceil( this.dna.shapedInt( 0x08000000 | this.dna.genesFor('fruit_complexity',1,true), 0, 599, 150, 1.5 ) / 100 );
 		this.traits.fruit_nutrients = [
 			Math.max( 0, this.dna.mix( this.dna.genesFor('fruit nutrient 1',2,1), -15, 10 ) ),
 			Math.max( 0, this.dna.mix( this.dna.genesFor('fruit nutrient 2',2,1), -15, 10 ) ),
@@ -788,7 +788,7 @@ export function RandomPlant(x=0,y=0) {
 	// fun! if we choose DNAPlant, try to make variations on a theme instead of completely random ones
 	else {
 		let plant;
-		let reuse = 0.75;
+		let reuse = 0.65;
 		// grab a used plant
 		if ( motherplants.length && Math.random() < reuse ) { 
 			let mother = motherplants.pickRandom();
