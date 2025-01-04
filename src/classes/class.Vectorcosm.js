@@ -260,8 +260,8 @@ export default class Vectorcosm {
 					const obj = this.tank.obstacles.pickRandom();
 					// pick a point on the hull, not on the interior
 					const pt = obj.collision.hull.pickRandom();
-					target_x = pt[0];
-					target_y = pt[1];
+					target_x = obj.x + pt[0];
+					target_y = obj.y + pt[1];
 				}
 				// plant
 				else if ( this.tank.plants.length && roll < 0.5 ) {
