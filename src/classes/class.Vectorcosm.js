@@ -283,8 +283,9 @@ export default class Vectorcosm {
 					target_y = obj.y;
 				}
 				// adjust point to sit inside a margin to avoid pan/zoom jank
-				const margin_x = ( this.width / 2 ) / zoom;
-				const margin_y = ( this.height / 2 ) / zoom;
+				// Note: margin gets too big when zoom number is too small.
+				const margin_x = Math.min( this.tank.width/2, Math.max( 0, ( this.width / 2 )  / zoom ) ); 
+				const margin_y = Math.min( this.tank.height/2, Math.max( 0, ( this.height / 2 ) / zoom ) );
 				target_x = utils.Clamp( target_x, margin_x, this.tank.width - margin_x );
 				target_y = utils.Clamp( target_y, margin_y, this.tank.height - margin_y );
 				if ( this.camera.transitions ) {
@@ -319,7 +320,7 @@ export default class Vectorcosm {
 						}, this.camera.transition_time )
 						.easing(TWEEN.Easing.Sinusoidal.InOut)
 						.onUpdate( obj => {
-							this.PointCameraAt( this.camera.x, this.camera.y, this.camera.z );
+							this.PointCameraAt( this.camera.x, this.camera.y, this.camera.z, true );
 						})
 						.onComplete( obj => {
 							this.camera.cinema_timeout = setTimeout( _ => this.CinemaMode(), this.camera.focus_time ); 			
@@ -328,6 +329,7 @@ export default class Vectorcosm {
 				}
 				else {
 					this.ResetCameraZoom();
+					// console.log('reset camera zoom');
 					this.camera.cinema_timeout = setTimeout( _ => this.CinemaMode(), this.camera.focus_time );
 				}
 			}
@@ -351,7 +353,7 @@ export default class Vectorcosm {
 		const scale = Math.min(scalex,scaley); // min = contain, max = cover
 		this.camera.min_zoom = scale;
 		// this.camera.max_zoom = 2; // Math.min(this.tank.width,this.tank.height) / 1250;
-		this.PointCameraAt( this.tank.width*0.5, this.tank.height*0.5, scale );	
+		this.PointCameraAt( this.tank.width*0.5, this.tank.height*0.5, scale, true ); // force centering	
 	}
 	
 	LoadStartingPopulationFromFile(file) {
@@ -620,15 +622,19 @@ export default class Vectorcosm {
 	}
 
 	// put camera at a specific point in world space / zoom
-	PointCameraAt( x, y, z=null ) {
+	// if center is true, camera will force center position when zoom is wider than tank
+	PointCameraAt( x, y, z=null, center=false ) {
+		
+		center = center || !this.allow_hyperzoom;
+		 
 		// entire tank is smaller than screen - snap to center
-		if ( !this.allow_hyperzoom && z && z * this.tank.width < this.width && z * this.tank.height < this.height ) { 
+		if ( center && z && z * this.tank.width < this.width && z * this.tank.height < this.height ) { 
 			const scalex = this.width / this.tank.width;
 			const scaley = this.height / this.tank.height;
 			const scale = Math.min(scalex,scaley); // min = contain, max = cover
 			x = this.tank.width * 0.5;
 			y = this.tank.height * 0.5;
-			if ( !this.allow_hyperzoom ) { z = scale; }
+			if ( center ) { z = scale; }
 			}
 		
 		// zoom
@@ -640,17 +646,17 @@ export default class Vectorcosm {
 		// X pos	
 		const target_x = -( x * this.scale ) + ( 0.5 * this.width );
 		const max_x = -0.0001 + (this.tank.width * this.scale) - (this.width);
-		if ( this.scale * this.tank.width < this.width && !this.allow_hyperzoom ) { this.renderLayers['tank'].position.x = -max_x / 2; }
-		else if ( target_x > 0 && !this.allow_hyperzoom ) { this.renderLayers['tank'].position.x = 0; }  
-		else if ( target_x < -max_x && !this.allow_hyperzoom ) { this.renderLayers['tank'].position.x = -max_x; }  
+		if ( this.scale * this.tank.width < this.width && center ) { this.renderLayers['tank'].position.x = -max_x / 2; }
+		else if ( target_x > 0 && center ) { this.renderLayers['tank'].position.x = 0; }  
+		else if ( target_x < -max_x && center ) { this.renderLayers['tank'].position.x = -max_x; }  
 		else { this.renderLayers['tank'].position.x = target_x; }
 		
 		// Y pos
 		const target_y = -( y * this.scale ) + ( 0.5 * this.height );
 		const max_y = -0.0001 + (this.tank.height * this.scale) - (this.height);
-		if ( this.scale * this.tank.height < this.height && !this.allow_hyperzoom ) { this.renderLayers['tank'].position.y = -max_y / 2; }
-		else if ( target_y > 0 && !this.allow_hyperzoom ) { this.renderLayers['tank'].position.y = 0; }  
-		else if ( target_y < -max_y && !this.allow_hyperzoom ) { this.renderLayers['tank'].position.y = -max_y; }
+		if ( this.scale * this.tank.height < this.height && center ) { this.renderLayers['tank'].position.y = -max_y / 2; }
+		else if ( target_y > 0 && center ) { this.renderLayers['tank'].position.y = 0; }  
+		else if ( target_y < -max_y && center ) { this.renderLayers['tank'].position.y = -max_y; }
 		else { this.renderLayers['tank'].position.y = target_y; }
 		
 		// record stats
