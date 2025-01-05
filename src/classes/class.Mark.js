@@ -1,5 +1,6 @@
 export default class Mark {
 	constructor(params) {
+		this.oid = ++globalThis.vc.next_object_id;
 		// defaults
 		this.x = 0;
 		this.y = 0;

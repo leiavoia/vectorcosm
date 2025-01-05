@@ -102,6 +102,7 @@ export class Boid {
 	}
 
 	constructor( x=0, y=0, tank=null, json=null ) {
+		this.oid = ++globalThis.vc.next_object_id;
 		this.ResetStats();
 		this.sense = new Array(16).fill(0);
 		this.id = Math.random();

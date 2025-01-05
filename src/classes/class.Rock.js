@@ -24,6 +24,7 @@ export default class Rock {
 	// force_corners = BOOL default true
 	// new_points_respect_hull = BOOL default true. if false, new points can be outside hull
 	constructor( params ) {
+		this.oid = ++globalThis.vc.next_object_id;
 		this.sense = new Array(16).fill(0);
 		this.sense[0] = 0.2; // dull grey appearance
 		this.sense[1] = 0.2;

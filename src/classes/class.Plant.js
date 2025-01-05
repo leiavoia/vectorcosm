@@ -7,6 +7,7 @@ import DNA from '../classes/class.DNA.js'
 export default class Plant {
 	static PlantTypes = new Map;
 	constructor(x=0,y=0) {
+		this.oid = ++globalThis.vc.next_object_id;
 		this.type = 'Plant'; // avoids JS classname mangling
 		this.x = 0;
 		this.y = 0;

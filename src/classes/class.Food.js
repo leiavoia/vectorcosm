@@ -7,6 +7,7 @@ import { DNAPlant } from '../classes/class.Plant.js'
 
 export default class Food {
 	constructor(x=0,y=0,params) {
+		this.oid = ++globalThis.vc.next_object_id;
 		// first param can be JSON to rehydrate entire object from save
 		if ( x && typeof x === 'object' ) {
 			params = x;

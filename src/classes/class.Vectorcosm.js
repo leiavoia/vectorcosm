@@ -41,6 +41,9 @@ export default class Vectorcosm {
 		// this.renderLayers['tank'].add(this.renderLayers['1']);
 		// this.renderLayers['tank'].add(this.renderLayers['2']);
 		
+		// stuff for tracking game objects
+		this.next_object_id = 0; // sequential uuid for communicating with UI
+		
 		// main game loop
 		this.playing = false;
 		this.last_update_ts = 0;

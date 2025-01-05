@@ -48,6 +48,7 @@ export default class Tank {
 	};
 						
 	constructor( w, h ) {
+		this.oid = ++globalThis.vc.next_object_id;
 		this.width = w;
 		this.height = h;
 		this.turbulence = Math.random() * 0.7;
