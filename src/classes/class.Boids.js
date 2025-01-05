@@ -60,12 +60,12 @@ export class Boid {
 			m.strokepow = 0; 
 		}				
 		// simulation-specific settings
-		if ( window.vc.simulation.settings?.ignore_lifecycle ) {
+		if ( globalThis.vc.simulation.settings?.ignore_lifecycle ) {
 			this.mass = this.body.mass;
 			this.ScaleBoidByMass();	
 		}
 		// random age
-		if ( !window.vc.simulation.settings?.ignore_lifecycle ) {
+		if ( !globalThis.vc.simulation.settings?.ignore_lifecycle ) {
 			this.age = utils.RandomInt( 0, this.lifespan * 0.5 );
 		}
 		this.ResetStats();
@@ -164,11 +164,11 @@ export class Boid {
 		this.inertia = 0; // forward motion power, can be negative
 		this.angmo = 0; // angular momentum / rotational inertia
 		// drawing stuff
-		this.container = window.two.makeGroup();
+		this.container = globalThis.two.makeGroup();
 		this.container.position.x = x;
 		this.container.position.y = y;
 		this.container.visible = true;
-		window.vc.AddShapeToRenderLayer(this.container,1); // layer on top to prevent poor drawing order
+		globalThis.vc.AddShapeToRenderLayer(this.container,1); // layer on top to prevent poor drawing order
 		// neuro stuff
 		this.brain = null;
 		// vision and sensors
@@ -346,7 +346,7 @@ export class Boid {
 		
 		// aging out
 		this.age += delta;
-		if ( this.age > this.lifespan && !window.vc.simulation.settings?.ignore_lifecycle ) {
+		if ( this.age > this.lifespan && !globalThis.vc.simulation.settings?.ignore_lifecycle ) {
 			// chance to live a while longer
 			if ( Math.random() < 0.002 ) {
 				this.Kill('age');
@@ -360,7 +360,7 @@ export class Boid {
 		// motor actuation costs are handled separately.
 		let energy_to_burn = this.metab.metabolic_rate * delta;
 		// larva get a discount for doing nothing
-		if ( !window.vc.simulation.settings?.ignore_lifecycle && this.age < this.larval_age ) { energy_to_burn *= 0.5; }
+		if ( !globalThis.vc.simulation.settings?.ignore_lifecycle && this.age < this.larval_age ) { energy_to_burn *= 0.5; }
 		this.metab.energy -= energy_to_burn;
 		
 		// digestion (optimized by not processing stomach contents every single frame)
@@ -435,7 +435,7 @@ export class Boid {
 			if ( this.metab.bowel_total >= this.metab.bowel_size ) {
 				// TODO: if there's too much crap on the screen, consider just having 
 				// it absorb into the background ether instead of ignoring it.
-				if ( window.vc.tank.foods.length < 300 && window.vc.simulation.settings?.poop!==false ) {
+				if ( globalThis.vc.tank.foods.length < 300 && globalThis.vc.simulation.settings?.poop!==false ) {
 					const f = new Food( this.x, this.y, { 
 						value: this.metab.bowel_total * 0.5, // reduce value to avoid virtuous cycles  
 						lifespan: Math.min( 15, this.metab.bowel_total/3 ),
@@ -444,7 +444,7 @@ export class Boid {
 						nutrients: this.metab.bowel.map( v => v / this.metab.bowel_total ),
 						complexity: this.traits.poop_complexity
 						} );
-					window.vc.tank.foods.push(f);
+					globalThis.vc.tank.foods.push(f);
 				}
 				this.metab.bowel_total = 0;
 				this.metab.bowel.fill(0);
@@ -476,13 +476,13 @@ export class Boid {
 		this.metab.energy = utils.Clamp( this.metab.energy, 0, this.metab.max_energy );
 		
 		// you ded?
-		if ( this.metab.energy <= 0 && !window.vc.simulation.settings?.ignore_lifecycle ) {
+		if ( this.metab.energy <= 0 && !globalThis.vc.simulation.settings?.ignore_lifecycle ) {
 			this.Kill('energy');
 			return;
 		}
 		
 		// you almost ded?
-		if ( window.vc.animate_boids && (this.metab.energy / this.metab.max_energy ) < 0.01 && !window.vc.simulation.settings?.ignore_lifecycle ) {
+		if ( globalThis.vc.animate_boids && (this.metab.energy / this.metab.max_energy ) < 0.01 && !globalThis.vc.simulation.settings?.ignore_lifecycle ) {
 			let pct = this.metab.energy / ( this.metab.max_energy * 0.01 );
 			this.container.opacity = pct;
 		}
@@ -501,7 +501,7 @@ export class Boid {
 		// one or more motor that is waiting for a signal. If all motors are busy
 		// then the sensors have no practical purpose and are only for UI enjoyment.
 		let do_sensors = false;
-		if ( !window.vc.boid_sensors_every_frame ) {
+		if ( !globalThis.vc.boid_sensors_every_frame ) {
 			for ( let m of this.motors ) {
 				if ( !m.t && !m?.skip_sensor_check ) { do_sensors = true; break; }
 			}
@@ -525,12 +525,12 @@ export class Boid {
 		}
 		
 		// UI: toggle collision detection geometry UI
-		if ( ( window.vc.show_collision_detection || this.show_sensors ) && !this.sensor_group ) {
-			this.sensor_group = window.two.makeGroup();
+		if ( ( globalThis.vc.show_collision_detection || this.show_sensors ) && !this.sensor_group ) {
+			this.sensor_group = globalThis.two.makeGroup();
 			this.sensor_group.add( this.sensors.filter( s => s.type=='locater' || s.detect=='food' || s.type=='whisker' || s.detect=='obstacles' || s.type==='sense' ).map( i => i.CreateGeometry() ) );
 			this.container.add(this.sensor_group);
 		}
-		else if ( !( window.vc.show_collision_detection || this.show_sensors ) && this.sensor_group ) {
+		else if ( !( globalThis.vc.show_collision_detection || this.show_sensors ) && this.sensor_group ) {
 			this.sensor_group.remove();
 			this.sensor_group = null;
 		}
@@ -558,16 +558,16 @@ export class Boid {
 		
 		// [!]EXPERIMENTAL - Animate geometry - proof of concept
 		// There is just enough here to be amusing, but its not accurate and needs improvement
-		if ( window.vc.animate_boids && !window.vc?.simulation?.turbo ) {
+		if ( globalThis.vc.animate_boids && !globalThis.vc?.simulation?.turbo ) {
 		
 			// dynamic animation - don't animate unless we're on screen and close enough to see
-			if ( ( window.vc.camera.z >= window.vc.camera.animation_min )
-				&& ( this.x - this.collision.radius < window.vc.camera.xmax )
-				&& ( this.x + this.collision.radius > window.vc.camera.xmin )
-				&& ( this.y - this.collision.radius < window.vc.camera.ymax )
-				&& ( this.y + this.collision.radius > window.vc.camera.ymin )
+			if ( ( globalThis.vc.camera.z >= globalThis.vc.camera.animation_min )
+				&& ( this.x - this.collision.radius < globalThis.vc.camera.xmax )
+				&& ( this.x + this.collision.radius > globalThis.vc.camera.xmin )
+				&& ( this.y - this.collision.radius < globalThis.vc.camera.ymax )
+				&& ( this.y + this.collision.radius > globalThis.vc.camera.ymin )
 				// you might also consider switching to pixel pitch method
-				// && ( this.collision.radius >= ( window.vc.camera.xmax - window.vc.camera.xmin ) / 100 )
+				// && ( this.collision.radius >= ( globalThis.vc.camera.xmax - globalThis.vc.camera.xmin ) / 100 )
 				) {
 				
 				// setup - record original position
@@ -579,7 +579,7 @@ export class Boid {
 				}
 				
 				// if we are a "larva", unfold from a sphere
-				if ( this.age < this.larval_age && !window.vc.simulation.settings?.ignore_lifecycle ) {
+				if ( this.age < this.larval_age && !globalThis.vc.simulation.settings?.ignore_lifecycle ) {
 					// setup: sort vertices in radial order and assign starting positions
 					if ( !( 'xp' in this.body.geo.vertices[0] ) ) {
 						// the nose point is always at zero degrees
@@ -713,13 +713,13 @@ export class Boid {
 			}
 		}
 		// if an object pushed us out of bounds and we gets stuck outside tank, remove
-		if ( candidates.length && window.vc.simulation.stats.round.time < 1 ) { // limit to startup
-			if ( this.x < 0 || this.x > window.vc.tank.width ) { this.Kill('OOB'); return; };
-			if ( this.y < 0 || this.y > window.vc.tank.height ) { this.Kill('OOB'); return; };
+		if ( candidates.length && globalThis.vc.simulation.stats.round.time < 1 ) { // limit to startup
+			if ( this.x < 0 || this.x > globalThis.vc.tank.width ) { this.Kill('OOB'); return; };
+			if ( this.y < 0 || this.y > globalThis.vc.tank.height ) { this.Kill('OOB'); return; };
 		}		
 		// update drawing geometry
 		// optimization: if turbo is enabled, draw nothing
-		// if ( !window.vc?.simulation?.turbo ) {
+		// if ( !globalThis.vc?.simulation?.turbo ) {
 			this.container.position.x = this.x;
 			this.container.position.y = this.y;
 			this.container.rotation = this.angle;
@@ -752,7 +752,7 @@ export class Boid {
 					const d = Math.sqrt(dx*dx + dy*dy);
 					if ( d > this.collision.radius + food.r ) { continue; }
 					// take a bite - reset bite, regardless of morsel size
-					if ( !window.vc.simulation.settings?.ignore_lifecycle ) {
+					if ( !globalThis.vc.simulation.settings?.ignore_lifecycle ) {
 						this.metab.bite_time = this.traits.bite_speed;
 					}
 					const space_left = this.metab.stomach_size - this.metab.stomach_total;
@@ -769,7 +769,7 @@ export class Boid {
 					this.metab.stomach_total = this.metab.stomach.reduce( (a,c) => a + (c>0?c:0), 0 );
 					this.stats.food.bites++;
 					// certain simulations use food for sequential target practice
-					if ( window.vc.simulation.settings?.on_bite_ignore ) {
+					if ( globalThis.vc.simulation.settings?.on_bite_ignore ) {
 						if ( !this.ignore_list ) {
 							this.ignore_list = new WeakSet;
 						}
@@ -801,7 +801,7 @@ export class Boid {
 					return 0; 
 				}
 				// age restricted
-				if ( m.hasOwnProperty('min_age') && this.age < m.min_age && !window.vc.simulation.settings?.ignore_lifecycle ) { 
+				if ( m.hasOwnProperty('min_age') && this.age < m.min_age && !globalThis.vc.simulation.settings?.ignore_lifecycle ) { 
 					m.last_amount = 0;
 					m.this_stoke_time = 0;
 					return 0; 
@@ -813,8 +813,8 @@ export class Boid {
 					return 0; 
 				}
 				// tank capacity sanity cap
-				if ( m.hasOwnProperty('mitosis') && ( this.tank.boids.length >= (window.vc?.simulation?.settings?.num_boids || 100)
-					|| window.vc.simulation.settings?.ignore_lifecycle ) ) {
+				if ( m.hasOwnProperty('mitosis') && ( this.tank.boids.length >= (globalThis.vc?.simulation?.settings?.num_boids || 100)
+					|| globalThis.vc.simulation.settings?.ignore_lifecycle ) ) {
 					m.last_amount = 0;
 					m.this_stoke_time = 0;
 					return 0; 
@@ -824,7 +824,7 @@ export class Boid {
 					amount = 1; 
 				}
 				// attack executes only on the first frame and only if there is a victim
-				if ( m.hasOwnProperty('attack') && !window.vc.simulation.settings?.no_combat ) {
+				if ( m.hasOwnProperty('attack') && !globalThis.vc.simulation.settings?.no_combat ) {
 					// find boids in the local area
 					let victim = this.tank.grid.GetObjectsByBox( 
 						this.x - this.collision.radius, 
@@ -851,7 +851,7 @@ export class Boid {
 					this.stats.combat.dmg_dealt += attack_force;
 					victim.stats.combat.attacks_received++;
 					victim.stats.combat.dmg_received += attack_force;
-					if ( victim.metab.energy <= 0 && !window.vc.simulation.settings?.ignore_lifecycle ) {
+					if ( victim.metab.energy <= 0 && !globalThis.vc.simulation.settings?.ignore_lifecycle ) {
 						victim.Kill('attack');
 						this.stats.combat.kills++;
 						// prizes!
@@ -863,30 +863,30 @@ export class Boid {
 							nutrients: victim.traits.nutrition.map( x => x > 0 ? x : 0 ),
 							complexity: Math.max( victim.traits.nutrition.filter( x => x > 0 ).length, 6 )
 							} );		
-						window.vc.tank.foods.push(f);											
+						globalThis.vc.tank.foods.push(f);											
 					}
 			
 					// draw indicator circle
-					if ( !window.vc?.simulation?.turbo ) {
+					if ( !globalThis.vc?.simulation?.turbo ) {
 						let mark = null;
 						let marksize = Math.min( 80, Math.sqrt(attack_force) );
 						if ( victim.dead ) {
-							mark = window.two.makeGroup();
-							mark.add( window.two.makeLine( -marksize, -marksize, marksize, marksize ) );
-							mark.add( window.two.makeLine( -marksize, marksize, marksize, -marksize ) );
+							mark = globalThis.two.makeGroup();
+							mark.add( globalThis.two.makeLine( -marksize, -marksize, marksize, marksize ) );
+							mark.add( globalThis.two.makeLine( -marksize, marksize, marksize, -marksize ) );
 							mark.position.x = victim.x;
 							mark.position.y = victim.y;
 						}
 						else {
-							mark = window.two.makeCircle( victim.x, victim.y, marksize );
+							mark = globalThis.two.makeCircle( victim.x, victim.y, marksize );
 						}
 						mark.stroke = 'red';
 						mark.fill = 'transparent';
 						mark.linewidth = 6;
 						// mark.dashes = [30, 6, 6, 6];
-						window.vc.AddShapeToRenderLayer(mark,1);
+						globalThis.vc.AddShapeToRenderLayer(mark,1);
 						// make it go away after 2s - 
-						if ( window.vc.animate_boids ) {
+						if ( globalThis.vc.animate_boids ) {
 							new TWEEN.Tween(mark)
 								.to( { opacity:0, scale:2 }, 2000 )
 								.easing(TWEEN.Easing.Quadratic.Out)
@@ -953,7 +953,7 @@ export class Boid {
 				this.inertia += v;
 			}
 			if ( m.hasOwnProperty('sense') && m.t <= delta ) { // first frame
-				if ( !window.vc?.simulation?.settings?.no_marks ) {
+				if ( !globalThis.vc?.simulation?.settings?.no_marks ) {
 					this.tank.marks.push( new Mark({
 						x: this.x,
 						y: this.y,
@@ -964,11 +964,11 @@ export class Boid {
 				}
 			}
 			if ( m.hasOwnProperty('mitosis') && m.t >= m.this_stoke_time ) {
-				const mutation_rate = utils.Clamp( window.vc?.simulation?.settings?.max_mutation, 0, 1 );
+				const mutation_rate = utils.Clamp( globalThis.vc?.simulation?.settings?.max_mutation, 0, 1 );
 				const speciation_rate = 
-					('speciation_rate' in window.vc?.simulation?.settings)
-					? utils.Clamp( window.vc?.simulation?.settings?.speciation_rate || 0, 0, 1 )
-					: ( window.vc?.simulation?.settings?.allow_speciation ? ( mutation_rate / 1000 ) : 0 ) ;							
+					('speciation_rate' in globalThis.vc?.simulation?.settings)
+					? utils.Clamp( globalThis.vc?.simulation?.settings?.speciation_rate || 0, 0, 1 )
+					: ( globalThis.vc?.simulation?.settings?.allow_speciation ? ( mutation_rate / 1000 ) : 0 ) ;							
 				for ( let n=0; n < m.mitosis; n++ ) { 
 					let offspring = this.Copy(true, mutation_rate, mutation_rate, speciation_rate); // reset state and mutate organism
 					offspring.age = 0; // simulation can assign a random age on Copy
@@ -1816,7 +1816,7 @@ export class Boid {
 				[ -this.length/2, -this.width/2 ],
 			]			
 			let anchors = pts.map( p => new Two.Anchor( p[0], p[1] ) );
-			this.bounds1 = window.two.makePath(anchors);
+			this.bounds1 = globalThis.two.makePath(anchors);
 			this.bounds1.linewidth = 1;
 			this.bounds1.stroke = 'pink';
 			this.bounds1.fill = 'transparent';
@@ -1830,7 +1830,7 @@ export class Boid {
 				[ -this.body.max_length/2, -this.body.max_width/2 ],
 			];
 			let anchors2 = pts2.map( p => new Two.Anchor( p[0], p[1] ) );
-			this.bounds2 = window.two.makePath(anchors2);
+			this.bounds2 = globalThis.two.makePath(anchors2);
 			this.bounds2.linewidth = 1;
 			this.bounds2.stroke = 'lime';
 			this.bounds2.fill = 'transparent';
@@ -1844,14 +1844,14 @@ export class Boid {
 				[ -this.body.min_length/2, -this.body.min_width/2 ],
 			];
 			let anchors3 = pts3.map( p => new Two.Anchor( p[0], p[1] ) );
-			this.bounds3 = window.two.makePath(anchors3);
+			this.bounds3 = globalThis.two.makePath(anchors3);
 			this.bounds3.linewidth = 1;
 			this.bounds3.stroke = 'cyan';
 			this.bounds3.fill = 'transparent';
 			this.container.add([this.bounds3]);
 			
 			// collision circle
-			this.bounds4 = window.two.makeCircle(0,0,Math.max(this.length,this.width)/2);
+			this.bounds4 = globalThis.two.makeCircle(0,0,Math.max(this.length,this.width)/2);
 			this.bounds4.linewidth = 1;
 			this.bounds4.stroke = 'red';
 			this.bounds4.fill = 'transparent';

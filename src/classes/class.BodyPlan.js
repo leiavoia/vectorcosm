@@ -70,7 +70,7 @@ export default class BodyPlan {
 			const flip = dna.shapedNumber( dna.genesFor(`${label} gradient axis flip`) ) < 0.33;
 			let grad = null;
 			if ( gtype == 'radial' ) {
-				grad = window.two.makeRadialGradient(xoff, yoff, radius, ...stops );
+				grad = globalThis.two.makeRadialGradient(xoff, yoff, radius, ...stops );
 			}
 			else {
 				let xoff2 = xoff+radius;
@@ -82,7 +82,7 @@ export default class BodyPlan {
 					xoff = 0;
 					xoff2 = 0;
 				}
-				grad = window.two.makeLinearGradient(xoff, yoff, xoff2, yoff2, ...stops );
+				grad = globalThis.two.makeLinearGradient(xoff, yoff, xoff2, yoff2, ...stops );
 			}
 			grad.units = 'userSpaceOnUse'; // super important
 			const spreadNum = dna.shapedNumber( dna.genesFor(`${label} gradient repeat`) );
@@ -180,7 +180,7 @@ export default class BodyPlan {
 			// build the shape
 			let anchors = this.points.map( p => new Two.Anchor( p[0], p[1] ) );
 			if ( !this.geo ) { 
-				this.geo = window.two.makePath(anchors);
+				this.geo = globalThis.two.makePath(anchors);
 			}
 			else {
 				// technical: two.js has update hooks connected to splice function
@@ -188,21 +188,21 @@ export default class BodyPlan {
 			}
 			
 			// Vector style
-			if ( window.vc.render_style == 'Vector' ) {
+			if ( globalThis.vc.render_style == 'Vector' ) {
 				// vectrex mode
 				this.geo.linewidth = 2;
 				this.geo.stroke = '#6cf';
 				this.geo.fill = 'transparent';
 			}
 			// Zen white
-			else if ( window.vc.render_style == 'Zen' ) {
+			else if ( globalThis.vc.render_style == 'Zen' ) {
 				// vectrex mode
 				this.geo.linewidth = 2;
 				this.geo.stroke = '#000';
 				this.geo.fill = 'transparent';
 			}
 			// Grey
-			// else if ( window.vc.render_style == 'Grey' ) {
+			// else if ( globalThis.vc.render_style == 'Grey' ) {
 			// 	// vectrex mode
 			// 	this.geo.linewidth = 2;
 			// 	this.geo.stroke = '#FFF';

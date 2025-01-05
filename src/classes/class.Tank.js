@@ -60,7 +60,7 @@ export default class Tank {
 		this.marks = [];
 		this.whirls = []; // defined later for generating currents
 		this.bg_opacity = 'random'; // 'random', zero, or 0..1
-		this.bg_visible = window.vc.render_style == 'Natural'; 		
+		this.bg_visible = globalThis.vc.render_style == 'Natural'; 		
 		this.bg_theme = 'random';
 		// first param can be JSON to rehydrate entire object from save
 		if ( w && typeof w === 'object' ) {
@@ -213,10 +213,10 @@ export default class Tank {
 			delete this.debug_geo;
 		}
 		if ( !on ) { return; }
-		this.debug_geo = window.two.makeGroup();
-		window.vc.AddShapeToRenderLayer(this.debug_geo, +2);	
+		this.debug_geo = globalThis.two.makeGroup();
+		globalThis.vc.AddShapeToRenderLayer(this.debug_geo, +2);	
 		// boundary rectangle
-		const debug_rect = window.two.makeRectangle(this.width/2, this.height/2, this.width, this.height );
+		const debug_rect = globalThis.two.makeRectangle(this.width/2, this.height/2, this.width, this.height );
 		debug_rect.stroke = "orange";
 		debug_rect.linewidth = '2';
 		debug_rect.fill = 'transparent';		
@@ -232,7 +232,7 @@ export default class Tank {
 					if ( cell ) {
 						// center post
 						const rect_w = this.datagrid.cellsize / 20;
-						const rect = window.two.makeRectangle(center_x, center_y, rect_w, rect_w);
+						const rect = globalThis.two.makeRectangle(center_x, center_y, rect_w, rect_w);
 						rect.stroke = "lime";
 						rect.linewidth = '2';
 						rect.fill = 'transparent';
@@ -241,7 +241,7 @@ export default class Tank {
 						// magnitude line
 						const target_x = center_x + -cell.current_x * max_line_length;
 						const target_y = center_y + -cell.current_y * max_line_length;
-						const line = window.two.makeLine(center_x, center_y, target_x, target_y);
+						const line = globalThis.two.makeLine(center_x, center_y, target_x, target_y);
 						line.stroke = "lime";
 						line.linewidth = '2';
 						line.fill = 'transparent';
@@ -253,7 +253,7 @@ export default class Tank {
 		// whirls
 		if ( this.whirls.length ) {
 			for ( let w of this.whirls ) {
-				const c = window.two.makeCircle( w.x, w.y, w.locality*1000 );
+				const c = globalThis.two.makeCircle( w.x, w.y, w.locality*1000 );
 				c.stroke = "orange";
 				c.linewidth = w.strength * 10;
 				c.fill = 'transparent';
@@ -290,14 +290,14 @@ export default class Tank {
 		
 		// tank frame
 		if ( this.tankframe ) { this.tankframe.remove(); }
-		this.tankframe = window.two.makeRectangle(this.width/2, this.height/2, this.width, this.height );
+		this.tankframe = globalThis.two.makeRectangle(this.width/2, this.height/2, this.width, this.height );
 		this.tankframe.stroke = "#888888";
 		this.tankframe.linewidth = '2';
 		this.tankframe.fill = 'transparent';		
-		window.vc.AddShapeToRenderLayer(this.tankframe, '-2');
+		globalThis.vc.AddShapeToRenderLayer(this.tankframe, '-2');
 						
 		if ( this.bg ) { this.bg.remove(); }
-		this.bg = window.two.makeGroup();
+		this.bg = globalThis.two.makeGroup();
 		
 		// random delauney background
 		if ( !this.background_triangles ) {
@@ -466,7 +466,7 @@ export default class Tank {
 		}
 		// geometry for two.js
 		for ( let t of this.background_triangles ) {
-			let p = window.two.makePath( ...t.slice(null, -1) );
+			let p = globalThis.two.makePath( ...t.slice(null, -1) );
 			p.linewidth = 0;
 			p.fill = t[6];
 			p.stroke = 'transparent'; // t[6];
@@ -482,8 +482,8 @@ export default class Tank {
 			}
 		}
 		this.bg.visible = this.bg_visible;
-		// window.vc.AddShapeToRenderLayer(this.bg, -2);
-		window.vc.AddShapeToRenderLayer(this.bg, 'backdrop');
+		// globalThis.vc.AddShapeToRenderLayer(this.bg, -2);
+		globalThis.vc.AddShapeToRenderLayer(this.bg, 'backdrop');
 		this.ScaleBackground();
 	}
 	
@@ -493,8 +493,8 @@ export default class Tank {
 			this.bg.scale = 1; // reset to one
 			const rect = this.bg.getBoundingClientRect(true);
 			this.bg.scale = new Two.Vector( 
-				(this.width * window.vc.scale) / rect.width, 
-				(this.height * window.vc.scale) / rect.height 
+				(this.width * globalThis.vc.scale) / rect.width, 
+				(this.height * globalThis.vc.scale) / rect.height 
 			);
 		}
 		// scale debug geometry (fluid currents, etc)
@@ -503,11 +503,11 @@ export default class Tank {
 		}
 		// remake the cosmetic tank frame
 		if ( this.tankframe ) { this.tankframe.remove(); }
-		this.tankframe = window.two.makeRectangle(this.width/2, this.height/2, this.width, this.height );
+		this.tankframe = globalThis.two.makeRectangle(this.width/2, this.height/2, this.width, this.height );
 		this.tankframe.stroke = "#888888";
 		this.tankframe.linewidth = '2';
 		this.tankframe.fill = 'transparent';		
-		window.vc.AddShapeToRenderLayer(this.tankframe, '-2');
+		globalThis.vc.AddShapeToRenderLayer(this.tankframe, '-2');
 	}
 	
 	MakePrettyDecor() {
@@ -582,11 +582,11 @@ export default class Tank {
 						// stay in bounds. TODO: a rock.Move() function would be helpful. this is messy
 						if (rock.x < 0 + padding) {rock.x = padding;};
 						if (rock.y < 0 + padding) {rock.y = padding;};
-						if (rock.x + rock.x2 > window.vc.tank.width - padding) {
-							rock.x = (window.vc.tank.width - rock.x2) - padding;
+						if (rock.x + rock.x2 > globalThis.vc.tank.width - padding) {
+							rock.x = (globalThis.vc.tank.width - rock.x2) - padding;
 						};
-						if (rock.y + rock.y2 > window.vc.tank.height - padding) {
-							rock.y = (window.vc.tank.height - rock.y2) - padding;
+						if (rock.y + rock.y2 > globalThis.vc.tank.height - padding) {
+							rock.y = (globalThis.vc.tank.height - rock.y2) - padding;
 						};
 						// update dependant info
 						rock.collider.x = rock.x;
@@ -651,15 +651,15 @@ export default class Tank {
 		} 
 		// debug visualization
 		// if ( this.spgeo ) { this.spgeo.remove(); }
-		// this.spgeo = window.two.makeGroup();
+		// this.spgeo = globalThis.two.makeGroup();
 		// for ( let p of this.safe_pts ) {
-		// 	let c = window.two.makeCircle( p[0], p[1], p[2] );
+		// 	let c = globalThis.two.makeCircle( p[0], p[1], p[2] );
 		// 	c.fill = 'transparent';
 		// 	c.stroke = 'red';
 		// 	c.linewidth = 5;
 		// 	this.spgeo.add( c );
 		// }
-		// window.vc.AddShapeToRenderLayer(this.spgeo, +2);	
+		// globalThis.vc.AddShapeToRenderLayer(this.spgeo, +2);	
 	}	
 
 }

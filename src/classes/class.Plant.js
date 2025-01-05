@@ -25,7 +25,7 @@ export default class Plant {
 			this.x = x;
 			this.y = y;
 		}
-		this.geo = window.two.makeGroup();
+		this.geo = globalThis.two.makeGroup();
 		this.geo.position.x = this.x;
 		this.geo.position.y = this.y;
 	}
@@ -53,19 +53,19 @@ export default class Plant {
 		return output;
 	}
 	PlantIsInFrame() {
-		if ( window.vc.camera.z < window.vc.camera.animation_min ) { return false; }
+		if ( globalThis.vc.camera.z < globalThis.vc.camera.animation_min ) { return false; }
 		let dims = this.geo.getBoundingClientRect();
-		let tl = window.vc.ScreenToWorldCoord( dims.left, dims.top );
-		let br = window.vc.ScreenToWorldCoord( dims.right, dims.bottom );
-		return ( tl[0] < window.vc.camera.xmax )
-			&& ( br[0] > window.vc.camera.xmin )
-			&& ( tl[1] < window.vc.camera.ymax )
-			&& ( br[1] > window.vc.camera.ymin );
+		let tl = globalThis.vc.ScreenToWorldCoord( dims.left, dims.top );
+		let br = globalThis.vc.ScreenToWorldCoord( dims.right, dims.bottom );
+		return ( tl[0] < globalThis.vc.camera.xmax )
+			&& ( br[0] > globalThis.vc.camera.xmin )
+			&& ( tl[1] < globalThis.vc.camera.ymax )
+			&& ( br[1] > globalThis.vc.camera.ymin );
 	}
 	Animate(delta) {
 		// wave the grass
-		if ( window.vc.animate_plants && !window.vc.simulation.turbo && this.PlantIsInFrame() ) {
-			const cell = window.vc.tank.datagrid.CellAt( this.x, this.y );
+		if ( globalThis.vc.animate_plants && !globalThis.vc.simulation.turbo && this.PlantIsInFrame() ) {
+			const cell = globalThis.vc.tank.datagrid.CellAt( this.x, this.y );
 			let strength = Math.sqrt( cell.current_x * cell.current_x + cell.current_y * cell.current_y ) || 1; 
 			this.animation_time = ( this.animation_time || 0 ) + delta * strength;
 			// sway individual shapes
@@ -113,7 +113,7 @@ export default class Plant {
 			if ( p[1] < least_y ) { least_y = p[1]; } 		
 		}
 		// squares
-		// let shape = window.two.makePath([
+		// let shape = globalThis.two.makePath([
 		// 	new Two.Anchor( least_x, least_y ),	
 		// 	new Two.Anchor( least_x, most_y ),	
 		// 	new Two.Anchor( most_x, most_y ),	
@@ -122,7 +122,7 @@ export default class Plant {
 		// diamonds
 		let mid_x = least_x + ( most_x - least_x ) / 2;
 		let mid_y = least_y + ( most_y - least_y ) / 2;
-		let shape = window.two.makePath([
+		let shape = globalThis.two.makePath([
 			new Two.Anchor( mid_x, least_y ),	
 			new Two.Anchor( most_x, mid_y ),	
 			new Two.Anchor( mid_x, most_y ),	
@@ -134,7 +134,7 @@ export default class Plant {
 		shape.dashes = [20,10];
 		shape.linewidth = 2;
 		shape.stroke = '#AEA';
-		if ( window.vc.render_style == 'Zen' ) { shape.stroke = '#BBB'; }
+		if ( globalThis.vc.render_style == 'Zen' ) { shape.stroke = '#BBB'; }
 		this.geo.add( shape );			
 	}
 }
@@ -165,8 +165,8 @@ export class DNAPlant extends Plant {
 		if ( this.age > this.traits.maturity_age && this.age > this.next_fruit ) {
 			let max_fudge = this.fruit_interval * 0.20;
 			let fudge = ( Math.random() * max_fudge ) - ( max_fudge / 2 );
-			this.next_fruit = this.age + fudge + ( this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 ) );
-			if ( window.vc.tank.foods.length < window.vc.max_foods ) {
+			this.next_fruit = this.age + fudge + ( this.fruit_interval / ( globalThis.vc?.simulation?.settings?.fruiting_speed || 1 ) );
+			if ( globalThis.vc.tank.foods.length < globalThis.vc.max_foods ) {
 				// pick a random vertex to spawn from
 				for ( let n=0; n < this.traits.fruit_num; n++ ) {
 					let vertex = this.geo.children.pickRandom().vertices.pickRandom();
@@ -181,14 +181,14 @@ export class DNAPlant extends Plant {
 						vy: utils.RandomFloat(100,1000),
 						} );
 					// if there is room for more plants in the tank, make it a viable seed
-					if ( window.vc.tank.plants.length < window.vc.simulation.settings.num_plants ) {
+					if ( globalThis.vc.tank.plants.length < globalThis.vc.simulation.settings.num_plants ) {
 						let seed = new DNA(	this.dna.str );
 						seed.mutate( 2, false );
 						f.seed = seed.str;
 						f.max_germ_density = this.traits.max_germ_density;
 						f.germ_distance = this.traits.germ_distance;
 					}
-					window.vc.tank.foods.push(f);
+					globalThis.vc.tank.foods.push(f);
 				}
 			}
 		}
@@ -239,7 +239,7 @@ export class DNAPlant extends Plant {
 		const flip = this.dna.shapedNumber( this.dna.genesFor(`${whatfor} gradient axis flip`,2,1) ) < 0.33;
 		let grad = null;
 		// radial gradients only - linear looks wrong for plants unless you can orient it per-leaf
-		grad = window.two.makeRadialGradient(xoff, yoff, radius, ...stops );
+		grad = globalThis.two.makeRadialGradient(xoff, yoff, radius, ...stops );
 		// finishing touches
 		grad.units = 'userSpaceOnUse'; // super important. alt: 'objectBoundingBox'
 		const spreadNum = this.dna.shapedNumber( this.dna.genesFor(`${whatfor} gradient repeat`,2,1) );
@@ -427,7 +427,7 @@ export class DNAPlant extends Plant {
 		
 		}
 			
-		if ( window.vc.render_style != 'Natural' ) {
+		if ( globalThis.vc.render_style != 'Natural' ) {
 			this.CreateGeometricBody(this.points);		
 		}
 		
@@ -435,7 +435,7 @@ export class DNAPlant extends Plant {
 		else {
 			for ( let points of this.shapes ) {
 				let anchors = points.map( p => new Two.Anchor( p[0], p[1] ) );
-				let shape = window.two.makePath(anchors);
+				let shape = globalThis.two.makePath(anchors);
 				// label the vertices for animation later
 				for ( let i=0; i < shape.vertices.length; i++ ) {
 					shape.vertices[i].label = points[i][2];
@@ -451,7 +451,7 @@ export class DNAPlant extends Plant {
 		}
 	}
 	UpdatePointsByGrowth( force=false ) {
-		if ( !window.vc.animate_plants || window.vc.simulation.turbo || !this.PlantIsInFrame() ) { return; }
+		if ( !globalThis.vc.animate_plants || globalThis.vc.simulation.turbo || !this.PlantIsInFrame() ) { return; }
 		// if plant is near end of lifespan, start fading out
 		const old_age_pct = 0.98;
 		if ( this.age > this.lifespan * old_age_pct ) {
@@ -462,12 +462,12 @@ export class DNAPlant extends Plant {
 		}
 		if ( this.age > this.maturity_age && !force ) { return; }
 		if ( !this.last_growth_update ) { this.last_growth_update = this.age; }
-		if ( this.age - this.last_growth_update < window.vc.plant_growth_animation_step ) { return; }
+		if ( this.age - this.last_growth_update < globalThis.vc.plant_growth_animation_step ) { return; }
 		this.last_growth_update = this.age;
 		const maturity = this.maturity_age / this.lifespan;
 		const age = this.age / this.lifespan;
 		const growth = (age >= maturity) ? 1 : (age / maturity);
-		if ( window.vc.plant_intro_method == 'grow' ) { 
+		if ( globalThis.vc.plant_intro_method == 'grow' ) { 
 			const n = this.points.length;
 			// create a map of where each point should be right now
 			const pts = this.points.map( (p,i) => {
@@ -510,12 +510,12 @@ export class PendantLettuce extends Plant {
 		super(x,y);
 		this.type = 'PendantLettuce'; // avoids JS classname mangling
 		if ( !this.fruit_interval ) { this.fruit_interval = utils.RandomInt(60,120); }
-		if ( !this.next_fruit ) { this.next_fruit = this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 ); }
+		if ( !this.next_fruit ) { this.next_fruit = this.fruit_interval / ( globalThis.vc?.simulation?.settings?.fruiting_speed || 1 ); }
 		this.CreateBody();
 	}
 	CreateBody() {
 		if ( this.geo ) { this.geo.remove( this.geo.children ); }
-		if ( window.vc.render_style != 'Natural' ) {
+		if ( globalThis.vc.render_style != 'Natural' ) {
 			const length = utils.BiasedRandInt( 50, 200, 100, 0.6);
 			const width = length * utils.BiasedRand( 0.1, 0.2, 0.15, 0.5 );
 			this.CreateGeometricBody([
@@ -538,13 +538,13 @@ export class PendantLettuce extends Plant {
 			}
 			// make the main body shape
 			const lw = utils.BiasedRandInt( 1, 6, 2, 0.95 );
-			let shape = window.two.makePath( pts.map( p => new Two.Anchor( p[0], p[1] ) ) );
+			let shape = globalThis.two.makePath( pts.map( p => new Two.Anchor( p[0], p[1] ) ) );
 			// leaf coloring
 			const tip_hue = utils.RandomFloat(0.25,0.85);
 			const tip_color = `hsl(${tip_hue*255},50%,40%)`;
 			// const stops = [ new Two.Stop(0, '#174D1F'), new Two.Stop(1, '#23682D') ];
 			const stops = [ new Two.Stop(0, '#174D1F'), new Two.Stop(1, tip_color) ];
-			shape.fill = window.two.makeRadialGradient(0, 0, r, ...stops );
+			shape.fill = globalThis.two.makeRadialGradient(0, 0, r, ...stops );
 			shape.fill.units = 'userSpaceOnUse'; // super important
 			shape.linewidth = lw;
 			shape.stroke = 'transparent';
@@ -558,9 +558,9 @@ export class PendantLettuce extends Plant {
 			}			
 			// make the veins
 			const vein_stops = [ new Two.Stop(0, tip_color), new Two.Stop(1, '#66997799'), ];
-			const vein_grad = window.two.makeRadialGradient(0, 0, r, ...vein_stops );
+			const vein_grad = globalThis.two.makeRadialGradient(0, 0, r, ...vein_stops );
 			for ( let p of pts ) { 
-				const l = window.two.makeLine( 0, 0, p[0], p[1] );
+				const l = globalThis.two.makeLine( 0, 0, p[0], p[1] );
 				l.stroke = vein_grad; //tip_color;
 				l.stroke.units = 'userSpaceOnUse'; // super important
 				l.linewidth = lw;
@@ -577,8 +577,8 @@ export class PendantLettuce extends Plant {
 		if ( this.age > this.next_fruit ) {
 			let max_fudge = this.fruit_interval * 0.20;
 			let fudge = ( Math.random() * max_fudge ) - ( max_fudge / 2 );
-			this.next_fruit = this.age + fudge + this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 );
-			if ( window.vc.tank.foods.length < window.vc.max_foods ) {
+			this.next_fruit = this.age + fudge + this.fruit_interval / ( globalThis.vc?.simulation?.settings?.fruiting_speed || 1 );
+			if ( globalThis.vc.tank.foods.length < globalThis.vc.max_foods ) {
 				const f = new Food( this.x, this.y, { 
 					value: 120, 
 					lifespan: (80 + utils.RandomInt(0,20)),
@@ -589,7 +589,7 @@ export class PendantLettuce extends Plant {
 					buoy_end: (1 - ( 2 * Math.random() )),
 					complexity: 3
 					} );
-				window.vc.tank.foods.push(f);
+				globalThis.vc.tank.foods.push(f);
 			}
 		}
 		this.Animate(delta);
@@ -602,7 +602,7 @@ export class VectorGrass extends Plant {
 		super(x,y);
 		this.type = 'VectorGrass'; // avoids JS classname mangling
 		if ( !this.fruit_interval ) { this.fruit_interval = utils.RandomInt(20,30); }
-		if ( !this.next_fruit ) { this.next_fruit = this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 ); }
+		if ( !this.next_fruit ) { this.next_fruit = this.fruit_interval / ( globalThis.vc?.simulation?.settings?.fruiting_speed || 1 ); }
 		this.traits = { animation_method:'legacy_sway' }; // shim
 		this.CreateBody();
 	}
@@ -622,7 +622,7 @@ export class VectorGrass extends Plant {
 				this.blades.push(blade);
 			}
 		}
-		if ( window.vc.render_style != 'Natural' ) {
+		if ( globalThis.vc.render_style != 'Natural' ) {
 			this.CreateGeometricBody([ [0,0], ...this.blades.map( b=>[b.x2,b.y2]) ]);
 		}
 		// Natural style - create the final SVG shape(s)
@@ -631,10 +631,10 @@ export class VectorGrass extends Plant {
 			const tip_hue = utils.RandomFloat(0.55,0.8);
 			const tip_color = `hsl(${tip_hue*255},85%,75%)`;
 			const stops = [ new Two.Stop(0, '#697'), new Two.Stop(0.68, '#697'), new Two.Stop(1, tip_color) ];		
-			const grad = window.two.makeLinearGradient(0, 1, 0, 0, ...stops );
+			const grad = globalThis.two.makeLinearGradient(0, 1, 0, 0, ...stops );
 			const dashes = [2,2];
 			for ( let blade of this.blades ) {
-				const line = window.two.makeLine( blade.x1, blade.y1, blade.x2, blade.y2 );
+				const line = globalThis.two.makeLine( blade.x1, blade.y1, blade.x2, blade.y2 );
 				line.stroke = grad;
 				line.stroke.units = 'objectBoundingBox'; // super important
 				line.linewidth = blade.r * utils.BiasedRand( 0.04, 0.2, 0.08, 0.5 );
@@ -652,8 +652,8 @@ export class VectorGrass extends Plant {
 		if ( this.age > this.next_fruit ) {
 			let max_fudge = this.fruit_interval * 0.20;
 			let fudge = ( Math.random() * max_fudge ) - ( max_fudge / 2 );
-			this.next_fruit = this.age + fudge + this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 );
-			if ( window.vc.tank.foods.length < window.vc.max_foods ) {
+			this.next_fruit = this.age + fudge + this.fruit_interval / ( globalThis.vc?.simulation?.settings?.fruiting_speed || 1 );
+			if ( globalThis.vc.tank.foods.length < globalThis.vc.max_foods ) {
 				for ( const b of this.blades ) {
 					const f = new Food( 
 						this.x + b.x2, 
@@ -669,7 +669,7 @@ export class VectorGrass extends Plant {
 						buoy_end: (1 - ( 2 * Math.random() )),
 						} 
 						);
-					window.vc.tank.foods.push(f);
+					globalThis.vc.tank.foods.push(f);
 				}
 			}
 		}
@@ -683,7 +683,7 @@ export class WaveyVectorGrass extends Plant {
 		super(x,y);
 		this.type = 'WaveyVectorGrass'; // avoids JS classname mangling
 		if ( !this.fruit_interval ) { this.fruit_interval = utils.RandomInt(45,60); }
-		if ( !this.next_fruit ) { this.next_fruit = this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 ); }
+		if ( !this.next_fruit ) { this.next_fruit = this.fruit_interval / ( globalThis.vc?.simulation?.settings?.fruiting_speed || 1 ); }
 		this.traits = { animation_method:'sway' }; // shim
 		this.CreateBody();
 	}
@@ -709,7 +709,7 @@ export class WaveyVectorGrass extends Plant {
 				this.blades.push(blade);
 			}
 		}
-		if ( window.vc.render_style != 'Natural' ) {
+		if ( globalThis.vc.render_style != 'Natural' ) {
 			this.CreateGeometricBody([ [0,0], ...this.blades.map( b => [b[0],b[1]]) ]);
 		}
 		// Natural style - create the final SVG shape(s)
@@ -718,14 +718,14 @@ export class WaveyVectorGrass extends Plant {
 			const tip_hue = utils.RandomFloat(0.05,0.20);
 			const tip_color = `hsl(${tip_hue*255},85%,75%)`;
 			const stops = [ new Two.Stop(0, '#243'), new Two.Stop(0.86, '#726'), new Two.Stop(1, tip_color) ];		
-			const grad = window.two.makeLinearGradient(0, 1, 0, 0, ...stops );
+			const grad = globalThis.two.makeLinearGradient(0, 1, 0, 0, ...stops );
 			// make the geometry
 			for ( let blade of this.blades ) {
 				const length = utils.BiasedRandInt( 500, 2000, 900, 0.6);
 				const width = length * utils.BiasedRand( 0.02, 0.1, 0.03, 0.5 );
 				const dashes = [2,2];
 				const anchors = blade.map( p => new Two.Anchor( p[0], p[1] ) );
-				const line = window.two.makePath(anchors);
+				const line = globalThis.two.makePath(anchors);
 				line.stroke = grad;
 				line.stroke.units = 'objectBoundingBox'; // super important
 				line.linewidth = width;
@@ -745,8 +745,8 @@ export class WaveyVectorGrass extends Plant {
 		if ( this.age > this.next_fruit ) {
 			let max_fudge = this.fruit_interval * 0.20;
 			let fudge = ( Math.random() * max_fudge ) - ( max_fudge / 2 );
-			this.next_fruit = this.age + fudge + this.fruit_interval / ( window.vc?.simulation?.settings?.fruiting_speed || 1 );
-			if ( window.vc.tank.foods.length < window.vc.max_foods ) {
+			this.next_fruit = this.age + fudge + this.fruit_interval / ( globalThis.vc?.simulation?.settings?.fruiting_speed || 1 );
+			if ( globalThis.vc.tank.foods.length < globalThis.vc.max_foods ) {
 				for ( const b of this.blades ) {
 					const f = new Food( 
 						this.x + ( b[b.length-1][0] * 0.5 ), 
@@ -762,7 +762,7 @@ export class WaveyVectorGrass extends Plant {
 						buoy_end: (1 - ( 2 * Math.random() )),
 						} 
 						);
-					window.vc.tank.foods.push(f);
+					globalThis.vc.tank.foods.push(f);
 				}
 			}
 		}

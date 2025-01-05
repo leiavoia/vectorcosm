@@ -25,7 +25,7 @@ export default class Vectorcosm {
 		// SVGRenderer: fast on newer browsers with accelerated SVG rendering. Also allows SVG scene export.
 		// CanvasRenderer: faster on older machines, slower on newer machines
 		this.two = new Two({ fitted: true, type: 'SVGRenderer' }); 
-		window.two = this.two; // make available everywhere
+		globalThis.two = this.two; // make available everywhere
 		this.renderLayers = {};
 		this.renderLayers['backdrop'] = this.two.makeGroup(); // parallax backdrop needs to stay separate from tank
 		this.renderLayers['tank'] = this.two.makeGroup(); // meta group. UI and tank layers need to scale separately
@@ -162,8 +162,8 @@ export default class Vectorcosm {
 		// there are a few global issues we need to sort out first
 		if ( style != 'Natural' ) {
 			if ( this.tank.bg ) { this.tank.bg.visible = false; }
-			window.vc.animate_boids = false;
-			window.vc.animate_plants = false;
+			globalThis.vc.animate_boids = false;
+			globalThis.vc.animate_plants = false;
 			let bg_theme = 'Abysmal';
 			if ( style == 'Zen' ) { bg_theme = 'White'; }
 			else if ( style == 'Grey' ) { bg_theme = 'Grey'; }
@@ -172,8 +172,8 @@ export default class Vectorcosm {
 		else {
 			if ( this.tank.bg ) { this.tank.bg.visible = true; }
 			this.tank.SetBGTheme();
-			window.vc.animate_boids = true;
-			window.vc.animate_plants = true;
+			globalThis.vc.animate_boids = true;
+			globalThis.vc.animate_plants = true;
 		}
 		// we need to update all the objects currently in the world and force them to switch geometry
 		for ( let x of this.tank.boids ) { x.body.UpdateGeometry(); }
@@ -462,7 +462,7 @@ export default class Vectorcosm {
 		this.tank.grid.Clear();
 		// only add boids if they need to detect each other. significant speedup
 		// is possible on test environments where boids act in isolation.
-		if ( window.vc.simulation.settings?.ignore_other_boids !== true ) {
+		if ( globalThis.vc.simulation.settings?.ignore_other_boids !== true ) {
 			for ( let b of this.tank.boids ) { this.tank.grid.Add(b); }
 		}
 		for ( let o of this.tank.obstacles ) { this.tank.grid.Add(o); }
@@ -571,7 +571,7 @@ export default class Vectorcosm {
 			this.focus_geo.linewidth = 3;
 			this.focus_geo.fill = 'transparent';
 			
-			// const grad = window.two.makeRadialGradient(0, 0, focus_radius, 
+			// const grad = globalThis.two.makeRadialGradient(0, 0, focus_radius, 
 			// 	new Two.Stop(0,'transparent'), 
 			// 	new Two.Stop(0.8,'#AAEEAA00'), 
 			// 	new Two.Stop(1,'#AAEEAAAA')
@@ -889,7 +889,7 @@ export default class Vectorcosm {
 			this.tank.plants = scene.plants.map( x => new Plant.PlantTypes[x.classname](x) );
 			// [!]hack
 			for ( let p of this.tank.plants ) {
-				window.vc.AddShapeToRenderLayer( p.geo, 0 );
+				globalThis.vc.AddShapeToRenderLayer( p.geo, 0 );
 			}
 			// hack settings back in
 			this.simulation.settings.num_boids = scene.boids.length;

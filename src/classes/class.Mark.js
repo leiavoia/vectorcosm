@@ -74,7 +74,7 @@ export default class Mark {
 				'#FFB1BE',
 			];
 			
-			this.geo = window.two.makeCircle(this.x,this.y,this.r);
+			this.geo = globalThis.two.makeCircle(this.x,this.y,this.r);
 			this.geo.fill = 'transparent';
 			this.geo.stroke = colors[this.strongest_sense];
 			this.geo.opacity = max_opacity;
@@ -95,14 +95,14 @@ export default class Mark {
 				this.geo.dashes = [40,10];
 			}
 			
-			this.geo.visible = window.vc.show_markers;
-			window.vc.AddShapeToRenderLayer(this.geo,2); // main layer	
+			this.geo.visible = globalThis.vc.show_markers;
+			globalThis.vc.AddShapeToRenderLayer(this.geo,2); // main layer	
 		}
 		
 		// fade in/out
 		const fade_in = 0.65;
 		const fade_out = 2;
-		if ( window.vc.animate_boids && window.vc.show_markers ) {
+		if ( globalThis.vc.animate_boids && globalThis.vc.show_markers ) {
 			// smells linger
 			if ( this.strongest_sense >= 3 && this.strongest_sense < 12 ) {
 				if ( this.age < fade_in ) {

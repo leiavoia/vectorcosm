@@ -143,7 +143,7 @@ export default class Food {
 		// drag slows us down
 		if ( !this.frictionless ) { 
 			let drag = ( 
-				window.vc.tank.viscosity +
+				globalThis.vc.tank.viscosity +
 				( Math.min(Math.abs(this.vx) + Math.abs(this.vy),200) / 200 ) +
 				( Math.min(this.r,200) / 200 )
 			) / 3;
@@ -153,14 +153,14 @@ export default class Food {
 			this.vy *= drag;
 		}
 		// stay in tank
-		this.x = utils.clamp( this.x, 0, window.vc.tank.width );
-		this.y = utils.clamp( this.y, 0, window.vc.tank.height );
+		this.x = utils.clamp( this.x, 0, globalThis.vc.tank.width );
+		this.y = utils.clamp( this.y, 0, globalThis.vc.tank.height );
 		// update the object in space
 		this.r = Math.sqrt( 2 * this.value / Math.PI );
 		this.collision.radius = this.r;
 		// collision detection with obstacles
 		// things i might collide with:
-		let candidates = window.vc.tank.grid.GetObjectsByBox( 
+		let candidates = globalThis.vc.tank.grid.GetObjectsByBox( 
 			this.x - this.r,
 			this.y - this.r,
 			this.x + this.r,
@@ -185,19 +185,19 @@ export default class Food {
 		}
 		// if an object pushed us out of bounds and we gets stuck outside tank, remove
 		if ( touching_rock ) {
-			if ( this.x < 0 || this.x > window.vc.tank.width ) { this.Kill(); return; };
-			if ( this.y < 0 || this.y > window.vc.tank.height ) { this.Kill(); return; };
+			if ( this.x < 0 || this.x > globalThis.vc.tank.width ) { this.Kill(); return; };
+			if ( this.y < 0 || this.y > globalThis.vc.tank.height ) { this.Kill(); return; };
 		}
 		// plant a seed
 		if ( touching_rock && this.seed && this.age > 5 && Math.random() > 0.9999 && 
-			window.vc.tank.plants.length < window.vc.simulation.settings.num_plants ) {
+			globalThis.vc.tank.plants.length < globalThis.vc.simulation.settings.num_plants ) {
 			// only plant the seed if there are not too many other plants in the local area
 			let plant_the_seed = true;
 			if ( this.max_germ_density && this.germ_distance ) {
 				// [1] plants are not in the collision detection space, so we need to check all of them for now ;-(
 				let found = 0;
 				const csqrd = this.germ_distance * this.germ_distance;
-				for ( let p of window.vc.tank.plants ) {
+				for ( let p of globalThis.vc.tank.plants ) {
 					const xdiff = p.x - this.x;
 					const ydiff = p.y - this.y;
 					const absqrd = xdiff * xdiff + ydiff * ydiff; // dont need to sqrt here
@@ -217,9 +217,9 @@ export default class Food {
 				plant.geo.position.x = this.x; // this is really ugly
 				plant.geo.position.y = this.y;
 				plant.age = 0; // shim
-				window.vc.tank.plants.push(plant);
+				globalThis.vc.tank.plants.push(plant);
 				// [!] inconsistent behavior with rocks which automatically place themselves
-				window.vc.AddShapeToRenderLayer( plant.geo, 0 );			
+				globalThis.vc.AddShapeToRenderLayer( plant.geo, 0 );			
 				this.Kill();
 			}
 		}
@@ -232,7 +232,7 @@ export default class Food {
 			if ( radius != this.geo.radius ) {
 				this.geo.radius = radius;
 				// Natural style represents specific number of dots on the circle
-				if ( window.vc.render_style == 'Natural' ) {
+				if ( globalThis.vc.render_style == 'Natural' ) {
 					let circ = radius * 2 * Math.PI;
 					let points = this.complexity+2;
 					points = points >= 7 ? 8 : points;
@@ -242,7 +242,7 @@ export default class Food {
 				}
 			}
 			// fade out
-			if ( window.vc.animate_plants && !this.permafood && this.age > this.lifespan - 1 ) {
+			if ( globalThis.vc.animate_plants && !this.permafood && this.age > this.lifespan - 1 ) {
 				let pct = this.age - (this.lifespan-1);
 				this.geo.opacity = 1-pct;
 			}
@@ -302,8 +302,8 @@ export default class Food {
 		components.sort( (a,b) => a.pct - b.pct );
 		
 		// Vector style - single color polygon
-		if ( window.vc.render_style == 'Vector' ) {
-			this.geo = window.two.makePolygon(this.x,this.y,this.r,points);
+		if ( globalThis.vc.render_style == 'Vector' ) {
+			this.geo = globalThis.two.makePolygon(this.x,this.y,this.r,points);
 			// const maincolor =  components[components.length-1].color;
 			// const secondcolor = components.length > 1 ? components[components.length-2].color : maincolor;
 			// let rgb = utils.HexColorToRGBArray(maincolor);
@@ -316,16 +316,16 @@ export default class Food {
 		}
 		
 		// Zen white style - 
-		else if ( window.vc.render_style == 'Zen' ) {
-			this.geo = window.two.makePolygon(this.x,this.y,this.r,points);
+		else if ( globalThis.vc.render_style == 'Zen' ) {
+			this.geo = globalThis.two.makePolygon(this.x,this.y,this.r,points);
 			this.geo.fill = 'transparent';
 			this.geo.stroke = '#666';
 			this.geo.linewidth = 4;
 		}
 		
 		// Grey style - uses colors
-		else if ( window.vc.render_style == 'Grey' ) {
-			this.geo = window.two.makePolygon(this.x,this.y,this.r,points);
+		else if ( globalThis.vc.render_style == 'Grey' ) {
+			this.geo = globalThis.two.makePolygon(this.x,this.y,this.r,points);
 			const maincolor =  components[components.length-1].color;
 			const secondcolor = components.length > 1 ? components[components.length-2].color : maincolor;
 			let rgb = utils.HexColorToRGBArray(maincolor);
@@ -337,7 +337,7 @@ export default class Food {
 		
 		// Natural style - 2-color dashed circle
 		else {
-			this.geo = window.two.makeCircle(this.x,this.y,this.r);
+			this.geo = globalThis.two.makeCircle(this.x,this.y,this.r);
 			// only show the two primary ingredients to keep it simple
 			const maincolor =  components[components.length-1].color;
 			const secondcolor = components.length > 1 ? components[components.length-2].color : maincolor;
@@ -354,6 +354,6 @@ export default class Food {
 		}
 		
 		this.geo.rotation = Math.random() * Math.PI; // aesthetic rotation
-		window.vc.AddShapeToRenderLayer(this.geo,1); // main layer	
+		globalThis.vc.AddShapeToRenderLayer(this.geo,1); // main layer	
 	}
 }

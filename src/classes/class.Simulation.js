@@ -88,9 +88,9 @@ export default class Simulation {
 	// inherit me	
 	Setup() {
 		if ( this.settings?.scale ) {
-			window.vc.SetViewScale( this.settings.scale );
-			window.vc.ResizeTankToWindow(true); // force
-			window.vc.ResetCameraZoom();
+			globalThis.vc.SetViewScale( this.settings.scale );
+			globalThis.vc.ResizeTankToWindow(true); // force
+			globalThis.vc.ResetCameraZoom();
 		}	
 	}
 	
@@ -466,7 +466,7 @@ export default class Simulation {
 					if ( 'RandomizeAge' in plant ) { plant.RandomizeAge(); }
 					this.tank.plants.push(plant);
 					// [!] inconsistent behavior with rocks which automatically place themselves
-					window.vc.AddShapeToRenderLayer( plant.geo, '0' );
+					globalThis.vc.AddShapeToRenderLayer( plant.geo, '0' );
 				}
 				// no safe spawning
 				else {
@@ -475,7 +475,7 @@ export default class Simulation {
 					if ( 'RandomizeAge' in plant ) { plant.RandomizeAge(); }
 					this.tank.plants.push(plant);
 					// [!] inconsistent behavior with rocks which automatically place themselves
-					window.vc.AddShapeToRenderLayer( plant.geo, '0' );
+					globalThis.vc.AddShapeToRenderLayer( plant.geo, '0' );
 				}
 			}
 		}

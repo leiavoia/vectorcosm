@@ -25,8 +25,8 @@ import BoidLibrary from './classes/class.BoidLibrary.js'
 let sim = shallowRef(null);
 
 let vc = new Vectorcosm; // the app, proper
-window.vc = vc; 
-window.vc.onSimulationChange = new_sim => { sim.value = new_sim; }
+globalThis.vc = vc; 
+globalThis.vc.onSimulationChange = new_sim => { sim.value = new_sim; }
 
 let dragging = false;
 let show_boid_library = ref(false);
