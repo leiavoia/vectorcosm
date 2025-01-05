@@ -83,7 +83,7 @@ export default class Food {
 		}
 		components.sort( (a,b) => a.pct - b.pct );
 		
-		this.UpdateGeometry();
+		// this.UpdateGeometry();
 		
 		// sensory data comes from nutrient composition unless overridden by creator
 		if ( !params || !params?.sense ) {
@@ -214,38 +214,38 @@ export default class Food {
 				const plant = new DNAPlant( {dna:this.seed} );
 				plant.x = this.x;
 				plant.y = this.y;
-				plant.geo.position.x = this.x; // this is really ugly
-				plant.geo.position.y = this.y;
+				// plant.geo.position.x = this.x; // this is really ugly
+				// plant.geo.position.y = this.y;
 				plant.age = 0; // shim
 				globalThis.vc.tank.plants.push(plant);
 				// [!] inconsistent behavior with rocks which automatically place themselves
-				globalThis.vc.AddShapeToRenderLayer( plant.geo, 0 );			
+				// globalThis.vc.AddShapeToRenderLayer( plant.geo, 0 );			
 				this.Kill();
 			}
 		}
 		// drawing
 		else {
-			this.geo.position.x = this.x;
-			this.geo.position.y = this.y;
-			// limit expensive redraws
-			let radius = Math.max(this.r,5)
-			if ( radius != this.geo.radius ) {
-				this.geo.radius = radius;
-				// Natural style represents specific number of dots on the circle
-				if ( globalThis.vc.render_style == 'Natural' ) {
-					let circ = radius * 2 * Math.PI;
-					let points = this.complexity+2;
-					points = points >= 7 ? 8 : points;
-					let segment = circ / ( points * 2 );
-					this.geo.linewidth = radius/2;
-					this.geo.dashes = [segment,segment];				
-				}
-			}
-			// fade out
-			if ( globalThis.vc.animate_plants && !this.permafood && this.age > this.lifespan - 1 ) {
-				let pct = this.age - (this.lifespan-1);
-				this.geo.opacity = 1-pct;
-			}
+			// this.geo.position.x = this.x;
+			// this.geo.position.y = this.y;
+			// // limit expensive redraws
+			// let radius = Math.max(this.r,5)
+			// if ( radius != this.geo.radius ) {
+			// 	this.geo.radius = radius;
+			// 	// Natural style represents specific number of dots on the circle
+			// 	if ( globalThis.vc.render_style == 'Natural' ) {
+			// 		let circ = radius * 2 * Math.PI;
+			// 		let points = this.complexity+2;
+			// 		points = points >= 7 ? 8 : points;
+			// 		let segment = circ / ( points * 2 );
+			// 		this.geo.linewidth = radius/2;
+			// 		this.geo.dashes = [segment,segment];				
+			// 	}
+			// }
+			// // fade out
+			// if ( globalThis.vc.animate_plants && !this.permafood && this.age > this.lifespan - 1 ) {
+			// 	let pct = this.age - (this.lifespan-1);
+			// 	this.geo.opacity = 1-pct;
+			// }
 		}
 	}
 	// returns the amount eaten
@@ -257,7 +257,7 @@ export default class Food {
 		return eaten;
 	}
 	Kill() {
-		this.geo.remove();
+		// this.geo.remove();
 		this.dead = true;
 	}
 	// returns TRUE if the food is edible by the boid
@@ -267,93 +267,93 @@ export default class Food {
 	}		
 	UpdateGeometry() {
 
-		if ( this.geo ) { this.geo.remove(); }
+		// if ( this.geo ) { this.geo.remove(); }
 
-		// rendering
-		let points = this.complexity+2;
-		if ( this.complexity==5 ) { points=8 } // unicode doesnt have heptagons ;-( 
-		else if ( this.complexity==6 ) { points=12; } // getting hard to discern at this point 
+		// // rendering
+		// let points = this.complexity+2;
+		// if ( this.complexity==5 ) { points=8 } // unicode doesnt have heptagons ;-( 
+		// else if ( this.complexity==6 ) { points=12; } // getting hard to discern at this point 
 				
 			
-		// colors hardcoded mostly for aesthetics. you could change them.
-		let colors = [
-			'#C42452',
-			'#EB9223',
-			'#EBE313',
-			'#5DD94D',
-			'#2CAED4',
-			'#1F4BE3',
-			'#991FE3',
-			'#FF70E5',
-			'#FFFFFF',
-			'#666666',
-		];
+		// // colors hardcoded mostly for aesthetics. you could change them.
+		// let colors = [
+		// 	'#C42452',
+		// 	'#EB9223',
+		// 	'#EBE313',
+		// 	'#5DD94D',
+		// 	'#2CAED4',
+		// 	'#1F4BE3',
+		// 	'#991FE3',
+		// 	'#FF70E5',
+		// 	'#FFFFFF',
+		// 	'#666666',
+		// ];
 		
-		// sort nutrients by contribution
-		let components = [];
-		for ( let i=0; i < this.nutrients.length; i++ ) {
-			if ( this.nutrients[i] ) {
-				components.push({
-					color: colors[i],
-					pct: this.nutrients[i],
-				});
-			}
-		}
-		components.sort( (a,b) => a.pct - b.pct );
+		// // sort nutrients by contribution
+		// let components = [];
+		// for ( let i=0; i < this.nutrients.length; i++ ) {
+		// 	if ( this.nutrients[i] ) {
+		// 		components.push({
+		// 			color: colors[i],
+		// 			pct: this.nutrients[i],
+		// 		});
+		// 	}
+		// }
+		// components.sort( (a,b) => a.pct - b.pct );
 		
-		// Vector style - single color polygon
-		if ( globalThis.vc.render_style == 'Vector' ) {
-			this.geo = globalThis.two.makePolygon(this.x,this.y,this.r,points);
-			// const maincolor =  components[components.length-1].color;
-			// const secondcolor = components.length > 1 ? components[components.length-2].color : maincolor;
-			// let rgb = utils.HexColorToRGBArray(maincolor);
-			// let hsl = utils.rgb2hsl( rgb[0]/255, rgb[1]/255, rgb[2]/255 );
-			// this.geo.fill = `hsl(${hsl[0]*255},${hsl[1]*100}%,${hsl[2]*80}%)`;
-			// this.geo.stroke = maincolor;
-			this.geo.fill = 'transparent';
-			this.geo.stroke = '#F99';
-			this.geo.linewidth = 4;
-		}
+		// // Vector style - single color polygon
+		// if ( globalThis.vc.render_style == 'Vector' ) {
+		// 	this.geo = globalThis.two.makePolygon(this.x,this.y,this.r,points);
+		// 	// const maincolor =  components[components.length-1].color;
+		// 	// const secondcolor = components.length > 1 ? components[components.length-2].color : maincolor;
+		// 	// let rgb = utils.HexColorToRGBArray(maincolor);
+		// 	// let hsl = utils.rgb2hsl( rgb[0]/255, rgb[1]/255, rgb[2]/255 );
+		// 	// this.geo.fill = `hsl(${hsl[0]*255},${hsl[1]*100}%,${hsl[2]*80}%)`;
+		// 	// this.geo.stroke = maincolor;
+		// 	this.geo.fill = 'transparent';
+		// 	this.geo.stroke = '#F99';
+		// 	this.geo.linewidth = 4;
+		// }
 		
-		// Zen white style - 
-		else if ( globalThis.vc.render_style == 'Zen' ) {
-			this.geo = globalThis.two.makePolygon(this.x,this.y,this.r,points);
-			this.geo.fill = 'transparent';
-			this.geo.stroke = '#666';
-			this.geo.linewidth = 4;
-		}
+		// // Zen white style - 
+		// else if ( globalThis.vc.render_style == 'Zen' ) {
+		// 	this.geo = globalThis.two.makePolygon(this.x,this.y,this.r,points);
+		// 	this.geo.fill = 'transparent';
+		// 	this.geo.stroke = '#666';
+		// 	this.geo.linewidth = 4;
+		// }
 		
-		// Grey style - uses colors
-		else if ( globalThis.vc.render_style == 'Grey' ) {
-			this.geo = globalThis.two.makePolygon(this.x,this.y,this.r,points);
-			const maincolor =  components[components.length-1].color;
-			const secondcolor = components.length > 1 ? components[components.length-2].color : maincolor;
-			let rgb = utils.HexColorToRGBArray(maincolor);
-			let hsl = utils.rgb2hsl( rgb[0]/255, rgb[1]/255, rgb[2]/255 );
-			this.geo.fill = `hsl(${hsl[0]*255},${hsl[1]*100}%,${hsl[2]*80}%)`;
-			this.geo.stroke = maincolor;
-			this.geo.linewidth = 4;
-		}
+		// // Grey style - uses colors
+		// else if ( globalThis.vc.render_style == 'Grey' ) {
+		// 	this.geo = globalThis.two.makePolygon(this.x,this.y,this.r,points);
+		// 	const maincolor =  components[components.length-1].color;
+		// 	const secondcolor = components.length > 1 ? components[components.length-2].color : maincolor;
+		// 	let rgb = utils.HexColorToRGBArray(maincolor);
+		// 	let hsl = utils.rgb2hsl( rgb[0]/255, rgb[1]/255, rgb[2]/255 );
+		// 	this.geo.fill = `hsl(${hsl[0]*255},${hsl[1]*100}%,${hsl[2]*80}%)`;
+		// 	this.geo.stroke = maincolor;
+		// 	this.geo.linewidth = 4;
+		// }
 		
-		// Natural style - 2-color dashed circle
-		else {
-			this.geo = globalThis.two.makeCircle(this.x,this.y,this.r);
-			// only show the two primary ingredients to keep it simple
-			const maincolor =  components[components.length-1].color;
-			const secondcolor = components.length > 1 ? components[components.length-2].color : maincolor;
-			let rgb = utils.HexColorToRGBArray(maincolor);
-			let hsl = utils.rgb2hsl( rgb[0]/255, rgb[1]/255, rgb[2]/255 );
-			this.geo.fill = `hsl(${hsl[0]*255},${hsl[1]*100}%,${hsl[2]*80}%)`;
-			this.geo.stroke = secondcolor;
-			// make dash pattern create a number of "pips" to represent food complexity.
-			// this is aesthetically better than using polygons to represent complexity.
-			let circ = this.r * 2 * Math.PI;
-			let segment = circ / ( points * 2 );
-			this.geo.linewidth = this.r/2;
-			this.geo.dashes = [segment,segment];
-		}
+		// // Natural style - 2-color dashed circle
+		// else {
+		// 	this.geo = globalThis.two.makeCircle(this.x,this.y,this.r);
+		// 	// only show the two primary ingredients to keep it simple
+		// 	const maincolor =  components[components.length-1].color;
+		// 	const secondcolor = components.length > 1 ? components[components.length-2].color : maincolor;
+		// 	let rgb = utils.HexColorToRGBArray(maincolor);
+		// 	let hsl = utils.rgb2hsl( rgb[0]/255, rgb[1]/255, rgb[2]/255 );
+		// 	this.geo.fill = `hsl(${hsl[0]*255},${hsl[1]*100}%,${hsl[2]*80}%)`;
+		// 	this.geo.stroke = secondcolor;
+		// 	// make dash pattern create a number of "pips" to represent food complexity.
+		// 	// this is aesthetically better than using polygons to represent complexity.
+		// 	let circ = this.r * 2 * Math.PI;
+		// 	let segment = circ / ( points * 2 );
+		// 	this.geo.linewidth = this.r/2;
+		// 	this.geo.dashes = [segment,segment];
+		// }
 		
-		this.geo.rotation = Math.random() * Math.PI; // aesthetic rotation
-		globalThis.vc.AddShapeToRenderLayer(this.geo,1); // main layer	
+		// this.geo.rotation = Math.random() * Math.PI; // aesthetic rotation
+		// globalThis.vc.AddShapeToRenderLayer(this.geo,1); // main layer	
 	}
 }

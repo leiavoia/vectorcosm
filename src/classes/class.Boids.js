@@ -164,11 +164,11 @@ export class Boid {
 		this.inertia = 0; // forward motion power, can be negative
 		this.angmo = 0; // angular momentum / rotational inertia
 		// drawing stuff
-		this.container = globalThis.two.makeGroup();
-		this.container.position.x = x;
-		this.container.position.y = y;
-		this.container.visible = true;
-		globalThis.vc.AddShapeToRenderLayer(this.container,1); // layer on top to prevent poor drawing order
+		// this.container = globalThis.two.makeGroup();
+		// this.container.position.x = x;
+		// this.container.position.y = y;
+		// this.container.visible = true;
+		// globalThis.vc.AddShapeToRenderLayer(this.container,1); // layer on top to prevent poor drawing order
 		// neuro stuff
 		this.brain = null;
 		// vision and sensors
@@ -484,12 +484,12 @@ export class Boid {
 		// you almost ded?
 		if ( globalThis.vc.animate_boids && (this.metab.energy / this.metab.max_energy ) < 0.01 && !globalThis.vc.simulation.settings?.ignore_lifecycle ) {
 			let pct = this.metab.energy / ( this.metab.max_energy * 0.01 );
-			this.container.opacity = pct;
+			// this.container.opacity = pct;
 		}
 		// must check if bounced back from near death
-		else if ( this.container.opacity !== 1.0 ) {
-			this.container.opacity = 1.0;
-		}
+		// else if ( this.container.opacity !== 1.0 ) {
+			// this.container.opacity = 1.0;
+		// }
 		
 		// SENSORS ----------------------------\/---------------------------------------
 		
@@ -526,13 +526,13 @@ export class Boid {
 		
 		// UI: toggle collision detection geometry UI
 		if ( ( globalThis.vc.show_collision_detection || this.show_sensors ) && !this.sensor_group ) {
-			this.sensor_group = globalThis.two.makeGroup();
-			this.sensor_group.add( this.sensors.filter( s => s.type=='locater' || s.detect=='food' || s.type=='whisker' || s.detect=='obstacles' || s.type==='sense' ).map( i => i.CreateGeometry() ) );
-			this.container.add(this.sensor_group);
+			// this.sensor_group = globalThis.two.makeGroup();
+			// this.sensor_group.add( this.sensors.filter( s => s.type=='locater' || s.detect=='food' || s.type=='whisker' || s.detect=='obstacles' || s.type==='sense' ).map( i => i.CreateGeometry() ) );
+			// this.container.add(this.sensor_group);
 		}
 		else if ( !( globalThis.vc.show_collision_detection || this.show_sensors ) && this.sensor_group ) {
-			this.sensor_group.remove();
-			this.sensor_group = null;
+			// this.sensor_group.remove();
+			// this.sensor_group = null;
 		}
 		
 		// CPU optimization: we don't need to run AI every frame either
@@ -558,88 +558,88 @@ export class Boid {
 		
 		// [!]EXPERIMENTAL - Animate geometry - proof of concept
 		// There is just enough here to be amusing, but its not accurate and needs improvement
-		if ( globalThis.vc.animate_boids && !globalThis.vc?.simulation?.turbo ) {
+		// if ( globalThis.vc.animate_boids && !globalThis.vc?.simulation?.turbo ) {
 		
-			// dynamic animation - don't animate unless we're on screen and close enough to see
-			if ( ( globalThis.vc.camera.z >= globalThis.vc.camera.animation_min )
-				&& ( this.x - this.collision.radius < globalThis.vc.camera.xmax )
-				&& ( this.x + this.collision.radius > globalThis.vc.camera.xmin )
-				&& ( this.y - this.collision.radius < globalThis.vc.camera.ymax )
-				&& ( this.y + this.collision.radius > globalThis.vc.camera.ymin )
-				// you might also consider switching to pixel pitch method
-				// && ( this.collision.radius >= ( globalThis.vc.camera.xmax - globalThis.vc.camera.xmin ) / 100 )
-				) {
+		// 	// dynamic animation - don't animate unless we're on screen and close enough to see
+		// 	if ( ( globalThis.vc.camera.z >= globalThis.vc.camera.animation_min )
+		// 		&& ( this.x - this.collision.radius < globalThis.vc.camera.xmax )
+		// 		&& ( this.x + this.collision.radius > globalThis.vc.camera.xmin )
+		// 		&& ( this.y - this.collision.radius < globalThis.vc.camera.ymax )
+		// 		&& ( this.y + this.collision.radius > globalThis.vc.camera.ymin )
+		// 		// you might also consider switching to pixel pitch method
+		// 		// && ( this.collision.radius >= ( globalThis.vc.camera.xmax - globalThis.vc.camera.xmin ) / 100 )
+		// 		) {
 				
-				// setup - record original position
-				if ( !this.body.geo.vertices[0].origin ) {
-					for ( let v of this.body.geo.vertices ) {
-						v.origin = new Two.Vector().copy(v); 
-						v.a = Math.atan2( v.y, v.x ); // note y normally goes first
-					}
-				}
+		// 		// setup - record original position
+		// 		if ( !this.body.geo.vertices[0].origin ) {
+		// 			for ( let v of this.body.geo.vertices ) {
+		// 				v.origin = new Two.Vector().copy(v); 
+		// 				v.a = Math.atan2( v.y, v.x ); // note y normally goes first
+		// 			}
+		// 		}
 				
-				// if we are a "larva", unfold from a sphere
-				if ( this.age < this.larval_age && !globalThis.vc.simulation.settings?.ignore_lifecycle ) {
-					// setup: sort vertices in radial order and assign starting positions
-					if ( !( 'xp' in this.body.geo.vertices[0] ) ) {
-						// the nose point is always at zero degrees
-						for ( let i=0; i < this.body.geo.vertices.length; i++ ) {
-							this.body.geo.vertices[i].a = i * ( ( 2*Math.PI ) / this.body.geo.vertices.length );
-							this.body.geo.vertices[i].xp = Math.cos(this.body.geo.vertices[i].a) * Math.min(this.body.length, this.body.width) * 0.5;
-							this.body.geo.vertices[i].yp = Math.sin(this.body.geo.vertices[i].a) * Math.min(this.body.length, this.body.width) * 0.5;
-						}
-					}
-					// blend larval position and adult position
-					const effect = 1 - ( this.larval_age - this.age ) / this.larval_age;
-					for ( let i=0; i<this.body.geo.vertices.length; i++ ) {
-						let v = this.body.geo.vertices[i];
-						v.x = v.xp + ( v.origin.x - v.xp ) * effect;
-						v.y = v.yp + ( v.origin.y - v.yp ) * effect;
-					}				
-				}
+		// 		// if we are a "larva", unfold from a sphere
+		// 		if ( this.age < this.larval_age && !globalThis.vc.simulation.settings?.ignore_lifecycle ) {
+		// 			// setup: sort vertices in radial order and assign starting positions
+		// 			if ( !( 'xp' in this.body.geo.vertices[0] ) ) {
+		// 				// the nose point is always at zero degrees
+		// 				for ( let i=0; i < this.body.geo.vertices.length; i++ ) {
+		// 					this.body.geo.vertices[i].a = i * ( ( 2*Math.PI ) / this.body.geo.vertices.length );
+		// 					this.body.geo.vertices[i].xp = Math.cos(this.body.geo.vertices[i].a) * Math.min(this.body.length, this.body.width) * 0.5;
+		// 					this.body.geo.vertices[i].yp = Math.sin(this.body.geo.vertices[i].a) * Math.min(this.body.length, this.body.width) * 0.5;
+		// 				}
+		// 			}
+		// 			// blend larval position and adult position
+		// 			const effect = 1 - ( this.larval_age - this.age ) / this.larval_age;
+		// 			for ( let i=0; i<this.body.geo.vertices.length; i++ ) {
+		// 				let v = this.body.geo.vertices[i];
+		// 				v.x = v.xp + ( v.origin.x - v.xp ) * effect;
+		// 				v.y = v.yp + ( v.origin.y - v.yp ) * effect;
+		// 			}				
+		// 		}
 				
-				// normal adult animation cycle
-				else {
-					for ( let m=0; m < this.motors.length; m++ ) {
-						if ( m >= this.body.geo.vertices.length ) { break; }
-						// effect based on stroke power
-						const effect1 = ( this.motors[m].this_stoke_time && this.motors[m].last_amount )
-							? (this.motors[m].this_stoke_time ? this.motors[m].last_amount : 0)
-							: 0;
-						// effect based on stroke time (smoother but less accurate)
-						const effect2 = this.motors[m].this_stoke_time 
-							? (Math.sin(((this.motors[m].t||0)/this.motors[m].this_stoke_time) * Math.PI))
-							: 0;
-						// blended result
-						const effect = (effect1 + effect2) / 2;
+		// 		// normal adult animation cycle
+		// 		else {
+		// 			for ( let m=0; m < this.motors.length; m++ ) {
+		// 				if ( m >= this.body.geo.vertices.length ) { break; }
+		// 				// effect based on stroke power
+		// 				const effect1 = ( this.motors[m].this_stoke_time && this.motors[m].last_amount )
+		// 					? (this.motors[m].this_stoke_time ? this.motors[m].last_amount : 0)
+		// 					: 0;
+		// 				// effect based on stroke time (smoother but less accurate)
+		// 				const effect2 = this.motors[m].this_stoke_time 
+		// 					? (Math.sin(((this.motors[m].t||0)/this.motors[m].this_stoke_time) * Math.PI))
+		// 					: 0;
+		// 				// blended result
+		// 				const effect = (effect1 + effect2) / 2;
 						
-						let v = this.body.geo.vertices[m];
-						if ( !( 'xoff' in v ) ) { 
-							v.x = v.origin.x
-							v.y = v.origin.y
-							v.xoff = (0.1 + Math.random()) * 0.25 * this.body.length * (Math.random() > 0.5 ? 1 : -1 );
-							v.yoff = (0.1 + Math.random()) * 0.25 * this.body.width * (Math.random() > 0.5 ? 1 : -1 );
-							delete v.xp; delete v.xy; // larval stuff
-						}
-						v.x = v.origin.x + v.xoff * effect;
-						// do opposing vertex
-						const oppo_index = this.body.OppositePoint(m, this.body.geo.vertices.length);
-						if ( oppo_index !== m ) { 
-							v.y = v.origin.y + v.yoff * effect2;
-							const v2 = this.body.geo.vertices[oppo_index]; 
-							if ( !( 'xoff' in v2 ) ) { 
-								v2.x = v2.origin.x
-								v2.y = v2.origin.y
-								v2.xoff = v.xoff;
-								v2.yoff = -v.yoff;
-							}
-							v2.x = v2.origin.x + v2.xoff * effect;
-							v2.y = v2.origin.y + v2.yoff * effect2;
-						}
-					}
-				}
-			}
-		}
+		// 				let v = this.body.geo.vertices[m];
+		// 				if ( !( 'xoff' in v ) ) { 
+		// 					v.x = v.origin.x
+		// 					v.y = v.origin.y
+		// 					v.xoff = (0.1 + Math.random()) * 0.25 * this.body.length * (Math.random() > 0.5 ? 1 : -1 );
+		// 					v.yoff = (0.1 + Math.random()) * 0.25 * this.body.width * (Math.random() > 0.5 ? 1 : -1 );
+		// 					delete v.xp; delete v.xy; // larval stuff
+		// 				}
+		// 				v.x = v.origin.x + v.xoff * effect;
+		// 				// do opposing vertex
+		// 				const oppo_index = this.body.OppositePoint(m, this.body.geo.vertices.length);
+		// 				if ( oppo_index !== m ) { 
+		// 					v.y = v.origin.y + v.yoff * effect2;
+		// 					const v2 = this.body.geo.vertices[oppo_index]; 
+		// 					if ( !( 'xoff' in v2 ) ) { 
+		// 						v2.x = v2.origin.x
+		// 						v2.y = v2.origin.y
+		// 						v2.xoff = v.xoff;
+		// 						v2.yoff = -v.yoff;
+		// 					}
+		// 					v2.x = v2.origin.x + v2.xoff * effect;
+		// 					v2.y = v2.origin.y + v2.yoff * effect2;
+		// 				}
+		// 			}
+		// 		}
+		// 	}
+		// }
 		
 		// MOVEMENT ----------------------------\/---------------------------------------
 		
@@ -720,9 +720,11 @@ export class Boid {
 		// update drawing geometry
 		// optimization: if turbo is enabled, draw nothing
 		// if ( !globalThis.vc?.simulation?.turbo ) {
-			this.container.position.x = this.x;
-			this.container.position.y = this.y;
-			this.container.rotation = this.angle;
+		
+			// this.container.position.x = this.x;
+			// this.container.position.y = this.y;
+			// this.container.rotation = this.angle;
+			
 		// }
 			
 			
@@ -1015,14 +1017,14 @@ export class Boid {
 		}
 		// drawing changes are expensive. limit to whole numbers.
 		let new_scale = this.length / this.body.length; // linear scale
-		if ( new_scale.toFixed(2) != this.body.geo.scale.toFixed(2) ) {
-			this.body.geo.scale = new_scale; 
+		// if ( new_scale.toFixed(2) != this.body.geo.scale.toFixed(2) ) {
+			// this.body.geo.scale = new_scale; 
 			this.collision.radius = Math.max(this.length, this.width) / 2;
-		}
+		// }
 	}
 	Kill( cause='unknown' ) {
-		this.body.geo.remove();
-		this.container.remove();
+		// this.body.geo.remove();
+		// this.container.remove();
 		this.dead = true;
 		// autopsy
 		if ( cause ) {
@@ -1061,7 +1063,7 @@ export class Boid {
 	// fill traits based on values mined from our DNA
 	RehydrateFromDNA() {
 	
-		if ( this?.body?.geo ) { this.body.geo.remove(); }
+		// if ( this?.body?.geo ) { this.body.geo.remove(); }
 		this.body = new BodyPlan( this.dna );
 		this.sense[0] = this.body.sensor_colors[0];
 		this.sense[1] = this.body.sensor_colors[1];
@@ -1076,7 +1078,7 @@ export class Boid {
 		this.sense[10] = Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 8',2,1), -0.25, 1, 0.1, 2 ) );
 		this.sense[11] = Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 9',2,1), -0.25, 1, 0.05, 2 ) );
 
-		this.container.add([this.body.geo]);
+		// this.container.add([this.body.geo]);
 		this.lifespan = this.dna.shapedInt( this.dna.genesFor('lifespan',2,1), 60, 800, 300, 2 );
 		this.maturity_age = this.dna.shapedInt( this.dna.genesFor('maturity age',2,1), 0.1 * this.lifespan, 0.9 * this.lifespan, 0.25 * this.lifespan, 2.5 );
 		this.larval_age = Math.min( this.maturity_age, this.dna.shapedInt( this.dna.genesFor('larval_age',2,1), 2, 25, 5, 4 ) );
@@ -1778,7 +1780,7 @@ export class Boid {
 		// b.mass = b.body.mass; // random boids start adult size / full grown
 		b.mass = ( 0.5 + Math.random() * 0.5 ) * b.body.mass; // random size
 		b.ScaleBoidByMass();			
-		b.container.add([b.body.geo]);
+		// b.container.add([b.body.geo]);
 		b.collision.radius = this.collision.radius;
 		b.generation = this.generation + 1;
 		if ( reset ) { b.Reset(); }
@@ -1802,61 +1804,61 @@ export class Boid {
 	
 	// For debugging collision and bodyplan stuff
 	DrawBounds( on=true ) {
-		if ( this.bounds1 ) { this.bounds1.remove(); this.bounds1 = null; }
-		if ( this.bounds2 ) { this.bounds2.remove(); this.bounds2 = null; }
-		if ( this.bounds3 ) { this.bounds3.remove(); this.bounds3 = null; }
-		if ( this.bounds4 ) { this.bounds4.remove(); this.bounds4 = null; }
+		// if ( this.bounds1 ) { this.bounds1.remove(); this.bounds1 = null; }
+		// if ( this.bounds2 ) { this.bounds2.remove(); this.bounds2 = null; }
+		// if ( this.bounds3 ) { this.bounds3.remove(); this.bounds3 = null; }
+		// if ( this.bounds4 ) { this.bounds4.remove(); this.bounds4 = null; }
 		
-		if ( on ) {
-			// actual shape size
-			let pts = [
-				[ -this.length/2, this.width/2 ],
-				[ this.length/2, this.width/2 ],
-				[ this.length/2, -this.width/2 ],
-				[ -this.length/2, -this.width/2 ],
-			]			
-			let anchors = pts.map( p => new Two.Anchor( p[0], p[1] ) );
-			this.bounds1 = globalThis.two.makePath(anchors);
-			this.bounds1.linewidth = 1;
-			this.bounds1.stroke = 'pink';
-			this.bounds1.fill = 'transparent';
-			this.container.add([this.bounds1]);
+		// if ( on ) {
+		// 	// actual shape size
+		// 	let pts = [
+		// 		[ -this.length/2, this.width/2 ],
+		// 		[ this.length/2, this.width/2 ],
+		// 		[ this.length/2, -this.width/2 ],
+		// 		[ -this.length/2, -this.width/2 ],
+		// 	]			
+		// 	let anchors = pts.map( p => new Two.Anchor( p[0], p[1] ) );
+		// 	this.bounds1 = globalThis.two.makePath(anchors);
+		// 	this.bounds1.linewidth = 1;
+		// 	this.bounds1.stroke = 'pink';
+		// 	this.bounds1.fill = 'transparent';
+		// 	this.container.add([this.bounds1]);
 			
-			// max genomic size
-			let pts2 = [
-				[ -this.body.max_length/2, this.body.max_width/2 ],
-				[ this.body.max_length/2, this.body.max_width/2 ],
-				[ this.body.max_length/2, -this.body.max_width/2 ],
-				[ -this.body.max_length/2, -this.body.max_width/2 ],
-			];
-			let anchors2 = pts2.map( p => new Two.Anchor( p[0], p[1] ) );
-			this.bounds2 = globalThis.two.makePath(anchors2);
-			this.bounds2.linewidth = 1;
-			this.bounds2.stroke = 'lime';
-			this.bounds2.fill = 'transparent';
-			this.container.add([this.bounds2]);
+		// 	// max genomic size
+		// 	let pts2 = [
+		// 		[ -this.body.max_length/2, this.body.max_width/2 ],
+		// 		[ this.body.max_length/2, this.body.max_width/2 ],
+		// 		[ this.body.max_length/2, -this.body.max_width/2 ],
+		// 		[ -this.body.max_length/2, -this.body.max_width/2 ],
+		// 	];
+		// 	let anchors2 = pts2.map( p => new Two.Anchor( p[0], p[1] ) );
+		// 	this.bounds2 = globalThis.two.makePath(anchors2);
+		// 	this.bounds2.linewidth = 1;
+		// 	this.bounds2.stroke = 'lime';
+		// 	this.bounds2.fill = 'transparent';
+		// 	this.container.add([this.bounds2]);
 					
-			// min genomic size				
-			let pts3 = [
-				[ -this.body.min_length/2, this.body.min_width/2 ],
-				[ this.body.min_length/2, this.body.min_width/2 ],
-				[ this.body.min_length/2, -this.body.min_width/2 ],
-				[ -this.body.min_length/2, -this.body.min_width/2 ],
-			];
-			let anchors3 = pts3.map( p => new Two.Anchor( p[0], p[1] ) );
-			this.bounds3 = globalThis.two.makePath(anchors3);
-			this.bounds3.linewidth = 1;
-			this.bounds3.stroke = 'cyan';
-			this.bounds3.fill = 'transparent';
-			this.container.add([this.bounds3]);
+		// 	// min genomic size				
+		// 	let pts3 = [
+		// 		[ -this.body.min_length/2, this.body.min_width/2 ],
+		// 		[ this.body.min_length/2, this.body.min_width/2 ],
+		// 		[ this.body.min_length/2, -this.body.min_width/2 ],
+		// 		[ -this.body.min_length/2, -this.body.min_width/2 ],
+		// 	];
+		// 	let anchors3 = pts3.map( p => new Two.Anchor( p[0], p[1] ) );
+		// 	this.bounds3 = globalThis.two.makePath(anchors3);
+		// 	this.bounds3.linewidth = 1;
+		// 	this.bounds3.stroke = 'cyan';
+		// 	this.bounds3.fill = 'transparent';
+		// 	this.container.add([this.bounds3]);
 			
-			// collision circle
-			this.bounds4 = globalThis.two.makeCircle(0,0,Math.max(this.length,this.width)/2);
-			this.bounds4.linewidth = 1;
-			this.bounds4.stroke = 'red';
-			this.bounds4.fill = 'transparent';
-			this.container.add([this.bounds4]);
-		}
+		// 	// collision circle
+		// 	this.bounds4 = globalThis.two.makeCircle(0,0,Math.max(this.length,this.width)/2);
+		// 	this.bounds4.linewidth = 1;
+		// 	this.bounds4.stroke = 'red';
+		// 	this.bounds4.fill = 'transparent';
+		// 	this.container.add([this.bounds4]);
+		// }
 	}
 	
 };

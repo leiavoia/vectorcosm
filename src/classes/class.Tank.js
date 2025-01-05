@@ -80,10 +80,10 @@ export default class Tank {
 	}
 		
 	Kill() {
-		if ( this.bg ) { this.bg.remove(); }
-		if ( this.tankframe ) { this.tankframe.remove(); }
-		if ( this.spgeo ) { this.spgeo.remove(); }
-		this.DrawDebugBoundaryRectangle(false);
+		// if ( this.bg ) { this.bg.remove(); }
+		// if ( this.tankframe ) { this.tankframe.remove(); }
+		// if ( this.spgeo ) { this.spgeo.remove(); }
+		// this.DrawDebugBoundaryRectangle(false);
 		for ( let r of this.obstacles ) { r.Kill(); }
 		this.Sterilize();
 	}
@@ -143,9 +143,9 @@ export default class Tank {
 		this.CreateDataGrid(this.width,this.height);
 		
 		// update visualization if its currently on
-		if ( this.debug_geo ) {
-			this.DrawDebugBoundaryRectangle(true);
-		}
+		// if ( this.debug_geo ) {
+		// 	this.DrawDebugBoundaryRectangle(true);
+		// }
 				
 	}
 		
@@ -208,96 +208,96 @@ export default class Tank {
 	}
 	
 	DrawDebugBoundaryRectangle( on = true ) {
-		if ( this.debug_geo ) {
-			this.debug_geo.remove();
-			delete this.debug_geo;
-		}
-		if ( !on ) { return; }
-		this.debug_geo = globalThis.two.makeGroup();
-		globalThis.vc.AddShapeToRenderLayer(this.debug_geo, +2);	
-		// boundary rectangle
-		const debug_rect = globalThis.two.makeRectangle(this.width/2, this.height/2, this.width, this.height );
-		debug_rect.stroke = "orange";
-		debug_rect.linewidth = '2';
-		debug_rect.fill = 'transparent';		
-		this.debug_geo.add( debug_rect );
-		// current flow / vector field
-		if ( this.datagrid?.cells?.length ) {
-			const max_line_length = 0.75 * this.datagrid.cellsize;
-			for ( let x=0; x < this.datagrid.cells_x; x++ ) {
-				for ( let y=0; y < this.datagrid.cells_y; y++ ) {
-					const center_x = x * this.datagrid.cellsize + (this.datagrid.cellsize * 0.5);
-					const center_y = y * this.datagrid.cellsize + (this.datagrid.cellsize * 0.5);
-					const cell = this.datagrid.CellAt(center_x,center_y);			
-					if ( cell ) {
-						// center post
-						const rect_w = this.datagrid.cellsize / 20;
-						const rect = globalThis.two.makeRectangle(center_x, center_y, rect_w, rect_w);
-						rect.stroke = "lime";
-						rect.linewidth = '2';
-						rect.fill = 'transparent';
-						rect.rotation = Math.PI / 4; // diamonds are kool
-						this.debug_geo.add( rect );
-						// magnitude line
-						const target_x = center_x + -cell.current_x * max_line_length;
-						const target_y = center_y + -cell.current_y * max_line_length;
-						const line = globalThis.two.makeLine(center_x, center_y, target_x, target_y);
-						line.stroke = "lime";
-						line.linewidth = '2';
-						line.fill = 'transparent';
-						this.debug_geo.add( line );
-					}
-				}
-			}
-		}
-		// whirls
-		if ( this.whirls.length ) {
-			for ( let w of this.whirls ) {
-				const c = globalThis.two.makeCircle( w.x, w.y, w.locality*1000 );
-				c.stroke = "orange";
-				c.linewidth = w.strength * 10;
-				c.fill = 'transparent';
-				this.debug_geo.add( c );
-			}
-		}
+		// if ( this.debug_geo ) {
+		// 	this.debug_geo.remove();
+		// 	delete this.debug_geo;
+		// }
+		// if ( !on ) { return; }
+		// this.debug_geo = globalThis.two.makeGroup();
+		// globalThis.vc.AddShapeToRenderLayer(this.debug_geo, +2);	
+		// // boundary rectangle
+		// const debug_rect = globalThis.two.makeRectangle(this.width/2, this.height/2, this.width, this.height );
+		// debug_rect.stroke = "orange";
+		// debug_rect.linewidth = '2';
+		// debug_rect.fill = 'transparent';		
+		// this.debug_geo.add( debug_rect );
+		// // current flow / vector field
+		// if ( this.datagrid?.cells?.length ) {
+		// 	const max_line_length = 0.75 * this.datagrid.cellsize;
+		// 	for ( let x=0; x < this.datagrid.cells_x; x++ ) {
+		// 		for ( let y=0; y < this.datagrid.cells_y; y++ ) {
+		// 			const center_x = x * this.datagrid.cellsize + (this.datagrid.cellsize * 0.5);
+		// 			const center_y = y * this.datagrid.cellsize + (this.datagrid.cellsize * 0.5);
+		// 			const cell = this.datagrid.CellAt(center_x,center_y);			
+		// 			if ( cell ) {
+		// 				// center post
+		// 				const rect_w = this.datagrid.cellsize / 20;
+		// 				const rect = globalThis.two.makeRectangle(center_x, center_y, rect_w, rect_w);
+		// 				rect.stroke = "lime";
+		// 				rect.linewidth = '2';
+		// 				rect.fill = 'transparent';
+		// 				rect.rotation = Math.PI / 4; // diamonds are kool
+		// 				this.debug_geo.add( rect );
+		// 				// magnitude line
+		// 				const target_x = center_x + -cell.current_x * max_line_length;
+		// 				const target_y = center_y + -cell.current_y * max_line_length;
+		// 				const line = globalThis.two.makeLine(center_x, center_y, target_x, target_y);
+		// 				line.stroke = "lime";
+		// 				line.linewidth = '2';
+		// 				line.fill = 'transparent';
+		// 				this.debug_geo.add( line );
+		// 			}
+		// 		}
+		// 	}
+		// }
+		// // whirls
+		// if ( this.whirls.length ) {
+		// 	for ( let w of this.whirls ) {
+		// 		const c = globalThis.two.makeCircle( w.x, w.y, w.locality*1000 );
+		// 		c.stroke = "orange";
+		// 		c.linewidth = w.strength * 10;
+		// 		c.fill = 'transparent';
+		// 		this.debug_geo.add( c );
+		// 	}
+		// }
 	}
 	
 	SetBGTheme( name, save=true ) {
-		// if no arguments, set to self or default
-		if ( !name ) {
-			name = this.bg_theme || 'Deepwater';
-		}
-		let bg_theme;
-		if ( name == 'random' ) { 
-			bg_theme = Tank.backdrop_themes.filter( x => !x.omitFromRandom ).pickRandom();
-		}
-		else if ( name ) {
-			bg_theme = Tank.backdrop_themes.find( x => x.name == name );
-		}
-		if ( !bg_theme ) {
-			bg_theme = Tank.backdrop_themes.filter( x => !x.omitFromRandom ).pickRandom();
-		}
-		if ( save ) { this.bg_theme = bg_theme.name; }
-		// update BODY class		
-		let classes = document.body.getAttribute("class")
-			.replace(/\s*bg-theme-.+\b/, '') + ' ' + bg_theme.class;
-		document.body.setAttribute("class", classes.trim() );
+		// // if no arguments, set to self or default
+		// if ( !name ) {
+		// 	name = this.bg_theme || 'Deepwater';
+		// }
+		// let bg_theme;
+		// if ( name == 'random' ) { 
+		// 	bg_theme = Tank.backdrop_themes.filter( x => !x.omitFromRandom ).pickRandom();
+		// }
+		// else if ( name ) {
+		// 	bg_theme = Tank.backdrop_themes.find( x => x.name == name );
+		// }
+		// if ( !bg_theme ) {
+		// 	bg_theme = Tank.backdrop_themes.filter( x => !x.omitFromRandom ).pickRandom();
+		// }
+		// if ( save ) { this.bg_theme = bg_theme.name; }
+		// // update BODY class		
+		// let classes = document.body.getAttribute("class")
+		// 	.replace(/\s*bg-theme-.+\b/, '') + ' ' + bg_theme.class;
+		// document.body.setAttribute("class", classes.trim() );
 	}
 	
 	// background layer
 	MakeBackground() {
 		this.SetBGTheme();
 		
-		// tank frame
-		if ( this.tankframe ) { this.tankframe.remove(); }
-		this.tankframe = globalThis.two.makeRectangle(this.width/2, this.height/2, this.width, this.height );
-		this.tankframe.stroke = "#888888";
-		this.tankframe.linewidth = '2';
-		this.tankframe.fill = 'transparent';		
-		globalThis.vc.AddShapeToRenderLayer(this.tankframe, '-2');
+		// // tank frame
+		// if ( this.tankframe ) { this.tankframe.remove(); }
+		// this.tankframe = globalThis.two.makeRectangle(this.width/2, this.height/2, this.width, this.height );
+		// this.tankframe.stroke = "#888888";
+		// this.tankframe.linewidth = '2';
+		// this.tankframe.fill = 'transparent';		
+		// globalThis.vc.AddShapeToRenderLayer(this.tankframe, '-2');
 						
-		if ( this.bg ) { this.bg.remove(); }
-		this.bg = globalThis.two.makeGroup();
+		// if ( this.bg ) { this.bg.remove(); }
+		// this.bg = globalThis.two.makeGroup();
 		
 		// random delauney background
 		if ( !this.background_triangles ) {
@@ -465,49 +465,49 @@ export default class Tank {
 			}
 		}
 		// geometry for two.js
-		for ( let t of this.background_triangles ) {
-			let p = globalThis.two.makePath( ...t.slice(null, -1) );
-			p.linewidth = 0;
-			p.fill = t[6];
-			p.stroke = 'transparent'; // t[6];
-			this.bg.add(p);
-		}		
-		if ( this.bg_opacity ) {	
-			if ( this.bg_opacity == 'random' ) {	
-				this.bg_opacity = 0.15 + Math.random() * 0.7;
-				this.bg.opacity = this.bg_opacity;
-			}
-			else {
-				this.bg.opacity = this.bg_opacity;
-			}
-		}
-		this.bg.visible = this.bg_visible;
-		// globalThis.vc.AddShapeToRenderLayer(this.bg, -2);
-		globalThis.vc.AddShapeToRenderLayer(this.bg, 'backdrop');
-		this.ScaleBackground();
+		// for ( let t of this.background_triangles ) {
+		// 	let p = globalThis.two.makePath( ...t.slice(null, -1) );
+		// 	p.linewidth = 0;
+		// 	p.fill = t[6];
+		// 	p.stroke = 'transparent'; // t[6];
+		// 	this.bg.add(p);
+		// }		
+		// if ( this.bg_opacity ) {	
+		// 	if ( this.bg_opacity == 'random' ) {	
+		// 		this.bg_opacity = 0.15 + Math.random() * 0.7;
+		// 		this.bg.opacity = this.bg_opacity;
+		// 	}
+		// 	else {
+		// 		this.bg.opacity = this.bg_opacity;
+		// 	}
+		// }
+		// this.bg.visible = this.bg_visible;
+		// // globalThis.vc.AddShapeToRenderLayer(this.bg, -2);
+		// globalThis.vc.AddShapeToRenderLayer(this.bg, 'backdrop');
+		// this.ScaleBackground();
 	}
 	
 	ScaleBackground() {
-		// scale background layer
-		if ( this.bg ) { 
-			this.bg.scale = 1; // reset to one
-			const rect = this.bg.getBoundingClientRect(true);
-			this.bg.scale = new Two.Vector( 
-				(this.width * globalThis.vc.scale) / rect.width, 
-				(this.height * globalThis.vc.scale) / rect.height 
-			);
-		}
-		// scale debug geometry (fluid currents, etc)
-		if ( this.debug_geo ) {			
-			this.DrawDebugBoundaryRectangle();
-		}
-		// remake the cosmetic tank frame
-		if ( this.tankframe ) { this.tankframe.remove(); }
-		this.tankframe = globalThis.two.makeRectangle(this.width/2, this.height/2, this.width, this.height );
-		this.tankframe.stroke = "#888888";
-		this.tankframe.linewidth = '2';
-		this.tankframe.fill = 'transparent';		
-		globalThis.vc.AddShapeToRenderLayer(this.tankframe, '-2');
+		// // scale background layer
+		// if ( this.bg ) { 
+		// 	this.bg.scale = 1; // reset to one
+		// 	const rect = this.bg.getBoundingClientRect(true);
+		// 	this.bg.scale = new Two.Vector( 
+		// 		(this.width * globalThis.vc.scale) / rect.width, 
+		// 		(this.height * globalThis.vc.scale) / rect.height 
+		// 	);
+		// }
+		// // scale debug geometry (fluid currents, etc)
+		// if ( this.debug_geo ) {			
+		// 	this.DrawDebugBoundaryRectangle();
+		// }
+		// // remake the cosmetic tank frame
+		// if ( this.tankframe ) { this.tankframe.remove(); }
+		// this.tankframe = globalThis.two.makeRectangle(this.width/2, this.height/2, this.width, this.height );
+		// this.tankframe.stroke = "#888888";
+		// this.tankframe.linewidth = '2';
+		// this.tankframe.fill = 'transparent';		
+		// globalThis.vc.AddShapeToRenderLayer(this.tankframe, '-2');
 	}
 	
 	MakePrettyDecor() {
@@ -591,8 +591,8 @@ export default class Tank {
 						// update dependant info
 						rock.collider.x = rock.x;
 						rock.collider.y = rock.y;
-						rock.geo.position.x = rock.x;
-						rock.geo.position.y = rock.y;
+						// rock.geo.position.x = rock.x;
+						// rock.geo.position.y = rock.y;
 					}
 				}
 			}
