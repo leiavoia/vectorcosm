@@ -419,7 +419,90 @@ onMounted(() => {
 		}
 	);
 	worker.onmessage = (event) => {
-		console.log('Result from worker:', event?.data); // Handle the message from the worker
+		// keep track of what there is so we can remove what there aint
+		const found = new WeakSet();
+		for ( let o of event?.data.renderObjects ) {
+			// new objects
+			if ( !renderObjects.has(o.oid) ) {
+				// create the geometry: right facing triangle 24x12
+				let geo = null;
+				if ( o.type=='boid' ) {
+					geo = two.makePath([
+						new Two.Anchor( -12, -6 ),
+						new Two.Anchor( 12, 0 ),
+						new Two.Anchor( -12, 6 ),
+					]);
+					geo.fill = '#33FFFF';
+					geo.stroke = 'transparent';
+					geo.linewidth = 0;
+				}
+				else if ( o.type=='obstacle' ) {
+					// Note: Two.js positions things in the middle of the bounding box.
+					// In order to dodge this bit of weirdness, you need to create a group
+					// and stuff rock contents inside the group. This helps for triangle representation anyway.
+					geo = globalThis.two.makeGroup();
+					let path = two.makePath( o.pts.map( p => new Two.Anchor(p[0],p[1]) ) );
+					path.fill = '#999';
+					path.stroke = 'transparent';
+					path.linewidth = 0;
+					geo.add(path);
+				}
+				else if ( o.type=='food' ) {
+					geo = two.makeCircle( 0, 0, 6 );
+					geo.fill = 'pink';
+					geo.stroke = 'transparent';
+					geo.linewidth = 0;
+				}
+				else if ( o.type=='plant' ) {
+					geo = two.makeRectangle( 0, 0, 100, 100 );
+					geo.fill = 'transparent';
+					geo.stroke = 'lime';
+					geo.linewidth = 2;
+				}
+				else if ( o.type=='mark' ) {
+					geo = two.makeCircle( 0, 0, 100 );
+					geo.fill = 'transparent';
+					geo.stroke = 'magenta';
+					geo.linewidth = 1;
+				}
+				else {
+					geo = two.makeRectangle( 0, 0, 10, 10 );
+					geo.fill = '#BBBBBB';
+					geo.stroke = 'transparent';
+					geo.linewidth = 0;
+				}
+				if ( o.x ) { geo.position.x = o.x; }
+				if ( o.y ) { geo.position.y = o.y; }
+				if ( o.a ) { geo.rotation = o.a; }
+				if ( o.s ) { geo.scale = o.s; }
+				o.geo = geo;
+				// geo.opacity = o.o;
+				renderLayers['0'].add(geo);
+				renderObjects.set(o.oid, o);
+				found.add(o);
+			}
+			// existing objects
+			else {
+				const obj = renderObjects.get(o.oid);
+				for ( let k in o ) {
+					obj[k] = o[k];
+				}
+				if ( o.x ) { obj.geo.position.x = o.x; }
+				if ( o.y ) { obj.geo.position.y = o.y; }
+				if ( o.a ) { obj.geo.rotation = o.a; }
+				if ( o.s ) { obj.geo.scale = o.s; }
+				// obj.geo.opacity = o.o;
+				found.add(obj);
+			}
+		}
+		// remove all objects not found
+		for ( let [oid,obj] of renderObjects ) {
+			if ( !found.has(obj) ) {
+				obj.geo.remove();
+				renderObjects.delete(oid);
+			}
+		}
+		two.update();
 	};
 	StartWorker();
 	UpdateIdleTime(); // start the clock
@@ -430,11 +513,8 @@ onMounted(() => {
 	// `types is one of: 'WebGLRenderer', 'SVGRenderer', 'CanvasRenderer'
 	// this.two.bind('update', (frameNumber, delta) => { this.update(frameNumber, delta); } );
 	// this.SetViewScale(1);
-	let square = two.makeRectangle(two.width * 0.5, two.height * 0.5, 50, 50);
-	square.fill = 'navy';
-	square.stroke = 'orangered';
-	square.linewidth = 5;
-	renderLayers['0'].add(square);
+	// renderLayers['tank'].scale = 1/3;
+	
 	two.update();
 }) 
 
@@ -446,7 +526,7 @@ function StartWorker() {
 	worker.postMessage( data );
 	setTimeout( _ => {
 		StartWorker();
-	}, 500);
+	}, 1000/60);
 }
 
 function ClickMap( event ) {
@@ -536,7 +616,7 @@ function RefreshBoidDetailsDynamicObjects(obj) {
       <div id="draw-shapes"></div>
     </div>
     <main>
-		<p>Stuff goes here</p>
+		<p>VectorcosmUI active</p>
 <!--
 		<section v-show="show_camera_controls">
 			<camera-controls @close="ToggleCameraControls()"></camera-controls>

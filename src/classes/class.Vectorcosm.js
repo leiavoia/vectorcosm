@@ -124,7 +124,7 @@ export default class Vectorcosm {
 		// set up tank
 		// this.tank = new Tank( this.width, this.height );
 		// TODO: Note: no access to window info unless passed in from main.js
-		this.tank = new Tank( 1500, 800 );
+		this.tank = new Tank( 1920, 1200 );
 		this.tank.MakeBackground();
 		
 		// set visual theme
@@ -538,12 +538,12 @@ export default class Vectorcosm {
 	}		
 
 	AddShapeToRenderLayer( geo, layer='0' ) {
-		try {
-			this.renderLayers[layer].add(geo);
-		}
-		catch (error) {
-			console.warn('no drawing layer named ' + layer);
-		}
+		// try {
+		// 	this.renderLayers[layer].add(geo);
+		// }
+		// catch (error) {
+		// 	console.warn('no drawing layer named ' + layer);
+		// }
 	}
 	
 	DrawBrainGraph() {

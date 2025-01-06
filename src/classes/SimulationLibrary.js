@@ -397,7 +397,7 @@ export default {
 		num_rocks: 0,
 		num_plants: 10,
 		species:'random',
-		scale: 0.5,
+		scale: 1,
 		current: 0.1,
 		num_foods: 0,
 		food_friction: true,

@@ -21,13 +21,60 @@ self.addEventListener('message', (event) => {
 
 	const eventData = event.data; // JSON.parse(event.data);
 	if ( eventData?.f=='update' ) {
-		let delta = eventData.delta || 1/30;
-		for ( let i=0; i < 100; i++ ) {
+		let delta = eventData.delta || 1/60;
+		for ( let i=0; i < 1; i++ ) {
 			globalThis.vc.update(delta);
 		}
+		let renderObjects = globalThis.vc.tank.boids.map( b => ({
+			oid: b.oid,
+			type:'boid',
+			x: b.x,
+			y: b.y,
+			a: b.angle,
+			s: b.scale
+		}));
+		renderObjects.push( ... globalThis.vc.tank.plants.map( o => ({
+			oid: o.oid,
+			type:'plant',
+			x: o.x,
+			y: o.y,
+			a: Math.PI*0.25,
+			s: 1
+		}) ));
+		renderObjects.push( ... globalThis.vc.tank.foods.map( o => ({
+			oid: o.oid,
+			type:'food',
+			x: o.x,
+			y: o.y,
+			a: 0,
+			s: 1
+		}) ));
+		renderObjects.push( ... globalThis.vc.tank.marks.map( o => ({
+			oid: o.oid,
+			type:'mark',
+			x: o.x,
+			y: o.y,
+			a: 0,
+			s: 1
+		}) ));
+		renderObjects.push( ... globalThis.vc.tank.obstacles.map( o => ({
+			oid: o.oid,
+			type:'obstacle',
+			x: o.x,
+			y: o.y,
+			a: 0,
+			s: 1,
+			pts: o.collision.hull
+		}) ));
+		
 		let returnMsg =  {
 			frame: globalThis.vc.simulation?.stats.framenum,
 			boids: globalThis.vc.tank.boids.length,
+			obstacles: globalThis.vc.tank.obstacles.length,
+			plants: globalThis.vc.tank.plants.length,
+			foods: globalThis.vc.tank.foods.length,
+			marks: globalThis.vc.tank.marks.length,
+			renderObjects
 		};
 		globalThis.postMessage( returnMsg );
 	}
