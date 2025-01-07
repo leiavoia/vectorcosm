@@ -12,6 +12,15 @@ import BoidLibraryControls from './components/BoidLibraryControls.vue'
 import TankStats from './components/TankStats.vue'
 import { onMounted, ref, reactive, markRaw, shallowRef, shallowReactive } from 'vue'
 
+let fps = ref(0);
+let delta = ref(0);
+let frame_num = ref(0);
+let	total_time = ref(0);
+let	drawtime = ref(0);
+let	simtime = ref(0);
+let	simtime_pct = ref(0);
+let	waittime = ref(0);
+
 let dragging = false;
 let show_boid_library = ref(false);
 let show_boid_details = ref(false);
@@ -409,6 +418,102 @@ window.addEventListener("resize", function (event) {
 
 let worker = null;
 
+
+class GameLoop {
+	constructor() {
+		this.throttle = 0.5;
+		this.start_ts = 0;
+		this.last_ts = 0;
+		this.delta = 0;
+		this.playing = false;
+		this.drawing_finished = false;
+		this.sim_finished = false;
+		this.frame = 0;
+		this.total_time = 0;
+		this.fps = 0;
+		this.fps_recs = [];
+		this.max_fps_recs = 20;
+		this.fps_avg = 0;
+		this.max_delta = 1/30;
+		this.drawtime_ts = 0;
+		this.drawtime = 0;
+		this.simtime_ts = 0;
+		this.simtime = 0;
+		this.waittime = 0;
+	}
+	Start() {
+		// get stats based on previous frame.
+		// Note: we have to incorporate time eaten up by requestAnimationFrame,
+		// so we cannot record stats in the End() function. 
+		this.last_ts = this.start_ts;
+		this.start_ts = performance.now();
+		this.delta = ( this.start_ts - this.last_ts ) / 1000; // TODO: watch out for time jumps from pausing
+		this.total_time += this.delta;
+		this.fps = 1 / this.delta;
+		this.fps_recs.push(this.fps);
+		if ( this.fps_recs.length > this.max_fps_recs ) {
+			this.fps_recs.shift();
+		}
+		this.fps_avg = this.fps_recs.reduce( (a,b) => a+b, 0 ) / this.fps_recs.length;
+		this.waittime = Math.max( 0, this.delta - ( this.drawtime + this.simtime ) );
+		// push stats to the UI
+		total_time.value = this.total_time.toFixed(1);
+		fps.value = this.fps_avg.toFixed(1);
+		delta.value = (this.delta * 1000).toFixed(0);
+		frame_num.value = this.frame;
+		drawtime.value = (this.drawtime * 1000).toFixed(0);
+		simtime.value = (this.simtime * 1000).toFixed(0);
+		waittime.value = (this.waittime * 1000).toFixed(0);
+		simtime_pct.value = (this.simtime + this.drawtime) ? (this.simtime / ( this.simtime + this.drawtime ) ) : 0;
+		// get the next frame going
+		this.playing = true;
+		this.drawing_finished = false;
+		this.sim_finished = false;
+		this.StartSimFrame(this.delta);
+		this.StartDrawing();
+	}
+	End() {
+		if ( !this.drawing_finished || !this.sim_finished ) { return false; }
+		this.frame++;
+		// kick off the next frame
+		if ( this.playing ) {
+			if ( typeof globalThis.requestAnimationFrame === 'function' ) {
+				globalThis.requestAnimationFrame( _ => this.Start() );
+			}
+			else {
+				setTimeout( _ => this.Start(), 0 );
+			}
+		}
+	}
+	StartSimFrame(delta) {
+		if ( delta > this.max_delta ) { delta = this.max_delta; }
+		const data = {
+			f:'update',
+			delta
+		};
+		this.simtime_ts = performance.now();
+		worker.postMessage( data );
+	}
+	EndSimFrame() {
+		this.simtime = ( performance.now() - this.simtime_ts ) / 1000;
+		this.sim_finished = true;
+		this.End();
+	}
+	StartDrawing() {
+		this.drawtime_ts = performance.now();
+		two.update();
+		this.EndDrawing();
+	}
+	EndDrawing() {
+		this.drawtime = ( performance.now() - this.drawtime_ts ) / 1000;
+		this.drawing_finished = true;
+		this.End();
+	}
+}
+
+let gameloop = new GameLoop();
+
+
 onMounted(() => {
 	// set up the main vectorcosm worker thread
 	worker = new Worker(
@@ -502,9 +607,10 @@ onMounted(() => {
 				renderObjects.delete(oid);
 			}
 		}
-		two.update();
+		gameloop.EndSimFrame();
+		// two.update();
 	};
-	StartWorker();
+	
 	UpdateIdleTime(); // start the clock
 	
 	// set up two drawing context on the screen
@@ -515,19 +621,12 @@ onMounted(() => {
 	// this.SetViewScale(1);
 	// renderLayers['tank'].scale = 1/3;
 	
+	// render first frame to get started?
 	two.update();
+	
+	gameloop.Start();
+	
 }) 
-
-function StartWorker() {
-	const data = {
-		f:'update',
-		delta:0.033
-	};
-	worker.postMessage( data );
-	setTimeout( _ => {
-		StartWorker();
-	}, 1000/60);
-}
 
 function ClickMap( event ) {
 	// // if ( dragging ) { 
@@ -616,7 +715,21 @@ function RefreshBoidDetailsDynamicObjects(obj) {
       <div id="draw-shapes"></div>
     </div>
     <main>
-		<p>VectorcosmUI active</p>
+		<section>
+			<p>
+				FPS: <output>{{fps}}</output>
+				Delta: <output>{{delta}}</output>
+				Time: <output>{{total_time}}</output>
+				Frame: <output>{{frame_num}}</output>
+			</p>
+			<p>
+				Sim: <output>{{String(simtime).padStart(3, '0')}}</output>
+				Draw: <output>{{String(drawtime).padStart(3, '0')}}</output>
+				Wait: <output>{{String(waittime).padStart(3, '0')}}</output>
+				Sim%: <output>{{simtime_pct.toFixed(3)}}</output>
+				<progress :value="simtime_pct" max="1" style="width:100%"></progress>
+			</p>
+		</section>
 <!--
 		<section v-show="show_camera_controls">
 			<camera-controls @close="ToggleCameraControls()"></camera-controls>
