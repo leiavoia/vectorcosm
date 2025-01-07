@@ -21,8 +21,9 @@ self.addEventListener('message', (event) => {
 
 	const eventData = event.data; // JSON.parse(event.data);
 	if ( eventData?.f=='update' ) {
-		let delta = eventData.delta || 1/60;
-		for ( let i=0; i < 1; i++ ) {
+		let delta = eventData.delta || 1/30;
+		let num_frames = eventData?.num_frames || 1;
+		for ( let i=0; i < num_frames; i++ ) {
 			globalThis.vc.update(delta);
 		}
 		let renderObjects = globalThis.vc.tank.boids.map( b => ({

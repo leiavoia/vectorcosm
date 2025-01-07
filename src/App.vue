@@ -17,9 +17,11 @@ let delta = ref(0);
 let frame_num = ref(0);
 let	total_time = ref(0);
 let	drawtime = ref(0);
+let	drawtime_pct = ref(0);
 let	simtime = ref(0);
 let	simtime_pct = ref(0);
 let	waittime = ref(0);
+let	waittime_pct = ref(0);
 
 let dragging = false;
 let show_boid_library = ref(false);
@@ -421,7 +423,8 @@ let worker = null;
 
 class GameLoop {
 	constructor() {
-		this.throttle = 0.5;
+		this.updates_per_frame = 1;
+		this.throttle = 1.0;
 		this.start_ts = 0;
 		this.last_ts = 0;
 		this.delta = 0;
@@ -464,7 +467,12 @@ class GameLoop {
 		drawtime.value = (this.drawtime * 1000).toFixed(0);
 		simtime.value = (this.simtime * 1000).toFixed(0);
 		waittime.value = (this.waittime * 1000).toFixed(0);
-		simtime_pct.value = (this.simtime + this.drawtime) ? (this.simtime / ( this.simtime + this.drawtime ) ) : 0;
+		let total = ( this.simtime + this.drawtime + this.waittime ) || 1;
+		// Note: drawing and simulation happen at the same time, so this is not an accurate
+		// representation of what's going on, but good enough for rock and roll.
+		simtime_pct.value = ( simtime_pct.value * 7 + (this.simtime / total) ) / 8;
+		drawtime_pct.value = ( drawtime_pct.value * 7 + (this.drawtime / total) ) / 8;
+		waittime_pct.value = ( waittime_pct.value * 7 + (this.waittime / total) ) / 8;
 		// get the next frame going
 		this.playing = true;
 		this.drawing_finished = false;
@@ -487,9 +495,11 @@ class GameLoop {
 	}
 	StartSimFrame(delta) {
 		if ( delta > this.max_delta ) { delta = this.max_delta; }
+		if ( this.throttle != 1 ) { delta *= this.throttle; }
 		const data = {
 			f:'update',
-			delta
+			num_frames: this.updates_per_frame, // variable turbo
+			delta: ( this.updates_per_frame > 1 ? this.max_delta : delta )
 		};
 		this.simtime_ts = performance.now();
 		worker.postMessage( data );
@@ -727,7 +737,12 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 				Draw: <output>{{String(drawtime).padStart(3, '0')}}</output>
 				Wait: <output>{{String(waittime).padStart(3, '0')}}</output>
 				Sim%: <output>{{simtime_pct.toFixed(3)}}</output>
-				<progress :value="simtime_pct" max="1" style="width:100%"></progress>
+				<div style="width:100%; height: 1em; overflow:hidden;">
+					<div :style="{width:`${Math.round((simtime_pct*100))}%`, height: '.25em', backgroundColor: '#B51616', display:'inline-block'}"></div>
+					<div :style="{width:`${Math.round((drawtime_pct*100))}%`, height: '.25em', backgroundColor: '#50C176', display:'inline-block'}"></div>
+					<div :style="{width:`${Math.round((waittime_pct*100))}%`, height: '.25em', backgroundColor: '#FFFF00', display:'inline-block'}"></div>
+				</div>
+				<!-- <progress :value="simtime_pct" max="1" style="width:100%"></progress> -->
 			</p>
 		</section>
 <!--
