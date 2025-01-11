@@ -10,11 +10,63 @@ import TrainingProgramControls from './components/TrainingProgramControls.vue'
 import CameraControls from './components/CameraControls.vue'
 import BoidLibraryControls from './components/BoidLibraryControls.vue'
 import TankStats from './components/TankStats.vue'
-import StatTracker from './util/class.StatTracker.js'
+import {StatTracker, CompoundStatTracker} from './util/class.StatTracker.js'
 import { onMounted, ref, reactive, markRaw, shallowRef, shallowReactive } from 'vue'
 
-let statTracker = new StatTracker( { numLayers: 4, base: 10, recordsPerLayer:100 });
+// graphing and chart setup				
+Chart.defaults.color = '#FFF';
+Chart.defaults.elements.line.backgroundColor = '#41A34F';
+Chart.defaults.elements.line.borderColor = '#41A34F';
+Chart.defaults.elements.bar.backgroundColor = '#41A34F';
+Chart.defaults.elements.bar.borderColor = '#41A34F';
+Chart.defaults.elements.point.radius = 0;
 
+	
+// created by Chart.js after DOM loads
+let fpsChart1 = null;
+let fpsChart2 = null;
+let fpsChart3 = null;
+let fpsChart4 = null;
+		
+// tank stats tracking		
+let tankStatTracker = new CompoundStatTracker( { numLayers: 3, base: 6, recordsPerLayer:20, stats:['boids','foods','bfratio'] });
+// tankStatTracker.onInsert = ( data, layer ) => {
+// 	console.log('layer', layer, data);
+// }
+
+// performance tracking
+const recordsPerLayer = 60;
+let statTracker = new StatTracker( { numLayers: 4, base: 10, recordsPerLayer});
+statTracker.onInsert = ( data, layer ) => {
+	if ( layer === 0 ) {
+		fpsChart1.data.labels.push(gameloop.frame);
+		fpsChart1.update();
+		if ( fpsChart1.data.labels.length > recordsPerLayer ) {
+			fpsChart1.data.labels.shift();
+		}
+	}
+	if ( layer === 1 ) {
+		fpsChart2.data.labels.push(gameloop.frame);
+		fpsChart2.update();
+		if ( fpsChart2.data.labels.length > recordsPerLayer ) {
+			fpsChart2.data.labels.shift();
+		}
+	}
+	if ( layer === 2 ) {
+		fpsChart3.data.labels.push(gameloop.frame);
+		fpsChart3.update();
+		if ( fpsChart3.data.labels.length > recordsPerLayer ) {
+			fpsChart3.data.labels.shift();
+		}
+	}
+	if ( layer === 3 ) {
+		fpsChart4.data.labels.push(gameloop.frame);
+		fpsChart4.update();
+		if ( fpsChart4.data.labels.length > recordsPerLayer ) {
+			fpsChart4.data.labels.shift();
+		}
+	}
+}
 let fps = ref(0);
 let fps1 = ref(0);
 let fps2 = ref(0);
@@ -480,7 +532,7 @@ class GameLoop {
 		simtime_pct.value = ( simtime_pct.value * 7 + (this.simtime / total) ) / 8;
 		drawtime_pct.value = ( drawtime_pct.value * 7 + (this.drawtime / total) ) / 8;
 		waittime_pct.value = ( waittime_pct.value * 7 + (this.waittime / total) ) / 8;
-		statTracker.Insert(this.fps);
+		statTracker.Insert(this.simtime);
 		const layers = statTracker.LastOfEachLayer();
 		fps1.value = layers[0].toFixed(1);
 		fps2.value = layers[1].toFixed(1);
@@ -630,11 +682,29 @@ onMounted(() => {
 				renderObjects.delete(oid);
 			}
 		}
+		// stat tracking every 60 frames
+		if ( gameloop.frame % 60 == 0 ) {
+			tankStatTracker.Insert({
+				boids: event.data.boids,
+				foods: event.data.foods,
+				bfratio: ( event.data.boids ? (event.data.foods / event.data.boids) : 0  )
+			});
+		}
 		gameloop.EndSimFrame();
 		// two.update();
 	};
 	
 	UpdateIdleTime(); // start the clock
+	
+	// set up graphs
+	fpsChart1 = MakeSimulatorChart('fpsChart1', statTracker.layers[0]);
+	fpsChart2 = MakeSimulatorChart('fpsChart2', statTracker.layers[1]);
+	fpsChart3 = MakeSimulatorChart('fpsChart3', statTracker.layers[2]);
+	fpsChart4 = MakeSimulatorChart('fpsChart4', statTracker.layers[2]);
+	fpsChart1.update();
+	fpsChart2.update();
+	fpsChart3.update();
+	fpsChart4.update();
 	
 	// set up two drawing context on the screen
 	let elem = document.getElementById('draw-shapes');
@@ -650,6 +720,53 @@ onMounted(() => {
 	gameloop.Start();
 	
 }) 
+
+function MakeSimulatorChart( element_id, data ) {
+	const chartdata = {
+		labels: [],
+		datasets: [
+			{
+				label: 'FPS',
+				backgroundColor: '#3DAEE9',
+				// borderColor: '#3DAEE9',
+				// borderWidth: 1,
+				fill:true,
+				data: data,
+				order: 2,
+				tension: 0.2,
+			},
+		]
+	};
+	const chartconfig = {
+		type: 'bar',
+		data: chartdata,
+		options: {
+			// maxBarThickness: 8,
+			animation: false,
+			responsive: false,
+			aspectRatio: 6,
+			interaction: {
+				intersect: false,
+			},					
+			plugins: {
+				legend: {
+					position: 'top',
+					display:false,
+				},
+				title: {
+					display: false,
+				}
+			},
+			scales: {
+				x: { display: false },
+				y: { display: false }
+			}				
+		}
+	};
+	return new Chart( document.getElementById(element_id), chartconfig );
+}
+
+
 
 function ClickMap( event ) {
 	// // if ( dragging ) { 
@@ -763,6 +880,10 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 				</div>
 				<!-- <progress :value="simtime_pct" max="1" style="width:100%"></progress> -->
 			</p>
+			<canvas id="fpsChart1" style="width: 100%; margin-top: 0.5em;"></canvas> 
+			<canvas id="fpsChart2" style="width: 100%; margin-top: 0.5em;"></canvas> 
+			<canvas id="fpsChart3" style="width: 100%; margin-top: 0.5em;"></canvas> 
+			<canvas id="fpsChart4" style="width: 100%; margin-top: 0.5em;"></canvas> 
 		</section>
 <!--
 		<section v-show="show_camera_controls">
