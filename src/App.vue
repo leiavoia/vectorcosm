@@ -10,9 +10,16 @@ import TrainingProgramControls from './components/TrainingProgramControls.vue'
 import CameraControls from './components/CameraControls.vue'
 import BoidLibraryControls from './components/BoidLibraryControls.vue'
 import TankStats from './components/TankStats.vue'
+import StatTracker from './util/class.StatTracker.js'
 import { onMounted, ref, reactive, markRaw, shallowRef, shallowReactive } from 'vue'
 
+let statTracker = new StatTracker( { numLayers: 4, base: 10, recordsPerLayer:100 });
+
 let fps = ref(0);
+let fps1 = ref(0);
+let fps2 = ref(0);
+let fps3 = ref(0);
+let fps4 = ref(0);
 let delta = ref(0);
 let frame_num = ref(0);
 let	total_time = ref(0);
@@ -473,6 +480,12 @@ class GameLoop {
 		simtime_pct.value = ( simtime_pct.value * 7 + (this.simtime / total) ) / 8;
 		drawtime_pct.value = ( drawtime_pct.value * 7 + (this.drawtime / total) ) / 8;
 		waittime_pct.value = ( waittime_pct.value * 7 + (this.waittime / total) ) / 8;
+		statTracker.Insert(this.fps);
+		const layers = statTracker.LastOfEachLayer();
+		fps1.value = layers[0].toFixed(1);
+		fps2.value = layers[1].toFixed(1);
+		fps3.value = layers[2].toFixed(1);
+		fps4.value = layers[3].toFixed(1);
 		// get the next frame going
 		this.playing = true;
 		this.drawing_finished = false;
@@ -731,6 +744,12 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 				Delta: <output>{{delta}}</output>
 				Time: <output>{{total_time}}</output>
 				Frame: <output>{{frame_num}}</output>
+			</p>
+			<p>
+				FPS1: <output>{{fps1}}</output>
+				FPS2: <output>{{fps2}}</output>
+				FPS3: <output>{{fps3}}</output>
+				FPS4: <output>{{fps4}}</output>
 			</p>
 			<p>
 				Sim: <output>{{String(simtime).padStart(3, '0')}}</output>
