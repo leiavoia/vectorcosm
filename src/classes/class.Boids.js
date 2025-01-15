@@ -211,13 +211,9 @@ export class Boid {
 	// inherit this function
 	MakeBrain() {
 		let inputs = this.sensor_labels.length;
-		// if boid has synesthesia, combine inputs
-		if ( this.traits.synesthesia ) {
-			inputs = Math.ceil( inputs / this.traits.synesthesia );
-		}
 					
 		const outputs = this.motors.length || 1;
-		
+
 		const act_picker = new utils.RandomPicker( [
 			[neataptic.methods.activation.LOGISTIC, 300],
 			[neataptic.methods.activation.TANH, 100],
