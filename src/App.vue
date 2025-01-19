@@ -24,10 +24,10 @@ Chart.defaults.elements.point.radius = 0;
 
 	
 // created by Chart.js after DOM loads
-let fpsChart1 = null;
-let fpsChart2 = null;
-let fpsChart3 = null;
-let fpsChart4 = null;
+// let fpsChart1 = null;
+// let fpsChart2 = null;
+// let fpsChart3 = null;
+// let fpsChart4 = null;
 		
 // tank stats tracking		
 let tankStatTracker = new CompoundStatTracker( { numLayers: 3, base: 6, recordsPerLayer:20, stats:['boids','foods','bfratio'] });
@@ -38,36 +38,36 @@ let tankStatTracker = new CompoundStatTracker( { numLayers: 3, base: 6, recordsP
 // performance tracking
 const recordsPerLayer = 60;
 let statTracker = new StatTracker( { numLayers: 4, base: 10, recordsPerLayer});
-statTracker.onInsert = ( data, layer ) => {
-	if ( layer === 0 ) {
-		fpsChart1.data.labels.push(gameloop.frame);
-		fpsChart1.update();
-		if ( fpsChart1.data.labels.length > recordsPerLayer ) {
-			fpsChart1.data.labels.shift();
-		}
-	}
-	if ( layer === 1 ) {
-		fpsChart2.data.labels.push(gameloop.frame);
-		fpsChart2.update();
-		if ( fpsChart2.data.labels.length > recordsPerLayer ) {
-			fpsChart2.data.labels.shift();
-		}
-	}
-	if ( layer === 2 ) {
-		fpsChart3.data.labels.push(gameloop.frame);
-		fpsChart3.update();
-		if ( fpsChart3.data.labels.length > recordsPerLayer ) {
-			fpsChart3.data.labels.shift();
-		}
-	}
-	if ( layer === 3 ) {
-		fpsChart4.data.labels.push(gameloop.frame);
-		fpsChart4.update();
-		if ( fpsChart4.data.labels.length > recordsPerLayer ) {
-			fpsChart4.data.labels.shift();
-		}
-	}
-}
+// statTracker.onInsert = ( data, layer ) => {
+// 	if ( layer === 0 ) {
+// 		fpsChart1.data.labels.push(gameloop.frame);
+// 		fpsChart1.update();
+// 		if ( fpsChart1.data.labels.length > recordsPerLayer ) {
+// 			fpsChart1.data.labels.shift();
+// 		}
+// 	}
+// 	if ( layer === 1 ) {
+// 		fpsChart2.data.labels.push(gameloop.frame);
+// 		fpsChart2.update();
+// 		if ( fpsChart2.data.labels.length > recordsPerLayer ) {
+// 			fpsChart2.data.labels.shift();
+// 		}
+// 	}
+// 	if ( layer === 2 ) {
+// 		fpsChart3.data.labels.push(gameloop.frame);
+// 		fpsChart3.update();
+// 		if ( fpsChart3.data.labels.length > recordsPerLayer ) {
+// 			fpsChart3.data.labels.shift();
+// 		}
+// 	}
+// 	if ( layer === 3 ) {
+// 		fpsChart4.data.labels.push(gameloop.frame);
+// 		fpsChart4.update();
+// 		if ( fpsChart4.data.labels.length > recordsPerLayer ) {
+// 			fpsChart4.data.labels.shift();
+// 		}
+// 	}
+// }
 let fps = ref(0);
 let fps1 = ref(0);
 let fps2 = ref(0);
@@ -498,7 +498,8 @@ gameloop.onStartFrame = () => {
 	simtime_pct.value = ( simtime_pct.value * 7 + (gameloop.simtime / total) ) / 8;
 	drawtime_pct.value = ( drawtime_pct.value * 7 + (gameloop.drawtime / total) ) / 8;
 	waittime_pct.value = ( waittime_pct.value * 7 + (gameloop.waittime / total) ) / 8;
-	statTracker.Insert(gameloop.simtime);
+	// FPS tracking
+	statTracker.Insert(gameloop.fps);
 	const layers = statTracker.LastOfEachLayer();
 	fps1.value = layers[0].toFixed(1);
 	fps2.value = layers[1].toFixed(1);
@@ -628,14 +629,14 @@ onMounted(() => {
 	UpdateIdleTime(); // start the clock
 	
 	// set up graphs
-	fpsChart1 = MakeSimulatorChart('fpsChart1', statTracker.layers[0]);
-	fpsChart2 = MakeSimulatorChart('fpsChart2', statTracker.layers[1]);
-	fpsChart3 = MakeSimulatorChart('fpsChart3', statTracker.layers[2]);
-	fpsChart4 = MakeSimulatorChart('fpsChart4', statTracker.layers[2]);
-	fpsChart1.update();
-	fpsChart2.update();
-	fpsChart3.update();
-	fpsChart4.update();
+	// fpsChart1 = MakeSimulatorChart('fpsChart1', statTracker.layers[0]);
+	// fpsChart2 = MakeSimulatorChart('fpsChart2', statTracker.layers[1]);
+	// fpsChart3 = MakeSimulatorChart('fpsChart3', statTracker.layers[2]);
+	// fpsChart4 = MakeSimulatorChart('fpsChart4', statTracker.layers[2]);
+	// fpsChart1.update();
+	// fpsChart2.update();
+	// fpsChart3.update();
+	// fpsChart4.update();
 	
 	// set up two drawing context on the screen
 	let elem = document.getElementById('draw-shapes');
@@ -811,10 +812,10 @@ function RefreshBoidDetailsDynamicObjects(obj) {
 				</div>
 				<!-- <progress :value="simtime_pct" max="1" style="width:100%"></progress> -->
 			</p>
-			<canvas id="fpsChart1" style="width: 100%; margin-top: 0.5em;"></canvas> 
+			<!-- <canvas id="fpsChart1" style="width: 100%; margin-top: 0.5em;"></canvas> 
 			<canvas id="fpsChart2" style="width: 100%; margin-top: 0.5em;"></canvas> 
 			<canvas id="fpsChart3" style="width: 100%; margin-top: 0.5em;"></canvas> 
-			<canvas id="fpsChart4" style="width: 100%; margin-top: 0.5em;"></canvas> 
+			<canvas id="fpsChart4" style="width: 100%; margin-top: 0.5em;"></canvas>  -->
 		</section>
 <!--
 		<section v-show="show_camera_controls">
