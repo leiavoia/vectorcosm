@@ -11,6 +11,7 @@ import CameraControls from './components/CameraControls.vue'
 import BoidLibraryControls from './components/BoidLibraryControls.vue'
 import TankStats from './components/TankStats.vue'
 import GameLoop from './classes/class.GameLoop.js'
+import VectorcosmAPI from './classes/class.VectorcosmAPI.js'
 import {StatTracker, CompoundStatTracker} from './util/class.StatTracker.js'
 import { onMounted, ref, reactive, markRaw, shallowRef, shallowReactive } from 'vue'
 
@@ -530,10 +531,15 @@ onMounted(() => {
 			type: 'module',
 		}
 	);
-	worker.onmessage = (event) => {
+	
+	// use the API to send and receive messages to Vectorcosm
+	const api = new VectorcosmAPI( worker );
+	
+	// for each type of message we want to send, set up a callback to handle the response
+	api.RegisterResponseCallback( 'update', data => {
 		// keep track of what there is so we can remove what there aint
 		const found = new WeakSet();
-		for ( let o of event?.data.renderObjects ) {
+		for ( let o of data.renderObjects ) {
 			// new objects
 			if ( !renderObjects.has(o.oid) ) {
 				// create the geometry: right facing triangle 24x12
@@ -616,15 +622,19 @@ onMounted(() => {
 		}
 		// stat tracking every 60 frames
 		if ( gameloop.frame % 60 == 0 ) {
-			tankStatTracker.Insert({
-				boids: event.data.boids,
-				foods: event.data.foods,
-				bfratio: ( event.data.boids ? (event.data.foods / event.data.boids) : 0  )
-			});
+			api.SendMessage('getTankStats');
 		}
 		gameloop.EndSimFrame();
 		// two.update();
-	};
+	});
+	
+	api.RegisterResponseCallback( 'getTankStats', data => {
+		tankStatTracker.Insert({
+			boids: data.boids,
+			foods: data.foods,
+			bfratio: ( data.boids ? (data.foods / data.boids) : 0  )
+		});	
+	} );
 	
 	UpdateIdleTime(); // start the clock
 	

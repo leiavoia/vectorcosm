@@ -16,70 +16,81 @@ import Vectorcosm from '../classes/class.Vectorcosm.js'
 // import PubSub from 'pubsub-js'
 // import BoidLibrary from './classes/class.BoidLibrary.js'
 
+const function_registry = new Map();
 
+// broker incoming messages to the right handling function
 self.addEventListener('message', (event) => {
+	const eventData = event.data;
+	const functionName = eventData?.functionName ?? eventData?.f;
+	const f = function_registry.get(functionName);
+	if ( f ) { f(eventData); }
+});
 
-	const eventData = event.data; // JSON.parse(event.data);
-	if ( eventData?.f=='update' ) {
-		let delta = eventData.delta || 1/30;
-		let num_frames = eventData?.num_frames || 1;
-		for ( let i=0; i < num_frames; i++ ) {
-			globalThis.vc.update(delta);
-		}
-		let renderObjects = globalThis.vc.tank.boids.map( b => ({
-			oid: b.oid,
-			type:'boid',
-			x: b.x,
-			y: b.y,
-			a: b.angle,
-			s: b.scale
-		}));
-		renderObjects.push( ... globalThis.vc.tank.plants.map( o => ({
-			oid: o.oid,
-			type:'plant',
-			x: o.x,
-			y: o.y,
-			a: Math.PI*0.25,
-			s: 1
-		}) ));
-		renderObjects.push( ... globalThis.vc.tank.foods.map( o => ({
-			oid: o.oid,
-			type:'food',
-			x: o.x,
-			y: o.y,
-			a: 0,
-			s: 1
-		}) ));
-		renderObjects.push( ... globalThis.vc.tank.marks.map( o => ({
-			oid: o.oid,
-			type:'mark',
-			x: o.x,
-			y: o.y,
-			a: 0,
-			s: 1
-		}) ));
-		renderObjects.push( ... globalThis.vc.tank.obstacles.map( o => ({
-			oid: o.oid,
-			type:'obstacle',
-			x: o.x,
-			y: o.y,
-			a: 0,
-			s: 1,
-			pts: o.collision.hull
-		}) ));
-		
-		let returnMsg =  {
-			frame: globalThis.vc.simulation?.stats.framenum,
+function_registry.set( 'update', params => {
+	let delta = params.delta || 1/30;
+	let num_frames = params?.num_frames || 1;
+	for ( let i=0; i < num_frames; i++ ) {
+		globalThis.vc.update(delta);
+	}
+	let renderObjects = globalThis.vc.tank.boids.map( b => ({
+		oid: b.oid,
+		type:'boid',
+		x: b.x,
+		y: b.y,
+		a: b.angle,
+		s: b.scale
+	}));
+	renderObjects.push( ... globalThis.vc.tank.plants.map( o => ({
+		oid: o.oid,
+		type:'plant',
+		x: o.x,
+		y: o.y,
+		a: Math.PI*0.25,
+		s: 1
+	}) ));
+	renderObjects.push( ... globalThis.vc.tank.foods.map( o => ({
+		oid: o.oid,
+		type:'food',
+		x: o.x,
+		y: o.y,
+		a: 0,
+		s: 1
+	}) ));
+	renderObjects.push( ... globalThis.vc.tank.marks.map( o => ({
+		oid: o.oid,
+		type:'mark',
+		x: o.x,
+		y: o.y,
+		a: 0,
+		s: 1
+	}) ));
+	renderObjects.push( ... globalThis.vc.tank.obstacles.map( o => ({
+		oid: o.oid,
+		type:'obstacle',
+		x: o.x,
+		y: o.y,
+		a: 0,
+		s: 1,
+		pts: o.collision.hull
+	}) ));
+	
+	globalThis.postMessage( {
+		functionName: 'update',
+		data: { renderObjects }
+	} );
+});
+
+function_registry.set( 'getTankStats', params => {
+	globalThis.postMessage( {
+		functionName: 'getTankStats',
+		data: {
 			boids: globalThis.vc.tank.boids.length,
 			obstacles: globalThis.vc.tank.obstacles.length,
 			plants: globalThis.vc.tank.plants.length,
 			foods: globalThis.vc.tank.foods.length,
 			marks: globalThis.vc.tank.marks.length,
-			renderObjects
-		};
-		globalThis.postMessage( returnMsg );
-	}
-	
+		}
+	} );
 });
 
 // set up the main simulation
