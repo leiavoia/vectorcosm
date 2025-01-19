@@ -10,6 +10,7 @@ import TrainingProgramControls from './components/TrainingProgramControls.vue'
 import CameraControls from './components/CameraControls.vue'
 import BoidLibraryControls from './components/BoidLibraryControls.vue'
 import TankStats from './components/TankStats.vue'
+import GameLoop from './classes/class.GameLoop.js'
 import {StatTracker, CompoundStatTracker} from './util/class.StatTracker.js'
 import { onMounted, ref, reactive, markRaw, shallowRef, shallowReactive } from 'vue'
 
@@ -479,114 +480,44 @@ window.addEventListener("resize", function (event) {
 
 let worker = null;
 
+// set up game loop and lifecycle hooks
+let gameloop = new GameLoop();
 
-class GameLoop {
-	constructor() {
-		this.updates_per_frame = 1;
-		this.throttle = 1.0;
-		this.start_ts = 0;
-		this.last_ts = 0;
-		this.delta = 0;
-		this.playing = false;
-		this.drawing_finished = false;
-		this.sim_finished = false;
-		this.frame = 0;
-		this.total_time = 0;
-		this.fps = 0;
-		this.fps_recs = [];
-		this.max_fps_recs = 20;
-		this.fps_avg = 0;
-		this.max_delta = 1/30;
-		this.drawtime_ts = 0;
-		this.drawtime = 0;
-		this.simtime_ts = 0;
-		this.simtime = 0;
-		this.waittime = 0;
-	}
-	Start() {
-		// get stats based on previous frame.
-		// Note: we have to incorporate time eaten up by requestAnimationFrame,
-		// so we cannot record stats in the End() function. 
-		this.last_ts = this.start_ts;
-		this.start_ts = performance.now();
-		this.delta = ( this.start_ts - this.last_ts ) / 1000; // TODO: watch out for time jumps from pausing
-		this.total_time += this.delta;
-		this.fps = 1 / this.delta;
-		this.fps_recs.push(this.fps);
-		if ( this.fps_recs.length > this.max_fps_recs ) {
-			this.fps_recs.shift();
-		}
-		this.fps_avg = this.fps_recs.reduce( (a,b) => a+b, 0 ) / this.fps_recs.length;
-		this.waittime = Math.max( 0, this.delta - ( this.drawtime + this.simtime ) );
-		// push stats to the UI
-		total_time.value = this.total_time.toFixed(1);
-		fps.value = this.fps_avg.toFixed(1);
-		delta.value = (this.delta * 1000).toFixed(0);
-		frame_num.value = this.frame;
-		drawtime.value = (this.drawtime * 1000).toFixed(0);
-		simtime.value = (this.simtime * 1000).toFixed(0);
-		waittime.value = (this.waittime * 1000).toFixed(0);
-		let total = ( this.simtime + this.drawtime + this.waittime ) || 1;
-		// Note: drawing and simulation happen at the same time, so this is not an accurate
-		// representation of what's going on, but good enough for rock and roll.
-		simtime_pct.value = ( simtime_pct.value * 7 + (this.simtime / total) ) / 8;
-		drawtime_pct.value = ( drawtime_pct.value * 7 + (this.drawtime / total) ) / 8;
-		waittime_pct.value = ( waittime_pct.value * 7 + (this.waittime / total) ) / 8;
-		statTracker.Insert(this.simtime);
-		const layers = statTracker.LastOfEachLayer();
-		fps1.value = layers[0].toFixed(1);
-		fps2.value = layers[1].toFixed(1);
-		fps3.value = layers[2].toFixed(1);
-		fps4.value = layers[3].toFixed(1);
-		// get the next frame going
-		this.playing = true;
-		this.drawing_finished = false;
-		this.sim_finished = false;
-		this.StartSimFrame(this.delta);
-		this.StartDrawing();
-	}
-	End() {
-		if ( !this.drawing_finished || !this.sim_finished ) { return false; }
-		this.frame++;
-		// kick off the next frame
-		if ( this.playing ) {
-			if ( typeof globalThis.requestAnimationFrame === 'function' ) {
-				globalThis.requestAnimationFrame( _ => this.Start() );
-			}
-			else {
-				setTimeout( _ => this.Start(), 0 );
-			}
-		}
-	}
-	StartSimFrame(delta) {
-		if ( delta > this.max_delta ) { delta = this.max_delta; }
-		if ( this.throttle != 1 ) { delta *= this.throttle; }
-		const data = {
-			f:'update',
-			num_frames: this.updates_per_frame, // variable turbo
-			delta: ( this.updates_per_frame > 1 ? this.max_delta : delta )
-		};
-		this.simtime_ts = performance.now();
-		worker.postMessage( data );
-	}
-	EndSimFrame() {
-		this.simtime = ( performance.now() - this.simtime_ts ) / 1000;
-		this.sim_finished = true;
-		this.End();
-	}
-	StartDrawing() {
-		this.drawtime_ts = performance.now();
-		two.update();
-		this.EndDrawing();
-	}
-	EndDrawing() {
-		this.drawtime = ( performance.now() - this.drawtime_ts ) / 1000;
-		this.drawing_finished = true;
-		this.End();
-	}
+gameloop.onStartFrame = () => {
+	// push stats to the UI
+	total_time.value = gameloop.total_time.toFixed(1);
+	fps.value = gameloop.fps_avg.toFixed(1);
+	delta.value = (gameloop.delta * 1000).toFixed(0);
+	frame_num.value = gameloop.frame;
+	drawtime.value = (gameloop.drawtime * 1000).toFixed(0);
+	simtime.value = (gameloop.simtime * 1000).toFixed(0);
+	waittime.value = (gameloop.waittime * 1000).toFixed(0);
+	let total = ( gameloop.simtime + gameloop.drawtime + gameloop.waittime ) || 1;
+	// Note: drawing and simulation happen at the same time, so gameloop is not an accurate
+	// representation of what's going on, but good enough for rock and roll.
+	simtime_pct.value = ( simtime_pct.value * 7 + (gameloop.simtime / total) ) / 8;
+	drawtime_pct.value = ( drawtime_pct.value * 7 + (gameloop.drawtime / total) ) / 8;
+	waittime_pct.value = ( waittime_pct.value * 7 + (gameloop.waittime / total) ) / 8;
+	statTracker.Insert(gameloop.simtime);
+	const layers = statTracker.LastOfEachLayer();
+	fps1.value = layers[0].toFixed(1);
+	fps2.value = layers[1].toFixed(1);
+	fps3.value = layers[2].toFixed(1);
+	fps4.value = layers[3].toFixed(1);	
 }
 
-let gameloop = new GameLoop();
+gameloop.onStartSim = delta => {
+	const data = {
+		f:'update',
+		num_frames: gameloop.updates_per_frame, // variable turbo
+		delta: ( gameloop.updates_per_frame > 1 ? gameloop.max_delta : delta )
+	};
+	worker.postMessage( data );
+}
+
+gameloop.onStartDrawing = () => {
+	two.update();
+}
 
 
 onMounted(() => {
