@@ -1,5 +1,5 @@
 {
-  "name": "test4",
+  "name": "vectorcosm",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -8,7 +8,9 @@
     "build": "vite build",
     "preview": "vite preview"
   },
-  "dependencies": {
+  "devDependencies": {
+    "@picocss/pico": "^2.0.6",
+    "@sveltejs/vite-plugin-svelte": "^5.0.3",
     "@tweenjs/tween.js": "^21.0.0",
     "chart.js": "^4.3.0",
     "collisions": "^2.0.13",
@@ -17,11 +19,8 @@
     "file-saver": "^2.0.5",
     "neataptic": "^1.3.9",
     "pubsub-js": "^1.9.4",
+    "svelte": "^5.15.0",
     "two.js": "^0.8.10",
-    "vue": "^3.2.47"
-  },
-  "devDependencies": {
-    "@vitejs/plugin-vue": "^4.1.0",
-    "vite": "^4.3.9"
+    "vite": "^6.0.5"
   }
 }
