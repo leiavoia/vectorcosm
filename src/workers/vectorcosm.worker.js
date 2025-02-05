@@ -26,20 +26,43 @@ self.addEventListener('message', (event) => {
 	if ( f ) { f(eventData); }
 });
 
+// this keeps track of which objects that already sent basic rendering info.
+// we don't need to send all of that every frame, just on the first one.
+function AutoIncludeGeoData(obj) {
+	if ( obj.geodata_sent ) { return null; }
+	obj.geodata_sent = true;
+	if ( typeof(obj.GeoData)==='function' ) {
+		return obj.GeoData();
+	}
+	return null;
+}
+
 function_registry.set( 'update', params => {
+	
 	let delta = params.delta || 1/30;
 	let num_frames = params?.num_frames || 1;
 	for ( let i=0; i < num_frames; i++ ) {
 		globalThis.vc.update(delta);
 	}
-	let renderObjects = globalThis.vc.tank.boids.map( b => ({
-		oid: b.oid,
+	let renderObjects = [];
+	renderObjects.push({
+		oid: globalThis.vc.tank.oid,
+		type: 'tank',
+		x: 0,
+		y: 0,
+		a: 0,
+		s: 1,
+		geodata: AutoIncludeGeoData(globalThis.vc.tank)
+	});
+	renderObjects.push( ... globalThis.vc.tank.boids.map( o => ({
+		oid: o.oid,
 		type:'boid',
-		x: b.x,
-		y: b.y,
-		a: b.angle,
-		s: b.scale
-	}));
+		x: o.x,
+		y: o.y,
+		a: o.angle,
+		s: o.scale,
+		geodata: AutoIncludeGeoData(o)
+	}) ));
 	renderObjects.push( ... globalThis.vc.tank.plants.map( o => ({
 		oid: o.oid,
 		type:'plant',
@@ -54,7 +77,9 @@ function_registry.set( 'update', params => {
 		x: o.x,
 		y: o.y,
 		a: 0,
-		s: 1
+		s: 1,
+		r: o.r, // needed to render dynamic radius
+		geodata: AutoIncludeGeoData(o)
 	}) ));
 	renderObjects.push( ... globalThis.vc.tank.marks.map( o => ({
 		oid: o.oid,
@@ -71,6 +96,7 @@ function_registry.set( 'update', params => {
 		y: o.y,
 		a: 0,
 		s: 1,
+		geodata: AutoIncludeGeoData(o),
 		pts: o.collision.hull
 	}) ));
 	

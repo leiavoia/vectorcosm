@@ -60,7 +60,7 @@ export default class Tank {
 		this.plants = [];
 		this.marks = [];
 		this.whirls = []; // defined later for generating currents
-		this.bg_opacity = 'random'; // 'random', zero, or 0..1
+		this.bg_opacity = -1; // -1 == 'random', zero, or 0..1
 		this.bg_visible = globalThis.vc.render_style == 'Natural'; 		
 		this.bg_theme = 'random';
 		// first param can be JSON to rehydrate entire object from save
@@ -264,21 +264,21 @@ export default class Tank {
 	}
 	
 	SetBGTheme( name, save=true ) {
-		// // if no arguments, set to self or default
-		// if ( !name ) {
-		// 	name = this.bg_theme || 'Deepwater';
-		// }
-		// let bg_theme;
-		// if ( name == 'random' ) { 
-		// 	bg_theme = Tank.backdrop_themes.filter( x => !x.omitFromRandom ).pickRandom();
-		// }
-		// else if ( name ) {
-		// 	bg_theme = Tank.backdrop_themes.find( x => x.name == name );
-		// }
-		// if ( !bg_theme ) {
-		// 	bg_theme = Tank.backdrop_themes.filter( x => !x.omitFromRandom ).pickRandom();
-		// }
-		// if ( save ) { this.bg_theme = bg_theme.name; }
+		// if no arguments, set to self or default
+		if ( !name ) {
+			name = this.bg_theme || 'Deepwater';
+		}
+		let bg_theme;
+		if ( name == 'random' ) { 
+			bg_theme = Tank.backdrop_themes.filter( x => !x.omitFromRandom ).pickRandom();
+		}
+		else if ( name ) {
+			bg_theme = Tank.backdrop_themes.find( x => x.name == name );
+		}
+		if ( !bg_theme ) {
+			bg_theme = Tank.backdrop_themes.filter( x => !x.omitFromRandom ).pickRandom();
+		}
+		if ( save ) { this.bg_theme = bg_theme.name; }
 		// // update BODY class		
 		// let classes = document.body.getAttribute("class")
 		// 	.replace(/\s*bg-theme-.+\b/, '') + ' ' + bg_theme.class;
@@ -465,6 +465,10 @@ export default class Tank {
 				]); 
 			}
 		}
+		if ( this.bg_opacity < 0 ) {	
+			this.bg_opacity = 0.15 + Math.random() * 0.7;
+		}
+				
 		// geometry for two.js
 		// for ( let t of this.background_triangles ) {
 		// 	let p = globalThis.two.makePath( ...t.slice(null, -1) );
@@ -486,6 +490,16 @@ export default class Tank {
 		// // globalThis.vc.AddShapeToRenderLayer(this.bg, -2);
 		// globalThis.vc.AddShapeToRenderLayer(this.bg, 'backdrop');
 		// this.ScaleBackground();
+	}
+	
+	GeoData() {
+		return {
+			triangles: this.background_triangles,
+			bg_theme_class: Tank.backdrop_themes.find( x => x.name == this.bg_theme ).class,
+			width: this.width,
+			height: this.height,
+			bg_opacity: this.bg_opacity
+		};
 	}
 	
 	ScaleBackground() {

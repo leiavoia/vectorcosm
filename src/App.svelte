@@ -42,7 +42,11 @@
 		// see about addressing the component directly
 		if ( globalThis.two ) { globalThis.two.update(); }
 	}
-
+	
+	function handleDrawingContextMounted() {
+		console.log('we in da house!');
+	}
+	
 	// set up the main vectorcosm worker thread
 	worker = new Worker(
 		new URL('./workers/vectorcosm.worker.js', import.meta.url),
@@ -72,31 +76,78 @@
 					// create the geometry: right facing triangle 24x12
 					let geo = null;
 					if ( o.type=='boid' ) {
-						geo = globalThis.two.makePath([
-							new Two.Anchor( -12, -6 ),
-							new Two.Anchor( 12, 0 ),
-							new Two.Anchor( -12, 6 ),
-						]);
-						geo.fill = '#33FFFF';
-						geo.stroke = 'transparent';
-						geo.linewidth = 0;
+						if ( o.geodata ) { 
+							let anchors = o.geodata.points.map( p => new Two.Anchor( p[0], p[1] ) );
+							geo = globalThis.two.makePath(anchors);
+							Object.assign( geo, o.geodata ); 
+						}						
+						else {
+							geo = globalThis.two.makePath([
+								new Two.Anchor( -12, -6 ),
+								new Two.Anchor( 12, 0 ),
+								new Two.Anchor( -12, 6 ),
+							]);
+							geo.fill = '#33FFFF';
+							geo.stroke = 'transparent';
+							geo.linewidth = 0;
+						}
 					}
 					else if ( o.type=='obstacle' ) {
 						// Note: Two.js positions things in the middle of the bounding box.
 						// In order to dodge this bit of weirdness, you need to create a group
 						// and stuff rock contents inside the group. This helps for triangle representation anyway.
 						geo = globalThis.two.makeGroup();
-						let path = globalThis.two.makePath( o.pts.map( p => new Two.Anchor(p[0],p[1]) ) );
-						path.fill = '#999';
-						path.stroke = 'transparent';
-						path.linewidth = 0;
-						geo.add(path);
+						if ( o.geodata ) {
+							for ( let t of o.geodata.triangles ) {
+								let p = globalThis.two.makePath( ...t.slice(null, -1) );
+								p.linewidth = 1;
+								p.fill = t[6];
+								p.stroke = t[6];
+								geo.add(p);
+							}
+						}
+						else {
+							let path = globalThis.two.makePath( o.pts.map( p => new Two.Anchor(p[0],p[1]) ) );
+							path.fill = '#999';
+							path.stroke = 'transparent';
+							path.linewidth = 0;
+							geo.add(path);
+						}
+					}
+					else if ( o.type=='tank' ) {
+						geo = globalThis.two.makeGroup();
+						if ( o.geodata ) {
+							// background triangles get their own layer so we can scale it independly
+							let triangle_group = globalThis.two.makeGroup();
+							triangle_group.opacity = o.geodata.bg_opacity || 1;
+							geo.add(triangle_group);
+							for ( let t of o.geodata.triangles ) {
+								let p = globalThis.two.makePath( ...t.slice(null, -1) );
+								p.linewidth = 1;
+								p.fill = t[6];
+								p.stroke = t[6];
+								triangle_group.add(p);
+							}
+							// tank frame is a fixed size
+							let tankframe = globalThis.two.makeRectangle(o.geodata.width/2, o.geodata.height/2, o.geodata.width, o.geodata.height );
+							tankframe.stroke = "#888888";
+							tankframe.linewidth = '2';
+							tankframe.fill = 'transparent';	
+							geo.add(tankframe);
+							// the theme is actually an HTML element classname
+							if ( o.geodata.bg_theme_class ) {
+								vc_canvas.SetTheme(o.geodata.bg_theme_class);
+							}
+						}
 					}
 					else if ( o.type=='food' ) {
-						geo = globalThis.two.makeCircle( 0, 0, 6 );
+						geo = globalThis.two.makeCircle( 0, 0, o?.r || 6 );
 						geo.fill = 'pink';
 						geo.stroke = 'transparent';
 						geo.linewidth = 0;
+						if ( o.geodata ) { 
+							Object.assign( geo, o.geodata ); 
+						}
 					}
 					else if ( o.type=='plant' ) {
 						geo = globalThis.two.makeRectangle( 0, 0, 100, 100 );
@@ -165,7 +216,8 @@
 	// render first frame to get started?
 	// globalThis.two.update();
 	
-	gameloop.Start();
+	// gameloop starts when drawing context is fully mounted (see component)
+	
 
 
 
@@ -207,7 +259,7 @@
 
 <div id="pagewrapper" data-theme="dark" style="display:relative; display:flex; flex-flow: column wrap; ">
 	
-	<VectorcosmDrawingContext bind:this={vc_canvas}></VectorcosmDrawingContext>
+	<VectorcosmDrawingContext bind:this={vc_canvas} on:drawingReady={_=>gameloop.Start()}></VectorcosmDrawingContext>
 	
 	<main>
 		<div class="nav">

@@ -28,15 +28,6 @@ BODY {
 	overflow: auto;
 }
 
-/* deepwater theme */
-.bg-theme-deepwater {
-	background-image: linear-gradient(to top, #000 0%, #000 50%, #048 80%, #06a 100%);
-}
-/* body.bg-theme-deepwater {
-	background-image: url(bg.png);
-	background-size: cover;
-	background-attachment: fixed;
-} */
 
 /* latin-ext */
 @font-face {

@@ -1862,4 +1862,14 @@ export class Boid {
 		// }
 	}
 	
+	GeoData() {
+		return {
+			fill: this.body.fill,
+			linewidth: this.body.linewidth,
+			curved: this.body.curved,
+			stroke: this.body.stroke,
+			dashes: this.body.dashes,
+			points: this.body.points
+		};
+	}
 };

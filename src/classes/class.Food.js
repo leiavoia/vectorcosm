@@ -84,7 +84,7 @@ export default class Food {
 		}
 		components.sort( (a,b) => a.pct - b.pct );
 		
-		// this.UpdateGeometry();
+		this.UpdateGeometry();
 		
 		// sensory data comes from nutrient composition unless overridden by creator
 		if ( !params || !params?.sense ) {
@@ -265,9 +265,62 @@ export default class Food {
 	IsEdibleBy( boid ) {
 		if ( this.edibility >= 1 ) { return true; } // legacy hack for simulations
 		return (1 << (this.complexity-1)) & boid.traits.food_mask;
-	}		
+	}	
+	GeoData() {
+
+		let geodata = {};
+		
+		// rendering
+		let points = this.complexity+2;
+		if ( this.complexity==5 ) { points=8 } // unicode doesnt have heptagons ;-( 
+		else if ( this.complexity==6 ) { points=12; } // getting hard to discern at this point 
+			
+		// colors hardcoded mostly for aesthetics. you could change them.
+		let colors = [
+			'#C42452',
+			'#EB9223',
+			'#EBE313',
+			'#5DD94D',
+			'#2CAED4',
+			'#1F4BE3',
+			'#991FE3',
+			'#FF70E5',
+			'#FFFFFF',
+			'#666666',
+		];
+		
+		// sort nutrients by contribution
+		let components = [];
+		for ( let i=0; i < this.nutrients.length; i++ ) {
+			if ( this.nutrients[i] ) {
+				components.push({
+					color: colors[i],
+					pct: this.nutrients[i],
+				});
+			}
+		}
+		components.sort( (a,b) => a.pct - b.pct );
+		
+		// only show the two primary ingredients to keep it simple
+		const maincolor =  components[components.length-1].color;
+		const secondcolor = components.length > 1 ? components[components.length-2].color : maincolor;
+		let rgb = utils.HexColorToRGBArray(maincolor);
+		let hsl = utils.rgb2hsl( rgb[0]/255, rgb[1]/255, rgb[2]/255 );
+		geodata.fill = `hsl(${hsl[0]*255},${hsl[1]*100}%,${hsl[2]*80}%)`;
+		geodata.stroke = secondcolor;
+		// make dash pattern create a number of "pips" to represent food complexity.
+		// this is aesthetically better than using polygons to represent complexity.
+		let circ = this.r * 2 * Math.PI;
+		let segment = circ / ( points * 2 );
+		geodata.linewidth = this.r/2;
+		geodata.dashes = [segment,segment];
+		geodata.rotation = Math.random() * Math.PI; // aesthetic rotation
+			
+		return geodata;
+	}	
 	UpdateGeometry() {
 
+		
 		// if ( this.geo ) { this.geo.remove(); }
 
 		// // rendering

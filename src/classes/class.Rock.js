@@ -202,6 +202,11 @@ export default class Rock {
 		if ( as_JSON ) { output = JSON.stringify(output); }
 		return output;
 	}
+	GeoData() {
+		return {
+			triangles: this.triangles
+		}
+	}
 	// for use with switching visual styles	
 	UpdateGeometry() {
 		// // out with the old

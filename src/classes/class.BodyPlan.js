@@ -36,11 +36,11 @@ export default class BodyPlan {
 		
 		// colors
 		const colors = [
-			'#' + Math.trunc( dna.shapedNumber( dna.genesFor(`color ${1}`,3,2), 0, 0xFFFFFF) ).toString(16).padStart(6,0), // line
-			'#' + Math.trunc( dna.shapedNumber( dna.genesFor(`color ${2}`,3,2), 0, 0xFFFFFF) ).toString(16).padStart(6,0), // fill
-			'#' + Math.trunc( dna.shapedNumber( dna.genesFor(`color ${3}`,3,1), 0, 0xFFFFFF) ).toString(16).padStart(6,0), // TBD
-			'#' + Math.trunc( dna.shapedNumber( dna.genesFor(`color ${4}`,3,1), 0, 0xFFFFFF) ).toString(16).padStart(6,0), // TBD
-			'#' + Math.trunc( dna.shapedNumber( dna.genesFor(`color ${5}`,3,1), 0, 0xFFFFFF) ).toString(16).padStart(6,0), // TBD
+			'#' + Math.trunc( dna.shapedNumber( dna.genesFor(`color ${1}`,3,2), 0, 0xFFFFFF) ).toString(16).padStart(6,'0'), // line
+			'#' + Math.trunc( dna.shapedNumber( dna.genesFor(`color ${2}`,3,2), 0, 0xFFFFFF) ).toString(16).padStart(6,'0'), // fill
+			'#' + Math.trunc( dna.shapedNumber( dna.genesFor(`color ${3}`,3,1), 0, 0xFFFFFF) ).toString(16).padStart(6,'0'), // TBD
+			'#' + Math.trunc( dna.shapedNumber( dna.genesFor(`color ${4}`,3,1), 0, 0xFFFFFF) ).toString(16).padStart(6,'0'), // TBD
+			'#' + Math.trunc( dna.shapedNumber( dna.genesFor(`color ${5}`,3,1), 0, 0xFFFFFF) ).toString(16).padStart(6,'0'), // TBD
 		];
 
 		// chance for transparency

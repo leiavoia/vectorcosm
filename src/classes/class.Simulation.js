@@ -36,7 +36,7 @@ export function SimulationFactory( tank, name_or_settings ) {
 export default class Simulation {
 
 	constructor( tank, settings ) {
-		this.tank = tank || new Tank( this.tank.width, this.tank.height );
+		this.tank = tank || new Tank( tank.width, tank.height );
 		this.settings = {
 			max_mutation: 0.1, // 0..1
 			cullpct: 0.6, // 0..1
