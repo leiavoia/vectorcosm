@@ -119,8 +119,19 @@ function_registry.set( 'getTankStats', params => {
 	} );
 });
 
+function_registry.set( 'init', params => {
+	globalThis.vc.Init(params.data);
+	globalThis.postMessage( {
+		functionName: 'init',
+		data: {
+			width: globalThis.vc.tank.width,
+			height: globalThis.vc.tank.height,
+		}
+	} );
+});
+
 // set up the main simulation
 let vc = new Vectorcosm;
 globalThis.vc = vc; // handy reference for everyone else
 // globalThis.vc.onSimulationChange = new_sim => { sim.value = new_sim; }
-vc.Init();
+

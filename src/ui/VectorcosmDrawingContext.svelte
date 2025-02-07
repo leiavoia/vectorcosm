@@ -202,7 +202,7 @@
 		background-image: radial-gradient( ellipse 100% 100% at 100% 0%, #2c5364, #203a43, #0f2027); 
 	}
 	
-	/* thermal vent */
+	/* blue eye */
 	#vectorcosm_drawing_container.bg-theme-blue-eye {
 		background: #254975 radial-gradient(at center, #254975, #0D0320);
 	}

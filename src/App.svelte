@@ -8,6 +8,7 @@
 	import VectorcosmDrawingContext from './ui/VectorcosmDrawingContext.svelte';
 	import GameLoop from './classes/class.GameLoop.js'
 	import VectorcosmAPI from './classes/class.VectorcosmAPI.js'
+	import Camera from './classes/class.Camera.js'
 	import Two from "two.js";
 		
 	let vc_canvas;
@@ -15,6 +16,8 @@
 	
 	let panel_mode = null;
 	
+	let renderLayers = {};
+			
 	function setPanelMode( mode ) {
 		panel_mode = panel_mode == mode ? null : mode;
 	}
@@ -24,6 +27,9 @@
 
 	// set up game loop and lifecycle hooks
 	let gameloop = new GameLoop();
+
+	// camera needs tank and window data before it can be set up
+	let camera = null;
 
 	gameloop.onStartFrame = () => {
 		// update all your stats here
@@ -41,10 +47,6 @@
 	gameloop.onStartDrawing = () => {
 		// see about addressing the component directly
 		if ( globalThis.two ) { globalThis.two.update(); }
-	}
-	
-	function handleDrawingContextMounted() {
-		console.log('we in da house!');
 	}
 	
 	// set up the main vectorcosm worker thread
@@ -73,7 +75,6 @@
 			for ( let o of data.renderObjects ) {
 				// new objects
 				if ( !renderObjects.has(o.oid) ) {
-					// create the geometry: right facing triangle 24x12
 					let geo = null;
 					if ( o.type=='boid' ) {
 						if ( o.geodata ) { 
@@ -115,29 +116,36 @@
 						}
 					}
 					else if ( o.type=='tank' ) {
-						geo = globalThis.two.makeGroup();
 						if ( o.geodata ) {
-							// background triangles get their own layer so we can scale it independly
-							let triangle_group = globalThis.two.makeGroup();
-							triangle_group.opacity = o.geodata.bg_opacity || 1;
-							geo.add(triangle_group);
+							// the theme is an HTML element classname and not part of the drawing context
+							if ( o.geodata.bg_theme_class ) {
+								vc_canvas.SetTheme(o.geodata.bg_theme_class);
+							}
+							// background triangles get their own layer so we can scale it independently
+							renderLayers['bg'].opacity = o.geodata.bg_opacity || 1;
 							for ( let t of o.geodata.triangles ) {
 								let p = globalThis.two.makePath( ...t.slice(null, -1) );
 								p.linewidth = 1;
 								p.fill = t[6];
 								p.stroke = t[6];
-								triangle_group.add(p);
+								renderLayers['bg'].add(p);
 							}
+							// for fixed backgrounds, add the background into the fg layer
+							renderLayers['fg'].add(renderLayers['bg']);
 							// tank frame is a fixed size
 							let tankframe = globalThis.two.makeRectangle(o.geodata.width/2, o.geodata.height/2, o.geodata.width, o.geodata.height );
 							tankframe.stroke = "#888888";
 							tankframe.linewidth = '2';
 							tankframe.fill = 'transparent';	
-							geo.add(tankframe);
-							// the theme is actually an HTML element classname
-							if ( o.geodata.bg_theme_class ) {
-								vc_canvas.SetTheme(o.geodata.bg_theme_class);
-							}
+							renderLayers['fg'].add(tankframe);
+							// set up a camera
+							camera = new Camera( renderLayers['fg'], renderLayers['bg'] );
+							camera.window_width = two.width;
+							camera.window_height = two.height;
+							camera.tank_width = o.geodata.width;
+							camera.tank_height = o.geodata.height;
+							// camera.PointCameraAt(0,0,0.25);
+							camera.ResetCameraZoom();
 						}
 					}
 					else if ( o.type=='food' ) {
@@ -167,13 +175,16 @@
 						geo.stroke = 'transparent';
 						geo.linewidth = 0;
 					}
-					if ( o.x ) { geo.position.x = o.x; }
-					if ( o.y ) { geo.position.y = o.y; }
-					if ( o.a ) { geo.rotation = o.a; }
-					if ( o.s ) { geo.scale = o.s; }
-					o.geo = geo;
+					if ( geo ) {
+						if ( 'x' in o ) { geo.position.x = o.x; }
+						if ( 'y' in o ) { geo.position.y = o.y; }
+						if ( 'a' in o ) { geo.rotation = o.a; }
+						if ( 's' in o ) { geo.scale = o.s; }
+						if ( 'opacity' in o ) { geo.opacity = o.opacity; }
+						o.geo = geo;
+						renderLayers['fg'].add(geo);
+					}
 					// geo.opacity = o.o;
-					// renderLayers['0'].add(geo);
 					renderObjects.set(o.oid, o);
 					found.add(o);
 				}
@@ -183,18 +194,20 @@
 					for ( let k in o ) {
 						obj[k] = o[k];
 					}
-					if ( o.x ) { obj.geo.position.x = o.x; }
-					if ( o.y ) { obj.geo.position.y = o.y; }
-					if ( o.a ) { obj.geo.rotation = o.a; }
-					if ( o.s ) { obj.geo.scale = o.s; }
-					// obj.geo.opacity = o.o;
+					if ( 'geo' in obj ) { 
+						if ( 'x' in o ) { obj.geo.position.x = o.x; }
+						if ( 'y' in o ) { obj.geo.position.y = o.y; }
+						if ( 'a' in o ) { obj.geo.rotation = o.a; }
+						if ( 's' in o ) { obj.geo.scale = o.s; }
+						if ( 'opacity' in o ) { obj.geo.opacity = o.opacity; }
+					}
 					found.add(obj);
 				}
 			}
 			// remove all objects not found
 			for ( let [oid,obj] of renderObjects ) {
 				if ( !found.has(obj) ) {
-					obj.geo.remove();
+					if ( 'geo' in obj ) { obj.geo.remove(); }
 					renderObjects.delete(oid);
 				}
 			}
@@ -213,12 +226,34 @@
 		}
 	} );
 	
-	// render first frame to get started?
-	// globalThis.two.update();
-	
 	// gameloop starts when drawing context is fully mounted (see component)
+	function onDrawingReady() {
+		// initialize the sim
+		const params = {
+			width:globalThis.two.width * 3,
+			height:globalThis.two.height * 3
+		};
+		api.SendMessage('init',params);
+		gameloop.Start();
+		// create rendering layers before drawing objects start to arrive from simulation
+		renderLayers['bg'] = globalThis.two.makeGroup(); // parallax backdrop needs to stay separate from tank
+		renderLayers['fg'] = globalThis.two.makeGroup(); // parallax backdrop needs to stay separate from tank
+		// this.renderLayers['backdrop'] = this.two.makeGroup(); // parallax backdrop needs to stay separate from tank
+		// this.foreground_layer = this.two.makeGroup(); // meta group. UI and tank layers need to scale separately
+		// this.renderLayers['-2'] = this.two.makeGroup(); // tank backdrop
+		// this.renderLayers['-1'] = this.two.makeGroup(); // background objects
+		// this.renderLayers['0'] = this.two.makeGroup(); // middle for most objects / default
+		// this.renderLayers['1'] = this.two.makeGroup(); // foregrounds objects
+		// this.renderLayers['2'] = this.two.makeGroup(); // very near objects
+		// this.renderLayers['ui'] = this.two.makeGroup(); // UI layer - stays separate from the others
+		// this.foreground_layer.add(this.renderLayers['-2']);
+		// this.foreground_layer.add(this.renderLayers['-1']);
+		// this.foreground_layer.add(this.renderLayers['0']);
+		// this.foreground_layer.add(this.renderLayers['1']);
+		// this.foreground_layer.add(this.renderLayers['2']);				
+	}
 	
-
+Camera
 
 
 </script>
@@ -259,7 +294,7 @@
 
 <div id="pagewrapper" data-theme="dark" style="display:relative; display:flex; flex-flow: column wrap; ">
 	
-	<VectorcosmDrawingContext bind:this={vc_canvas} on:drawingReady={_=>gameloop.Start()}></VectorcosmDrawingContext>
+	<VectorcosmDrawingContext bind:this={vc_canvas} on:drawingReady={onDrawingReady}></VectorcosmDrawingContext>
 	
 	<main>
 		<div class="nav">

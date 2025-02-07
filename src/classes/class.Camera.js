@@ -1,0 +1,511 @@
+import * as utils from '../util/utils.js'
+import * as TWEEN from '@tweenjs/tween.js'
+
+export default class Camera {
+
+	constructor( foreground_layer, background_layer ) {
+		this.foreground_layer = foreground_layer;
+		this.background_layer = background_layer;
+		this.x = 0;
+		this.y = 0;
+		this.z = 1;
+		this.xmin = 0; // box used to determine if stuff is in view
+		this.ymin = 0;
+		this.xmax = 0;
+		this.ymax = 0;
+		this.min_zoom = 0.1;
+		this.max_zoom = 2;
+		this.window_width = 640;
+		this.window_height = 480;
+		this.tank_width = 100;
+		this.tank_height = 100;
+		this.focus_object = null;
+		this.focus_geo = null;
+		this.allow_hyperzoom = true;
+		this.scale = 1;
+		this.cinema_mode = false;
+		this.tween = null;
+		this.cinema_timeout = null;
+		this.easing = TWEEN.Easing.Sinusoidal.InOut; // SEE: https://github.com/tweenjs/tween.js/blob/main/docs/user_guide.md
+		this.transitions = false;
+		this.parallax = false;
+		this.transition_time = 10000; // ms
+		this.focus_time = 15000; // ms
+		this.show_boid_indicator_on_focus = true;
+		this.show_boid_info_on_focus = true;
+		this.show_boid_sensors_on_focus = true;
+		this.show_boid_collision_on_focus = false;
+		this.animation_min = 0.4 // zoom level beyond which we stop animating
+	}
+
+	ScreenToWorldCoord( x, y ) {
+		x = ( x - this.foreground_layer.position.x ) / this.scale;
+		y = ( y - this.foreground_layer.position.y ) / this.scale;
+		return [x,y];
+	}	
+
+	// put camera at a specific point in world space / zoom
+	// if center is true, camera will force center position when zoom is wider than tank
+	PointCameraAt( x, y, z=null, center=false ) {
+		
+		center = center || !this.allow_hyperzoom;
+		 
+		// entire tank is smaller than screen - snap to center
+		if ( center && z && z * this.tank_width < this.window_width && z * this.tank_height < this.window_height ) { 
+			const scalex = this.window_width / this.tank_width;
+			const scaley = this.window_height / this.tank_height;
+			const scale = Math.min(scalex,scaley); // min = contain, max = cover
+			x = this.tank_width * 0.5;
+			y = this.tank_height * 0.5;
+			if ( center ) { z = scale; }
+			}
+		
+		// zoom
+		if ( z && z!=this.scale ) { 
+			z = Math.min( z, this.max_zoom );
+			this.SetViewScale( z ); 
+		}
+		
+		// X pos	
+		const target_x = -( x * this.scale ) + ( 0.5 * this.window_width );
+		const max_x = -0.0001 + (this.tank_width * this.scale) - (this.window_width);
+		if ( this.scale * this.tank_width < this.window_width && center ) { this.foreground_layer.position.x = -max_x / 2; }
+		else if ( target_x > 0 && center ) { this.foreground_layer.position.x = 0; }  
+		else if ( target_x < -max_x && center ) { this.foreground_layer.position.x = -max_x; }  
+		else { this.foreground_layer.position.x = target_x; }
+		
+		// Y pos
+		const target_y = -( y * this.scale ) + ( 0.5 * this.window_height );
+		const max_y = -0.0001 + (this.tank_height * this.scale) - (this.window_height);
+		if ( this.scale * this.tank_height < this.window_height && center ) { this.foreground_layer.position.y = -max_y / 2; }
+		else if ( target_y > 0 && center ) { this.foreground_layer.position.y = 0; }  
+		else if ( target_y < -max_y && center ) { this.foreground_layer.position.y = -max_y; }
+		else { this.foreground_layer.position.y = target_y; }
+		
+		// record stats
+		[ this.x, this.y ] = this.ScreenToWorldCoord( this.window_width * 0.5, this.window_height * 0.5 );
+		[ this.xmin, this.ymin ] = this.ScreenToWorldCoord( 0, 0 );
+		[ this.xmax, this.ymax ] = this.ScreenToWorldCoord( this.window_width, this.window_height );
+		this.z = this.scale;	
+		
+		this.AdjustBackgroundForParallax();
+	}
+	
+	ResetCameraZoom() {
+		const scalex = this.window_width / this.tank_width;
+		const scaley = this.window_height / this.tank_height;
+		const scale = Math.min(scalex,scaley); // min = contain, max = cover
+		this.min_zoom = scale;
+		// this.max_zoom = 2; // Math.min(this.tank_width,this.tank_height) / 1250;
+		this.PointCameraAt( this.tank_width*0.5, this.tank_height*0.5, scale, true ); // force centering	
+	}
+	
+	SetViewScale( scale ) {
+		const prev_scale = this.foreground_layer.scale;
+		this.window_width = globalThis.two.width;
+		this.window_height = globalThis.two.height;
+		this.scale = utils.clamp( scale, 0.01, 5 );
+		this.foreground_layer.scale = this.scale;
+		// small adjustment to keep screen centered
+		const xdiff = ( this.window_width * prev_scale ) - ( this.window_width * this.scale );
+		this.foreground_layer.position.x += xdiff * 0.5;
+		const ydiff = ( this.window_height * prev_scale ) - ( this.window_height * this.scale );
+		this.foreground_layer.position.y += ydiff * 0.5;
+		// if ( this.braingraph ) {
+		// 	this.braingraph.onScreenSizeChange();
+		// }
+	}
+		
+	// for adjusting camera position in smaller increments.
+	// x and y are SCREEN pixel units
+	// z is the absolute zoom diff (not a percentage)
+	MoveCamera( x, y, z=null ) {
+		this.PointCameraAt( 
+			this.x + ( x / this.z ), 
+			this.y + ( y / this.z ), 
+			this.z + (z||0)
+		);
+	}
+		
+	// if force is FALSE, `responsive_tank_size` setting will be honored
+	ResizeTankToWindow( force=false ) {
+		// if ( this.tank ) {
+		// 	if ( this.responsive_tank_size || force ) {
+		// 		this.tank.Resize(this.window_width / this.scale, this.window_height / this.scale);
+		// 		this.foreground_layer.position.x = 0;
+		// 		this.foreground_layer.position.y = 0;
+		// 		this.min_zoom = Math.min(this.window_width / this.tank_width, this.window_height / this.tank_height);
+		// 	}
+		// 	else { 
+		// 		this.tank.ScaleBackground(); 
+		// 	}
+		// }
+	}
+			
+	SetRenderStyle( style ) {
+		// this.render_style = style;
+		// // there are a few global issues we need to sort out first
+		// if ( style != 'Natural' ) {
+		// 	if ( this.tank.bg ) { this.tank.bg.visible = false; }
+		// 	globalThis.vc.animate_boids = false;
+		// 	globalThis.vc.animate_plants = false;
+		// 	let bg_theme = 'Abysmal';
+		// 	if ( style == 'Zen' ) { bg_theme = 'White'; }
+		// 	else if ( style == 'Grey' ) { bg_theme = 'Grey'; }
+		// 	this.tank.SetBGTheme( bg_theme, false ); // don't save
+		// }
+		// else {
+		// 	if ( this.tank.bg ) { this.tank.bg.visible = true; }
+		// 	this.tank.SetBGTheme();
+		// 	globalThis.vc.animate_boids = true;
+		// 	globalThis.vc.animate_plants = true;
+		// }
+		// // we need to update all the objects currently in the world and force them to switch geometry
+		// for ( let x of this.tank.boids ) { x.body.UpdateGeometry(); }
+		// for ( let x of this.tank.obstacles ) { x.UpdateGeometry(); }
+		// for ( let x of this.tank.foods ) { x.UpdateGeometry(); }
+		// for ( let x of this.tank.plants ) { x.CreateBody(); }
+	}
+		
+	// TODO: this is all technically UI related stuff that should be moved out of the simulation code.
+	// the camera has a hard to accessing and affecting the UI, such as boid info window.
+	CinemaMode( x=true ) { 
+		// this.cinema_mode = !!x;
+		// if ( x ) {
+		// 	this.StopTrackObject();
+		// 	if ( this.tween ) {
+		// 		this.tween.stop();
+		// 		this.tween = null;
+		// 	}
+		// 	// random chance to do a few basic options
+		// 	const r = Math.random();
+		// 	// focus on a boid
+		// 	if ( r < 0.3 && this.tank.boids.length ) {
+		// 		// pick a boid and chase it down
+		// 		const b = this.tank.boids.pickRandom();
+		// 		const zoom = utils.BiasedRand( 
+		// 			this.min_zoom,
+		// 			this.max_zoom,
+		// 			this.min_zoom + (this.max_zoom - this.min_zoom) / 3, // div by three to shift towards zoomed out
+		// 			0.5 
+		// 			);
+		// 		if ( this.transitions ) {
+		// 			const to = { x: b.x, y: b.y, z: zoom };
+		// 			this.tween = new TWEEN.Tween(this)
+		// 				.to(to, this.transition_time )
+		// 				.easing(this.easing)
+		// 				.dynamic(true)
+		// 				.onUpdate( obj => {
+		// 					if ( !b || b.dead ) { 
+		// 						this.tween.stop();
+		// 						this.tween = null;
+		// 						this.cinema_timeout = setTimeout( _ => this.CinemaMode(), 2500 ); 		
+		// 					}
+		// 					else {
+		// 						to.x = b.x;
+		// 						to.y = b.y;
+		// 						this.PointCameraAt( this.x, this.y, this.z );
+		// 					}
+		// 				})
+		// 				// switch to absolute tracking after chase completed
+		// 				.onComplete( obj => {
+		// 					this.TrackObject(b);
+		// 					this.cinema_timeout = setTimeout( _ => this.CinemaMode(), this.focus_time ); 			
+		// 				})
+		// 				.start();
+		// 		}
+		// 		else {
+		// 			this.PointCameraAt( b.x, b.y, zoom );
+		// 			this.TrackObject(b);
+		// 			this.cinema_timeout = setTimeout( _ => this.CinemaMode(), this.focus_time );
+		// 		}
+		// 	}
+		// 	// focus on a point of interest
+		// 	else if ( r < 0.85 ) {
+		// 		// zoom setup
+		// 		let zoom = this.z;
+		// 		// if transitions are enabled, reduce zoom changes to preserve frame rate and viewer sanity
+		// 		let zoom_change_chance = this.transitions ? 0.2 : 0.65;
+		// 		// when changing zoom, pick from the larger perspective most of the time
+		// 		if ( Math.random() < zoom_change_chance ) {
+		// 			zoom = utils.RandomFloat( this.min_zoom, this.max_zoom );
+		// 			zoom = utils.shapeNumber( zoom, this.min_zoom, this.max_zoom, 0.25, 3 );
+		// 		}
+		// 		const roll = Math.random();
+		// 		// random point in space to fall back on if nothing is in tank
+		// 		let target_x = this.tank_width * Math.random();
+		// 		let target_y = this.tank_height * Math.random();
+		// 		// rock
+		// 		if ( this.tank.obstacles.length && roll < 0.25 ) {
+		// 			const obj = this.tank.obstacles.pickRandom();
+		// 			// pick a point on the hull, not on the interior
+		// 			const pt = obj.collision.hull.pickRandom();
+		// 			target_x = obj.x + pt[0];
+		// 			target_y = obj.y + pt[1];
+		// 		}
+		// 		// plant
+		// 		else if ( this.tank.plants.length && roll < 0.5 ) {
+		// 			const obj = this.tank.plants.pickRandom();
+		// 			// pick a point near but slightly above the base
+		// 			target_x = obj.x;
+		// 			target_y = obj.y - 200;
+		// 		}
+		// 		// boid
+		// 		else if ( this.tank.boids.length && roll < 0.90 ) {
+		// 			const obj = this.tank.boids.pickRandom();
+		// 			target_x = obj.x;
+		// 			target_y = obj.y;
+		// 		}
+		// 		// food particle
+		// 		else if ( this.tank.foods.length ) {
+		// 			const obj = this.tank.foods.pickRandom();
+		// 			target_x = obj.x;
+		// 			target_y = obj.y;
+		// 		}
+		// 		// adjust point to sit inside a margin to avoid pan/zoom jank
+		// 		// Note: margin gets too big when zoom number is too small.
+		// 		const margin_x = Math.min( this.tank_width/2, Math.max( 0, ( this.window_width / 2 )  / zoom ) ); 
+		// 		const margin_y = Math.min( this.tank_height/2, Math.max( 0, ( this.window_height / 2 ) / zoom ) );
+		// 		target_x = utils.Clamp( target_x, margin_x, this.tank_width - margin_x );
+		// 		target_y = utils.Clamp( target_y, margin_y, this.tank_height - margin_y );
+		// 		if ( this.transitions ) {
+		// 			this.tween = new TWEEN.Tween(this)
+		// 				.to({
+		// 					x: target_x, 
+		// 					y: target_y,
+		// 					z: zoom
+		// 				}, this.transition_time )
+		// 				.easing(TWEEN.Easing.Sinusoidal.InOut)
+		// 				.onUpdate( obj => {
+		// 					this.PointCameraAt( this.x, this.y, this.z );
+		// 				})
+		// 				.onComplete( obj => {
+		// 					this.cinema_timeout = setTimeout( _ => this.CinemaMode(), this.focus_time );
+		// 				})
+		// 				.start();
+		// 		}
+		// 		else {
+		// 			this.PointCameraAt( target_x, target_y, zoom );
+		// 			this.cinema_timeout = setTimeout( _ => this.CinemaMode(), this.focus_time );
+		// 		}
+		// 	}
+		// 	// whole scene
+		// 	else {
+		// 		if ( this.transitions ) {
+		// 			this.tween = new TWEEN.Tween(this)
+		// 				.to({
+		// 					x: this.tank_width/2, 
+		// 					y: this.tank_height/2,
+		// 					z: this.min_zoom
+		// 				}, this.transition_time )
+		// 				.easing(TWEEN.Easing.Sinusoidal.InOut)
+		// 				.onUpdate( obj => {
+		// 					this.PointCameraAt( this.x, this.y, this.z, true );
+		// 				})
+		// 				.onComplete( obj => {
+		// 					this.cinema_timeout = setTimeout( _ => this.CinemaMode(), this.focus_time ); 			
+		// 				})
+		// 				.start();			
+		// 		}
+		// 		else {
+		// 			this.ResetCameraZoom();
+		// 			// console.log('reset camera zoom');
+		// 			this.cinema_timeout = setTimeout( _ => this.CinemaMode(), this.focus_time );
+		// 		}
+		// 	}
+		// }
+		// else {
+		// 	if ( this.cinema_timeout ) {
+		// 		clearTimeout(this.cinema_timeout);
+		// 		this.cinema_timeout = null;
+		// 	}
+		// 	if ( this.tween ) {
+		// 		this.tween.stop();
+		// 		this.tween = null;
+		// 	}
+		// 	this.StopTrackObject();
+		// }
+	}
+	// track any object that has focus
+	// if ( this.focus_object ) { this.TrackObject(this.focus_object); }
+	
+	// tweening - mostly for camera movement
+	// TWEEN.update( /* requires absolute time. deltas dont work */ );
+		
+
+	AddShapeToRenderLayer( geo, layer='0' ) {
+		// try {
+		// 	this.renderLayers[layer].add(geo);
+		// }
+		// catch (error) {
+		// 	console.warn('no drawing layer named ' + layer);
+		// }
+	}
+	
+	DrawBrainGraph() {
+		// if ( this.show_brainmap && !this.simulation.turbo ) {
+		// 	// anything to track?
+		// 	if ( this.tank.boids.length ) {	
+		// 		let target = this.focus_object || this.tank.boids.sort( (a,b) => b.total_fitness_score - a.total_fitness_score )[0];
+		// 		this.TrackObject(target);
+		// 		this.braingraph =  this.braingraph ?? new BrainGraph(target, this.two);
+		// 		this.braingraph.setTarget(target);
+		// 		this.braingraph.Draw();
+		// 	}
+		// 	// otherwise close
+		// 	else if ( this.braingraph ) {
+		// 		this.braingraph.Kill();
+		// 		this.braingraph = null;				
+		// 	}
+		// }
+		// else if ( this.braingraph ) {
+		// 	this.braingraph.Kill();
+		// 	this.braingraph = null;				
+		// }
+	}
+			
+	TrackObject(o) {
+		// if ( !o ) { return; }
+		// if ( o.dead ) {
+		// 	if ( this.focus_object == o ) { this.StopTrackObject(); }
+		// 	return;
+		// }
+		// o.show_sensors = this.show_boid_sensors_on_focus;
+		// o.DrawBounds(this.show_boid_collision_on_focus);
+		// if ( this.focus_object && this.focus_object !== o ) { 
+		// 	delete this.focus_object.show_sensors;
+		// 	this.focus_object.DrawBounds(false);
+		// }
+		// this.focus_object = o;
+		// if ( !this.focus_geo ) {
+		// 	const focus_radius = 80
+		// 	this.focus_geo = this.two.makeCircle(this.focus_object.x, this.focus_object.y, focus_radius);
+		// 	this.focus_geo.stroke = '#AEA';
+		// 	this.focus_geo.linewidth = 3;
+		// 	this.focus_geo.fill = 'transparent';
+			
+		// 	// const grad = globalThis.two.makeRadialGradient(0, 0, focus_radius, 
+		// 	// 	new Two.Stop(0,'transparent'), 
+		// 	// 	new Two.Stop(0.8,'#AAEEAA00'), 
+		// 	// 	new Two.Stop(1,'#AAEEAAAA')
+		// 	// );
+		// 	// grad.units = 'userSpaceOnUse'; // super important
+		// 	// this.focus_geo.stroke = 'transparent';
+		// 	// this.focus_geo.linewidth = 0;
+		// 	// this.focus_geo.fill = grad;
+			
+		// 	this.focus_geo.visible = this.show_boid_indicator_on_focus;
+		// 	this.AddShapeToRenderLayer(this.focus_geo);
+		// }
+		// else {
+		// 	this.focus_geo.position.x = this.focus_object.x;
+		// 	this.focus_geo.position.y = this.focus_object.y;
+		// 	this.PointCameraAt( this.focus_object.x, this.focus_object.y );
+		// }
+		// // this.focus_object.DrawBounds();
+	}
+	
+	StopTrackObject() {
+		// if ( !this.focus_object ) { return ; }
+		// delete this.focus_object.show_sensors;
+		// this.focus_object.DrawBounds(false);
+		// this.focus_object = null;
+		// if ( this.focus_geo ) {
+		// 	this.focus_geo.remove();
+		// 	this.focus_geo = null;
+		// }
+	}
+	
+	ShiftFocusTarget( up = true ) {
+		// if ( !this.tank.boids.length ) { return; }
+		// if ( !this.focus_object ) { 
+		// 	this.TrackObject(this.tank.boids[0]);
+		// }
+		// else {
+		// 	let i = this.tank.boids.indexOf( this.focus_object );
+		// 	if ( i == -1 ) { i == 0; }
+		// 	else if ( !up || up <= 0 ) {
+		// 		if ( --i < 0 ) { i = this.tank.boids.length-1; }
+		// 	}
+		// 	else {
+		// 		if ( ++i == this.tank.boids.length ) { i = 0; }
+		// 	}
+		// 	this.TrackObject( this.tank.boids[i] );
+		// }
+	}
+	
+	AdjustBackgroundForParallax() {
+		// // static background provides faux parallax
+		// if ( !this.parallax ) { return; }
+		// // true parallax
+		// const margin = 0.0001;
+		// const max_x = -margin + (this.tank_width * this.scale) - (this.window_width);
+		// const max_y = -margin + (this.tank_height * this.scale) - (this.window_height);
+		// const scalex = this.window_width / this.tank_width;
+		// const scaley = this.window_height / this.tank_height;
+		// const minscale = Math.min(scalex,scaley); // min = contain, max = cover
+		// const bgscale = this.foreground_layer.scale /  minscale;
+		// if ( bgscale != this.renderLayers['backdrop'].scale ) { // optimization to dodge setScale()
+		// 	this.renderLayers['backdrop'].scale = bgscale;
+		// }
+		// const xpct = -utils.Clamp( this.foreground_layer.position.x / max_x, -1, 1);
+		// const ypct = -utils.Clamp( this.foreground_layer.position.y / max_y, -1, 1);
+		// const xrange = this.window_width * (this.renderLayers['backdrop'].scale - 1);
+		// const yrange = this.window_height * (this.renderLayers['backdrop'].scale - 1);
+		// this.renderLayers['backdrop'].position.x = -(xpct * (xrange/2)) - (xrange/4);
+		// this.renderLayers['backdrop'].position.y = -(ypct * (yrange/2)) - (yrange/4);
+		// // console.log(
+		// // 	this.foreground_layer.position.x,
+		// // 	this.foreground_layer.position.y,
+		// // 	this.renderLayers['backdrop'].position.x,
+		// // 	this.renderLayers['backdrop'].position.y
+		// // );
+		// // adjustment for hyperzoomed situations
+		// if ( this.foreground_layer.position.x > 0 || this.foreground_layer.position.y > 0 ) {
+		// 	// if ( this.tank.bg ) { 
+		// 	// 	this.renderLayers['backdrop'].scale = 1;
+		// 	// 	let rect = this.renderLayers['backdrop'].getBoundingClientRect(true);
+		// 	// 	// console.log(rect.width, this.tank_width);
+		// 	// 	// this.tank.bg.remove();
+		// 	// 	// this.renderLayers['backdrop'].add(this.tank.bg);
+		// 	// 	this.renderLayers['backdrop'].scale = new Two.Vector( 
+		// 	// 		this.tank_width / rect.width,
+		// 	// 		this.tank_height / rect.height 
+		// 	// 	);
+		// 	// }
+		// 	// this.tank.ScaleBackground();
+		// 	this.renderLayers['backdrop'].position.x = this.foreground_layer.position.x;
+		// 	this.renderLayers['backdrop'].position.y = this.foreground_layer.position.y;
+		// 	// console.log('adjusting backdrop',
+		// 	// 	this.renderLayers['backdrop'].position.x,
+		// 	// 	this.renderLayers['backdrop'].position.y,
+		// 	// 	this.renderLayers['backdrop'].scale,
+		// 	// );
+		// }
+	}
+	
+	SetShowUI(x) {
+		this.show_ui = !!x;
+		let el = document.getElementById('ui_container');
+		if ( this.show_ui ) { el.style.visibility = 'visible'; }
+		else { el.style.visibility = 'hidden'; }
+	}
+	
+	ToggleUI() {
+		this.SetShowUI( !this.show_ui );
+	}
+	
+	SetShowSensors(x) {
+		this.show_collision_detection = !this.show_collision_detection;
+	}
+	
+	ToggleShowSensors() {
+		this.SetShowSensors( !this.show_collision_detection );
+	}
+	
+	ToggleShowBrainmap() {
+		if ( this.show_brainmap ) { this.StopTrackObject(); }
+		this.show_brainmap = !this.show_brainmap;
+	}
+	
+}

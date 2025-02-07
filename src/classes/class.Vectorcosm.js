@@ -20,27 +20,6 @@ import * as TWEEN from '@tweenjs/tween.js'
 export default class Vectorcosm {
 
 	constructor() {
-		// set up Two now, attach to DOM later
-		// WebGLRenderer: fastest if hardware acceleration available
-		// SVGRenderer: fast on newer browsers with accelerated SVG rendering. Also allows SVG scene export.
-		// CanvasRenderer: faster on older machines, slower on newer machines
-		// this.two = new Two({ fitted: true, type: 'SVGRenderer' }); 
-		// globalThis.two = this.two; // make available everywhere
-		// this.renderLayers = {};
-		// this.renderLayers['backdrop'] = this.two.makeGroup(); // parallax backdrop needs to stay separate from tank
-		// this.renderLayers['tank'] = this.two.makeGroup(); // meta group. UI and tank layers need to scale separately
-		// this.renderLayers['-2'] = this.two.makeGroup(); // tank backdrop
-		// this.renderLayers['-1'] = this.two.makeGroup(); // background objects
-		// this.renderLayers['0'] = this.two.makeGroup(); // middle for most objects / default
-		// this.renderLayers['1'] = this.two.makeGroup(); // foregrounds objects
-		// this.renderLayers['2'] = this.two.makeGroup(); // very near objects
-		// this.renderLayers['ui'] = this.two.makeGroup(); // UI layer - stays separate from the others
-		// this.renderLayers['tank'].add(this.renderLayers['-2']);
-		// this.renderLayers['tank'].add(this.renderLayers['-1']);
-		// this.renderLayers['tank'].add(this.renderLayers['0']);
-		// this.renderLayers['tank'].add(this.renderLayers['1']);
-		// this.renderLayers['tank'].add(this.renderLayers['2']);
-		
 		// stuff for tracking game objects
 		this.next_object_id = 0; // sequential uuid for communicating with UI
 		
@@ -77,30 +56,7 @@ export default class Vectorcosm {
 		this.width = 0;
 		this.height = 0;
 		this.scale = 1;
-		this.camera = {
-			x: 0,
-			y: 0,
-			z: 1,
-			xmin:0, // box used to determine if stuff is in view
-			ymin:0,
-			xmax:0,
-			ymax:0,
-			min_zoom: 0.1,
-			max_zoom: 2,
-			cinema_mode: false,
-			tween: null,
-			cinema_timeout: null,
-			easing: TWEEN.Easing.Sinusoidal.InOut, // SEE: https://github.com/tweenjs/tween.js/blob/main/docs/user_guide.md
-			transitions: false,
-			parallax: false,
-			transition_time: 10000, // ms
-			focus_time: 15000, // ms
-			show_boid_indicator_on_focus: true,
-			show_boid_info_on_focus: true,
-			show_boid_sensors_on_focus: true,
-			show_boid_collision_on_focus: false,
-			animation_min: 0.4 // zoom level beyond which we stop animating
-		};
+
 		this.sim_meta_params = {
 			num_boids: null,
 			segments: null
@@ -112,32 +68,14 @@ export default class Vectorcosm {
 		
 	}
 	
-	Init() {
+	Init( params ) {
 				
-		// set up Two
-		// let elem = document.getElementById('draw-shapes');
-		// this.two.appendTo(elem);
-		// `types is one of: 'WebGLRenderer', 'SVGRenderer', 'CanvasRenderer'
-		// this.two.bind('update', (frameNumber, delta) => { this.update(frameNumber, delta); } );
-		// this.SetViewScale(1);
-		
 		// set up tank
-		// this.tank = new Tank( this.width, this.height );
-		// TODO: Note: no access to window info unless passed in from main.js
-		this.tank = new Tank( 1920, 1200 );
+		const w = params?.width || 1920;
+		const h = params?.height || 1080;
+		this.tank = new Tank( w, h );
 		this.tank.MakeBackground();
 		
-		// set visual theme
-		// this.SetRenderStyle( this.render_style );
-		
-		// default screen scaling based on user window
-		// if ( this.two.width < 500 ) { this.SetViewScale(0.4); }
-		// else if ( this.two.width < 1200 ) { this.SetViewScale(0.6); }
-		// else if ( this.two.width < 1900 ) { this.SetViewScale(1); }
-		// else { this.SetViewScale(1); }
-		// this.ResizeTankToWindow(true); // force
-		// this.ResetCameraZoom();
-							
 		// set up simulations so we have something to watch
 		this.sim_queue = [
 			// SimulationFactory(this.tank, 'turning_training_easy'),
@@ -159,12 +97,7 @@ export default class Vectorcosm {
 		];
 		
 		this.LoadNextSim();
-		
-		// this.LoadStartingPopulationFromFile('./local/population-dart-ironman-chaser-30-2023-06-14.json');
-		
-		// draw screen
-		// this.two.update();
-		
+				
 	}
 
 	SetRenderStyle( style ) {
@@ -197,173 +130,7 @@ export default class Vectorcosm {
 		// this.tank.marks.forEach( m => m.geo.visible = this.show_markers );
 	}
 	
-	// TODO: this is all technically UI related stuff that should be moved out of the simulation code.
-	// the camera has a hard to accessing and affecting the UI, such as boid info window.
-	CinemaMode( x=true ) { 
-		// this.camera.cinema_mode = !!x;
-		// if ( x ) {
-		// 	this.StopTrackObject();
-		// 	if ( this.camera.tween ) {
-		// 		this.camera.tween.stop();
-		// 		this.camera.tween = null;
-		// 	}
-		// 	// random chance to do a few basic options
-		// 	const r = Math.random();
-		// 	// focus on a boid
-		// 	if ( r < 0.3 && this.tank.boids.length ) {
-		// 		// pick a boid and chase it down
-		// 		const b = this.tank.boids.pickRandom();
-		// 		const zoom = utils.BiasedRand( 
-		// 			this.camera.min_zoom,
-		// 			this.camera.max_zoom,
-		// 			this.camera.min_zoom + (this.camera.max_zoom - this.camera.min_zoom) / 3, // div by three to shift towards zoomed out
-		// 			0.5 
-		// 			);
-		// 		if ( this.camera.transitions ) {
-		// 			const to = { x: b.x, y: b.y, z: zoom };
-		// 			this.camera.tween = new TWEEN.Tween(this.camera)
-		// 				.to(to, this.camera.transition_time )
-		// 				.easing(this.camera.easing)
-		// 				.dynamic(true)
-		// 				.onUpdate( obj => {
-		// 					if ( !b || b.dead ) { 
-		// 						this.camera.tween.stop();
-		// 						this.camera.tween = null;
-		// 						this.camera.cinema_timeout = setTimeout( _ => this.CinemaMode(), 2500 ); 		
-		// 					}
-		// 					else {
-		// 						to.x = b.x;
-		// 						to.y = b.y;
-		// 						this.PointCameraAt( this.camera.x, this.camera.y, this.camera.z );
-		// 					}
-		// 				})
-		// 				// switch to absolute tracking after chase completed
-		// 				.onComplete( obj => {
-		// 					this.TrackObject(b);
-		// 					this.camera.cinema_timeout = setTimeout( _ => this.CinemaMode(), this.camera.focus_time ); 			
-		// 				})
-		// 				.start();
-		// 		}
-		// 		else {
-		// 			this.PointCameraAt( b.x, b.y, zoom );
-		// 			this.TrackObject(b);
-		// 			this.camera.cinema_timeout = setTimeout( _ => this.CinemaMode(), this.camera.focus_time );
-		// 		}
-		// 	}
-		// 	// focus on a point of interest
-		// 	else if ( r < 0.85 ) {
-		// 		// zoom setup
-		// 		let zoom = this.camera.z;
-		// 		// if transitions are enabled, reduce zoom changes to preserve frame rate and viewer sanity
-		// 		let zoom_change_chance = this.camera.transitions ? 0.2 : 0.65;
-		// 		// when changing zoom, pick from the larger perspective most of the time
-		// 		if ( Math.random() < zoom_change_chance ) {
-		// 			zoom = utils.RandomFloat( this.camera.min_zoom, this.camera.max_zoom );
-		// 			zoom = utils.shapeNumber( zoom, this.camera.min_zoom, this.camera.max_zoom, 0.25, 3 );
-		// 		}
-		// 		const roll = Math.random();
-		// 		// random point in space to fall back on if nothing is in tank
-		// 		let target_x = this.tank.width * Math.random();
-		// 		let target_y = this.tank.height * Math.random();
-		// 		// rock
-		// 		if ( this.tank.obstacles.length && roll < 0.25 ) {
-		// 			const obj = this.tank.obstacles.pickRandom();
-		// 			// pick a point on the hull, not on the interior
-		// 			const pt = obj.collision.hull.pickRandom();
-		// 			target_x = obj.x + pt[0];
-		// 			target_y = obj.y + pt[1];
-		// 		}
-		// 		// plant
-		// 		else if ( this.tank.plants.length && roll < 0.5 ) {
-		// 			const obj = this.tank.plants.pickRandom();
-		// 			// pick a point near but slightly above the base
-		// 			target_x = obj.x;
-		// 			target_y = obj.y - 200;
-		// 		}
-		// 		// boid
-		// 		else if ( this.tank.boids.length && roll < 0.90 ) {
-		// 			const obj = this.tank.boids.pickRandom();
-		// 			target_x = obj.x;
-		// 			target_y = obj.y;
-		// 		}
-		// 		// food particle
-		// 		else if ( this.tank.foods.length ) {
-		// 			const obj = this.tank.foods.pickRandom();
-		// 			target_x = obj.x;
-		// 			target_y = obj.y;
-		// 		}
-		// 		// adjust point to sit inside a margin to avoid pan/zoom jank
-		// 		// Note: margin gets too big when zoom number is too small.
-		// 		const margin_x = Math.min( this.tank.width/2, Math.max( 0, ( this.width / 2 )  / zoom ) ); 
-		// 		const margin_y = Math.min( this.tank.height/2, Math.max( 0, ( this.height / 2 ) / zoom ) );
-		// 		target_x = utils.Clamp( target_x, margin_x, this.tank.width - margin_x );
-		// 		target_y = utils.Clamp( target_y, margin_y, this.tank.height - margin_y );
-		// 		if ( this.camera.transitions ) {
-		// 			this.camera.tween = new TWEEN.Tween(this.camera)
-		// 				.to({
-		// 					x: target_x, 
-		// 					y: target_y,
-		// 					z: zoom
-		// 				}, this.camera.transition_time )
-		// 				.easing(TWEEN.Easing.Sinusoidal.InOut)
-		// 				.onUpdate( obj => {
-		// 					this.PointCameraAt( this.camera.x, this.camera.y, this.camera.z );
-		// 				})
-		// 				.onComplete( obj => {
-		// 					this.camera.cinema_timeout = setTimeout( _ => this.CinemaMode(), this.camera.focus_time );
-		// 				})
-		// 				.start();
-		// 		}
-		// 		else {
-		// 			this.PointCameraAt( target_x, target_y, zoom );
-		// 			this.camera.cinema_timeout = setTimeout( _ => this.CinemaMode(), this.camera.focus_time );
-		// 		}
-		// 	}
-		// 	// whole scene
-		// 	else {
-		// 		if ( this.camera.transitions ) {
-		// 			this.camera.tween = new TWEEN.Tween(this.camera)
-		// 				.to({
-		// 					x: this.tank.width/2, 
-		// 					y: this.tank.height/2,
-		// 					z: this.camera.min_zoom
-		// 				}, this.camera.transition_time )
-		// 				.easing(TWEEN.Easing.Sinusoidal.InOut)
-		// 				.onUpdate( obj => {
-		// 					this.PointCameraAt( this.camera.x, this.camera.y, this.camera.z, true );
-		// 				})
-		// 				.onComplete( obj => {
-		// 					this.camera.cinema_timeout = setTimeout( _ => this.CinemaMode(), this.camera.focus_time ); 			
-		// 				})
-		// 				.start();			
-		// 		}
-		// 		else {
-		// 			this.ResetCameraZoom();
-		// 			// console.log('reset camera zoom');
-		// 			this.camera.cinema_timeout = setTimeout( _ => this.CinemaMode(), this.camera.focus_time );
-		// 		}
-		// 	}
-		// }
-		// else {
-		// 	if ( this.camera.cinema_timeout ) {
-		// 		clearTimeout(this.camera.cinema_timeout);
-		// 		this.camera.cinema_timeout = null;
-		// 	}
-		// 	if ( this.camera.tween ) {
-		// 		this.camera.tween.stop();
-		// 		this.camera.tween = null;
-		// 	}
-		// 	this.StopTrackObject();
-		// }
-	}
-	
 	ResetCameraZoom() {
-		// const scalex = this.width / this.tank.width;
-		// const scaley = this.height / this.tank.height;
-		// const scale = Math.min(scalex,scaley); // min = contain, max = cover
-		// this.camera.min_zoom = scale;
-		// // this.camera.max_zoom = 2; // Math.min(this.tank.width,this.tank.height) / 1250;
-		// this.PointCameraAt( this.tank.width*0.5, this.tank.height*0.5, scale, true ); // force centering	
 	}
 	
 	LoadStartingPopulationFromFile(file) {
@@ -436,17 +203,6 @@ export default class Vectorcosm {
 	
 	// if force is FALSE, `responsive_tank_size` setting will be honored
 	ResizeTankToWindow( force=false ) {
-		// if ( this.tank ) {
-		// 	if ( this.responsive_tank_size || force ) {
-		// 		this.tank.Resize(this.width / this.scale, this.height / this.scale);
-		// 		this.renderLayers['tank'].position.x = 0;
-		// 		this.renderLayers['tank'].position.y = 0;
-		// 		this.camera.min_zoom = Math.min(this.width / this.tank.width, this.height / this.tank.height);
-		// 	}
-		// 	else { 
-		// 		this.tank.ScaleBackground(); 
-		// 	}
-		// }
 	}
 
 	update( delta=0 ) {
@@ -620,132 +376,6 @@ export default class Vectorcosm {
 		// }
 	}
 	
-	ShiftFocusTarget( up = true ) {
-		// if ( !this.tank.boids.length ) { return; }
-		// if ( !this.focus_object ) { 
-		// 	this.TrackObject(this.tank.boids[0]);
-		// }
-		// else {
-		// 	let i = this.tank.boids.indexOf( this.focus_object );
-		// 	if ( i == -1 ) { i == 0; }
-		// 	else if ( !up || up <= 0 ) {
-		// 		if ( --i < 0 ) { i = this.tank.boids.length-1; }
-		// 	}
-		// 	else {
-		// 		if ( ++i == this.tank.boids.length ) { i = 0; }
-		// 	}
-		// 	this.TrackObject( this.tank.boids[i] );
-		// }
-	}
-
-	// put camera at a specific point in world space / zoom
-	// if center is true, camera will force center position when zoom is wider than tank
-	PointCameraAt( x, y, z=null, center=false ) {
-		
-		// center = center || !this.allow_hyperzoom;
-		 
-		// // entire tank is smaller than screen - snap to center
-		// if ( center && z && z * this.tank.width < this.width && z * this.tank.height < this.height ) { 
-		// 	const scalex = this.width / this.tank.width;
-		// 	const scaley = this.height / this.tank.height;
-		// 	const scale = Math.min(scalex,scaley); // min = contain, max = cover
-		// 	x = this.tank.width * 0.5;
-		// 	y = this.tank.height * 0.5;
-		// 	if ( center ) { z = scale; }
-		// 	}
-		
-		// // zoom
-		// if ( z && z!=this.scale ) { 
-		// 	z = Math.min( z, this.camera.max_zoom );
-		// 	this.SetViewScale( z ); 
-		// }
-		
-		// // X pos	
-		// const target_x = -( x * this.scale ) + ( 0.5 * this.width );
-		// const max_x = -0.0001 + (this.tank.width * this.scale) - (this.width);
-		// if ( this.scale * this.tank.width < this.width && center ) { this.renderLayers['tank'].position.x = -max_x / 2; }
-		// else if ( target_x > 0 && center ) { this.renderLayers['tank'].position.x = 0; }  
-		// else if ( target_x < -max_x && center ) { this.renderLayers['tank'].position.x = -max_x; }  
-		// else { this.renderLayers['tank'].position.x = target_x; }
-		
-		// // Y pos
-		// const target_y = -( y * this.scale ) + ( 0.5 * this.height );
-		// const max_y = -0.0001 + (this.tank.height * this.scale) - (this.height);
-		// if ( this.scale * this.tank.height < this.height && center ) { this.renderLayers['tank'].position.y = -max_y / 2; }
-		// else if ( target_y > 0 && center ) { this.renderLayers['tank'].position.y = 0; }  
-		// else if ( target_y < -max_y && center ) { this.renderLayers['tank'].position.y = -max_y; }
-		// else { this.renderLayers['tank'].position.y = target_y; }
-		
-		// // record stats
-		// [ this.camera.x, this.camera.y ] = this.ScreenToWorldCoord( this.width * 0.5, this.height * 0.5 );
-		// [ this.camera.xmin, this.camera.ymin ] = this.ScreenToWorldCoord( 0, 0 );
-		// [ this.camera.xmax, this.camera.ymax ] = this.ScreenToWorldCoord( this.width, this.height );
-		// this.camera.z = this.scale;	
-		
-		// this.AdjustBackgroundForParallax();
-	}
-	
-	// for adjusting camera position in smaller increments.
-	// x and y are SCREEN pixel units
-	// z is the absolute zoom diff (not a percentage)
-	MoveCamera( x, y, z=null ) {
-		this.PointCameraAt( 
-			this.camera.x + ( x / this.camera.z ), 
-			this.camera.y + ( y / this.camera.z ), 
-			this.camera.z + (z||0)
-		);
-	}
-	
-	AdjustBackgroundForParallax() {
-		// // static background provides faux parallax
-		// if ( !this.camera.parallax ) { return; }
-		// // true parallax
-		// const margin = 0.0001;
-		// const max_x = -margin + (this.tank.width * this.scale) - (this.width);
-		// const max_y = -margin + (this.tank.height * this.scale) - (this.height);
-		// const scalex = this.width / this.tank.width;
-		// const scaley = this.height / this.tank.height;
-		// const minscale = Math.min(scalex,scaley); // min = contain, max = cover
-		// const bgscale = this.renderLayers['tank'].scale /  minscale;
-		// if ( bgscale != this.renderLayers['backdrop'].scale ) { // optimization to dodge setScale()
-		// 	this.renderLayers['backdrop'].scale = bgscale;
-		// }
-		// const xpct = -utils.Clamp( this.renderLayers['tank'].position.x / max_x, -1, 1);
-		// const ypct = -utils.Clamp( this.renderLayers['tank'].position.y / max_y, -1, 1);
-		// const xrange = this.width * (this.renderLayers['backdrop'].scale - 1);
-		// const yrange = this.height * (this.renderLayers['backdrop'].scale - 1);
-		// this.renderLayers['backdrop'].position.x = -(xpct * (xrange/2)) - (xrange/4);
-		// this.renderLayers['backdrop'].position.y = -(ypct * (yrange/2)) - (yrange/4);
-		// // console.log(
-		// // 	this.renderLayers['tank'].position.x,
-		// // 	this.renderLayers['tank'].position.y,
-		// // 	this.renderLayers['backdrop'].position.x,
-		// // 	this.renderLayers['backdrop'].position.y
-		// // );
-		// // adjustment for hyperzoomed situations
-		// if ( this.renderLayers['tank'].position.x > 0 || this.renderLayers['tank'].position.y > 0 ) {
-		// 	// if ( this.tank.bg ) { 
-		// 	// 	this.renderLayers['backdrop'].scale = 1;
-		// 	// 	let rect = this.renderLayers['backdrop'].getBoundingClientRect(true);
-		// 	// 	// console.log(rect.width, this.tank.width);
-		// 	// 	// this.tank.bg.remove();
-		// 	// 	// this.renderLayers['backdrop'].add(this.tank.bg);
-		// 	// 	this.renderLayers['backdrop'].scale = new Two.Vector( 
-		// 	// 		this.tank.width / rect.width,
-		// 	// 		this.tank.height / rect.height 
-		// 	// 	);
-		// 	// }
-		// 	// this.tank.ScaleBackground();
-		// 	this.renderLayers['backdrop'].position.x = this.renderLayers['tank'].position.x;
-		// 	this.renderLayers['backdrop'].position.y = this.renderLayers['tank'].position.y;
-		// 	// console.log('adjusting backdrop',
-		// 	// 	this.renderLayers['backdrop'].position.x,
-		// 	// 	this.renderLayers['backdrop'].position.y,
-		// 	// 	this.renderLayers['backdrop'].scale,
-		// 	// );
-		// }
-	}
-		
 	ScreenToWorldCoord( x, y ) {
 		// x = ( x - this.renderLayers['tank'].position.x ) / this.scale;
 		// y = ( y - this.renderLayers['tank'].position.y ) / this.scale;
