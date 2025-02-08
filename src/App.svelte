@@ -78,9 +78,7 @@
 					let geo = null;
 					if ( o.type=='boid' ) {
 						if ( o.geodata ) { 
-							let anchors = o.geodata.points.map( p => new Two.Anchor( p[0], p[1] ) );
-							geo = globalThis.two.makePath(anchors);
-							Object.assign( geo, o.geodata ); 
+							geo = RehydrateGeoData(o.geodata);
 						}						
 						else {
 							geo = globalThis.two.makePath([
@@ -149,42 +147,45 @@
 						}
 					}
 					else if ( o.type=='food' ) {
-						geo = globalThis.two.makeCircle( 0, 0, o?.r || 6 );
-						geo.fill = 'pink';
-						geo.stroke = 'transparent';
-						geo.linewidth = 0;
-						if ( o.geodata ) { 
-							Object.assign( geo, o.geodata ); 
-						}
+						geo = RehydrateGeoData(o.geodata);
 					}
 					else if ( o.type=='plant' ) {
-						geo = globalThis.two.makeRectangle( 0, 0, 100, 100 );
-						geo.fill = 'transparent';
-						geo.stroke = 'lime';
-						geo.linewidth = 2;
+						geo = RehydrateGeoData(o.geodata);
+						// geo = RehydrateGeoData({
+						// 	type:'rect',
+						// 	w: 100,
+						// 	h: 100,
+						// 	fill: 'transparent',
+						// 	stroke: 'lime',
+						// 	linewidth: 2,
+						// 	rotation: Math.PI/4
+						// });
 					}
 					else if ( o.type=='mark' ) {
-						geo = globalThis.two.makeCircle( 0, 0, 100 );
-						geo.fill = 'transparent';
-						geo.stroke = 'magenta';
-						geo.linewidth = 1;
+						// geo = RehydrateGeoData(o.geodata);
+						geo = RehydrateGeoData({
+							type:'circle',
+							r: 100,
+							fill: 'transparent',
+							stroke: 'magenta',
+							linewidth: 1,
+						});					
 					}
 					else {
-						geo = globalThis.two.makeRectangle( 0, 0, 10, 10 );
-						geo.fill = '#BBBBBB';
-						geo.stroke = 'transparent';
-						geo.linewidth = 0;
+						geo = RehydrateGeoData({
+							type:'rect',
+							w: 10,
+							h: 10,
+							fill: '#BBBBBB',
+							stroke: 'transparent',
+							linewidth: 0,
+						});					
 					}
+					// add new geometry to scene
 					if ( geo ) {
-						if ( 'x' in o ) { geo.position.x = o.x; }
-						if ( 'y' in o ) { geo.position.y = o.y; }
-						if ( 'a' in o ) { geo.rotation = o.a; }
-						if ( 's' in o ) { geo.scale = o.s; }
-						if ( 'opacity' in o ) { geo.opacity = o.opacity; }
 						o.geo = geo;
 						renderLayers['fg'].add(geo);
 					}
-					// geo.opacity = o.o;
 					renderObjects.set(o.oid, o);
 					found.add(o);
 				}
@@ -194,6 +195,7 @@
 					for ( let k in o ) {
 						obj[k] = o[k];
 					}
+					// update basic geometric properties without recreating the entire shape
 					if ( 'geo' in obj ) { 
 						if ( 'x' in o ) { obj.geo.position.x = o.x; }
 						if ( 'y' in o ) { obj.geo.position.y = o.y; }
@@ -253,9 +255,110 @@
 		// this.foreground_layer.add(this.renderLayers['2']);				
 	}
 	
-Camera
+	function RehydrateGeoData( data ) {
+		if ( !data ) { return null; }
+		const type = data?.type || 'group';
+		// create the basic geometry
+		let geo = null;
+		switch ( type ) {
+			case 'circle': {
+				let x = data?.x || 0;
+				let y = data?.y || 0;
+				let r = data?.r || data?.radius || 1;
+				geo = globalThis.two.makeCircle( x, y, r );
+				break;
+			}
+			case 'polygon': {
+				let x = data?.x || 0;
+				let y = data?.y || 0;
+				let r = data?.r || data?.radius || 1;
+				let n = data?.n || data?.p || 3;
+				geo = globalThis.two.makePolygon( x, y, r, n );
+				break;
+			}
+			case 'rect': {
+				let x = data?.x || 0;
+				let y = data?.y || 0;
+				let w = data?.w || 1;
+				let h = data?.h || 1;
+				geo = globalThis.two.makeRectangle( x, y, w, h );
+				break;
+			}
+			case 'path': {
+				let pts = data?.pts || data?.points || data?.path || [];
+				let anchors = pts.map( p => new Two.Anchor( p[0], p[1] ) );
+				geo = globalThis.two.makePath(anchors);
+				break;
+			}
+			case 'line': {
+				let x1 = data?.x1 || 0;
+				let y1 = data?.y1 || 0;
+				let x2 = data?.x2 || 0;
+				let y2 = data?.y2 || 0;
+				geo = globalThis.two.makeLine( x1, y1, x2, y2 );
+				break;
+			}
+			case 'group':
+			default: {
+				geo = globalThis.two.makeGroup();
+				break;
+			}
+		}
+		// general properties
+		if ( 'x' in data ) { geo.position.x = data.x; }
+		if ( 'y' in data ) { geo.position.y = data.y; }
+		if ( type != 'group' ) {
+			geo.fill = RehydrateColor( data?.fill || 'transparent' );
+			geo.stroke = RehydrateColor( data?.stroke || 'transparent' );
+			geo.linewidth = data?.linewidth || 2;
+			if ( 'a' in data ) { geo.rotation = data.a; }
+			else if ( 'rotation' in data ) { geo.rotation = data.rotation; }
+			if ( 's' in data ) { geo.scale = data.s; }
+			else if ( 'scale' in data ) { geo.scale = data.scale; }
+			if ( 'o' in data ) { geo.opacity = data.opacity; }
+			else if ( 'opacity' in data ) { geo.opacity = data.opacity; }
+			if ( 'curved' in data ) { geo.curved = data.curved; }
+			if ( 'dashes' in data ) { geo.dashes = data.dashes; }
+			if ( 'cap' in data ) { geo.cap = data.cap; }
+			if ( 'closed' in data ) { geo.closed = data.closed; }
+			if ( 'miter' in data ) { geo.miter = data.miter; }
+		}
+		// children 
+		if ( data?.children ) {
+			for ( let child of data.children ) { 
+				child = RehydrateGeoData(child);
+				geo.add(child); 
+			}
+		}
+		return geo;
+	}
 
-
+	function RehydrateColor( c ) {
+		if ( !c ) { return null; }
+		// anything stringy goes right back out
+		if ( typeof c === 'string' ) { return c; }
+		// gradients have special syntax
+		if ( typeof c === 'object' ) {
+			let grad;
+			let type = c?.type || 'linear';
+			let stops = ( c?.stops || [1,'#FFF'] ).map( s => new Two.Stop(s[0], s[1]) );
+			let xoff = c?.xoff || 0;
+			let yoff = c?.yoff || 0;
+			if ( type === 'radial' ) {
+				let radius = c?.r || c?.radius || 1;
+				grad = globalThis.two.makeRadialGradient(xoff, yoff, radius, ...stops );
+			}
+			else {
+				let xoff2 = c?.xoff2 || 0;
+				let yoff2 = c?.yoff2 || 0;
+				grad = globalThis.two.makeLinearGradient(xoff, yoff, xoff2, yoff2, ...stops );
+			}
+			if ( c?.units==='user' || c?.units==='userSpaceOnUse' ) { grad.units = 'userSpaceOnUse'; }
+			if ( 'spread' in c ) { grad.spread =c.spread; } // 'reflect', 'repeat', 'pad'
+			return grad;			
+		}
+	}
+	
 </script>
 
 <style>

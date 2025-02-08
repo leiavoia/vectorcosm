@@ -68,8 +68,7 @@ function_registry.set( 'update', params => {
 		type:'plant',
 		x: o.x,
 		y: o.y,
-		a: Math.PI*0.25,
-		s: 1
+		geodata: AutoIncludeGeoData(o)
 	}) ));
 	renderObjects.push( ... globalThis.vc.tank.foods.map( o => ({
 		oid: o.oid,

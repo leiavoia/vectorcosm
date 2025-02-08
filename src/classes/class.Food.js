@@ -268,7 +268,7 @@ export default class Food {
 	}	
 	GeoData() {
 
-		let geodata = {};
+		let geodata = { type:'circle', r:this.r };
 		
 		// rendering
 		let points = this.complexity+2;

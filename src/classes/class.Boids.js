@@ -1864,6 +1864,7 @@ export class Boid {
 	
 	GeoData() {
 		return {
+			type: 'path',
 			fill: this.body.fill,
 			linewidth: this.body.linewidth,
 			curved: this.body.curved,
