@@ -54,41 +54,42 @@ export default class BodyPlan {
 		this.fill = colors[1]==='transparent' ? colors[1] : `${colors[1]}AA`;
 			
 		const MakeGradient = (label, req_color, transp='FF') => {
-			// const stops = [ new Two.Stop(0, req_color+transp), new Two.Stop(1, req_color+transp) ];
-			// const num_stops = dna.shapedInt(dna.genesFor(`${label} gradient num_stops`), 0, 5, 1, 3);
-			// for ( let n=0; n < num_stops; n++ ) {
-			// 	const pct = dna.shapedNumber( dna.genesFor(`${label} gradient stop pct n`) );
-			// 	const index = dna.shapedInt(dna.genesFor(`${label} gradient stop index n`), 0, colors.length-1);
-			// 	stops.push( new Two.Stop(pct, colors[index]+transp));
-			// }
-			// stops.sort( (a,b) => a.offset - b.offset );
-			// const longest_dim = Math.max(this.width,this.length);
-			// let xoff = dna.shapedNumber( dna.genesFor(`${label} gradient xoff`), -this.length/2, this.length/2 );
-			// let yoff = 0;
-			// let radius = dna.shapedNumber( dna.genesFor(`${label} gradient radius`), longest_dim/10, longest_dim, longest_dim, 2.5 );
-			// const gtype = dna.shapedNumber( dna.genesFor(`${label} gradient type`) ) < 0.4 ? 'linear' : 'radial';
-			// const flip = dna.shapedNumber( dna.genesFor(`${label} gradient axis flip`) ) < 0.33;
-			// let grad = null;
-			// if ( gtype == 'radial' ) {
-			// 	grad = globalThis.two.makeRadialGradient(xoff, yoff, radius, ...stops );
-			// }
-			// else {
-			// 	let xoff2 = xoff+radius;
-			// 	let yoff2 = 0;
-			// 	// random axis flip
-			// 	if ( flip ) {
-			// 		yoff = 0;
-			// 		yoff2 = radius;
-			// 		xoff = 0;
-			// 		xoff2 = 0;
-			// 	}
-			// 	grad = globalThis.two.makeLinearGradient(xoff, yoff, xoff2, yoff2, ...stops );
-			// }
-			// grad.units = 'userSpaceOnUse'; // super important
-			// const spreadNum = dna.shapedNumber( dna.genesFor(`${label} gradient repeat`) );
-			// grad.spread = (spreadNum > 0.66) ? 'pad' : ( spreadNum > 0.33 ? 'reflect' : 'repeat' );	
-			// if ( flip ) { grad.spread = 'reflect'; }	
-			// return grad;
+			const stops = [ [0, req_color+transp], [1, req_color+transp] ];
+			const num_stops = dna.shapedInt(dna.genesFor(`${label} gradient num_stops`), 0, 5, 1, 3);
+			for ( let n=0; n < num_stops; n++ ) {
+				const pct = dna.shapedNumber( dna.genesFor(`${label} gradient stop pct n`) );
+				const index = dna.shapedInt(dna.genesFor(`${label} gradient stop index n`), 0, colors.length-1);
+				stops.push( [pct, colors[index]+transp] );
+			}
+			stops.sort( (a,b) => a[0] - b[0] );
+			
+			const longest_dim = Math.max(this.width,this.length);
+			let xoff = dna.shapedNumber( dna.genesFor(`${label} gradient xoff`), -this.length/2, this.length/2 );
+			let yoff = 0;
+			let radius = dna.shapedNumber( dna.genesFor(`${label} gradient radius`), longest_dim/10, longest_dim, longest_dim, 2.5 );
+			const gtype = dna.shapedNumber( dna.genesFor(`${label} gradient type`) ) < 0.4 ? 'linear' : 'radial';
+			const flip = dna.shapedNumber( dna.genesFor(`${label} gradient axis flip`) ) < 0.33;
+			let grad = {type:'radial', xoff, yoff, radius, stops, units:'userSpaceOnUse' };
+			const spreadNum = dna.shapedNumber( dna.genesFor(`${label} gradient repeat`) );
+			grad.spread = (spreadNum > 0.66) ? 'pad' : ( spreadNum > 0.33 ? 'reflect' : 'repeat' );	
+			if ( flip ) { grad.spread = 'reflect'; }	
+			if ( gtype != 'radial' ) {
+				let xoff2 = xoff+radius;
+				let yoff2 = 0;
+				// random axis flip
+				if ( flip ) {
+					yoff = 0;
+					yoff2 = radius;
+					xoff = 0;
+					xoff2 = 0;
+				}
+				grad.type = 'linear';
+				grad.xoff = xoff;
+				grad.yoff = yoff;
+				grad.xoff2 = xoff2;
+				grad.yoff2 = yoff2;
+			}
+			return grad;
 		};
 		
 		// chance for gradients
