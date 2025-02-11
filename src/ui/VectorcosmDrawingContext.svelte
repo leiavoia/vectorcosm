@@ -11,14 +11,6 @@
 		theme_classname = 'bg-theme-' + name.replace('bg-theme-','');
 	}
 	
-	// setContext('vc-canvas', {
-	// 	'test': str => console.log(str)
-	// });
-	
-	// export function injestEvent( event ) {
-	// 	console.log(event);
-	// }
-	
 	onMount(() => {
 		// set up Two.js
 		let two = new Two({ fitted: true, type: 'SVGRenderer' }); 
@@ -30,41 +22,10 @@
 		dispatcher('drawingReady');
 	})
 	
-	function ClickMap( event ) {
-		console.log('click map');
-	}
-	
-	function MouseMove( event ) {
-		// console.log('mouse move');
-	}
-	
-	function MouseDown( event ) {
-		console.log('mouse down');
-	}
-	
-	function MouseUp( event ) {
-		console.log('mouse up');
-	}
-	
-	function Keypress( event ) {
-		console.log('keypress',event);
-	}
-	
 </script>
 
-<!-- <div :class="{'shape-container':true, 'hidecursor':is_idle}"  -->
-<!-- svelte-ignore -->
-<div id="vectorcosm_drawing_container"  
-	role="none"
-	class={theme_classname}
-	onclick={() => ClickMap()}
-	oncontextmenu={() => ClickMap()}
-	onmousemove={() => MouseMove()}
-	onmousedown={() => MouseDown()}
-	onmouseup={() => MouseUp()}
-	onkeypress={() => Keypress()}
->
-	<div transition:fade={{duration:700}} id="vectorcosm_context" ></div>
+<div id="vectorcosm_drawing_container" style="pointer-events: auto;" class={theme_classname}>
+	<div transition:fade={{duration:700}} id="vectorcosm_context" style="pointer-events: none;"></div>
 </div>
 
 <style>

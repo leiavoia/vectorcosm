@@ -23,7 +23,14 @@
 	}
 
 	// vectorcosm simulation runs in a worker thread
-	let worker = null;
+	const worker = new Worker(
+		new URL('./workers/vectorcosm.worker.js', import.meta.url),
+		// options
+		{ type: 'module' }
+	);
+	
+	// use the API to send and receive messages to Vectorcosm
+	const api = new VectorcosmAPI( worker );
 
 	// set up game loop and lifecycle hooks
 	let gameloop = new GameLoop();
@@ -46,18 +53,10 @@
 
 	gameloop.onStartDrawing = () => {
 		// see about addressing the component directly
-		if ( globalThis.two ) { globalThis.two.update(); }
+		if ( globalThis.two ) { 
+			globalThis.two.update(); 
+		}
 	}
-	
-	// set up the main vectorcosm worker thread
-	worker = new Worker(
-		new URL('./workers/vectorcosm.worker.js', import.meta.url),
-		// options
-		{ type: 'module' }
-	);
-	
-	// use the API to send and receive messages to Vectorcosm
-	const api = new VectorcosmAPI( worker );
 	
 	// create a map of all drawable objects. these are coming from the vectorcosm worker.
 	// this map contains the necessary info to draw and animate the objects.
@@ -230,6 +229,9 @@
 	
 	// gameloop starts when drawing context is fully mounted (see component)
 	function onDrawingReady() {
+		// create rendering layers before drawing objects start to arrive from simulation
+		renderLayers['bg'] = globalThis.two.makeGroup(); // parallax backdrop needs to stay separate from tank
+		renderLayers['fg'] = globalThis.two.makeGroup(); // parallax backdrop needs to stay separate from tank
 		// initialize the sim
 		const params = {
 			width:globalThis.two.width * 3,
@@ -237,9 +239,6 @@
 		};
 		api.SendMessage('init',params);
 		gameloop.Start();
-		// create rendering layers before drawing objects start to arrive from simulation
-		renderLayers['bg'] = globalThis.two.makeGroup(); // parallax backdrop needs to stay separate from tank
-		renderLayers['fg'] = globalThis.two.makeGroup(); // parallax backdrop needs to stay separate from tank
 		// this.renderLayers['backdrop'] = this.two.makeGroup(); // parallax backdrop needs to stay separate from tank
 		// this.foreground_layer = this.two.makeGroup(); // meta group. UI and tank layers need to scale separately
 		// this.renderLayers['-2'] = this.two.makeGroup(); // tank backdrop
@@ -359,6 +358,49 @@
 		}
 	}
 	
+	
+	// mouse event handling state variables
+	let dragging = false;
+	let idle_for = 0;
+	let is_idle = false;
+	
+	function onwheel(event) {
+		camera.ZoomAt( event.clientX, event.clientY, event.deltaY > 0 );
+	}
+	
+	function onclick (event ) {
+	
+	}
+	
+	function onmousedown(event) {
+		dragging = true;
+		idle_for = 0;
+		is_idle = false;
+	}
+	
+	function onmouseup(event) {
+		// let ClickMap handle it instead to avoid phantom clicks on objects
+		dragging = false;
+		idle_for = 0;
+		is_idle = false;
+	}
+	
+	function onmousemove(event) {
+		if ( dragging ) {
+			camera.MoveCamera( -event.movementX, -event.movementY );
+		}
+		idle_for = 0;
+		is_idle = false;
+	}
+	
+	function oncontextmenu(event) { // "right click"
+		if ( dragging ) {
+			camera.MoveCamera( -event.movementX, -event.movementY );
+		}
+		idle_for = 0;
+		is_idle = false;
+	}
+	
 </script>
 
 <style>
@@ -392,13 +434,31 @@
 		flex: 100 1 auto; 
 		padding: 1rem; 
 		order: 1;	
+		pointer-events:none;
 	}
+	#pagewrapper {
+		display:relative; 
+		display:flex; 
+		flex-flow: column wrap; 
+		pointer-events:none;
+	}
+	#pagewrapper main > * { pointer-events:auto; }
 </style>
 
-<div id="pagewrapper" data-theme="dark" style="display:relative; display:flex; flex-flow: column wrap; ">
+<div id="pagewrapper" data-theme="dark">
 	
-	<VectorcosmDrawingContext bind:this={vc_canvas} on:drawingReady={onDrawingReady}></VectorcosmDrawingContext>
+	<!-- 
+		Vectorcosm two.js canvas area is fixed to the entire screen.
+		all UI elements sit on top of it.
+		this wrapper exists just to capture map-area events. 
+		events originate from within the drawing divs and bubble out to here.
+		this way we can keep the event handler logic up here.
+	-->
+	<div role="none" {onclick} {onwheel} {onmousedown} {onmouseup} {onmousemove} {oncontextmenu}>
+		<VectorcosmDrawingContext bind:this={vc_canvas} on:drawingReady={onDrawingReady} ></VectorcosmDrawingContext>
+	</div>
 	
+	<!-- all your normal UI elements go in here -->
 	<main>
 		<div class="nav">
 			<button onclick={_ => setPanelMode('sim_controls')}	
@@ -442,4 +502,3 @@
 	</main>
 	
 </div>
-

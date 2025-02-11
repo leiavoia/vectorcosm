@@ -118,7 +118,7 @@ export default class Camera {
 		
 	// for adjusting camera position in smaller increments.
 	// x and y are SCREEN pixel units
-	// z is the absolute zoom diff (not a percentage)
+	// z is the absolute zoom diff (not a percentage). For that, use ZoomAt()
 	MoveCamera( x, y, z=null ) {
 		this.PointCameraAt( 
 			this.x + ( x / this.z ), 
@@ -127,6 +127,20 @@ export default class Camera {
 		);
 	}
 		
+	ZoomAt( screen_x, screen_y, zoom_in /* true for in, false for out */ ) {
+		let newscale = this.scale * ((1 + this.z)/1);
+		if ( zoom_in ) { newscale = this.scale * (1/(1 + this.z)); }
+		// record mouse click in world space
+		const [prev_x, prev_y] = this.ScreenToWorldCoord( screen_x, screen_y );
+		// zoom into center of screen
+		const [world_x, world_y] = this.ScreenToWorldCoord(this.window_width * 0.5, this.window_height * 0.5);
+		this.PointCameraAt( world_x, world_y, newscale );
+		// where would the mouse point be now?
+		const [new_x, new_y] = this.ScreenToWorldCoord( screen_x, screen_y );
+		// move screen to maintain the offset from click point
+		this.PointCameraAt( world_x - (new_x - prev_x), world_y - (new_y - prev_y) );
+	}
+			
 	// if force is FALSE, `responsive_tank_size` setting will be honored
 	ResizeTankToWindow( force=false ) {
 		// if ( this.tank ) {
