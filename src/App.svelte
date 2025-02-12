@@ -223,6 +223,7 @@
 	// we could add this directly to the component instead
 	api.RegisterResponseCallback( 'getTankStats', data => {
 		if ( tank_stats_compo ) {
+			data.fps = gameloop.fps_avg.toFixed(0);
 			tank_stats_compo.updateTankStats(data);
 		}
 	} );
@@ -234,8 +235,8 @@
 		renderLayers['fg'] = globalThis.two.makeGroup(); // parallax backdrop needs to stay separate from tank
 		// initialize the sim
 		const params = {
-			width:globalThis.two.width * 3,
-			height:globalThis.two.height * 3
+			width:globalThis.two.width * 2,
+			height:globalThis.two.height * 2
 		};
 		api.SendMessage('init',params);
 		gameloop.Start();
@@ -359,6 +360,159 @@
 	}
 	
 	
+
+	const keyFunctionMap = {
+		// 'Pause': _ => {
+		// 		vc.TogglePause();
+		// 	},
+		// 'p': _ => {
+		// 		vc.TogglePause();
+		// 	},
+		'_': _ => {
+				const diff = Math.abs( camera.scale - (camera.scale * (1/(1 + camera.z))) );
+				camera.MoveCamera( 0, 0, -diff );
+			},
+		'-': _ => {
+				const diff = Math.abs( camera.scale - (camera.scale * (1/(1 + camera.z))) );
+				camera.MoveCamera( 0, 0, -diff );
+			},
+		'=': _ => {
+				const diff = Math.abs( camera.scale - (camera.scale * ((1 + camera.z)/1)) );
+				camera.MoveCamera( 0, 0, diff );
+			},
+		'+': _ => {
+				const diff = Math.abs( camera.scale - (camera.scale * ((1 + camera.z)/1)) );
+				camera.MoveCamera( 0, 0, diff );
+			},
+		';': _ => {
+				camera.ResetCameraZoom();
+			},
+		// '\'': _ => {
+		// 		vc.ResizeTankToWindow(true);
+		// 		vc.ResetCameraZoom();
+		// 	},
+		'Home': _ => {
+				camera.ResetCameraZoom();
+			},
+		'ArrowLeft': _ => {
+				camera.MoveCamera( -100, 0 );
+			},
+		'ArrowRight': _ => {
+				camera.MoveCamera( 100, 0 );
+			},
+		'ArrowUp': _ => {
+				camera.MoveCamera( 0, -100 );
+			},
+		'ArrowDown': _ => {
+				camera.MoveCamera( 0, 100 );
+			},
+		// 'PageUp': _ => {
+		// 		vc.ShiftFocusTarget();
+		// 		if ( show_boid_details.value ) {
+		// 			RefreshBoidDetailsDynamicObjects( vc.focus_object );
+		// 		}			
+		// 	},
+		// 'PageDown': _ => {
+		// 		vc.ShiftFocusTarget(-1);
+		// 		if ( show_boid_details.value ) {
+		// 			RefreshBoidDetailsDynamicObjects( vc.focus_object );
+		// 		}			
+		// 	},
+		// 'ScrollLock': _ => {
+		// 		vc.ResizeTankToWindow();
+		// 	},
+		// 's': _ => {
+		// 		vc.SaveTank();
+		// 	},
+		// 'a': _ => {
+		// 		vc.LoadTank();
+		// 	},
+		// '1': _ => {
+		// 		// vc.ToggleShowSensors();
+		// 		render_styles.push( render_styles.shift() );
+		// 		vc.SetRenderStyle( render_styles[0] );
+		// 	},
+		
+		'1': _ => {
+				setPanelMode('tank_stats')
+			},
+		'2': _ => {
+				setPanelMode('sim_controls')
+			},
+		'3': _ => {
+				setPanelMode('settings')
+			},
+		'4': _ => {
+				setPanelMode('boid_library')
+			},
+		'5': _ => {
+				setPanelMode('sim_launcher')
+			},
+		'Escape': _ => {
+				// if ( show_boid_details.value ) { show_boid_details.value = false; }
+				// else if ( vc.focus_object ) { vc.StopTrackObject(); }
+				setPanelMode(null);
+			},
+		// 'c': _ => {
+		// 		vc.CinemaMode( !vc.camera.cinema_mode );
+		// 	},
+		// '8': _ => {
+		// 		vc.animate_boids = !vc.animate_boids;
+		// 	},
+		// '6': _ => {
+		// 		vc.tank.bg_visible = !vc.tank.bg_visible;
+		// 		vc.tank.bg.visible = vc.tank.bg_visible;
+		// 	},
+		// '7': _ => {
+		// 		ToggleTankDebug();
+		// 	},
+		// 'b': _ => {
+		// 		vc.ToggleShowBrainmap()
+		// 	},
+		// 'r': _ => {
+		// 		vc.responsive_tank_size = !vc.responsive_tank_size;
+		// 	},
+		// '9': _ => {
+		// 		vc.SavePopulation();
+		// 	},
+		// '0': _ => {
+		// 		vc.LoadPopulation();
+		// 	},
+		// 'End': _ => {
+		// 		vc.ToggleSimulatorFF();
+		// 	},
+		// 'i': _ => {
+		// 		if ( vc.focus_object ) {
+		// 			show_boid_details.value = !show_boid_details.value;
+		// 			if ( show_boid_details.value ) {
+		// 				b.show_sensors = true;
+		// 				RefreshBoidDetailsDynamicObjects( vc.focus_object );
+		// 			}
+		// 		}
+		// 	},
+		// 't': _ => {
+		// 		if ( vc.focus_object ) { vc.StopTrackObject(); }
+		// 		else {
+		// 			const b = vc.tank.boids.sort( (a,b) => b.total_fitness_score - a.total_fitness_score )[0];
+		// 			vc.TrackObject(b);
+		// 			if ( show_boid_details.value ) {
+		// 				RefreshBoidDetailsDynamicObjects( vc.focus_object );
+		// 			}						
+		// 		}
+		// 	},
+		// 'l': _ => {
+		// 		const b = vc.tank.boids.sort( (a,b) => b.total_fitness_score - a.total_fitness_score )[0];
+		// 		if ( b ) console.log(b);
+		// 	},
+	}
+
+	function onkeydown(event) {
+		if ( event.key in keyFunctionMap ) {
+			event.preventDefault();
+			keyFunctionMap[event.key]();
+		}
+	};
+	
 	// mouse event handling state variables
 	let dragging = false;
 	let idle_for = 0;
@@ -401,6 +555,14 @@
 		is_idle = false;
 	}
 	
+	function UpdateIdleTime() {
+		idle_for += 0.5;
+		is_idle = idle_for >= 2 && !panel_mode;
+		setTimeout( UpdateIdleTime, 500 );
+	};
+	
+	UpdateIdleTime(); // start immediately
+	
 </script>
 
 <style>
@@ -415,6 +577,17 @@
 		margin-top:0;
 		/* background: #0005;  */
 		/* backdrop-filter: blur(2px); */
+		transition: opacity 0.5s ease-in-out;
+		opacity: 1;
+	}
+	div.nav.is_idle {
+		opacity: 0;
+	}
+	/* this override's pico's default settings. reduced motion config comes from user's OS, not browser or CSS ! */
+	@media (prefers-reduced-motion: reduce) {
+		div.nav {
+			transition-duration: 0.5s !important;
+		}
 	}
 	div.nav button {
 		line-height:2rem; 
@@ -443,9 +616,12 @@
 		pointer-events:none;
 	}
 	#pagewrapper main > * { pointer-events:auto; }
+	.hidecursor { cursor: none; }
 </style>
 
-<div id="pagewrapper" data-theme="dark">
+<svelte:window {onkeydown} />
+
+<div id="pagewrapper" data-theme="dark" class="{is_idle ? 'hidecursor' : ''}">
 	
 	<!-- 
 		Vectorcosm two.js canvas area is fixed to the entire screen.
@@ -460,17 +636,17 @@
 	
 	<!-- all your normal UI elements go in here -->
 	<main>
-		<div class="nav">
-			<button onclick={_ => setPanelMode('sim_controls')}	
-				class:selected={panel_mode=='sim_controls'} 
-				title="Simulation Controls"
-				aria-label="Simulation Controls" 
-				class="icon-sliders"></button>	&nbsp;
+		<div class={['nav', {is_idle:is_idle}]}>
 			<button onclick={_ => setPanelMode('tank_stats')} 	
 				class:selected={panel_mode=='tank_stats'} 
 				title="Tank Stats"
 				aria-label="Tank Stats" 
 				class="icon-chart-bar"></button>	&nbsp;
+			<button onclick={_ => setPanelMode('sim_controls')}	
+				class:selected={panel_mode=='sim_controls'} 
+				title="Simulation Controls"
+				aria-label="Simulation Controls" 
+				class="icon-sliders"></button>	&nbsp;
 			<button onclick={_ => setPanelMode('settings')} 	
 				class:selected={panel_mode=='settings'} 
 				title="Settings"
@@ -488,10 +664,10 @@
 				class="icon-cogs"></button>
 		</div>
 		
-		{#if panel_mode==='tank_stats'}
-			<TankStatsPanel bind:this={tank_stats_compo}></TankStatsPanel>
-		{:else if panel_mode==='sim_controls'}
+		{#if panel_mode==='sim_controls'}
 			<SimulatorControlsPanel></SimulatorControlsPanel>
+		{:else if panel_mode==='tank_stats'}
+			<TankStatsPanel bind:this={tank_stats_compo}></TankStatsPanel>
 		{:else if panel_mode==='settings'}
 			<CameraSettingsPanel></CameraSettingsPanel>
 		{:else if panel_mode==='boid_library'}

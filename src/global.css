@@ -808,8 +808,6 @@ BODY {
 	color-scheme: dark;
 }
 
-
-
 /* vectorcosm custom stuff */
 SECTION {
 	background: #0005;
@@ -818,7 +816,7 @@ SECTION {
 	padding: var(--pico-spacing) var(--pico-spacing);
 	pointer-events: auto;
 	user-select: none;
-	max-width: 20rem;
+	max-width: 22rem;
 	/* overflow:hidden; */
 }
 
@@ -933,7 +931,7 @@ SECTION .slider_block {
 }
 
 SECTION .slider_block LABEL {
-	width: 5rem;
+	width: 7rem;
 	display: inline-block;
 }
 SECTION .slider_block OUTPUT {
