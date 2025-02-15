@@ -1,5 +1,6 @@
 <script>
 
+	import FocusObjectDetails from './ui/FocusObjectDetails.svelte';
 	import TankStatsPanel from './ui/TankStatsPanel.svelte';
 	import SimulatorControlsPanel from './ui/SimulatorControlsPanel.svelte';
 	import SimulationLauncherPanel from './ui/SimulationLauncherPanel.svelte';
@@ -10,9 +11,12 @@
 	import VectorcosmAPI from './classes/class.VectorcosmAPI.js'
 	import Camera from './classes/class.Camera.js'
 	import Two from "two.js";
+	
+	let focus_object_id = 0;
 		
 	let vc_canvas;
 	let tank_stats_compo;
+	let focus_object_panel;
 	
 	let panel_mode = null;
 	
@@ -49,6 +53,9 @@
 			delta: ( gameloop.updates_per_frame > 1 ? gameloop.max_delta : delta )
 		};
 		worker.postMessage( data );
+		if ( focus_object_id ) {
+			api.SendMessage('pickObject', {oid:focus_object_id}); // send back for another round
+		}
 	}
 
 	gameloop.onStartDrawing = () => {
@@ -226,6 +233,13 @@
 			data.fps = gameloop.fps_avg.toFixed(0);
 			tank_stats_compo.updateTankStats(data);
 		}
+	} );
+	
+	// we could add this directly to the component instead
+	api.RegisterResponseCallback( 'pickObject', data => {
+		if ( !focus_object_panel ) { return; }
+		focus_object_id = data ? data.oid : 0;
+		focus_object_panel.updateStats(data); // null will make it go away
 	} );
 	
 	// gameloop starts when drawing context is fully mounted (see component)
@@ -515,6 +529,7 @@
 	
 	// mouse event handling state variables
 	let dragging = false;
+	let dragged = false; // detects if movement was made during mouse down
 	let idle_for = 0;
 	let is_idle = false;
 	
@@ -522,18 +537,39 @@
 		camera.ZoomAt( event.clientX, event.clientY, event.deltaY > 0 );
 	}
 	
-	function onclick (event ) {
-	
+	function onclick (event) {
+		// do nothing if we just finished moving map or dragging cursor
+		if ( dragged ) { 
+			dragged = false;
+			return false; 
+		}
+		const [x,y] = camera.ScreenToWorldCoord(event.clientX, event.clientY);
+		// recenter the map on right-click or wheel click
+		if ( event.button >= 2 ) { 
+			camera.PointCameraAt( x, y );
+			return false;
+		}
+		// pick object on left click
+		else {
+			const params = {
+				x: x, 
+				y: y,
+				radius: Math.min( 60, 60 / camera.scale ) // pixels in world space
+			};
+			api.SendMessage('pickObject', params);
+		}
 	}
 	
 	function onmousedown(event) {
+		if ( event.button > 1 ) { return true; }
 		dragging = true;
 		idle_for = 0;
 		is_idle = false;
+		dragged = false;
 	}
 	
 	function onmouseup(event) {
-		// let ClickMap handle it instead to avoid phantom clicks on objects
+		if ( event.button > 1 ) { return true; }
 		dragging = false;
 		idle_for = 0;
 		is_idle = false;
@@ -542,17 +578,15 @@
 	function onmousemove(event) {
 		if ( dragging ) {
 			camera.MoveCamera( -event.movementX, -event.movementY );
+			dragged = true;
 		}
 		idle_for = 0;
 		is_idle = false;
 	}
 	
 	function oncontextmenu(event) { // "right click"
-		if ( dragging ) {
-			camera.MoveCamera( -event.movementX, -event.movementY );
-		}
-		idle_for = 0;
-		is_idle = false;
+		event.preventDefault();
+		return onclick(event);
 	}
 	
 	function UpdateIdleTime() {
@@ -577,11 +611,13 @@
 		margin-top:0;
 		/* background: #0005;  */
 		/* backdrop-filter: blur(2px); */
-		transition: opacity 0.5s ease-in-out;
+		transition: opacity filter 0.5s ease-in-out;
+		filter: none;
 		opacity: 1;
 	}
 	div.nav.is_idle {
 		opacity: 0;
+		filter: blur(2rem);
 	}
 	/* this override's pico's default settings. reduced motion config comes from user's OS, not browser or CSS ! */
 	@media (prefers-reduced-motion: reduce) {
@@ -603,26 +639,33 @@
 		opacity:1;
 	}
 	main {
-		width: 100%; 
+		/* width: 50%;  */
 		flex: 100 1 auto; 
 		padding: 1rem; 
 		order: 1;	
 		pointer-events:none;
 	}
+	aside {
+		/* width: 50%;  */
+		flex: 1 1 1; 
+		padding: 1rem; 
+		order: 2;	
+		pointer-events:none;
+	}
 	#pagewrapper {
 		display:relative; 
 		display:flex; 
-		flex-flow: column wrap; 
+		flex-flow: row wrap; 
 		pointer-events:none;
 	}
-	#pagewrapper main > * { pointer-events:auto; }
+	#pagewrapper main > *,
+	#pagewrapper aside > * { pointer-events:auto; }
 	.hidecursor { cursor: none; }
 </style>
 
 <svelte:window {onkeydown} />
 
 <div id="pagewrapper" data-theme="dark" class="{is_idle ? 'hidecursor' : ''}">
-	
 	<!-- 
 		Vectorcosm two.js canvas area is fixed to the entire screen.
 		all UI elements sit on top of it.
@@ -634,8 +677,8 @@
 		<VectorcosmDrawingContext bind:this={vc_canvas} on:drawingReady={onDrawingReady} ></VectorcosmDrawingContext>
 	</div>
 	
-	<!-- all your normal UI elements go in here -->
 	<main>
+		<!-- all your normal UI elements go in here -->
 		<div class={['nav', {is_idle:is_idle}]}>
 			<button onclick={_ => setPanelMode('tank_stats')} 	
 				class:selected={panel_mode=='tank_stats'} 
@@ -675,6 +718,10 @@
 		{:else if panel_mode==='sim_launcher'}
 			<SimulationLauncherPanel></SimulationLauncherPanel>
 		{/if}
+		
 	</main>
 	
+	<aside>
+		<FocusObjectDetails bind:this={focus_object_panel}></FocusObjectDetails>
+	</aside>
 </div>

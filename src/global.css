@@ -817,6 +817,7 @@ SECTION {
 	pointer-events: auto;
 	user-select: none;
 	max-width: 22rem;
+	color: var(--pico-color);
 	/* overflow:hidden; */
 }
 
