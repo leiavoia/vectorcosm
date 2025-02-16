@@ -157,27 +157,11 @@
 					}
 					else if ( o.type=='plant' ) {
 						geo = RehydrateGeoData(o.geodata);
-						// geo = RehydrateGeoData({
-						// 	type:'rect',
-						// 	w: 100,
-						// 	h: 100,
-						// 	fill: 'transparent',
-						// 	stroke: 'lime',
-						// 	linewidth: 2,
-						// 	rotation: Math.PI/4
-						// });
 					}
 					else if ( o.type=='mark' ) {
-						// geo = RehydrateGeoData(o.geodata);
-						geo = RehydrateGeoData({
-							type:'circle',
-							r: 100,
-							fill: 'transparent',
-							stroke: 'magenta',
-							linewidth: 1,
-						});					
+						geo = RehydrateGeoData(o.geodata);		
 					}
-					else {
+					else { // unknown object
 						geo = RehydrateGeoData({
 							type:'rect',
 							w: 10,

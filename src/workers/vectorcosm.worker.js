@@ -50,8 +50,6 @@ function_registry.set( 'update', params => {
 		type: 'tank',
 		x: 0,
 		y: 0,
-		a: 0,
-		s: 1,
 		geodata: AutoIncludeGeoData(globalThis.vc.tank)
 	});
 	renderObjects.push( ... globalThis.vc.tank.boids.map( o => ({
@@ -75,7 +73,6 @@ function_registry.set( 'update', params => {
 		type:'food',
 		x: o.x,
 		y: o.y,
-		a: 0,
 		s: 1,
 		r: o.r, // needed to render dynamic radius
 		geodata: AutoIncludeGeoData(o)
@@ -85,16 +82,15 @@ function_registry.set( 'update', params => {
 		type:'mark',
 		x: o.x,
 		y: o.y,
-		a: 0,
-		s: 1
+		age: o.age,
+		lifespan: o.lifespan,
+		geodata: AutoIncludeGeoData(o),
 	}) ));
 	renderObjects.push( ... globalThis.vc.tank.obstacles.map( o => ({
 		oid: o.oid,
 		type:'obstacle',
 		x: o.x,
 		y: o.y,
-		a: 0,
-		s: 1,
 		geodata: AutoIncludeGeoData(o),
 		pts: o.collision.hull
 	}) ));
