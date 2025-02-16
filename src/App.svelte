@@ -526,6 +526,18 @@
 		}
 	};
 	
+	let windowResizeTimeout = null;
+	function onresize (event) {
+		// there is no "windowResizeFinished" event, so settle for timeout to avoid jank
+		if ( windowResizeTimeout ) { clearTimeout(windowResizeTimeout); }
+		windowResizeTimeout = setTimeout(function() {
+			camera.height = window.innerHeight;
+			camera.width = window.innerWidth;
+			globalThis.two.fit();
+			camera.ResetCameraZoom(); // also does parallax
+		}, 200);
+	}
+	
 	// mouse event handling state variables
 	const min_drag = 6;
 	let drag_start_x = 0;
@@ -673,7 +685,7 @@
 	.hidecursor { cursor: none; }
 </style>
 
-<svelte:window {onkeydown} />
+<svelte:window {onkeydown} {onresize} />
 
 <div id="pagewrapper" data-theme="dark" class="{is_idle ? 'hidecursor' : ''}">
 	<!-- 
