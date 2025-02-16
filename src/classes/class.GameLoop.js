@@ -28,7 +28,7 @@ export default class GameLoop {
 		this.onEndSim = null;
 		this.onEndDrawing = null;
 	}
-	Start() {
+	Start( autoplay=true ) {
 		// get stats based on previous frame.
 		// Note: we have to incorporate time eaten up by requestAnimationFrame,
 		// so we cannot record stats in the End() function. 
@@ -45,11 +45,13 @@ export default class GameLoop {
 		this.waittime = Math.max( 0, this.delta - ( this.drawtime + this.simtime ) );
 		if ( this.onStartFrame ) { this.onStartFrame(); }
 		// get the next frame going
-		this.playing = true;
-		this.drawing_finished = false;
-		this.sim_finished = false;
-		this.StartSimFrame(this.delta);
-		this.StartDrawing();	
+		if ( autoplay || this.playing ) {
+			this.playing = true;
+			this.drawing_finished = false;
+			this.sim_finished = false;
+			this.StartSimFrame(this.delta);
+			this.StartDrawing();	
+		}
 	}
 	End() {
 		if ( !this.drawing_finished || !this.sim_finished ) { return false; }
@@ -58,10 +60,10 @@ export default class GameLoop {
 		// kick off the next frame
 		if ( this.playing ) {
 			if ( typeof globalThis.requestAnimationFrame === 'function' ) {
-				globalThis.requestAnimationFrame( _ => this.Start() );
+				globalThis.requestAnimationFrame( _ => this.Start(false) );
 			}
 			else {
-				setTimeout( _ => this.Start(), 0 );
+				setTimeout( _ => this.Start(false), 0 );
 			}
 		}
 	}

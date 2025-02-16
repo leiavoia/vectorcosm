@@ -370,12 +370,14 @@
 	
 
 	const keyFunctionMap = {
-		// 'Pause': _ => {
-		// 		vc.TogglePause();
-		// 	},
-		// 'p': _ => {
-		// 		vc.TogglePause();
-		// 	},
+		'Pause': _ => {
+				gameloop.playing = !gameloop.playing;
+				if ( gameloop.playing ) { gameloop.Start(); }
+			},
+		'p': _ => {
+				gameloop.playing = !gameloop.playing;
+				if ( gameloop.playing ) { gameloop.Start(); }
+			},
 		'_': _ => {
 				const diff = Math.abs( camera.scale - (camera.scale * (1/(1 + camera.z))) );
 				camera.MoveCamera( 0, 0, -diff );
