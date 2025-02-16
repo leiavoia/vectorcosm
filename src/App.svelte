@@ -204,6 +204,11 @@
 				}
 			}
 		}
+		// if there is a focus object, point camera
+		if ( focus_object_id > 0 ) {
+			let obj = renderObjects.get(focus_object_id);
+			if ( obj ) { camera.PointCameraAt( obj.x, obj.y ); }
+		}
 		// stat tracking every 60 frames
 		if ( gameloop.frame % 60 == 0 ) {
 			api.SendMessage('getTankStats');
@@ -222,6 +227,11 @@
 	// we could add this directly to the component instead
 	api.RegisterResponseCallback( 'pickObject', data => {
 		if ( !focus_object_panel ) { return; }
+		// if focus_object_id is negative, that means ignore the next request (explicit cancel action)
+		if ( focus_object_id < 0 ) {
+			focus_object_id = 0;
+			return;
+		}
 		focus_object_id = data ? data.oid : 0;
 		focus_object_panel.updateStats(data); // null will make it go away
 	} );
@@ -448,8 +458,11 @@
 			},
 		'Escape': _ => {
 				// if ( show_boid_details.value ) { show_boid_details.value = false; }
-				// else if ( vc.focus_object ) { vc.StopTrackObject(); }
-				setPanelMode(null);
+				if ( focus_object_id > 0 ) { 
+					focus_object_id = -1; // signals explicit cancel
+					focus_object_panel.updateStats(null);
+				}
+				else { setPanelMode(null); }
 			},
 		// 'c': _ => {
 		// 		vc.CinemaMode( !vc.camera.cinema_mode );
@@ -512,6 +525,9 @@
 	};
 	
 	// mouse event handling state variables
+	const min_drag = 6;
+	let drag_start_x = 0;
+	let drag_start_y = 0;
 	let dragging = false;
 	let dragged = false; // detects if movement was made during mouse down
 	let idle_for = 0;
@@ -540,6 +556,7 @@
 				y: y,
 				radius: Math.min( 60, 60 / camera.scale ) // pixels in world space
 			};
+			focus_object_id = 0; // unselect currently selected object
 			api.SendMessage('pickObject', params);
 		}
 	}
@@ -547,6 +564,8 @@
 	function onmousedown(event) {
 		if ( event.button > 1 ) { return true; }
 		dragging = true;
+		drag_start_x = event.clientX;
+		drag_start_y = event.clientY;
 		idle_for = 0;
 		is_idle = false;
 		dragged = false;
@@ -560,9 +579,14 @@
 	}
 	
 	function onmousemove(event) {
-		if ( dragging ) {
-			camera.MoveCamera( -event.movementX, -event.movementY );
-			dragged = true;
+		if ( dragging && focus_object_id <= 0 ) {
+			// camera pan - don't move the camera on fudge clicks
+			const dx = event.clientX - drag_start_x;
+			const dy = event.clientY - drag_start_y;
+			if ( Math.sqrt( dx*dx + dy*dy ) >= min_drag ) { 
+				camera.MoveCamera( -event.movementX, -event.movementY );
+				dragged = true;
+			}
 		}
 		idle_for = 0;
 		is_idle = false;
