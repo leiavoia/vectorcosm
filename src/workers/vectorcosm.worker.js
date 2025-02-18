@@ -95,22 +95,39 @@ function_registry.set( 'update', params => {
 		pts: o.collision.hull
 	}) ));
 	
+	// compile simulation stats
+	let simStats = {
+		'best_score': globalThis.vc.simulation.stats.best_score,
+		'best_avg_score': globalThis.vc.simulation.stats.best_avg_score,
+		'framenum': globalThis.vc.simulation.stats.framenum,
+		'round_num': globalThis.vc.simulation.stats.round.num,
+		'round_best_score': globalThis.vc.simulation.stats.round.best_score,
+		'round_avg_score': globalThis.vc.simulation.stats.round.avg_score,
+		'time': globalThis.vc.simulation.settings.time,
+		'round_time': (globalThis.vc.simulation.stats.round.time || 0),
+		'name': globalThis.vc.simulation.settings.name,
+		'segments': (globalThis.vc.simulation.settings.segments || 1),
+		'sims_in_queue': globalThis.vc.sim_queue.length,
+		'settings': globalThis.vc.simulation.settings,
+		// 'stats': globalThis.vc.simulation.stats,
+	};
+		
+	// tank stats
+	let tankStats = {
+		boids: globalThis.vc.tank.boids.length,
+		obstacles: globalThis.vc.tank.obstacles.length,
+		plants: globalThis.vc.tank.plants.length,
+		foods: globalThis.vc.tank.foods.length,
+		marks: globalThis.vc.tank.marks.length,
+	}
+			
 	globalThis.postMessage( {
 		functionName: 'update',
-		data: { renderObjects }
-	} );
-});
-
-function_registry.set( 'getTankStats', params => {
-	globalThis.postMessage( {
-		functionName: 'getTankStats',
-		data: {
-			boids: globalThis.vc.tank.boids.length,
-			obstacles: globalThis.vc.tank.obstacles.length,
-			plants: globalThis.vc.tank.plants.length,
-			foods: globalThis.vc.tank.foods.length,
-			marks: globalThis.vc.tank.marks.length,
-		}
+		data: { 
+			renderObjects,
+			simStats,
+			tankStats
+			}
 	} );
 });
 

@@ -2,6 +2,7 @@
 
 	import FocusObjectDetails from './ui/FocusObjectDetails.svelte';
 	import TankStatsPanel from './ui/TankStatsPanel.svelte';
+	import SimStatsPanel from './ui/SimStatsPanel.svelte';
 	import SimulatorControlsPanel from './ui/SimulatorControlsPanel.svelte';
 	import SimulationLauncherPanel from './ui/SimulationLauncherPanel.svelte';
 	import BoidLibraryPanel from './ui/BoidLibraryPanel.svelte';
@@ -15,7 +16,6 @@
 	let focus_object_id = 0;
 		
 	let vc_canvas;
-	let tank_stats_compo;
 	let focus_object_panel;
 	
 	let panel_mode = null;
@@ -69,6 +69,10 @@
 	// this map contains the necessary info to draw and animate the objects.
 	// they are keyed by an object_id (oid) supplied by vectorcosm. 
 	let renderObjects = new Map();
+	
+	// tank stats we track each frame
+	let tankStats = {};
+	let simStats = {};
 	
 	// for each type of message we want to send, set up a callback to handle the response
 	api.RegisterResponseCallback( 'update', data => {
@@ -178,6 +182,9 @@
 					}
 					renderObjects.set(o.oid, o);
 					found.add(o);
+					// if ( o.x===0 && o.x===0 ) {
+					// 	console.log(o);
+					// }
 				}
 				// existing objects
 				else {
@@ -209,22 +216,15 @@
 			let obj = renderObjects.get(focus_object_id);
 			if ( obj ) { camera.PointCameraAt( obj.x, obj.y ); }
 		}
-		// stat tracking every 60 frames
-		if ( gameloop.frame % 60 == 0 ) {
-			api.SendMessage('getTankStats');
-		}
+		// record and update stats
+		tankStats = data.tankStats;
+		simStats = data.simStats;
+		simStats.fps = gameloop.fps_avg.toFixed(0);
+		
 		gameloop.EndSimFrame();
 	});
-	
-	// we could add this directly to the component instead
-	api.RegisterResponseCallback( 'getTankStats', data => {
-		if ( tank_stats_compo ) {
-			data.fps = gameloop.fps_avg.toFixed(0);
-			tank_stats_compo.updateTankStats(data);
-		}
-	} );
-	
-	// we could add this directly to the component instead
+		
+
 	api.RegisterResponseCallback( 'pickObject', data => {
 		if ( !focus_object_panel ) { return; }
 		// if focus_object_id is negative, that means ignore the next request (explicit cancel action)
@@ -367,7 +367,9 @@
 		}
 	}
 	
-	
+	function toggleFastForward() {
+		gameloop.updates_per_frame = gameloop.updates_per_frame > 1 ? 1 : 200;
+	}
 
 	const keyFunctionMap = {
 		'Pause': _ => {
@@ -428,21 +430,12 @@
 		// 			RefreshBoidDetailsDynamicObjects( vc.focus_object );
 		// 		}			
 		// 	},
-		// 'ScrollLock': _ => {
-		// 		vc.ResizeTankToWindow();
-		// 	},
 		// 's': _ => {
 		// 		vc.SaveTank();
 		// 	},
 		// 'a': _ => {
 		// 		vc.LoadTank();
 		// 	},
-		// '1': _ => {
-		// 		// vc.ToggleShowSensors();
-		// 		render_styles.push( render_styles.shift() );
-		// 		vc.SetRenderStyle( render_styles[0] );
-		// 	},
-		
 		'1': _ => {
 				setPanelMode('tank_stats')
 			},
@@ -465,6 +458,9 @@
 					focus_object_panel.updateStats(null);
 				}
 				else { setPanelMode(null); }
+			},
+		'End': _ => {
+				toggleFastForward();
 			},
 		// 'c': _ => {
 		// 		vc.CinemaMode( !vc.camera.cinema_mode );
@@ -490,32 +486,6 @@
 		// 	},
 		// '0': _ => {
 		// 		vc.LoadPopulation();
-		// 	},
-		// 'End': _ => {
-		// 		vc.ToggleSimulatorFF();
-		// 	},
-		// 'i': _ => {
-		// 		if ( vc.focus_object ) {
-		// 			show_boid_details.value = !show_boid_details.value;
-		// 			if ( show_boid_details.value ) {
-		// 				b.show_sensors = true;
-		// 				RefreshBoidDetailsDynamicObjects( vc.focus_object );
-		// 			}
-		// 		}
-		// 	},
-		// 't': _ => {
-		// 		if ( vc.focus_object ) { vc.StopTrackObject(); }
-		// 		else {
-		// 			const b = vc.tank.boids.sort( (a,b) => b.total_fitness_score - a.total_fitness_score )[0];
-		// 			vc.TrackObject(b);
-		// 			if ( show_boid_details.value ) {
-		// 				RefreshBoidDetailsDynamicObjects( vc.focus_object );
-		// 			}						
-		// 		}
-		// 	},
-		// 'l': _ => {
-		// 		const b = vc.tank.boids.sort( (a,b) => b.total_fitness_score - a.total_fitness_score )[0];
-		// 		if ( b ) console.log(b);
 		// 	},
 	}
 
@@ -732,7 +702,8 @@
 		{#if panel_mode==='sim_controls'}
 			<SimulatorControlsPanel></SimulatorControlsPanel>
 		{:else if panel_mode==='tank_stats'}
-			<TankStatsPanel bind:this={tank_stats_compo}></TankStatsPanel>
+			<TankStatsPanel stats={tankStats}></TankStatsPanel>
+			<SimStatsPanel stats={simStats}></SimStatsPanel>
 		{:else if panel_mode==='settings'}
 			<CameraSettingsPanel></CameraSettingsPanel>
 		{:else if panel_mode==='boid_library'}
