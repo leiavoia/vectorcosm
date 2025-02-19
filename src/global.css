@@ -932,12 +932,12 @@ SECTION .slider_block {
 }
 
 SECTION .slider_block LABEL {
-	width: 7rem;
+	width: 6.5rem;
 	display: inline-block;
 }
 SECTION .slider_block OUTPUT {
 	display: inline-block;
-	width: 3rem;
+	width: 3.5rem;
 	text-align: left;
 	padding-left: 0.35rem;
 }

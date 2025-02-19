@@ -469,27 +469,6 @@ export default class Tank {
 			this.bg_opacity = 0.15 + Math.random() * 0.7;
 		}
 				
-		// geometry for two.js
-		// for ( let t of this.background_triangles ) {
-		// 	let p = globalThis.two.makePath( ...t.slice(null, -1) );
-		// 	p.linewidth = 0;
-		// 	p.fill = t[6];
-		// 	p.stroke = 'transparent'; // t[6];
-		// 	this.bg.add(p);
-		// }		
-		// if ( this.bg_opacity ) {	
-		// 	if ( this.bg_opacity == 'random' ) {	
-		// 		this.bg_opacity = 0.15 + Math.random() * 0.7;
-		// 		this.bg.opacity = this.bg_opacity;
-		// 	}
-		// 	else {
-		// 		this.bg.opacity = this.bg_opacity;
-		// 	}
-		// }
-		// this.bg.visible = this.bg_visible;
-		// // globalThis.vc.AddShapeToRenderLayer(this.bg, -2);
-		// globalThis.vc.AddShapeToRenderLayer(this.bg, 'backdrop');
-		// this.ScaleBackground();
 	}
 	
 	GeoData() {
@@ -516,13 +495,6 @@ export default class Tank {
 		// if ( this.debug_geo ) {			
 		// 	this.DrawDebugBoundaryRectangle();
 		// }
-		// // remake the cosmetic tank frame
-		// if ( this.tankframe ) { this.tankframe.remove(); }
-		// this.tankframe = globalThis.two.makeRectangle(this.width/2, this.height/2, this.width, this.height );
-		// this.tankframe.stroke = "#888888";
-		// this.tankframe.linewidth = '2';
-		// this.tankframe.fill = 'transparent';		
-		// globalThis.vc.AddShapeToRenderLayer(this.tankframe, '-2');
 	}
 	
 	MakePrettyDecor() {

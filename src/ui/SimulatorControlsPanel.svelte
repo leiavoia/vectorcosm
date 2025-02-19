@@ -2,7 +2,7 @@
 
 	let { settings: settings_raw, onupdate } = $props();
 	let settings = $state({
-		scale: 0.3,
+		volume: 2500000,
 		num_boids: 0,
 		num_plants: 0,
 		num_rocks: 0,
@@ -53,9 +53,9 @@
 	</header>
 	
 	<div class="slider_block">
-		<label for="scale_slider">Scale:</label>
-		<input bind:value={settings.scale} onchange={()=>onchange('scale')} type="range" min="0.01" max="1" step="0.05" id="scale_slider" />
-		<output>{settings.scale||'?'}</output>
+		<label for="volume_slider">Volume:</label>
+		<input bind:value={settings.volume} onchange={()=>onchange('volume')} type="range" min="1000000" max="50000000" step="500000" id="volume_slider" />
+		<output>{((settings.volume||0)/1000000).toFixed(1)}K</output>
 	</div>
 	
 	<div class="slider_block">

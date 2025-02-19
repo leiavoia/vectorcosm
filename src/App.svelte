@@ -81,8 +81,29 @@
 			// keep track of what there is so we can remove what there aint
 			const found = new WeakSet();
 			for ( let o of data.renderObjects ) {
+				// if new geodata is supplied, treat as a new object
+				if ( o?.geodata && renderObjects.has(o.oid) ) {
+					console.log('new geodata droppped');
+					const obj = renderObjects.get(o.oid);
+					if ( 'geo' in obj ) {
+						console.log('deleted old geo');
+						obj.geo.remove();
+						renderObjects.delete(o.oid);
+					}
+				}
+				// existing objects
+				if ( renderObjects.has(o.oid) ) {
+					// update reference data
+					const obj = renderObjects.get(o.oid);
+					for ( let k in o ) {
+						obj[k] = o[k];
+					}
+					found.add(obj);
+					// update basic svg properties without recreating the entire shape
+					if ( 'geo' in obj ) { UpdateBasicGeoProps( obj.geo, o ); }
+				}			
 				// new objects
-				if ( !renderObjects.has(o.oid) ) {
+				else {
 					let geo = null;
 					if ( o.type=='boid' ) {
 						if ( o.geodata ) { 
@@ -127,7 +148,9 @@
 							if ( o.geodata.bg_theme_class ) {
 								vc_canvas.SetTheme(o.geodata.bg_theme_class);
 							}
+							
 							// background triangles get their own layer so we can scale it independently
+							renderLayers['bg'].children.forEach( c => c.remove() );
 							renderLayers['bg'].opacity = o.geodata.bg_opacity || 1;
 							for ( let t of o.geodata.triangles ) {
 								let p = globalThis.two.makePath( ...t.slice(null, -1) );
@@ -136,21 +159,23 @@
 								p.stroke = t[6];
 								renderLayers['bg'].add(p);
 							}
+							
 							// for fixed backgrounds, add the background into the fg layer
 							// renderLayers['fg'].add(renderLayers['bg']);
 							// tank frame is a fixed size
-							let tankframe = globalThis.two.makeRectangle(o.geodata.width/2, o.geodata.height/2, o.geodata.width, o.geodata.height );
-							tankframe.stroke = "#888888";
-							tankframe.linewidth = '2';
-							tankframe.fill = 'transparent';	
-							renderLayers['fg'].add(tankframe);
+							geo = globalThis.two.makeRectangle(o.geodata.width/2, o.geodata.height/2, o.geodata.width, o.geodata.height );
+							geo.stroke = "#888888";
+							geo.linewidth = '2';
+							geo.fill = 'transparent';	
+							// renderLayers['fg'].add(geo);
 							// set up a camera
-							camera = new Camera( renderLayers['fg'], renderLayers['bg'] );
-							camera.window_width = two.width;
-							camera.window_height = two.height;
+							if ( !camera ) {
+								camera = new Camera( renderLayers['fg'], renderLayers['bg'] );
+								camera.window_width = two.width;
+								camera.window_height = two.height;
+							}
 							camera.tank_width = o.geodata.width;
 							camera.tank_height = o.geodata.height;
-							// camera.PointCameraAt(0,0,0.25);
 							camera.ResetCameraZoom();
 						}
 					}
@@ -181,17 +206,6 @@
 					}
 					renderObjects.set(o.oid, o);
 					found.add(o);
-				}
-				// existing objects
-				else {
-					// update reference data
-					const obj = renderObjects.get(o.oid);
-					for ( let k in o ) {
-						obj[k] = o[k];
-					}
-					found.add(obj);
-					// update basic svg properties without recreating the entire shape
-					if ( 'geo' in obj ) { UpdateBasicGeoProps( obj.geo, o ); }
 				}
 			}
 			// remove all objects not found

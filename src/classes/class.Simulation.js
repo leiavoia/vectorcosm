@@ -83,10 +83,8 @@ export default class Simulation {
 	
 	// inherit me	
 	Setup() {
-		if ( this.settings?.scale ) {
-			globalThis.vc.SetViewScale( this.settings.scale );
-			globalThis.vc.ResizeTankToWindow(true); // force
-			globalThis.vc.ResetCameraZoom();
+		if ( this.settings?.volume ) {
+			globalThis.vc.ResizeTankByVolume( this.settings.volume );
 		}	
 	}
 	

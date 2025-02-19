@@ -1,4 +1,3 @@
-
 import Vectorcosm from '../classes/class.Vectorcosm.js'
 import { Boid } from '../classes/class.Boids.js'
 import * as utils from '../util/utils.js'
@@ -48,8 +47,6 @@ function_registry.set( 'update', params => {
 	renderObjects.push({
 		oid: globalThis.vc.tank.oid,
 		type: 'tank',
-		x: 0,
-		y: 0,
 		geodata: AutoIncludeGeoData(globalThis.vc.tank)
 	});
 	renderObjects.push( ... globalThis.vc.tank.boids.map( o => ({
@@ -92,7 +89,7 @@ function_registry.set( 'update', params => {
 		x: o.x,
 		y: o.y,
 		geodata: AutoIncludeGeoData(o),
-		pts: o.collision.hull
+		pts: o.collision.hull // TODO we don't need this every frame
 	}) ));
 	
 	// compile simulation stats
@@ -206,6 +203,12 @@ function_registry.set( 'updateSimSettings', params => {
 				if ( params.data.num_plants != globalThis.vc.simulation.settings.num_plants ) {
 					globalThis.vc.simulation.SetNumPlants(params.data.num_plants);
 				}
+				break;
+			}
+			// volume needs to resize the tank itself
+			case 'volume': {
+				globalThis.vc.ResizeTankByVolume(params.data.volume);
+				globalThis.vc.tank.geodata_sent = false;
 				break;
 			}
 			// other settings are just static data

@@ -172,37 +172,13 @@ export default class Vectorcosm {
 		}
 	}
 	
-	Play() {
-		// this.playing = true;
-		// while ( this.playing ) {
-		// 	// calculate time delta from last frame
-		// 	let now = performance.now();
-		// 	let delta = ( now - this.last_update_ts ) / 1000;
-		// 	this.last_update_ts = now;
-		// 	this.last_update_delta = delta;
-			this.update(1/30);
-			setTimeout( _ => this.Play(), 200 );
-		// }
-	}
-
-	SetViewScale( scale ) {
-		// const prev_scale = this.renderLayers['tank'].scale;
-		// this.width = two.width;
-		// this.height = two.height;
-		// this.scale = utils.clamp( scale, 0.01, 5 );
-		// this.renderLayers['tank'].scale = this.scale;
-		// // small adjustment to keep screen centered
-		// const xdiff = ( this.width * prev_scale ) - ( this.width * this.scale );
-		// this.renderLayers['tank'].position.x += xdiff * 0.5;
-		// const ydiff = ( this.height * prev_scale ) - ( this.height * this.scale );
-		// this.renderLayers['tank'].position.y += ydiff * 0.5;
-		// if ( this.braingraph ) {
-		// 	this.braingraph.onScreenSizeChange();
-		// }
-	}
-	
-	// if force is FALSE, `responsive_tank_size` setting will be honored
-	ResizeTankToWindow( force=false ) {
+	// if no volume is supplied, current volume will be used
+	ResizeTankByVolume( new_volume ) {
+		// we don't know the user's screen dimensions at this point, 
+		// so the best we can do is scale existing tank dimensions.
+		const current_volume = this.tank.width * this.tank.height;
+		const scale = Math.sqrt( new_volume / current_volume );
+		this.tank.Resize(this.tank.width * scale, this.tank.height * scale)
 	}
 
 	update( delta=0 ) {
