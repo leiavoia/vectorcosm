@@ -78,9 +78,6 @@
 	// for each type of message we want to send, set up a callback to handle the response
 	api.RegisterResponseCallback( 'update', data => {
 		if ( globalThis.two ) {
-			if ( vc_canvas ) {
-				// vc_canvas.injestEvent('pie!');
-			}
 			// keep track of what there is so we can remove what there aint
 			const found = new WeakSet();
 			for ( let o of data.renderObjects ) {
@@ -140,7 +137,7 @@
 								renderLayers['bg'].add(p);
 							}
 							// for fixed backgrounds, add the background into the fg layer
-							renderLayers['fg'].add(renderLayers['bg']);
+							// renderLayers['fg'].add(renderLayers['bg']);
 							// tank frame is a fixed size
 							let tankframe = globalThis.two.makeRectangle(o.geodata.width/2, o.geodata.height/2, o.geodata.width, o.geodata.height );
 							tankframe.stroke = "#888888";
@@ -178,30 +175,23 @@
 					}
 					// add new geometry to scene
 					if ( geo ) {
+						UpdateBasicGeoProps( geo, o );
 						o.geo = geo;
 						renderLayers['fg'].add(geo);
 					}
 					renderObjects.set(o.oid, o);
 					found.add(o);
-					// if ( o.x===0 && o.x===0 ) {
-					// 	console.log(o);
-					// }
 				}
 				// existing objects
 				else {
+					// update reference data
 					const obj = renderObjects.get(o.oid);
 					for ( let k in o ) {
 						obj[k] = o[k];
 					}
-					// update basic geometric properties without recreating the entire shape
-					if ( 'geo' in obj ) { 
-						if ( 'x' in o ) { obj.geo.position.x = o.x; }
-						if ( 'y' in o ) { obj.geo.position.y = o.y; }
-						if ( 'a' in o ) { obj.geo.rotation = o.a; }
-						if ( 's' in o ) { obj.geo.scale = o.s; }
-						if ( 'opacity' in o ) { obj.geo.opacity = o.opacity; }
-					}
 					found.add(obj);
+					// update basic svg properties without recreating the entire shape
+					if ( 'geo' in obj ) { UpdateBasicGeoProps( obj.geo, o ); }
 				}
 			}
 			// remove all objects not found
@@ -227,7 +217,6 @@
 		gameloop.EndSimFrame();
 	});
 		
-
 	api.RegisterResponseCallback( 'pickObject', data => {
 		if ( !focus_object_panel ) { return; }
 		// if focus_object_id is negative, that means ignore the next request (explicit cancel action)
@@ -266,6 +255,14 @@
 		// this.foreground_layer.add(this.renderLayers['2']);				
 	}
 	
+	function UpdateBasicGeoProps( target, props ) {
+		if ( 'x' in props ) { target.position.x = props.x; }
+		if ( 'y' in props ) { target.position.y = props.y; }
+		if ( 'a' in props ) { target.rotation = props.a; }
+		if ( 's' in props ) { target.scale = props.s; }
+		if ( 'opacity' in props ) { target.opacity = props.opacity; }
+	}
+						
 	function RehydrateGeoData( data ) {
 		if ( !data ) { return null; }
 		const type = data?.type || 'group';
@@ -525,6 +522,7 @@
 	}
 	
 	function onclick (event) {
+		if ( !camera ) { return false; }
 		// do nothing if we just finished moving map or dragging cursor
 		if ( dragged ) { 
 			dragged = false;
