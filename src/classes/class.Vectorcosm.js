@@ -407,8 +407,8 @@ export default class Vectorcosm {
 	}
 
 	RunSimulator()	{
-		if ( this.simulation && this.simulation.turbo && ( !this.simulation.settings?.time
-			|| this.simulation.stats.round.time <= this.simulation.settings.time ) ) {
+		if ( this.simulation && this.simulation.turbo && ( !this.simulation.settings?.timeout
+			|| this.simulation.stats.round_time <= this.simulation.settings.timeout ) ) {
 			// freeze automatic  screen drawing
 			// if ( this.two.playing ) { this.two.pause(); }
 			// we want to measure the actual FPS using performance counter

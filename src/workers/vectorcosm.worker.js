@@ -100,16 +100,16 @@ function_registry.set( 'update', params => {
 		'best_score': globalThis.vc.simulation.stats.best_score,
 		'best_avg_score': globalThis.vc.simulation.stats.best_avg_score,
 		'framenum': globalThis.vc.simulation.stats.framenum,
-		'round_num': globalThis.vc.simulation.stats.round.num,
-		'round_best_score': globalThis.vc.simulation.stats.round.best_score,
-		'round_avg_score': globalThis.vc.simulation.stats.round.avg_score,
-		'time': globalThis.vc.simulation.settings.time,
-		'round_time': (globalThis.vc.simulation.stats.round.time || 0),
+		'round_num': globalThis.vc.simulation.stats.round_num,
+		'round_best_score': globalThis.vc.simulation.stats.round_best_score,
+		'round_avg_score': globalThis.vc.simulation.stats.round_avg_score,
+		'timeout': globalThis.vc.simulation.settings.timeout,
+		'round_time': (globalThis.vc.simulation.stats.round_time || 0),
 		'name': globalThis.vc.simulation.settings.name,
 		'segments': (globalThis.vc.simulation.settings.segments || 1),
 		'sims_in_queue': globalThis.vc.sim_queue.length,
 		'settings': globalThis.vc.simulation.settings,
-		// 'stats': globalThis.vc.simulation.stats,
+		// 'stats': globalThis.vc.simulation.stats, // warning: contains graph data
 	};
 		
 	// tank stats
@@ -183,6 +183,40 @@ function_registry.set( 'init', params => {
 			width: globalThis.vc.tank.width,
 			height: globalThis.vc.tank.height,
 		}
+	} );
+});
+
+function_registry.set( 'updateSimSettings', params => {
+	for ( let k in params.data ) {
+		switch (k) {
+			// special cases for changing number of tank objects
+			case 'num_boids': {
+				if ( params.data.num_boids != globalThis.vc.simulation.settings.num_boids ) {
+					globalThis.vc.simulation.SetNumBoids(params.data.num_boids);
+				}
+				break;
+			}
+			case 'num_rocks': {
+				if ( params.data.num_rocks != globalThis.vc.simulation.settings.num_rocks ) {
+					globalThis.vc.simulation.SetNumRocks(params.data.num_rocks);
+				}
+				break;
+			}
+			case 'num_plants': {
+				if ( params.data.num_plants != globalThis.vc.simulation.settings.num_plants ) {
+					globalThis.vc.simulation.SetNumPlants(params.data.num_plants);
+				}
+				break;
+			}
+			// other settings are just static data
+			default: {
+				globalThis.vc.simulation.settings[k] = params.data[k];
+			}
+		}
+	}
+	globalThis.postMessage( {
+		functionName: 'updateSimSettings',
+		data: globalThis.vc.simulation.settings
 	} );
 });
 

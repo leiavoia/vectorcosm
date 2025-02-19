@@ -528,11 +528,11 @@ export default class Sensor {
     senseDisplacement() {
         let val = 0;
         if (!this.owner.x && !this.owner.y) return [val];
-        if (this.next_update && this.next_update > globalThis.vc.simulation.stats.round.time) {
+        if (this.next_update && this.next_update > globalThis.vc.simulation.stats.round_time) {
             val = this.last_val || 0;
             return [val];
         }
-        this.next_update = (this.next_update || globalThis.vc.simulation.stats.round.time) + (this.interval || 1);
+        this.next_update = (this.next_update || globalThis.vc.simulation.stats.round_time) + (this.interval || 1);
         if (!this.history) this.history = [];
         this.history.push([this.owner.x, this.owner.y]);
         if (this.history.length > (this.intervals || 3)) this.history.shift();

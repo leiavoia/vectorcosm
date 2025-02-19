@@ -15,9 +15,9 @@
 	<p><output>{stats.name}</output></p>
 	
 	Time: <output id="sim_time_output">{stats.round_time.toFixed(1)}</output>
-	{#if stats.settings.time} / <output>{stats.settings.time}</output>{/if}
+	{#if stats.settings.timeout} / <output>{stats.settings.timeout}</output>{/if}
 	
-	{#if stats.settings.time}
+	{#if stats.settings.timeout}
 		<br/>
 		{#if stats.segments > 1}
 			<br/>
@@ -28,7 +28,7 @@
 		Avg: <output id="avg_score_output">{stats.round_avg_score.toFixed()}</output>
 	{/if}
 
-	{#if stats.settings.time}
+	{#if stats.settings.timeout}
 		<br/>
 		Sim Best: <output id="total_score_output">{stats.best_score.toFixed()}</output> | 
 		Best Avg: <output id="best_avg_score_output">{stats.best_avg_score.toFixed()}</output>

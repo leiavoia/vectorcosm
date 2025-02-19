@@ -13,7 +13,7 @@ export function SimulationFactory( tank, name_or_settings ) {
 	if ( name_or_settings == 'random' ) {
 		name_or_settings = Object.values( SimulationLibrary )
 			// don't include perpetual stuff or natural tank
-			.filter( x => x.end?.rounds > 0 && x.end?.rounds < 1000 )
+			.filter( x => x.rounds > 0 && x.rounds < 1000 )
 			.pickRandom();
 	}
 	// named sim
@@ -46,12 +46,10 @@ export default class Simulation {
 			num_plants: 0,
 			num_rocks: 0,
 			add_decor: false,
-			time: 30, // in seconds
-			// end: {
+			timeout: 30, // in seconds
 			// 	rounds: 5,
-			// 	avg_score: 10,	
-			// 	avg_score_rounds: 5
-			// },
+			// 	min_avg_score: 10,	
+			// 	min_avg_score_rounds: 5
 			species: 'random',
 			fruiting_speed: 1.0,
 			onExtinction: 'random',
@@ -65,12 +63,10 @@ export default class Simulation {
 			best_score: 0,
 			best_avg_score: 0,
 			best_brain: null,
-			round: {
-				num: 0,
-				best_score: 0,
-				avg_score: 0,
-				time: 0
-			},
+			round_time:0,
+			round_num: 0,
+			round_best_score: 0,
+			round_avg_score: 0,
 			chartdata: {
 				averages: [],
 				highscores: []
@@ -131,7 +127,7 @@ export default class Simulation {
 		if ( this.settings?.invasives ) {
 			const freq = this.settings?.invasives_freq || 500;
 			const next = this.next_invasive ?? freq;
-			const t = Math.floor( this.stats.round.time );
+			const t = Math.floor( this.stats.round_time );
 			if ( t > next ) {
 				for ( let i=0; i < this.settings.invasives; i++ ) { 
 					this.AddNewBoidToTank();
@@ -144,9 +140,9 @@ export default class Simulation {
 			const tide_freq = this.settings.tide;
 			const tide_duration = 3;
 			const wave_reps = 5;
-			if ( (tide_freq/2 + this.stats.round.time) % tide_freq < tide_duration * wave_reps ) {
+			if ( (tide_freq/2 + this.stats.round_time) % tide_freq < tide_duration * wave_reps ) {
 				const tidal_force = this.tank.height * Math.random() + this.tank.height * Math.random() + this.tank.height * Math.random();
-				const t = (tide_freq/2 + this.stats.round.time) % tide_freq;
+				const t = (tide_freq/2 + this.stats.round_time) % tide_freq;
 				const scale = Math.sin( (t * Math.PI) / (tide_duration * wave_reps) );
 				for ( let b of this.tank.boids ) {
 					const y_off = b.y / this.tank.height;
@@ -190,22 +186,22 @@ export default class Simulation {
 		// run of the mill
 		this.UpdateTankEnvironment(delta);
 		// house keeping
-		this.stats.round.time += delta;
+		this.stats.round_time += delta;
 		this.stats.delta = delta;
 		this.stats.framenum++;
 		// score boids on performance
-		if ( this.settings.time ) { // endless sims (time=0) don't need to waste CPU cycles
+		if ( this.settings.timeout ) { // endless sims (time=0) don't need to waste CPU cycles
 			for ( let b of this.tank.boids ) { this.ScoreBoidPerFrame(b); }
 		}
 		// reset the round if we hit time
-		if ( this.settings.time && this.stats.round.time && this.stats.round.time >= this.settings.time ) { 
+		if ( this.settings.timeout && this.stats.round_time && this.stats.round_time >= this.settings.timeout ) { 
 			// final scoring
 			for ( let b of this.tank.boids ) { this.ScoreBoidPerRound(b); }
 			// record stats
-			this.stats.round.num++;
-			this.stats.round.time = 0;
-			this.stats.round.best_score = 0;
-			this.stats.round.avg_score = 0;
+			this.stats.round_num++;
+			this.stats.round_time = 0;
+			this.stats.round_best_score = 0;
+			this.stats.round_avg_score = 0;
 			let avg = 0;
 			let best = 0;
 			for ( let b of this.tank.boids ) {
@@ -213,17 +209,17 @@ export default class Simulation {
 				best = Math.max(b.total_fitness_score||0, best);
 			}
 			avg /= this.tank.boids.length || 1;
-			this.stats.round.avg_score = avg;
-			this.stats.round.best_score = best;
+			this.stats.round_avg_score = avg;
+			this.stats.round_best_score = best;
 			// if this is the first round, record the raw value instead of comparing
-			if ( this.stats.round.num===1 ) {
-				this.stats.best_score = this.stats.round.best_score;
-				this.stats.best_avg_score = this.stats.round.avg_score;
+			if ( this.stats.round_num===1 ) {
+				this.stats.best_score = this.stats.round_best_score;
+				this.stats.best_avg_score = this.stats.round_avg_score;
 			}
 			// otherwise pick the best of the bunch
 			else {
-				this.stats.best_score = Math.max(this.stats.best_score, this.stats.round.best_score);
-				this.stats.best_avg_score = Math.max(this.stats.best_avg_score, this.stats.round.avg_score);
+				this.stats.best_score = Math.max(this.stats.best_score, this.stats.round_best_score);
+				this.stats.best_avg_score = Math.max(this.stats.best_avg_score, this.stats.round_avg_score);
 			}
 			this.stats.chartdata.averages.push(avg);
 			this.stats.chartdata.highscores.push(best);
@@ -298,14 +294,14 @@ export default class Simulation {
 			if ( typeof(this.onRound) === 'function' ) { this.onRound(this); }
 			// check if entire simulation is over
 			let end_sim = false; // you can mark "killme" to terminate early 
-			if ( this.settings.end?.rounds && this.stats.round.num > this.settings.end.rounds ) {
+			if ( this.settings.rounds && this.stats.round_num > this.settings.rounds ) {
 				end_sim = true;
 			}
-			else if ( this.settings.end?.avg_score && this.stats.round.avg_score > this.settings.end.avg_score ) {
+			else if ( this.settings?.min_avg_score && this.stats.round_avg_score > this.settings?.min_avg_score ) {
 				// check if there is a minimum number of rounds we need to sustain this average
-				if ( !this.settings.end?.avg_score_rounds ) { this.settings.end.avg_score_rounds = 0; }
-				this.stats.end_avg_score_round = (this.stats.end_avg_score_round || 0) + 1;
-				if ( this.stats.end_avg_score_round >= this.settings.end.avg_score_rounds ) {
+				if ( !this.settings?.min_avg_score_rounds ) { this.settings.min_avg_score_rounds = 0; }
+				this.stats.min_avg_score_round = (this.stats.min_avg_score_round || 0) + 1;
+				if ( this.stats.min_avg_score_round >= this.settings.min_avg_score_rounds ) {
 					end_sim = true;
 				}
 			}
@@ -840,7 +836,7 @@ export class CombatSimulation extends Simulation {
 				b.total_fitness_score = 0;
 			}
 			else {
-				b.total_fitness_score = ( this.settings.time / 2 ) - b.stats.combat.attacks_received;
+				b.total_fitness_score = ( this.settings.timeout / 2 ) - b.stats.combat.attacks_received;
 			}
 		}
 		// attackers - odd numbered segments

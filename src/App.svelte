@@ -18,7 +18,7 @@
 	let vc_canvas;
 	let focus_object_panel;
 	
-	let panel_mode = null;
+	let panel_mode = $state(null);
 	
 	let renderLayers = {};
 			
@@ -71,8 +71,9 @@
 	let renderObjects = new Map();
 	
 	// tank stats we track each frame
-	let tankStats = {};
-	let simStats = {};
+	let tankStats = $state.raw({});
+	let simStats = $state.raw({});
+	let simSettings = $state.raw({});
 	
 	// for each type of message we want to send, set up a callback to handle the response
 	api.RegisterResponseCallback( 'update', data => {
@@ -220,7 +221,9 @@
 		tankStats = data.tankStats;
 		simStats = data.simStats;
 		simStats.fps = gameloop.fps_avg.toFixed(0);
-		
+		if ( Object.keys(simSettings).length === 0 && simStats.settings ) { // don't do this every frame
+			simSettings = simStats.settings;
+		} 
 		gameloop.EndSimFrame();
 	});
 		
@@ -515,7 +518,7 @@
 	let dragging = false;
 	let dragged = false; // detects if movement was made during mouse down
 	let idle_for = 0;
-	let is_idle = false;
+	let is_idle = $state(false);
 	
 	function onwheel(event) {
 		camera.ZoomAt( event.clientX, event.clientY, event.deltaY > 0 );
@@ -586,6 +589,10 @@
 		is_idle = idle_for >= 2 && !panel_mode;
 		setTimeout( UpdateIdleTime, 500 );
 	};
+	
+	function onSimulatorControlsUpdate(params) {
+		api.SendMessage('updateSimSettings',params);
+	}
 	
 	UpdateIdleTime(); // start immediately
 	
@@ -700,7 +707,8 @@
 		</div>
 		
 		{#if panel_mode==='sim_controls'}
-			<SimulatorControlsPanel></SimulatorControlsPanel>
+			<SimulatorControlsPanel settings={simSettings} onupdate={params=>onSimulatorControlsUpdate(params)}></SimulatorControlsPanel>
+			<SimStatsPanel stats={simStats}></SimStatsPanel>
 		{:else if panel_mode==='tank_stats'}
 			<TankStatsPanel stats={tankStats}></TankStatsPanel>
 			<SimStatsPanel stats={simStats}></SimStatsPanel>
