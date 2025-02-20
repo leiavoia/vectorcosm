@@ -1,19 +1,7 @@
 import Vectorcosm from '../classes/class.Vectorcosm.js'
 import { Boid } from '../classes/class.Boids.js'
 import * as utils from '../util/utils.js'
-// import Tank from './classes/class.Tank.js'
-// import Simulation from './classes/class.Simulation.js'
-// import BrainGraph from './classes/class.BrainGraph.js'
-// import SimulatorControls from './components/SimulatorControls.vue'
-// import TrainingProgramControls from './components/TrainingProgramControls.vue'
-// import CameraControls from './components/CameraControls.vue'
-// import BoidLibraryControls from './components/BoidLibraryControls.vue'
-// import TankStats from './components/TankStats.vue'
-// // import Plant from './classes/class.Plant.js'
-// // import Poison from './classes/class.Poison.js'
-// import { onMounted, ref, reactive, markRaw, shallowRef, shallowReactive } from 'vue'
-// import PubSub from 'pubsub-js'
-// import BoidLibrary from './classes/class.BoidLibrary.js'
+import PubSub from 'pubsub-js'
 
 const function_registry = new Map();
 
@@ -223,10 +211,36 @@ function_registry.set( 'updateSimSettings', params => {
 	} );
 });
 
+// listen for critical internal events and report back via API
+let onSimCompleteSubscription = PubSub.subscribe('sim.complete', (msg, sim) => {
+	globalThis.postMessage( {
+		functionName: 'simComplete',
+		data: {
+			settings: sim.settings,
+			stats: sim.stats // complete summary including chartdata
+		}
+	} );
+});
+let onSimRoundSubscription = PubSub.subscribe('sim.round', (msg, sim) => {
+	let datapacket = Object.assign({}, sim.stats);
+	delete(datapacket.chartdata); // don't need all of this every frame
+	globalThis.postMessage( {
+		functionName: 'simRound',
+		data: datapacket
+	} );
+});
+let onSimNewSubscription = PubSub.subscribe('sim.new', (msg, sim) => {
+	// force the tank geometry to update
+	globalThis.vc.tank.geodata_sent = false;
+	globalThis.postMessage( {
+		functionName: 'simNew',
+		data: sim.settings
+	} );
+});
+		
 // set up the main simulation
 let vc = new Vectorcosm;
 globalThis.vc = vc; // handy reference for everyone else
-// globalThis.vc.onSimulationChange = new_sim => { sim.value = new_sim; }
 
 function DescribeBoid( o ) {
 	let data = { 

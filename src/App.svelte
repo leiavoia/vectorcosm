@@ -17,6 +17,7 @@
 		
 	let vc_canvas;
 	let focus_object_panel;
+	let simStatsPanel;
 	
 	let panel_mode = $state(null);
 	
@@ -83,10 +84,8 @@
 			for ( let o of data.renderObjects ) {
 				// if new geodata is supplied, treat as a new object
 				if ( o?.geodata && renderObjects.has(o.oid) ) {
-					console.log('new geodata droppped');
 					const obj = renderObjects.get(o.oid);
 					if ( 'geo' in obj ) {
-						console.log('deleted old geo');
 						obj.geo.remove();
 						renderObjects.delete(o.oid);
 					}
@@ -145,7 +144,7 @@
 					else if ( o.type=='tank' ) {
 						if ( o.geodata ) {
 							// the theme is an HTML element classname and not part of the drawing context
-							if ( o.geodata.bg_theme_class ) {
+							if ( o.geodata.bg_theme_class && vc_canvas ) {
 								vc_canvas.SetTheme(o.geodata.bg_theme_class);
 							}
 							
@@ -240,6 +239,40 @@
 		}
 		focus_object_id = data ? data.oid : 0;
 		focus_object_panel.updateStats(data); // null will make it go away
+	} );
+	
+	let simChartData = $state.raw({
+		averages:[],
+		highscores:[],
+		labels:[]
+	});
+		
+	api.RegisterResponseCallback( 'simRound', data => {
+		simChartData.averages.push( data.round_avg_score );
+		simChartData.highscores.push( data.round_best_score );
+		simChartData.labels.push( data.round_num );
+		if ( simStatsPanel ) {
+			simStatsPanel.onRoundComplete();
+		}
+	} );
+	
+	api.RegisterResponseCallback( 'simComplete', data => {
+		// console.log(data);
+		// if ( !focus_object_panel ) { return; }
+		// focus_object_panel.updateStats(data); 
+		console.log(simChartData);
+	} );
+	
+	api.RegisterResponseCallback( 'simNew', data => {
+		// console.log(data);
+		// if ( !focus_object_panel ) { return; }
+		// focus_object_panel.updateStats(data); 
+		// camera.tank_width = o.geodata.width;
+		// camera.tank_height = o.geodata.height;
+		camera.ResetCameraZoom();	
+		simChartData.averages.length = 0;
+		simChartData.highscores.length = 0;
+		simChartData.labels.length = 0;
 	} );
 	
 	// gameloop starts when drawing context is fully mounted (see component)
@@ -720,10 +753,10 @@
 		
 		{#if panel_mode==='sim_controls'}
 			<SimulatorControlsPanel settings={simSettings} onupdate={params=>onSimulatorControlsUpdate(params)}></SimulatorControlsPanel>
-			<SimStatsPanel stats={simStats}></SimStatsPanel>
+			<SimStatsPanel bind:this={simStatsPanel} stats={simStats} chartdata={simChartData}></SimStatsPanel>
 		{:else if panel_mode==='tank_stats'}
 			<TankStatsPanel stats={tankStats}></TankStatsPanel>
-			<SimStatsPanel stats={simStats}></SimStatsPanel>
+			<SimStatsPanel bind:this={simStatsPanel} stats={simStats} chartdata={simChartData}></SimStatsPanel>
 		{:else if panel_mode==='settings'}
 			<CameraSettingsPanel></CameraSettingsPanel>
 		{:else if panel_mode==='boid_library'}

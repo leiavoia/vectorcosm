@@ -96,6 +96,11 @@ export default class Vectorcosm {
 			SimulationFactory(this.tank, 'natural_tank'),
 		];
 		
+		// subscribe to critical events
+		let onSimCompleteSubscription = PubSub.subscribe('sim.complete', (msg, data) => {
+			this.LoadNextSim();
+		});
+		
 		this.LoadNextSim();
 				
 	}
@@ -161,15 +166,10 @@ export default class Vectorcosm {
 		// meta params that carry over from sim to sim
 		if ( this.sim_meta_params.num_boids > 0 ) { this.simulation.settings.num_boids = this.sim_meta_params.num_boids; }
 		if ( this.sim_meta_params.segments > 1 ) { this.simulation.settings.segments = this.sim_meta_params.segments; }
-		this.simulation.onComplete = _ => this.LoadNextSim();
 		this.tank.Sterilize(); 
 		this.simulation.tank.boids = boids;
 		this.simulation.Setup(); 
 		this.simulation.turbo = was_turbo;
-		// [!]HACK
-		if ( typeof(this.onSimulationChange) === 'function' ) {
-			this.onSimulationChange(this.simulation);
-		}
 	}
 	
 	// if no volume is supplied, current volume will be used

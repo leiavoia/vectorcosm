@@ -7,6 +7,7 @@ import { BoidFactory } from '../classes/class.Boids.js'
 import SimulationLibrary from "./SimulationLibrary.js";
 import {Circle} from 'collisions';
 import { RandomPlant } from '../classes/class.Plant.js'
+import PubSub from 'pubsub-js'
 
 export function SimulationFactory( tank, name_or_settings ) {
 	// random pick from the library
@@ -76,16 +77,14 @@ export default class Simulation {
 		};
 		this.turbo = false;
 		this.complete = false;
-		this.onUpdate = null;
-		this.onRound = null;
-		this.onComplete = null; // not implemented
 	}
 	
 	// inherit me	
 	Setup() {
 		if ( this.settings?.volume ) {
 			globalThis.vc.ResizeTankByVolume( this.settings.volume );
-		}	
+		}
+		PubSub.publish('sim.new', this);
 	}
 	
 	Reset() {
@@ -169,7 +168,7 @@ export default class Simulation {
 	Update( delta ) {
 		if ( this.complete ) { return; }
 		if ( this.killme ) {
-			if ( typeof(this.onComplete) === 'function' ) { this.onComplete(this); }		
+			PubSub.publish('sim.complete', this);
 			return;
 		}
 		// extinction check
@@ -289,7 +288,7 @@ export default class Simulation {
 			
 		
 			this.Reset();
-			if ( typeof(this.onRound) === 'function' ) { this.onRound(this); }
+			PubSub.publish('sim.round', this);
 			// check if entire simulation is over
 			let end_sim = false; // you can mark "killme" to terminate early 
 			if ( this.settings.rounds && this.stats.round_num > this.settings.rounds ) {
@@ -305,10 +304,10 @@ export default class Simulation {
 			}
 			if ( end_sim ) {
 				this.complete = true;
-				if ( typeof(this.onComplete) === 'function' ) { this.onComplete(this); }
+				PubSub.publish('sim.complete', this);
 			}
 		}
-		if ( typeof(this.onUpdate) === 'function' ) { this.onUpdate(this); }
+		PubSub.publish('sim.update', this);
 	}	
 	
 	SetNumBoids(x) {
