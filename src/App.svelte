@@ -648,7 +648,7 @@
 		{:else if panel_mode==='boid_library'}
 			<BoidLibraryPanel></BoidLibraryPanel>
 		{:else if panel_mode==='sim_launcher'}
-			<SimulationLauncherPanel></SimulationLauncherPanel>
+			<SimulationLauncherPanel {api} ></SimulationLauncherPanel>
 		{/if}
 		
 	</main>
