@@ -12,9 +12,8 @@
 	import VectorcosmAPI from './classes/class.VectorcosmAPI.js'
 	import Camera from './classes/class.Camera.js'
 	import Two from "two.js";
+	import * as SVGUtils from './util/svg.js'
 	
-	let focus_object_id = 0;
-		
 	let vc_canvas;
 	let focus_object_panel;
 	let simStatsPanel;
@@ -39,7 +38,7 @@
 
 	// set up game loop and lifecycle hooks
 	let gameloop = new GameLoop();
-
+	
 	// camera needs tank and window data before it can be set up
 	let camera = null;
 
@@ -54,16 +53,13 @@
 			delta: ( gameloop.updates_per_frame > 1 ? gameloop.max_delta : delta )
 		};
 		worker.postMessage( data );
-		if ( focus_object_id ) {
-			api.SendMessage('pickObject', {oid:focus_object_id}); // send back for another round
+		if ( camera && camera.focus_obj_id > 0 ) {
+			api.SendMessage('pickObject', {oid:camera.focus_obj_id}); // send back for another round
 		}
 	}
 
 	gameloop.onStartDrawing = () => {
-		// see about addressing the component directly
-		if ( globalThis.two ) { 
-			globalThis.two.update(); 
-		}
+		if ( camera ) { camera.Render(); }
 	}
 	
 	// create a map of all drawable objects. these are coming from the vectorcosm worker.
@@ -95,18 +91,19 @@
 					// update reference data
 					const obj = renderObjects.get(o.oid);
 					for ( let k in o ) {
+						if ( k =='geodata' ) { continue; }
 						obj[k] = o[k];
 					}
 					found.add(obj);
 					// update basic svg properties without recreating the entire shape
-					if ( 'geo' in obj ) { UpdateBasicGeoProps( obj.geo, o ); }
+					if ( 'geo' in obj ) { SVGUtils.UpdateBasicGeoProps( obj.geo, o ); }
 				}			
 				// new objects
 				else {
 					let geo = null;
 					if ( o.type=='boid' ) {
 						if ( o.geodata ) { 
-							geo = RehydrateGeoData(o.geodata);
+							geo = SVGUtils.RehydrateGeoData(o.geodata);
 						}						
 						else {
 							geo = globalThis.two.makePath([
@@ -166,10 +163,9 @@
 							geo.stroke = "#888888";
 							geo.linewidth = '2';
 							geo.fill = 'transparent';	
-							// renderLayers['fg'].add(geo);
 							// set up a camera
 							if ( !camera ) {
-								camera = new Camera( renderLayers['fg'], renderLayers['bg'] );
+								camera = new Camera( renderLayers['fg'], renderLayers['bg'], renderObjects );
 								camera.window_width = two.width;
 								camera.window_height = two.height;
 							}
@@ -179,16 +175,16 @@
 						}
 					}
 					else if ( o.type=='food' ) {
-						geo = RehydrateGeoData(o.geodata);
+						geo = SVGUtils.RehydrateGeoData(o.geodata);
 					}
 					else if ( o.type=='plant' ) {
-						geo = RehydrateGeoData(o.geodata);
+						geo = SVGUtils.RehydrateGeoData(o.geodata);
 					}
 					else if ( o.type=='mark' ) {
-						geo = RehydrateGeoData(o.geodata);		
+						geo = SVGUtils.RehydrateGeoData(o.geodata);		
 					}
 					else { // unknown object
-						geo = RehydrateGeoData({
+						geo = SVGUtils.RehydrateGeoData({
 							type:'rect',
 							w: 10,
 							h: 10,
@@ -199,7 +195,7 @@
 					}
 					// add new geometry to scene
 					if ( geo ) {
-						UpdateBasicGeoProps( geo, o );
+						SVGUtils.UpdateBasicGeoProps( geo, o );
 						o.geo = geo;
 						renderLayers['fg'].add(geo);
 					}
@@ -215,11 +211,6 @@
 				}
 			}
 		}
-		// if there is a focus object, point camera
-		if ( focus_object_id > 0 ) {
-			let obj = renderObjects.get(focus_object_id);
-			if ( obj ) { camera.PointCameraAt( obj.x, obj.y ); }
-		}
 		// record and update stats
 		tankStats = data.tankStats;
 		simStats = data.simStats;
@@ -231,14 +222,19 @@
 	});
 		
 	api.RegisterResponseCallback( 'pickObject', data => {
-		if ( !focus_object_panel ) { return; }
-		// if focus_object_id is negative, that means ignore the next request (explicit cancel action)
-		if ( focus_object_id < 0 ) {
-			focus_object_id = 0;
-			return;
+		const focus_object_id = data ? data.oid : 0;
+		// capture any sensor geometry so we can use it later
+		if ( data && data?.sensor_geo ) {
+			const obj = renderObjects.get(focus_object_id);
+			if ( obj && 'geodata' in obj && !('sensors' in obj.geodata) ) {
+				obj.geodata.sensors = data.sensor_geo;
+			}
 		}
-		focus_object_id = data ? data.oid : 0;
-		focus_object_panel.updateStats(data); // null will make it go away
+		// track objects and update UI
+		camera.TrackObject(focus_object_id);
+		if ( focus_object_panel ) {
+			focus_object_panel.updateStats(data); // null will make it go away
+		}
 	} );
 	
 	let simChartData = $state.raw({
@@ -300,118 +296,6 @@
 		// this.foreground_layer.add(this.renderLayers['0']);
 		// this.foreground_layer.add(this.renderLayers['1']);
 		// this.foreground_layer.add(this.renderLayers['2']);				
-	}
-	
-	function UpdateBasicGeoProps( target, props ) {
-		if ( 'x' in props ) { target.position.x = props.x; }
-		if ( 'y' in props ) { target.position.y = props.y; }
-		if ( 'a' in props ) { target.rotation = props.a; }
-		if ( 's' in props ) { target.scale = props.s; }
-		if ( 'opacity' in props ) { target.opacity = props.opacity; }
-	}
-						
-	function RehydrateGeoData( data ) {
-		if ( !data ) { return null; }
-		const type = data?.type || 'group';
-		// create the basic geometry
-		let geo = null;
-		switch ( type ) {
-			case 'circle': {
-				let x = data?.x || 0;
-				let y = data?.y || 0;
-				let r = data?.r || data?.radius || 1;
-				geo = globalThis.two.makeCircle( x, y, r );
-				break;
-			}
-			case 'polygon': {
-				let x = data?.x || 0;
-				let y = data?.y || 0;
-				let r = data?.r || data?.radius || 1;
-				let n = data?.n || data?.p || 3;
-				geo = globalThis.two.makePolygon( x, y, r, n );
-				break;
-			}
-			case 'rect': {
-				let x = data?.x || 0;
-				let y = data?.y || 0;
-				let w = data?.w || 1;
-				let h = data?.h || 1;
-				geo = globalThis.two.makeRectangle( x, y, w, h );
-				break;
-			}
-			case 'path': {
-				let pts = data?.pts || data?.points || data?.path || [];
-				let anchors = pts.map( p => new Two.Anchor( p[0], p[1] ) );
-				geo = globalThis.two.makePath(anchors);
-				break;
-			}
-			case 'line': {
-				let x1 = data?.x1 || 0;
-				let y1 = data?.y1 || 0;
-				let x2 = data?.x2 || 0;
-				let y2 = data?.y2 || 0;
-				geo = globalThis.two.makeLine( x1, y1, x2, y2 );
-				break;
-			}
-			case 'group':
-			default: {
-				geo = globalThis.two.makeGroup();
-				break;
-			}
-		}
-		// general properties
-		if ( 'x' in data ) { geo.position.x = data.x; }
-		if ( 'y' in data ) { geo.position.y = data.y; }
-		if ( type != 'group' ) {
-			geo.fill = RehydrateColor( data?.fill || 'transparent' );
-			geo.stroke = RehydrateColor( data?.stroke || 'transparent' );
-			geo.linewidth = data?.linewidth || 2;
-			if ( 'a' in data ) { geo.rotation = data.a; }
-			else if ( 'rotation' in data ) { geo.rotation = data.rotation; }
-			if ( 's' in data ) { geo.scale = data.s; }
-			else if ( 'scale' in data ) { geo.scale = data.scale; }
-			if ( 'o' in data ) { geo.opacity = data.opacity; }
-			else if ( 'opacity' in data ) { geo.opacity = data.opacity; }
-			if ( 'curved' in data ) { geo.curved = data.curved; }
-			if ( 'dashes' in data ) { geo.dashes = data.dashes; }
-			if ( 'cap' in data ) { geo.cap = data.cap; }
-			if ( 'closed' in data ) { geo.closed = data.closed; }
-			if ( 'miter' in data ) { geo.miter = data.miter; }
-		}
-		// children 
-		if ( data?.children ) {
-			for ( let child of data.children ) { 
-				child = RehydrateGeoData(child);
-				geo.add(child); 
-			}
-		}
-		return geo;
-	}
-
-	function RehydrateColor( c ) {
-		if ( !c ) { return null; }
-		// anything stringy goes right back out
-		if ( typeof c === 'string' ) { return c; }
-		// gradients have special syntax
-		if ( typeof c === 'object' ) {
-			let grad;
-			let type = c?.type || 'linear';
-			let stops = ( c?.stops || [1,'#FFF'] ).map( s => new Two.Stop(s[0], s[1]) );
-			let xoff = c?.xoff || 0;
-			let yoff = c?.yoff || 0;
-			if ( type === 'radial' ) {
-				let radius = c?.r || c?.radius || 1;
-				grad = globalThis.two.makeRadialGradient(xoff, yoff, radius, ...stops );
-			}
-			else {
-				let xoff2 = c?.xoff2 || 0;
-				let yoff2 = c?.yoff2 || 0;
-				grad = globalThis.two.makeLinearGradient(xoff, yoff, xoff2, yoff2, ...stops );
-			}
-			if ( c?.units==='user' || c?.units==='userSpaceOnUse' ) { grad.units = 'userSpaceOnUse'; }
-			if ( 'spread' in c ) { grad.spread =c.spread; } // 'reflect', 'repeat', 'pad'
-			return grad;			
-		}
 	}
 	
 	function toggleFastForward() {
@@ -500,8 +384,9 @@
 			},
 		'Escape': _ => {
 				// if ( show_boid_details.value ) { show_boid_details.value = false; }
-				if ( focus_object_id > 0 ) { 
-					focus_object_id = -1; // signals explicit cancel
+				if ( camera.focus_obj_id > 0 ) { 
+					api.expect.pickObject = false; // stop any pending picking update
+					camera.TrackObject(false);
 					focus_object_panel.updateStats(null);
 				}
 				else { setPanelMode(null); }
@@ -586,9 +471,10 @@
 			const params = {
 				x: x, 
 				y: y,
-				radius: Math.min( 60, 60 / camera.scale ) // pixels in world space
+				radius: Math.min( 60, 60 / camera.scale ), // pixels in world space
+				inc_sensor_geo:true // get boid sensor visualization on first request only
 			};
-			focus_object_id = 0; // unselect currently selected object
+			camera.TrackObject(false); // unselect currently selected object
 			api.SendMessage('pickObject', params);
 		}
 	}
@@ -611,7 +497,7 @@
 	}
 	
 	function onmousemove(event) {
-		if ( dragging && focus_object_id <= 0 ) {
+		if ( dragging && camera.focus_obj_id <= 0 ) {
 			// camera pan - don't move the camera on fudge clicks
 			const dx = event.clientX - drag_start_x;
 			const dy = event.clientY - drag_start_y;

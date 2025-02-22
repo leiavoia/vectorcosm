@@ -1,11 +1,14 @@
 import * as utils from '../util/utils.js'
 import * as TWEEN from '@tweenjs/tween.js'
+import * as SVGUtils from '../util/svg.js'
+import Two from "two.js";
 
 export default class Camera {
 
-	constructor( foreground_layer, background_layer ) {
+	constructor( foreground_layer, background_layer, renderObjects ) {
 		this.foreground_layer = foreground_layer;
 		this.background_layer = background_layer;
+		this.renderObjects = renderObjects; // gives camera access to game objects for cinema and interactivity
 		this.x = 0;
 		this.y = 0;
 		this.z = 1;
@@ -32,12 +35,119 @@ export default class Camera {
 		this.transition_time = 10000; // ms
 		this.focus_time = 15000; // ms
 		this.show_boid_indicator_on_focus = true;
-		this.show_boid_info_on_focus = true;
 		this.show_boid_sensors_on_focus = true;
-		this.show_boid_collision_on_focus = false;
+		this.center_camera_on_focus = true;
 		this.animation_min = 0.4 // zoom level beyond which we stop animating
+		// innards:
+		this.focus_geo = null;
+		this.focus_overlay_geo = null;
+		this.focus_obj_id = 0;
 	}
 
+	Hilite( x, y, a=0 ) {
+		if ( !this.show_boid_indicator_on_focus ) {
+			this.HiliteOff();
+			return;
+		}
+		// create the focus ring if it doesnt already exist
+		if ( !this.focus_geo ) {
+			this.focus_geo = globalThis.two.makeGroup();
+			let circle = globalThis.two.makeCircle( 0, 0, 120 );
+			circle.fill = 'transparent';
+			circle.stroke = '#9D9';
+			circle.linewidth = 6;
+			this.focus_geo.add(circle);
+			// uncomment this if you want a little indicator triangle
+			// let triangle = globalThis.two.makePath([
+			// 	new Two.Anchor( 130, 0 ),
+			// 	new Two.Anchor( 120, -15 ),
+			// 	new Two.Anchor( 120, 15 ),
+			// ]);
+			// triangle.stroke = 'transparent';
+			// triangle.fill = '#AEA';
+			// triangle.linewidth = 0;
+			// this.focus_geo.add(triangle);
+			// this.focus_geo.opacity = 0.68;
+			this.foreground_layer.add(this.focus_geo);
+		}	
+		// turn on update position
+		if ( !this.focus_geo.visible ) { this.focus_geo.visible = true; }
+		this.focus_geo.position.x = x;
+		this.focus_geo.position.y = y;
+		// uncomment to rotate indicator triangle
+		// this.focus_geo.rotation = a;		
+	}
+	
+	HiliteOff() {
+		// turn the focus ring off
+		if ( this.focus_geo && this.focus_geo.visible ) {
+			this.focus_geo.visible = false;
+		}
+	}
+
+	// TECHNICAL: we have to split TrackObject and Update into separate functions to avoid
+	// jank from stale data access at the wrong time in API callbacks. Instead, put any
+	// camera movement here and call this function just before rendering the scene. 
+	Render() {
+		if ( !globalThis.two ) { return; }
+			
+		// keep focus if we are tracking on object
+		if ( this.focus_obj_id ) {
+			const obj = this.renderObjects.get(this.focus_obj_id);
+			if ( obj ) {
+				// snap camera to center on object
+				if ( this.center_camera_on_focus ) {
+					this.PointCameraAt( obj.x, obj.y ); 
+				}
+				
+				// turn the focus ring on and move into position
+				this.Hilite( obj.x, obj.y, obj.a );
+				
+				// render data overlay like sensors
+				if ( this.show_boid_sensors_on_focus ) {
+					// create if doesnt exist
+					if ( obj?.geodata?.sensors && !this.focus_overlay_geo ) {
+						this.focus_overlay_geo = SVGUtils.RehydrateGeoData(obj.geodata.sensors);
+						this.foreground_layer.add(this.focus_overlay_geo);
+					}		
+					// update overlays
+					if ( this.focus_overlay_geo ) {
+						this.focus_overlay_geo.position.x = obj.x;
+						this.focus_overlay_geo.position.y = obj.y;
+						this.focus_overlay_geo.rotation = obj.a;
+						this.focus_overlay_geo.visible = true;
+					}			
+				}
+				else if ( this.focus_overlay_geo ) {
+					this.focus_overlay_geo.visible = false;
+				}
+			}
+		}
+		
+		// final scene render
+		globalThis.two.update(); 
+	}	
+		
+	TrackObject( oid ) {
+		// stop tracking
+		if ( !oid ) { 
+			// turn the focus ring off
+			this.HiliteOff();
+			// remove overlays
+			if ( this.focus_overlay_geo ) {
+				this.focus_overlay_geo.remove();
+				this.focus_overlay_geo = null;
+			}
+			// stop tacking
+			this.focus_obj_id = 0;
+			return; 
+		}
+		// start tracking
+		const obj = this.renderObjects.get(oid);
+		if ( !obj ) { return this.TrackObject(false); } // object has died - stop tracking
+		this.focus_obj_id = oid;
+	}
+	
 	ScreenToWorldCoord( x, y ) {
 		x = ( x - this.foreground_layer.position.x ) / this.scale;
 		y = ( y - this.foreground_layer.position.y ) / this.scale;
@@ -128,8 +238,8 @@ export default class Camera {
 	}
 		
 	ZoomAt( screen_x, screen_y, zoom_in /* true for in, false for out */ ) {
-		let newscale = this.scale * ((1 + this.z)/1);
-		if ( zoom_in ) { newscale = this.scale * (1/(1 + this.z)); }
+		let newscale = this.scale * ((1 + this.z/2)/1);
+		if ( zoom_in ) { newscale = this.scale * (1/(1 + this.z/2)); }
 		// record mouse click in world space
 		const [prev_x, prev_y] = this.ScreenToWorldCoord( screen_x, screen_y );
 		// zoom into center of screen
@@ -186,7 +296,7 @@ export default class Camera {
 	CinemaMode( x=true ) { 
 		// this.cinema_mode = !!x;
 		// if ( x ) {
-		// 	this.StopTrackObject();
+		// 	this.TrackObject(false);
 		// 	if ( this.tween ) {
 		// 		this.tween.stop();
 		// 		this.tween = null;
@@ -337,7 +447,7 @@ export default class Camera {
 		// 		this.tween.stop();
 		// 		this.tween = null;
 		// 	}
-		// 	this.StopTrackObject();
+		// 	this.TrackObject(false);
 		// }
 	}
 	// track any object that has focus
@@ -377,59 +487,7 @@ export default class Camera {
 		// 	this.braingraph = null;				
 		// }
 	}
-			
-	TrackObject(o) {
-		// if ( !o ) { return; }
-		// if ( o.dead ) {
-		// 	if ( this.focus_object == o ) { this.StopTrackObject(); }
-		// 	return;
-		// }
-		// o.show_sensors = this.show_boid_sensors_on_focus;
-		// o.DrawBounds(this.show_boid_collision_on_focus);
-		// if ( this.focus_object && this.focus_object !== o ) { 
-		// 	delete this.focus_object.show_sensors;
-		// 	this.focus_object.DrawBounds(false);
-		// }
-		// this.focus_object = o;
-		// if ( !this.focus_geo ) {
-		// 	const focus_radius = 80
-		// 	this.focus_geo = this.two.makeCircle(this.focus_object.x, this.focus_object.y, focus_radius);
-		// 	this.focus_geo.stroke = '#AEA';
-		// 	this.focus_geo.linewidth = 3;
-		// 	this.focus_geo.fill = 'transparent';
-			
-		// 	// const grad = globalThis.two.makeRadialGradient(0, 0, focus_radius, 
-		// 	// 	new Two.Stop(0,'transparent'), 
-		// 	// 	new Two.Stop(0.8,'#AAEEAA00'), 
-		// 	// 	new Two.Stop(1,'#AAEEAAAA')
-		// 	// );
-		// 	// grad.units = 'userSpaceOnUse'; // super important
-		// 	// this.focus_geo.stroke = 'transparent';
-		// 	// this.focus_geo.linewidth = 0;
-		// 	// this.focus_geo.fill = grad;
-			
-		// 	this.focus_geo.visible = this.show_boid_indicator_on_focus;
-		// 	this.AddShapeToRenderLayer(this.focus_geo);
-		// }
-		// else {
-		// 	this.focus_geo.position.x = this.focus_object.x;
-		// 	this.focus_geo.position.y = this.focus_object.y;
-		// 	this.PointCameraAt( this.focus_object.x, this.focus_object.y );
-		// }
-		// // this.focus_object.DrawBounds();
-	}
-	
-	StopTrackObject() {
-		// if ( !this.focus_object ) { return ; }
-		// delete this.focus_object.show_sensors;
-		// this.focus_object.DrawBounds(false);
-		// this.focus_object = null;
-		// if ( this.focus_geo ) {
-		// 	this.focus_geo.remove();
-		// 	this.focus_geo = null;
-		// }
-	}
-	
+		
 	ShiftFocusTarget( up = true ) {
 		// if ( !this.tank.boids.length ) { return; }
 		// if ( !this.focus_object ) { 
@@ -518,7 +576,7 @@ export default class Camera {
 	}
 	
 	ToggleShowBrainmap() {
-		if ( this.show_brainmap ) { this.StopTrackObject(); }
+		if ( this.show_brainmap ) { this.TrackObject(false); }
 		this.show_brainmap = !this.show_brainmap;
 	}
 	

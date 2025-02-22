@@ -149,7 +149,7 @@ function_registry.set( 'pickObject', params => {
 		}
 		// assemble a report based on object type
 		if ( closest ) {
-			result = DescribeBoid(closest);
+			result = DescribeBoid(closest, params.data?.inc_sensor_geo);
 		}
 	}
 	
@@ -242,7 +242,7 @@ let onSimNewSubscription = PubSub.subscribe('sim.new', (msg, sim) => {
 let vc = new Vectorcosm;
 globalThis.vc = vc; // handy reference for everyone else
 
-function DescribeBoid( o ) {
+function DescribeBoid( o, inc_sensor_geo=false ) {
 	let data = { 
 		type: 'boid',
 		sensors: [],
@@ -298,6 +298,17 @@ function DescribeBoid( o ) {
 			color: ( n.activation >= 0 ? ('#00' + hexval + '00') : ('#' + hexval + '0000') )
 		};
 	});
-		
+	if ( inc_sensor_geo ) {	
+		// include sensor visualization geometry
+		data.sensor_geo = { type:'group' };
+		data.sensor_geo.children = o.sensors.filter( s =>
+			s.type=='locater' || 
+			s.detect=='food' || 
+			s.type=='whisker' || 
+			s.detect=='obstacles' || 
+			s.type==='sense' )
+			.map( i => i.CreateGeometry() );
+	}
+				
 	return data;
 }
