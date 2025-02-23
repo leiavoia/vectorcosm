@@ -1,7 +1,9 @@
 import Vectorcosm from '../classes/class.Vectorcosm.js'
 import { Boid } from '../classes/class.Boids.js'
 import * as utils from '../util/utils.js'
+import { SimulationFactory } from '../classes/class.Simulation.js'
 import PubSub from 'pubsub-js'
+import BoidLibrary from '../classes/class.BoidLibrary.js'
 
 const function_registry = new Map();
 
@@ -208,6 +210,48 @@ function_registry.set( 'updateSimSettings', params => {
 	globalThis.postMessage( {
 		functionName: 'updateSimSettings',
 		data: globalThis.vc.simulation.settings
+	} );
+});
+
+function_registry.set( 'pushSimQueue', params => {
+	const sims = params.data?.sims;
+	if ( params.data?.reset ) {
+		globalThis.vc.simulation.killme = true; // let nature take its course
+		globalThis.vc.sim_queue.length = 0;
+	}
+	if ( sims ) {
+		for ( let s of sims ) {
+			globalThis.vc.sim_queue.push( 
+				SimulationFactory( globalThis.vc.tank, s )
+			);
+		}
+	}
+	globalThis.postMessage( {
+		functionName: 'pushSimQueue',
+		data: globalThis.vc.simulation.settings
+	} );
+});
+
+function_registry.set( 'addSavedBoidsToTank', async params => {
+	let num_added = 0;
+	const lib = new BoidLibrary;
+	for ( let id of params.data.ids ) {
+		let results = await lib.Get({id});
+		for ( let row of results ) {
+			for ( let json of row.specimens ) {
+				let b = new Boid( 0, 0, globalThis.vc.tank, JSON.parse(json) );
+				b.angle = Math.random() * Math.PI * 2;	
+				b.x = globalThis.vc.tank.width*Math.random(), 
+				b.y = globalThis.vc.tank.height*Math.random();	
+				b.ScaleBoidByMass();
+				globalThis.vc.tank.boids.push(b);	
+				num_added++;						
+			}
+		}
+	}
+	globalThis.postMessage( {
+		functionName: 'addSavedBoidsToTank',
+		data: { ok: true, num_added }
 	} );
 });
 

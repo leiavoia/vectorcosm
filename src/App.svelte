@@ -646,7 +646,7 @@
 		{:else if panel_mode==='settings'}
 			<CameraSettingsPanel></CameraSettingsPanel>
 		{:else if panel_mode==='boid_library'}
-			<BoidLibraryPanel></BoidLibraryPanel>
+			<BoidLibraryPanel {api} ></BoidLibraryPanel>
 		{:else if panel_mode==='sim_launcher'}
 			<SimulationLauncherPanel {api} ></SimulationLauncherPanel>
 		{/if}
