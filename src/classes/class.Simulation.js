@@ -81,6 +81,14 @@ export default class Simulation {
 	
 	// inherit me	
 	Setup() {
+		// clean up any residual messes from the previous sim
+		this.tank.marks.forEach( x => x.Kill() );	
+		this.tank.marks.length = 0;		
+		this.tank.obstacles.forEach( x => x.Kill() );
+		this.tank.obstacles.length = 0;		
+		this.tank.foods.forEach( x => x.Kill() );
+		this.tank.foods.length = 0;		
+		// resize tank for the new sim	
 		if ( this.settings?.volume ) {
 			globalThis.vc.ResizeTankByVolume( this.settings.volume );
 		}
@@ -929,10 +937,6 @@ export class AvoidEdgesSimulation extends Simulation {
 		this.Reset();
 	}
 	Reset() {
-		// clean up any messes
-		this.tank.marks.forEach( x => x.Kill() );	
-		this.tank.foods.forEach( x => x.Kill() );
-		this.tank.foods.length = 0;		
 		// top up the population
 		this.SetNumBoids( this.settings.num_boids );
 		// reset entire population
