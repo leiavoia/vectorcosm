@@ -70,7 +70,7 @@
 	// tank stats we track each frame
 	let tankStats = $state.raw({});
 	let simStats = $state.raw({});
-	let simSettings = $state.raw({});
+	let simSettings = $state({});
 	
 	// for each type of message we want to send, set up a callback to handle the response
 	api.RegisterResponseCallback( 'update', data => {
@@ -215,9 +215,6 @@
 		tankStats = data.tankStats;
 		simStats = data.simStats;
 		simStats.fps = gameloop.fps_avg.toFixed(0);
-		if ( Object.keys(simSettings).length === 0 && simStats.settings ) { // don't do this every frame
-			simSettings = simStats.settings;
-		} 
 		gameloop.EndSimFrame();
 	});
 		
@@ -253,21 +250,18 @@
 	} );
 	
 	api.RegisterResponseCallback( 'simComplete', data => {
-		// console.log(data);
-		// if ( !focus_object_panel ) { return; }
-		// focus_object_panel.updateStats(data); 
+	
 	} );
 	
 	api.RegisterResponseCallback( 'simNew', data => {
-		// console.log(data);
-		// if ( !focus_object_panel ) { return; }
-		// focus_object_panel.updateStats(data); 
-		// camera.tank_width = o.geodata.width;
-		// camera.tank_height = o.geodata.height;
 		camera.ResetCameraZoom();	
 		simChartData.averages.length = 0;
 		simChartData.highscores.length = 0;
 		simChartData.labels.length = 0;
+		// new sim, new settings
+		if ( data ) {
+			simSettings = data;
+		} 		
 	} );
 	
 	// gameloop starts when drawing context is fully mounted (see component)
@@ -524,6 +518,10 @@
 	
 	function onSimulatorControlsUpdate(params) {
 		api.SendMessage('updateSimSettings',params);
+		// we also need to update the local settings
+		for ( let k in params ) {
+			simSettings[k] = params[k];
+		}		
 	}
 	
 	UpdateIdleTime(); // start immediately

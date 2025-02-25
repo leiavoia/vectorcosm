@@ -117,5 +117,9 @@
 	Frame: <output id="framenum_output">{stats.framenum}</output> | 
 	FPS: <output id="framenum_output">{stats.fps}</output>
 	
-	<canvas bind:this={chartcanvas} style="width: 100%; height: 6em; margin-top:1rem;"></canvas> 
+	<!-- hide but do not disable chart element if this is not a round based simulation -->
+	<div style="display: {stats.settings.timeout ? 'block' : 'none'}">
+		<canvas bind:this={chartcanvas} style="width: 100%; height: 6em; margin-top:1rem;"></canvas> 
+	</div>
+	
 </section>	

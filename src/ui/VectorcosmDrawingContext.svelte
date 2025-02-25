@@ -13,7 +13,7 @@
 	
 	onMount(() => {
 		// set up Two.js
-		let two = new Two({ fitted: true, type: 'SVGRenderer' }); 
+		let two = new Two({ fitted: true, type: 'SVGRenderer' });  // 'WebGLRenderer', 'SVGRenderer', 'CanvasRenderer'
 		globalThis.two = two; // make available everywhere
 		// mount Two.js drawing context
 		let elem = globalThis.document.getElementById('vectorcosm_context');

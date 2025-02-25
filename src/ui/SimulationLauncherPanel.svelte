@@ -34,7 +34,7 @@
 	// }
 	
 	api.RegisterResponseCallback( 'pushSimQueue', data => {
-		console.log(data);
+		// console.log(data);
 	});
 	
 	function RunProgram( program_name ) {

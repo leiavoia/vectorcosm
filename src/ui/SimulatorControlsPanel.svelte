@@ -1,17 +1,19 @@
 <script>
 
 	let { settings: settings_raw, onupdate } = $props();
+	
 	let settings = $state({
-		volume: 2500000,
-		num_boids: 0,
-		num_plants: 0,
-		num_rocks: 0,
-		max_mutation: 0.2,
-		cullpct: 0.2,
-		timeout: 60,
-		rounds: 50,
-		fruiting_speed: 1.0,
-		segments:1,
+		volume: (settings_raw?.volume ?? 2500000),
+		num_boids: (settings_raw?.num_boids ?? 0),
+		num_plants: (settings_raw?.num_plants ?? 0),
+		num_rocks: (settings_raw?.num_rocks ?? 0),
+		max_mutation: (settings_raw?.max_mutation ?? 0.2),
+		cullpct: (settings_raw?.cullpct ?? 0.2),
+		timeout: (settings_raw?.timeout ?? 60),
+		rounds: (settings_raw?.rounds ?? 50),
+		fruiting_speed: (settings_raw?.fruiting_speed ?? 1.0),
+		current: (settings_raw?.current ?? 0),
+		segments: (settings_raw?.segments ?? 1),
 	});
 	
 	// when params are updated from the server, update our local set of variables
@@ -53,7 +55,7 @@
 	</header>
 	
 	<div class="slider_block">
-		<label for="volume_slider">Volume:</label>
+		<label for="volume_slider">Tank Size:</label>
 		<input bind:value={settings.volume} onchange={()=>onchange('volume')} type="range" min="1000000" max="50000000" step="500000" id="volume_slider" />
 		<output>{((settings.volume||0)/1000000).toFixed(1)}K</output>
 	</div>
@@ -83,33 +85,42 @@
 	</div>									
 	
 	<div class="slider_block">
-		<label for="culling_rate_slider">Culling:</label>
-		<input bind:value={settings.cullpct} onchange={()=>onchange('cullpct')} type="range" min="0" max="1" step="0.02" id="culling_rate_slider" />
-		<output>{((settings?.cullpct||0)*100).toFixed()}%</output>
-	</div>		
-	
-	<div class="slider_block">
-		<label for="timeout_rate_slider">Timeout:</label>
-		<input bind:value={settings.timeout} onchange={()=>onchange('timeout')} type="range" min="0" max="200" step="1" id="timeout_rate_slider" />
-		<output>{(settings?.timeout||0).toFixed()}</output>
-	</div>		
-	
-	<div class="slider_block">
-		<label for="rounds_rate_slider">Rounds:</label>
-		<input bind:value={settings.rounds} onchange={()=>onchange('rounds')} type="range" min="0" max="500" step="1" id="rounds_rate_slider" />
-		<output>{(settings?.rounds||0).toFixed()}</output>
-	</div>		
-	
-	<div class="slider_block">
 		<label for="fruiting_speed_rate_slider">Fruiting:</label>
 		<input bind:value={settings.fruiting_speed} onchange={()=>onchange('fruiting_speed')} type="range" min="0" max="2" step="0.05" id="fruiting_speed_rate_slider" />
 		<output>{((settings?.fruiting_speed||0)*100).toFixed()}%</output>
 	</div>		
 	
 	<div class="slider_block">
-		<label for="segments_rate_slider">Segments:</label>
-		<input bind:value={settings.segments} onchange={()=>onchange('segments')} type="range" min="1" max="16" step="1" id="segments_rate_slider" />
-		<output>{(settings?.segments||0).toFixed()}</output>
+		<label for="current_rate_slider">Current:</label>
+		<input bind:value={settings.current} onchange={()=>onchange('current')} type="range" min="0" max="2" step="0.05" id="current_rate_slider" />
+		<output>{((settings?.current||0)*100).toFixed()}%</output>
 	</div>		
+	
+	<!-- these setting only apply to round-based training sims -->
+	{#if settings.timeout!==0}
+		<div class="slider_block">
+			<label for="culling_rate_slider">Culling:</label>
+			<input bind:value={settings.cullpct} onchange={()=>onchange('cullpct')} type="range" min="0" max="1" step="0.02" id="culling_rate_slider" />
+			<output>{((settings?.cullpct||0)*100).toFixed()}%</output>
+		</div>
+		
+		<div class="slider_block">
+			<label for="timeout_rate_slider">Timeout:</label>
+			<input bind:value={settings.timeout} onchange={()=>onchange('timeout')} type="range" min="0" max="200" step="1" id="timeout_rate_slider" />
+			<output>{(settings?.timeout||0).toFixed()}</output>
+		</div>		
+		
+		<div class="slider_block">
+			<label for="rounds_rate_slider">Rounds:</label>
+			<input bind:value={settings.rounds} onchange={()=>onchange('rounds')} type="range" min="0" max="500" step="1" id="rounds_rate_slider" />
+			<output>{(settings?.rounds||0).toFixed()}</output>
+		</div>		
+		
+		<div class="slider_block">
+			<label for="segments_rate_slider">Segments:</label>
+			<input bind:value={settings.segments} onchange={()=>onchange('segments')} type="range" min="1" max="16" step="1" id="segments_rate_slider" />
+			<output>{(settings?.segments||0).toFixed()}</output>
+		</div>		
+	{/if}		
 			
 </section>
