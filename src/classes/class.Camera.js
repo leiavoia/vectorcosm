@@ -26,14 +26,11 @@ export default class Camera {
 		this.focus_geo = null;
 		this.allow_hyperzoom = true;
 		this.scale = 1;
-		this.cinema_mode = false;
-		this.tween = null;
-		this.cinema_timeout = null;
 		this.easing = TWEEN.Easing.Sinusoidal.InOut; // SEE: https://github.com/tweenjs/tween.js/blob/main/docs/user_guide.md
-		this.transitions = false;
+		this.transitions = true;
 		this.parallax = false;
-		this.transition_time = 10000; // ms
-		this.focus_time = 15000; // ms
+		this.transition_time = 3000; // ms
+		this.focus_time = 8000; // ms
 		this.show_boid_indicator_on_focus = true;
 		this.show_boid_sensors_on_focus = true;
 		this.center_camera_on_focus = true;
@@ -42,6 +39,9 @@ export default class Camera {
 		this.focus_geo = null;
 		this.focus_overlay_geo = null;
 		this.focus_obj_id = 0;
+		this.cinema_mode = false;
+		this.cinema_timeout = null;
+		this.tween = null;
 	}
 
 	Hilite( x, y, a=0 ) {
@@ -90,7 +90,10 @@ export default class Camera {
 	// camera movement here and call this function just before rendering the scene. 
 	Render() {
 		if ( !globalThis.two ) { return; }
-			
+		
+		// tweening - mostly for camera movement
+		TWEEN.update();	
+					
 		// keep focus if we are tracking on object
 		if ( this.focus_obj_id ) {
 			const obj = this.renderObjects.get(this.focus_obj_id);
@@ -291,171 +294,199 @@ export default class Camera {
 		// for ( let x of this.tank.plants ) { x.CreateBody(); }
 	}
 		
-	// TODO: this is all technically UI related stuff that should be moved out of the simulation code.
-	// the camera has a hard to accessing and affecting the UI, such as boid info window.
-	CinemaMode( x=true ) { 
-		// this.cinema_mode = !!x;
-		// if ( x ) {
-		// 	this.TrackObject(false);
-		// 	if ( this.tween ) {
-		// 		this.tween.stop();
-		// 		this.tween = null;
-		// 	}
-		// 	// random chance to do a few basic options
-		// 	const r = Math.random();
-		// 	// focus on a boid
-		// 	if ( r < 0.3 && this.tank.boids.length ) {
-		// 		// pick a boid and chase it down
-		// 		const b = this.tank.boids.pickRandom();
-		// 		const zoom = utils.BiasedRand( 
-		// 			this.min_zoom,
-		// 			this.max_zoom,
-		// 			this.min_zoom + (this.max_zoom - this.min_zoom) / 3, // div by three to shift towards zoomed out
-		// 			0.5 
-		// 			);
-		// 		if ( this.transitions ) {
-		// 			const to = { x: b.x, y: b.y, z: zoom };
-		// 			this.tween = new TWEEN.Tween(this)
-		// 				.to(to, this.transition_time )
-		// 				.easing(this.easing)
-		// 				.dynamic(true)
-		// 				.onUpdate( obj => {
-		// 					if ( !b || b.dead ) { 
-		// 						this.tween.stop();
-		// 						this.tween = null;
-		// 						this.cinema_timeout = setTimeout( _ => this.CinemaMode(), 2500 ); 		
-		// 					}
-		// 					else {
-		// 						to.x = b.x;
-		// 						to.y = b.y;
-		// 						this.PointCameraAt( this.x, this.y, this.z );
-		// 					}
-		// 				})
-		// 				// switch to absolute tracking after chase completed
-		// 				.onComplete( obj => {
-		// 					this.TrackObject(b);
-		// 					this.cinema_timeout = setTimeout( _ => this.CinemaMode(), this.focus_time ); 			
-		// 				})
-		// 				.start();
-		// 		}
-		// 		else {
-		// 			this.PointCameraAt( b.x, b.y, zoom );
-		// 			this.TrackObject(b);
-		// 			this.cinema_timeout = setTimeout( _ => this.CinemaMode(), this.focus_time );
-		// 		}
-		// 	}
-		// 	// focus on a point of interest
-		// 	else if ( r < 0.85 ) {
-		// 		// zoom setup
-		// 		let zoom = this.z;
-		// 		// if transitions are enabled, reduce zoom changes to preserve frame rate and viewer sanity
-		// 		let zoom_change_chance = this.transitions ? 0.2 : 0.65;
-		// 		// when changing zoom, pick from the larger perspective most of the time
-		// 		if ( Math.random() < zoom_change_chance ) {
-		// 			zoom = utils.RandomFloat( this.min_zoom, this.max_zoom );
-		// 			zoom = utils.shapeNumber( zoom, this.min_zoom, this.max_zoom, 0.25, 3 );
-		// 		}
-		// 		const roll = Math.random();
-		// 		// random point in space to fall back on if nothing is in tank
-		// 		let target_x = this.tank_width * Math.random();
-		// 		let target_y = this.tank_height * Math.random();
-		// 		// rock
-		// 		if ( this.tank.obstacles.length && roll < 0.25 ) {
-		// 			const obj = this.tank.obstacles.pickRandom();
-		// 			// pick a point on the hull, not on the interior
-		// 			const pt = obj.collision.hull.pickRandom();
-		// 			target_x = obj.x + pt[0];
-		// 			target_y = obj.y + pt[1];
-		// 		}
-		// 		// plant
-		// 		else if ( this.tank.plants.length && roll < 0.5 ) {
-		// 			const obj = this.tank.plants.pickRandom();
-		// 			// pick a point near but slightly above the base
-		// 			target_x = obj.x;
-		// 			target_y = obj.y - 200;
-		// 		}
-		// 		// boid
-		// 		else if ( this.tank.boids.length && roll < 0.90 ) {
-		// 			const obj = this.tank.boids.pickRandom();
-		// 			target_x = obj.x;
-		// 			target_y = obj.y;
-		// 		}
-		// 		// food particle
-		// 		else if ( this.tank.foods.length ) {
-		// 			const obj = this.tank.foods.pickRandom();
-		// 			target_x = obj.x;
-		// 			target_y = obj.y;
-		// 		}
-		// 		// adjust point to sit inside a margin to avoid pan/zoom jank
-		// 		// Note: margin gets too big when zoom number is too small.
-		// 		const margin_x = Math.min( this.tank_width/2, Math.max( 0, ( this.window_width / 2 )  / zoom ) ); 
-		// 		const margin_y = Math.min( this.tank_height/2, Math.max( 0, ( this.window_height / 2 ) / zoom ) );
-		// 		target_x = utils.Clamp( target_x, margin_x, this.tank_width - margin_x );
-		// 		target_y = utils.Clamp( target_y, margin_y, this.tank_height - margin_y );
-		// 		if ( this.transitions ) {
-		// 			this.tween = new TWEEN.Tween(this)
-		// 				.to({
-		// 					x: target_x, 
-		// 					y: target_y,
-		// 					z: zoom
-		// 				}, this.transition_time )
-		// 				.easing(TWEEN.Easing.Sinusoidal.InOut)
-		// 				.onUpdate( obj => {
-		// 					this.PointCameraAt( this.x, this.y, this.z );
-		// 				})
-		// 				.onComplete( obj => {
-		// 					this.cinema_timeout = setTimeout( _ => this.CinemaMode(), this.focus_time );
-		// 				})
-		// 				.start();
-		// 		}
-		// 		else {
-		// 			this.PointCameraAt( target_x, target_y, zoom );
-		// 			this.cinema_timeout = setTimeout( _ => this.CinemaMode(), this.focus_time );
-		// 		}
-		// 	}
-		// 	// whole scene
-		// 	else {
-		// 		if ( this.transitions ) {
-		// 			this.tween = new TWEEN.Tween(this)
-		// 				.to({
-		// 					x: this.tank_width/2, 
-		// 					y: this.tank_height/2,
-		// 					z: this.min_zoom
-		// 				}, this.transition_time )
-		// 				.easing(TWEEN.Easing.Sinusoidal.InOut)
-		// 				.onUpdate( obj => {
-		// 					this.PointCameraAt( this.x, this.y, this.z, true );
-		// 				})
-		// 				.onComplete( obj => {
-		// 					this.cinema_timeout = setTimeout( _ => this.CinemaMode(), this.focus_time ); 			
-		// 				})
-		// 				.start();			
-		// 		}
-		// 		else {
-		// 			this.ResetCameraZoom();
-		// 			// console.log('reset camera zoom');
-		// 			this.cinema_timeout = setTimeout( _ => this.CinemaMode(), this.focus_time );
-		// 		}
-		// 	}
-		// }
-		// else {
-		// 	if ( this.cinema_timeout ) {
-		// 		clearTimeout(this.cinema_timeout);
-		// 		this.cinema_timeout = null;
-		// 	}
-		// 	if ( this.tween ) {
-		// 		this.tween.stop();
-		// 		this.tween = null;
-		// 	}
-		// 	this.TrackObject(false);
-		// }
+	PickRandomObjectOfType( type ) {
+		return Array.from( this.renderObjects.values() ).filter( o => o.type === type ).pickRandom();
 	}
-	// track any object that has focus
-	// if ( this.focus_object ) { this.TrackObject(this.focus_object); }
 	
-	// tweening - mostly for camera movement
-	// TWEEN.update( /* requires absolute time. deltas dont work */ );
+	CinemaMode( x=true ) { 
+		this.cinema_mode = !!x;
 		
+		// turn off cinema mode
+		if ( !x ) {
+			// do nothing
+			if ( this.cinema_timeout ) {
+				clearTimeout(this.cinema_timeout);
+				this.cinema_timeout = null;
+			}
+			if ( this.tween ) {
+				this.tween.stop();
+				this.tween = null;
+			}
+			this.TrackObject(false);
+			return;
+		}
+		
+		// cancel any previous tracking action
+		this.TrackObject(false);
+		if ( this.tween ) {
+			this.tween.stop();
+			this.tween = null;
+		}
+		
+		// random chance to do a few basic options
+		const r = Math.random();
+		// focus on a boid
+		if ( r < 0.3 ) {
+			// pick a boid and chase it down
+			const b = this.PickRandomObjectOfType('boid');
+			if ( b ) {
+				console.log('Cinema: track boid');
+				const zoom = utils.BiasedRand( 
+					this.min_zoom,
+					this.max_zoom,
+					this.min_zoom + (this.max_zoom - this.min_zoom) / 3, // div by three to shift towards zoomed out
+					0.5 
+					);
+				if ( this.transitions ) {
+					const to = { x: b.x, y: b.y, z: zoom };
+					this.tween = new TWEEN.Tween(this)
+						.to(to, this.transition_time )
+						.easing(this.easing)
+						.dynamic(true)
+						.onUpdate( obj => {
+							// check if the object still exists
+							if ( !this.renderObjects.has(b.oid) ) { 
+								this.tween.stop();
+								this.tween = null;
+								this.cinema_timeout = setTimeout( _ => this.CinemaMode(), 2500 ); 		
+							}
+							else {
+								to.x = b.x;
+								to.y = b.y;
+								this.PointCameraAt( this.x, this.y, this.z );
+							}
+						})
+						// switch to absolute tracking after chase completed
+						.onComplete( obj => {
+							this.TrackObject(b.oid);
+							this.cinema_timeout = setTimeout( _ => this.CinemaMode(), this.focus_time ); 			
+						})
+						.start();
+				}
+				else {
+					this.PointCameraAt( b.x, b.y, zoom );
+					this.TrackObject(b.oid);
+					this.cinema_timeout = setTimeout( _ => this.CinemaMode(), this.focus_time );
+				}
+			return;
+			}
+		}
+		// focus on a point of interest
+		if ( r < 0.85 ) {
+			// zoom setup
+			let zoom = this.z;
+			// if transitions are enabled, reduce zoom changes to preserve frame rate and viewer sanity
+			let zoom_change_chance = this.transitions ? 0.2 : 0.65;
+			// if the entire tank fits in the scene, we MUST zoom in
+			const scalex = this.window_width / this.tank_width;
+			const scaley = this.window_height / this.tank_height;
+			const scale = Math.min(scalex,scaley); // min = contain, max = cover
+			if ( this.z <= scale ) { zoom_change_chance = 1; }
+			// when changing zoom, pick from the larger perspective most of the time
+			if ( Math.random() < zoom_change_chance ) {
+				zoom = utils.RandomFloat( this.min_zoom, this.max_zoom );
+				zoom = utils.shapeNumber( zoom, this.min_zoom, this.max_zoom, 0.25, 3 );
+			}
+			const roll = Math.random();
+			// random point in space to fall back on if nothing is in tank
+			let target_x = this.tank_width * Math.random();
+			let target_y = this.tank_height * Math.random();
+			let obj = null;
+			// rock
+			if ( roll < 0.25 ) {
+				obj = this.PickRandomObjectOfType('obstacle');
+				if ( obj ) {
+					console.log('Cinema: focus rock');
+					// pick a point on the hull, not on the interior
+					const pt = obj.geodata.hull.pickRandom();
+					target_x = obj.x + pt[0];
+					target_y = obj.y + pt[1];
+				}
+			}
+			// plant
+			if ( !obj && roll < 0.5 ) {
+				obj = this.PickRandomObjectOfType('plant');
+				if ( obj ) {
+					console.log('Cinema: focus plant');
+					// pick a point near but slightly above the base
+					target_x = obj.x;
+					target_y = obj.y - 200;
+				}
+			}
+			// boid
+			if ( !obj && roll < 0.90 ) {
+				obj = this.PickRandomObjectOfType('boid');
+				if ( obj ) {
+					console.log('Cinema: focus boid');
+					target_x = obj.x;
+					target_y = obj.y;
+				}
+			}
+			// food particle
+			if ( !obj ) {
+				obj = this.PickRandomObjectOfType('food');
+				if ( obj ) {
+					console.log('Cinema: focus food');
+					target_x = obj.x;
+					target_y = obj.y;
+				}
+			}
+			if ( !obj ) {
+				console.log('Cinema: random point in space');
+			}
+			// adjust point to sit inside a margin to avoid pan/zoom jank
+			// Note: margin gets too big when zoom number is too small.
+			const margin_x = Math.min( this.tank_width/2, Math.max( 0, ( this.window_width / 2 )  / zoom ) ); 
+			const margin_y = Math.min( this.tank_height/2, Math.max( 0, ( this.window_height / 2 ) / zoom ) );
+			target_x = utils.Clamp( target_x, margin_x, this.tank_width - margin_x );
+			target_y = utils.Clamp( target_y, margin_y, this.tank_height - margin_y );
+			if ( this.transitions ) {
+				this.tween = new TWEEN.Tween(this)
+					.to({
+						x: target_x, 
+						y: target_y,
+						z: zoom
+					}, this.transition_time )
+					.easing(TWEEN.Easing.Sinusoidal.InOut)
+					.onUpdate( obj => {
+						this.PointCameraAt( this.x, this.y, this.z );
+					})
+					.onComplete( obj => {
+						this.cinema_timeout = setTimeout( _ => this.CinemaMode(), this.focus_time );
+					})
+					.start();
+			}
+			else {
+				this.PointCameraAt( target_x, target_y, zoom );
+				this.cinema_timeout = setTimeout( _ => this.CinemaMode(), this.focus_time );
+			}
+			return;
+		}
+		// whole scene
+		console.log('Cinema: whole scene');
+		if ( this.transitions ) {
+			this.tween = new TWEEN.Tween(this)
+				.to({
+					x: this.tank_width/2, 
+					y: this.tank_height/2,
+					z: this.min_zoom
+				}, this.transition_time )
+				.easing(TWEEN.Easing.Sinusoidal.InOut)
+				.onUpdate( obj => {
+					this.PointCameraAt( this.x, this.y, this.z, true );
+				})
+				.onComplete( obj => {
+					this.cinema_timeout = setTimeout( _ => this.CinemaMode(), this.focus_time ); 			
+				})
+				.start();			
+		}
+		else {
+			this.ResetCameraZoom();
+			// console.log('reset camera zoom');
+			this.cinema_timeout = setTimeout( _ => this.CinemaMode(), this.focus_time );
+		}
+		return;
+	}
 
 	AddShapeToRenderLayer( geo, layer='0' ) {
 		// try {

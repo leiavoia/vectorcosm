@@ -204,7 +204,8 @@ export default class Rock {
 	}
 	GeoData() {
 		return {
-			triangles: this.triangles
+			triangles: this.triangles,
+			hull: this.collision.hull
 		}
 	}
 	// for use with switching visual styles	

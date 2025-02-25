@@ -79,7 +79,6 @@ function_registry.set( 'update', params => {
 		x: o.x,
 		y: o.y,
 		geodata: AutoIncludeGeoData(o),
-		pts: o.collision.hull // TODO we don't need this every frame
 	}) ));
 	
 	// compile simulation stats

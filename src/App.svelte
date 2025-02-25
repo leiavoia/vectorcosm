@@ -121,7 +121,7 @@
 						// In order to dodge this bit of weirdness, you need to create a group
 						// and stuff rock contents inside the group. This helps for triangle representation anyway.
 						geo = globalThis.two.makeGroup();
-						if ( o.geodata ) {
+						if ( o.geodata.triangles ) {
 							for ( let t of o.geodata.triangles ) {
 								let p = globalThis.two.makePath( ...t.slice(null, -1) );
 								p.linewidth = 1;
@@ -130,8 +130,8 @@
 								geo.add(p);
 							}
 						}
-						else {
-							let path = globalThis.two.makePath( o.pts.map( p => new Two.Anchor(p[0],p[1]) ) );
+						else if ( o.geodata.hull ) {
+							let path = globalThis.two.makePath( o.geodata.hull.map( p => new Two.Anchor(p[0],p[1]) ) );
 							path.fill = '#999';
 							path.stroke = 'transparent';
 							path.linewidth = 0;
@@ -256,7 +256,6 @@
 		// console.log(data);
 		// if ( !focus_object_panel ) { return; }
 		// focus_object_panel.updateStats(data); 
-		console.log(simChartData);
 	} );
 	
 	api.RegisterResponseCallback( 'simNew', data => {
@@ -394,9 +393,11 @@
 		'End': _ => {
 				toggleFastForward();
 			},
-		// 'c': _ => {
-		// 		vc.CinemaMode( !vc.camera.cinema_mode );
-		// 	},
+		'c': _ => {
+				// stop any pending picking update
+				if ( camera.cinema_mode ) { api.expect.pickObject = false; }
+				camera.CinemaMode( !camera.cinema_mode );
+			},
 		// '8': _ => {
 		// 		vc.animate_boids = !vc.animate_boids;
 		// 	},
