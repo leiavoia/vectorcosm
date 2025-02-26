@@ -115,6 +115,7 @@
 							geo.stroke = 'transparent';
 							geo.linewidth = 0;
 						}
+						renderLayers['boids'].add(geo);
 					}
 					else if ( o.type=='obstacle' ) {
 						// Note: Two.js positions things in the middle of the bounding box.
@@ -137,6 +138,7 @@
 							path.linewidth = 0;
 							geo.add(path);
 						}
+						renderLayers['rocks'].add(geo);
 					}
 					else if ( o.type=='tank' ) {
 						if ( o.geodata ) {
@@ -157,15 +159,17 @@
 							}
 							
 							// for fixed backgrounds, add the background into the fg layer
-							// renderLayers['fg'].add(renderLayers['bg']);
+							// renderLayers['tank'].add(renderLayers['bg']);
+							
 							// tank frame is a fixed size
 							geo = globalThis.two.makeRectangle(o.geodata.width/2, o.geodata.height/2, o.geodata.width, o.geodata.height );
 							geo.stroke = "#888888";
 							geo.linewidth = '2';
 							geo.fill = 'transparent';	
+							renderLayers['ui'].add(geo);
 							// set up a camera
 							if ( !camera ) {
-								camera = new Camera( renderLayers['fg'], renderLayers['bg'], renderObjects );
+								camera = new Camera( renderLayers, renderObjects );
 								camera.window_width = two.width;
 								camera.window_height = two.height;
 							}
@@ -176,12 +180,15 @@
 					}
 					else if ( o.type=='food' ) {
 						geo = SVGUtils.RehydrateGeoData(o.geodata);
+						renderLayers['foods'].add(geo);
 					}
 					else if ( o.type=='plant' ) {
 						geo = SVGUtils.RehydrateGeoData(o.geodata);
+						renderLayers['plants'].add(geo);
 					}
 					else if ( o.type=='mark' ) {
-						geo = SVGUtils.RehydrateGeoData(o.geodata);		
+						geo = SVGUtils.RehydrateGeoData(o.geodata);
+						renderLayers['marks'].add(geo);		
 					}
 					else { // unknown object
 						geo = SVGUtils.RehydrateGeoData({
@@ -191,13 +198,13 @@
 							fill: '#BBBBBB',
 							stroke: 'transparent',
 							linewidth: 0,
-						});					
+						});
+						renderLayers['boids'].add(geo);		
 					}
 					// add new geometry to scene
 					if ( geo ) {
 						SVGUtils.UpdateBasicGeoProps( geo, o );
 						o.geo = geo;
-						renderLayers['fg'].add(geo);
 					}
 					renderObjects.set(o.oid, o);
 					found.add(o);
@@ -268,27 +275,21 @@
 	function onDrawingReady() {
 		// create rendering layers before drawing objects start to arrive from simulation
 		renderLayers['bg'] = globalThis.two.makeGroup(); // parallax backdrop needs to stay separate from tank
-		renderLayers['fg'] = globalThis.two.makeGroup(); // parallax backdrop needs to stay separate from tank
+		renderLayers['tank'] = globalThis.two.makeGroup(); // foreground layer moves as a single unit for pan/zoom
+		renderLayers['plants'] = globalThis.two.makeGroup();  renderLayers['tank'].add(renderLayers['plants']);
+		renderLayers['rocks'] = globalThis.two.makeGroup(); renderLayers['tank'].add(renderLayers['rocks']);
+		renderLayers['boids'] = globalThis.two.makeGroup(); renderLayers['tank'].add(renderLayers['boids']);
+		renderLayers['foods'] = globalThis.two.makeGroup(); renderLayers['tank'].add(renderLayers['foods']);
+		renderLayers['marks'] = globalThis.two.makeGroup(); renderLayers['tank'].add(renderLayers['marks']);
+		renderLayers['ui'] = globalThis.two.makeGroup(); renderLayers['tank'].add(renderLayers['ui']);
+		
 		// initialize the sim
 		const params = {
 			width:globalThis.two.width * 2,
 			height:globalThis.two.height * 2
 		};
 		api.SendMessage('init',params);
-		gameloop.Start();
-		// this.renderLayers['backdrop'] = this.two.makeGroup(); // parallax backdrop needs to stay separate from tank
-		// this.foreground_layer = this.two.makeGroup(); // meta group. UI and tank layers need to scale separately
-		// this.renderLayers['-2'] = this.two.makeGroup(); // tank backdrop
-		// this.renderLayers['-1'] = this.two.makeGroup(); // background objects
-		// this.renderLayers['0'] = this.two.makeGroup(); // middle for most objects / default
-		// this.renderLayers['1'] = this.two.makeGroup(); // foregrounds objects
-		// this.renderLayers['2'] = this.two.makeGroup(); // very near objects
-		// this.renderLayers['ui'] = this.two.makeGroup(); // UI layer - stays separate from the others
-		// this.foreground_layer.add(this.renderLayers['-2']);
-		// this.foreground_layer.add(this.renderLayers['-1']);
-		// this.foreground_layer.add(this.renderLayers['0']);
-		// this.foreground_layer.add(this.renderLayers['1']);
-		// this.foreground_layer.add(this.renderLayers['2']);				
+		gameloop.Start();		
 	}
 	
 	function toggleFastForward() {

@@ -10,7 +10,7 @@ export default class VectorcosmAPI  {
 		// broker incoming worker messages to the right response callback
 		this.worker.onmessage = event => {
 			const functionName = event?.data.functionName;
-			if ( this.expect[functionName]===false ) { console.log('nope: ' + functionName); return false; }
+			if ( this.expect[functionName]===false ) { return false; }
 			const functionData = event?.data.data; // first data is the event's data. second data Vectorcosm response.
 			const f = this.function_registry.get(functionName);
 			return f ? f(functionData) : false;

@@ -5,9 +5,8 @@ import Two from "two.js";
 
 export default class Camera {
 
-	constructor( foreground_layer, background_layer, renderObjects ) {
-		this.foreground_layer = foreground_layer;
-		this.background_layer = background_layer;
+	constructor( renderLayers, renderObjects ) {
+		this.renderLayers = renderLayers;
 		this.renderObjects = renderObjects; // gives camera access to game objects for cinema and interactivity
 		this.x = 0;
 		this.y = 0;
@@ -68,7 +67,7 @@ export default class Camera {
 			// triangle.linewidth = 0;
 			// this.focus_geo.add(triangle);
 			// this.focus_geo.opacity = 0.68;
-			this.foreground_layer.add(this.focus_geo);
+			this.renderLayers['ui'].add(this.focus_geo);
 		}	
 		// turn on update position
 		if ( !this.focus_geo.visible ) { this.focus_geo.visible = true; }
@@ -111,7 +110,7 @@ export default class Camera {
 					// create if doesnt exist
 					if ( obj?.geodata?.sensors && !this.focus_overlay_geo ) {
 						this.focus_overlay_geo = SVGUtils.RehydrateGeoData(obj.geodata.sensors);
-						this.foreground_layer.add(this.focus_overlay_geo);
+						this.renderLayers['ui'].add(this.focus_overlay_geo);
 					}		
 					// update overlays
 					if ( this.focus_overlay_geo ) {
@@ -152,8 +151,8 @@ export default class Camera {
 	}
 	
 	ScreenToWorldCoord( x, y ) {
-		x = ( x - this.foreground_layer.position.x ) / this.scale;
-		y = ( y - this.foreground_layer.position.y ) / this.scale;
+		x = ( x - this.renderLayers['tank'].position.x ) / this.scale;
+		y = ( y - this.renderLayers['tank'].position.y ) / this.scale;
 		return [x,y];
 	}	
 
@@ -182,18 +181,18 @@ export default class Camera {
 		// X pos	
 		const target_x = -( x * this.scale ) + ( 0.5 * this.window_width );
 		const max_x = -0.0001 + (this.tank_width * this.scale) - (this.window_width);
-		if ( this.scale * this.tank_width < this.window_width && center ) { this.foreground_layer.position.x = -max_x / 2; }
-		else if ( target_x > 0 && center ) { this.foreground_layer.position.x = 0; }  
-		else if ( target_x < -max_x && center ) { this.foreground_layer.position.x = -max_x; }  
-		else { this.foreground_layer.position.x = target_x; }
+		if ( this.scale * this.tank_width < this.window_width && center ) { this.renderLayers['tank'].position.x = -max_x / 2; }
+		else if ( target_x > 0 && center ) { this.renderLayers['tank'].position.x = 0; }  
+		else if ( target_x < -max_x && center ) { this.renderLayers['tank'].position.x = -max_x; }  
+		else { this.renderLayers['tank'].position.x = target_x; }
 		
 		// Y pos
 		const target_y = -( y * this.scale ) + ( 0.5 * this.window_height );
 		const max_y = -0.0001 + (this.tank_height * this.scale) - (this.window_height);
-		if ( this.scale * this.tank_height < this.window_height && center ) { this.foreground_layer.position.y = -max_y / 2; }
-		else if ( target_y > 0 && center ) { this.foreground_layer.position.y = 0; }  
-		else if ( target_y < -max_y && center ) { this.foreground_layer.position.y = -max_y; }
-		else { this.foreground_layer.position.y = target_y; }
+		if ( this.scale * this.tank_height < this.window_height && center ) { this.renderLayers['tank'].position.y = -max_y / 2; }
+		else if ( target_y > 0 && center ) { this.renderLayers['tank'].position.y = 0; }  
+		else if ( target_y < -max_y && center ) { this.renderLayers['tank'].position.y = -max_y; }
+		else { this.renderLayers['tank'].position.y = target_y; }
 		
 		// record stats
 		[ this.x, this.y ] = this.ScreenToWorldCoord( this.window_width * 0.5, this.window_height * 0.5 );
@@ -214,16 +213,16 @@ export default class Camera {
 	}
 	
 	SetViewScale( scale ) {
-		const prev_scale = this.foreground_layer.scale;
+		const prev_scale = this.renderLayers['tank'].scale;
 		this.window_width = globalThis.two.width;
 		this.window_height = globalThis.two.height;
 		this.scale = utils.clamp( scale, 0.01, 5 );
-		this.foreground_layer.scale = this.scale;
+		this.renderLayers['tank'].scale = this.scale;
 		// small adjustment to keep screen centered
 		const xdiff = ( this.window_width * prev_scale ) - ( this.window_width * this.scale );
-		this.foreground_layer.position.x += xdiff * 0.5;
+		this.renderLayers['tank'].position.x += xdiff * 0.5;
 		const ydiff = ( this.window_height * prev_scale ) - ( this.window_height * this.scale );
-		this.foreground_layer.position.y += ydiff * 0.5;
+		this.renderLayers['tank'].position.y += ydiff * 0.5;
 		// if ( this.braingraph ) {
 		// 	this.braingraph.onScreenSizeChange();
 		// }
@@ -259,8 +258,8 @@ export default class Camera {
 		// if ( this.tank ) {
 		// 	if ( this.responsive_tank_size || force ) {
 		// 		this.tank.Resize(this.window_width / this.scale, this.window_height / this.scale);
-		// 		this.foreground_layer.position.x = 0;
-		// 		this.foreground_layer.position.y = 0;
+		// 		this.renderLayers['tank'].position.x = 0;
+		// 		this.renderLayers['tank'].position.y = 0;
 		// 		this.min_zoom = Math.min(this.window_width / this.tank_width, this.window_height / this.tank_height);
 		// 	}
 		// 	else { 
@@ -547,24 +546,24 @@ export default class Camera {
 		// const scalex = this.window_width / this.tank_width;
 		// const scaley = this.window_height / this.tank_height;
 		// const minscale = Math.min(scalex,scaley); // min = contain, max = cover
-		// const bgscale = this.foreground_layer.scale /  minscale;
+		// const bgscale = this.renderLayers['tank'].scale /  minscale;
 		// if ( bgscale != this.renderLayers['backdrop'].scale ) { // optimization to dodge setScale()
 		// 	this.renderLayers['backdrop'].scale = bgscale;
 		// }
-		// const xpct = -utils.Clamp( this.foreground_layer.position.x / max_x, -1, 1);
-		// const ypct = -utils.Clamp( this.foreground_layer.position.y / max_y, -1, 1);
+		// const xpct = -utils.Clamp( this.renderLayers['tank'].position.x / max_x, -1, 1);
+		// const ypct = -utils.Clamp( this.renderLayers['tank'].position.y / max_y, -1, 1);
 		// const xrange = this.window_width * (this.renderLayers['backdrop'].scale - 1);
 		// const yrange = this.window_height * (this.renderLayers['backdrop'].scale - 1);
 		// this.renderLayers['backdrop'].position.x = -(xpct * (xrange/2)) - (xrange/4);
 		// this.renderLayers['backdrop'].position.y = -(ypct * (yrange/2)) - (yrange/4);
 		// // console.log(
-		// // 	this.foreground_layer.position.x,
-		// // 	this.foreground_layer.position.y,
+		// // 	this.renderLayers['tank'].position.x,
+		// // 	this.renderLayers['tank'].position.y,
 		// // 	this.renderLayers['backdrop'].position.x,
 		// // 	this.renderLayers['backdrop'].position.y
 		// // );
 		// // adjustment for hyperzoomed situations
-		// if ( this.foreground_layer.position.x > 0 || this.foreground_layer.position.y > 0 ) {
+		// if ( this.renderLayers['tank'].position.x > 0 || this.renderLayers['tank'].position.y > 0 ) {
 		// 	// if ( this.tank.bg ) { 
 		// 	// 	this.renderLayers['backdrop'].scale = 1;
 		// 	// 	let rect = this.renderLayers['backdrop'].getBoundingClientRect(true);
@@ -577,8 +576,8 @@ export default class Camera {
 		// 	// 	);
 		// 	// }
 		// 	// this.tank.ScaleBackground();
-		// 	this.renderLayers['backdrop'].position.x = this.foreground_layer.position.x;
-		// 	this.renderLayers['backdrop'].position.y = this.foreground_layer.position.y;
+		// 	this.renderLayers['backdrop'].position.x = this.renderLayers['tank'].position.x;
+		// 	this.renderLayers['backdrop'].position.y = this.renderLayers['tank'].position.y;
 		// 	// console.log('adjusting backdrop',
 		// 	// 	this.renderLayers['backdrop'].position.x,
 		// 	// 	this.renderLayers['backdrop'].position.y,
