@@ -16,7 +16,7 @@ export default class Camera {
 		this.xmax = 0;
 		this.ymax = 0;
 		this.min_zoom = 0.1;
-		this.max_zoom = 2;
+		this.max_zoom = 2.4;
 		this.window_width = 640;
 		this.window_height = 480;
 		this.tank_width = 100;
@@ -32,6 +32,7 @@ export default class Camera {
 		this.focus_time = 8000; // ms
 		this.show_boid_indicator_on_focus = true;
 		this.show_boid_sensors_on_focus = true;
+		this.show_boid_info_on_focus = true;
 		this.center_camera_on_focus = true;
 		this.animation_min = 0.4 // zoom level beyond which we stop animating
 		// innards:
@@ -240,8 +241,8 @@ export default class Camera {
 	}
 		
 	ZoomAt( screen_x, screen_y, zoom_in /* true for in, false for out */ ) {
-		let newscale = this.scale * ((1 + this.z/2)/1);
-		if ( zoom_in ) { newscale = this.scale * (1/(1 + this.z/2)); }
+		let newscale = this.z * ((1 + this.z/3)/1);
+		if ( zoom_in ) { newscale = this.z * (1/(1 + this.z/3)); }
 		// record mouse click in world space
 		const [prev_x, prev_y] = this.ScreenToWorldCoord( screen_x, screen_y );
 		// zoom into center of screen
@@ -372,6 +373,8 @@ export default class Camera {
 		}
 		// focus on a point of interest
 		if ( r < 0.85 ) {
+			// stop tracking stuff
+			this.TrackObject(false);
 			// zoom setup
 			let zoom = this.z;
 			// if transitions are enabled, reduce zoom changes to preserve frame rate and viewer sanity

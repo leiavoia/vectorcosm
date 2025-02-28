@@ -40,7 +40,7 @@
 	let gameloop = new GameLoop();
 	
 	// camera needs tank and window data before it can be set up
-	let camera = null;
+	let camera = $state(null);
 
 	gameloop.onStartFrame = () => {
 		// update all your stats here
@@ -237,7 +237,9 @@
 		// track objects and update UI
 		camera.TrackObject(focus_object_id);
 		if ( focus_object_panel ) {
-			focus_object_panel.updateStats(data); // null will make it go away
+			if ( !data || camera.show_boid_info_on_focus ) { // respect camera settings even though its not actually camera related
+				focus_object_panel.updateStats(data); // null will make it go away
+			}
 		}
 	} );
 	
@@ -644,7 +646,7 @@
 			<TankStatsPanel stats={tankStats}></TankStatsPanel>
 			<SimStatsPanel bind:this={simStatsPanel} stats={simStats} chartdata={simChartData}></SimStatsPanel>
 		{:else if panel_mode==='settings'}
-			<CameraSettingsPanel></CameraSettingsPanel>
+			<CameraSettingsPanel camera={camera}></CameraSettingsPanel>
 		{:else if panel_mode==='boid_library'}
 			<BoidLibraryPanel {api} ></BoidLibraryPanel>
 		{:else if panel_mode==='sim_launcher'}
@@ -657,3 +659,27 @@
 		<FocusObjectDetails bind:this={focus_object_panel}></FocusObjectDetails>
 	</aside>
 </div>
+
+
+
+<!-- // Camera Class:
+class Camera {
+	constructor() {
+		this.zoom = 1.0;
+		// ... etc ...
+	}	
+}
+
+// Svelte App:
+<script>
+	import Camera from './Camera.js'
+	import CameraControls from './CameraControls.js'
+	let camera = new Camera();
+</script>
+<CameraControls {camera}></CameraControls>
+
+// Camera Settings Control Panel
+<script>
+	let {camera} = $props();
+</script>
+<input type="range" min="1" max="10" step="0.1" bind:value={camera.zoom} /> -->
