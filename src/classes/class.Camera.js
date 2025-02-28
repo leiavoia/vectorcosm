@@ -34,6 +34,7 @@ export default class Camera {
 		this.show_boid_sensors_on_focus = true;
 		this.show_boid_info_on_focus = true;
 		this.center_camera_on_focus = true;
+		this.dramatic_entrance = false; // might merge this with `transitions`
 		this.animation_min = 0.4 // zoom level beyond which we stop animating
 		// innards:
 		this.focus_geo = null;
@@ -254,6 +255,30 @@ export default class Camera {
 		this.PointCameraAt( world_x - (new_x - prev_x), world_y - (new_y - prev_y) );
 	}
 			
+	DramaticEntrance( time=4 ) {
+		if ( !this.dramatic_entrance ) { return false; }
+		const layers = [
+			this.renderLayers['bg'],
+			this.renderLayers['rocks'],
+			this.renderLayers['plants'],
+			this.renderLayers['boids'],
+			this.renderLayers['foods'],
+			this.renderLayers['marks'],
+		];	
+		const time_per_layer = ( time / layers.length ) * 1000;
+		let last_tween;
+		for ( let i=0; i < layers.length; i++ ) {
+			layers[i].opacity=0;
+			const delay = i * time_per_layer;
+			const tween = new TWEEN.Tween(layers[i])
+				.to( { opacity: (!i?0.35:1) }, time_per_layer )
+				.easing(this.easing);
+			if ( last_tween ) { last_tween.chain(tween); }	
+			if ( !last_tween ) { tween.start(); }
+			last_tween = tween;
+		}
+	}
+	
 	// if force is FALSE, `responsive_tank_size` setting will be honored
 	ResizeTankToWindow( force=false ) {
 		// if ( this.tank ) {

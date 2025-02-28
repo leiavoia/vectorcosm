@@ -53,8 +53,14 @@
 			delta: ( gameloop.updates_per_frame > 1 ? gameloop.max_delta : delta )
 		};
 		worker.postMessage( data );
-		if ( camera && camera.focus_obj_id > 0 ) {
-			api.SendMessage('pickObject', {oid:camera.focus_obj_id}); // send back for another round
+		// update or cancel object tracking
+		if ( camera ) {
+			if ( camera.focus_obj_id > 0 ) {
+				api.SendMessage('pickObject', {oid:camera.focus_obj_id}); // send back for another round
+			}
+			else if ( focus_object_panel ) {
+				focus_object_panel.updateStats(null); // null will make it go away
+			}
 		}
 	}
 
@@ -176,6 +182,7 @@
 							camera.tank_width = o.geodata.width;
 							camera.tank_height = o.geodata.height;
 							camera.ResetCameraZoom();
+							camera.DramaticEntrance();
 						}
 					}
 					else if ( o.type=='food' ) {
@@ -225,6 +232,11 @@
 		gameloop.EndSimFrame();
 	});
 		
+	// NOTE: this is called every frame while an object is in focus.
+	// It is possible for the callback to respond after user has deselected a focus object,
+	// causing it to re-focus. To detect this situation, take of presence of sensor_geo
+	// which is only sent on the first frame and can be used to understand if this is the
+	// first frame or a repeat request
 	api.RegisterResponseCallback( 'pickObject', data => {
 		const focus_object_id = data ? data.oid : 0;
 		// capture any sensor geometry so we can use it later
@@ -234,11 +246,18 @@
 				obj.geodata.sensors = data.sensor_geo;
 			}
 		}
+		// likely a repeat request that came back too late - disregard
+		else if ( camera.focus_obj_id <= 0 ) {
+			if ( focus_object_panel ) {
+				focus_object_panel.updateStats(null); // null will make it go away
+			}
+			return;
+		}
 		// track objects and update UI
 		camera.TrackObject(focus_object_id);
 		if ( focus_object_panel ) {
 			if ( !data || camera.show_boid_info_on_focus ) { // respect camera settings even though its not actually camera related
-				focus_object_panel.updateStats(data); // null will make it go away
+				focus_object_panel.updateStats(data);
 			}
 		}
 	} );
@@ -391,8 +410,6 @@
 				toggleFastForward();
 			},
 		'c': _ => {
-				// stop any pending picking update
-				if ( camera.cinema_mode ) { api.expect.pickObject = false; }
 				camera.CinemaMode( !camera.cinema_mode );
 			},
 		// '8': _ => {
