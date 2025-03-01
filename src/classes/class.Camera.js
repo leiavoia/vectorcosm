@@ -255,8 +255,11 @@ export default class Camera {
 		this.PointCameraAt( world_x - (new_x - prev_x), world_y - (new_y - prev_y) );
 	}
 			
-	DramaticEntrance( time=4 ) {
+	DramaticEntrance( time=3.5 ) {
 		if ( !this.dramatic_entrance ) { return false; }
+		if ( this.dramatic_entrance !== true ) {
+			this.dramatic_entrance = false;
+		}
 		const layers = [
 			this.renderLayers['bg'],
 			this.renderLayers['rocks'],

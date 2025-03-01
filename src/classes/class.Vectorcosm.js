@@ -272,13 +272,13 @@ export default class Vectorcosm {
 			for ( const b of this.simulation.tank.boids ) {
 				jsons.push( b.Export(false) );
 			}
-			let str = JSON.stringify(jsons).replace(/\d+\.\d+/g, x => parseFloat(x).toPrecision(6) );
-			localStorage.setItem("population", str);
+			return JSON.stringify(jsons).replace(/\d+\.\d+/g, x => parseFloat(x).toPrecision(6) );
+			// localStorage.setItem("population", str);
 		}		
 	}
 			
-	LoadPopulation() {
-		let json = localStorage.getItem("population");
+	LoadPopulation( json ) {
+		// let json = localStorage.getItem("population");
 		if (json) {
 			json = JSON.parse(json);
 			for ( let j of json ) {

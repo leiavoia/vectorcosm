@@ -300,6 +300,10 @@
 		globalThis.localStorage.setItem("tank", str);
 	} );
 	
+	api.RegisterResponseCallback( 'exportBoids', str => {
+		globalThis.localStorage.setItem("population", str);
+	} );
+	
 	// gameloop starts when drawing context is fully mounted (see component)
 	function onDrawingReady() {
 		// create rendering layers before drawing objects start to arrive from simulation
@@ -390,12 +394,16 @@
 			i = (i-1 < 0) ? (list.length-1) : i-1;
 			camera.TrackObject( list[i].oid );		
 		},
-		// 's': _ => {
-		// 		vc.SaveTank();
-		// 	},
-		// 'a': _ => {
-		// 		vc.LoadTank();
-		// 	},
+		's': _ => {
+			api.SendMessage('exportTank',null);
+		},
+		'a': _ => {
+			const tank = globalThis.localStorage.getItem("tank");
+			if ( tank ) {
+				camera.dramatic_entrance = -1; // evaluates to "true" but resets to false on next action
+				api.SendMessage('loadTank', { tank, settings: $state.snapshot(simSettings) });
+			}
+		},
 		'1': _ => {
 			setPanelMode('tank_stats')
 		},
@@ -412,7 +420,6 @@
 			setPanelMode('sim_launcher')
 		},
 		'Escape': _ => {
-			// if ( show_boid_details.value ) { show_boid_details.value = false; }
 			if ( camera.focus_obj_id > 0 ) { 
 				api.expect.pickObject = false; // stop any pending picking update
 				camera.TrackObject(false);
@@ -426,25 +433,16 @@
 		'c': _ => {
 			camera.CinemaMode( !camera.cinema_mode );
 		},
-		// '8': _ => {
-		// 		vc.animate_boids = !vc.animate_boids;
-		// 	},
-		// '6': _ => {
-		// 		vc.tank.bg_visible = !vc.tank.bg_visible;
-		// 		vc.tank.bg.visible = vc.tank.bg_visible;
-		// 	},
 		// 'b': _ => {
 		// 		vc.ToggleShowBrainmap()
 		// 	},
-		// 'r': _ => {
-		// 		vc.responsive_tank_size = !vc.responsive_tank_size;
-		// 	},
-		// '9': _ => {
-		// 		vc.SavePopulation();
-		// 	},
-		// '0': _ => {
-		// 		vc.LoadPopulation();
-		// 	},
+		'9': _ => {
+			api.SendMessage('exportBoids',null);
+		},
+		'0': _ => {
+			const str = globalThis.localStorage.getItem("population");
+			if ( str ) { api.SendMessage('loadBoids', str ); }
+		},
 	}
 
 	function onkeydown(event) {

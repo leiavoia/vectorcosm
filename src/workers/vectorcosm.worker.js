@@ -179,6 +179,16 @@ function_registry.set( 'loadTank', params => {
 	globalThis.postMessage( { functionName: 'loadTank', data: null } );
 });
 
+function_registry.set( 'exportBoids', params => {
+	const str = globalThis.vc.SavePopulation();
+	globalThis.postMessage( { functionName: 'exportBoids', data: str } );
+});
+
+function_registry.set( 'loadBoids', params => {
+	globalThis.vc.LoadPopulation( params.data );
+	globalThis.postMessage( { functionName: 'loadBoids', data: null } );
+});
+
 function_registry.set( 'randTank', params => {
 	// this is really overreaching and we should make something cleaner
 	const w = globalThis.vc.tank.width;
