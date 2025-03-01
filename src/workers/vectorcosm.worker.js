@@ -4,6 +4,8 @@ import * as utils from '../util/utils.js'
 import { SimulationFactory } from '../classes/class.Simulation.js'
 import PubSub from 'pubsub-js'
 import BoidLibrary from '../classes/class.BoidLibrary.js'
+import Tank from '../classes/class.Tank.js'
+import TankMaker from '../classes/class.TankMaker.js'
 
 const function_registry = new Map();
 
@@ -161,6 +163,39 @@ function_registry.set( 'pickObject', params => {
 	} );
 });
 
+
+function_registry.set( 'endSim', params => {
+	globalThis.vc.simulation.killme = true;
+	globalThis.postMessage( { functionName: 'endSim', data: null } );
+});
+
+function_registry.set( 'exportTank', params => {
+	const str = globalThis.vc.ExportTank();
+	globalThis.postMessage( { functionName: 'exportTank', data: str } );
+});
+
+function_registry.set( 'loadTank', params => {
+	globalThis.vc.LoadTank( params.data.tank, params.data?.settings );
+	globalThis.postMessage( { functionName: 'loadTank', data: null } );
+});
+
+function_registry.set( 'randTank', params => {
+	// this is really overreaching and we should make something cleaner
+	const w = globalThis.vc.tank.width;
+	const h = globalThis.vc.tank.height;
+	const boids = globalThis.vc.tank.boids.splice(0,globalThis.vc.tank.boids.length);
+	globalThis.vc.tank.Kill();
+	globalThis.vc.tank = new Tank( w, h );
+	globalThis.vc.tank.boids = boids;
+	globalThis.vc.tank.boids.forEach( b => b.tank = globalThis.vc.tank );
+	globalThis.vc.simulation.tank = globalThis.vc.tank;
+	globalThis.vc.tank.MakeBackground();
+	const tm = new TankMaker( globalThis.vc.tank, {} );
+	tm.Make();
+	globalThis.postMessage( { functionName: 'randTank', data: null } );
+});
+
+
 function_registry.set( 'init', params => {
 	globalThis.vc.Init(params.data);
 	globalThis.postMessage( {
@@ -171,6 +206,7 @@ function_registry.set( 'init', params => {
 		}
 	} );
 });
+
 
 function_registry.set( 'updateSimSettings', params => {
 	for ( let k in params.data ) {

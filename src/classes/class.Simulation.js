@@ -466,8 +466,6 @@ export default class Simulation {
 					const plant = RandomPlant( target_x, target_y );
 					if ( 'RandomizeAge' in plant ) { plant.RandomizeAge(); }
 					this.tank.plants.push(plant);
-					// [!] inconsistent behavior with rocks which automatically place themselves
-					globalThis.vc.AddShapeToRenderLayer( plant.geo, '0' );
 				}
 				// no safe spawning
 				else {
@@ -475,8 +473,6 @@ export default class Simulation {
 					const plant = RandomPlant( rock.x+p[0], rock.y+p[1] );
 					if ( 'RandomizeAge' in plant ) { plant.RandomizeAge(); }
 					this.tank.plants.push(plant);
-					// [!] inconsistent behavior with rocks which automatically place themselves
-					globalThis.vc.AddShapeToRenderLayer( plant.geo, '0' );
 				}
 			}
 		}

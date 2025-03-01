@@ -2,6 +2,11 @@
 
 	let { settings: settings_raw, onupdate } = $props();
 	
+	// get access to the app's innards so buttons can do something useful
+	import { getContext } from 'svelte';
+	const gameloop = getContext('gameloop');
+	const api = getContext('api');
+	
 	let settings = $state({
 		volume: (settings_raw?.volume ?? 2500000),
 		num_boids: (settings_raw?.num_boids ?? 0),
@@ -28,6 +33,37 @@
 		onupdate({ [k]: settings[k] });
 	};
 	
+	function togglePause() {
+		gameloop.playing = !gameloop.playing;
+		if ( gameloop.playing ) { gameloop.Start(); }
+	}
+	
+	function toggleFF() {
+		gameloop.updates_per_frame = gameloop.updates_per_frame > 1 ? 1 : 200;
+	}
+	
+	function endSim() {
+		api.SendMessage('endSim',null);
+	}
+	
+	function saveTank() {
+		api.SendMessage('exportTank',null);
+		// this is going to return JSON that we need to store in localStorage.
+		// webworker does not have access to localStorage.
+		// the main app already handles this event so we don't need to do anything here.
+	}
+	
+	function loadTank() {
+		const tank = globalThis.localStorage.getItem("tank");
+		if ( tank ) {
+			api.SendMessage('loadTank', { tank, settings: $state.snapshot(settings) });
+		}
+	}
+	
+	function randTank() {
+		api.SendMessage('randTank',null);
+	}
+	
 </script>
 
 <style>
@@ -37,13 +73,12 @@
 <section>
 	<nav>
 		<ul>
-			<li><button class="secondary">Pause</li>
-			<li><button class="secondary">FF</li>
-			<li><button class="secondary">End</li>
-			<!-- <li><button class="secondary">Save</li> -->
-			<!-- <li><button class="secondary">Load</li> -->
-			<li><button class="secondary">Rand</li>
-			<li><button class="secondary">X</li>
+			<li><button class="" onclick={togglePause}>Pause</li>
+			<li><button class="" onclick={toggleFF}>FF</li>
+			<li><button class="" onclick={endSim}>End</li>
+			<li><button class="" onclick={saveTank}>Save</li>
+			<li><button class="" onclick={loadTank}>Load</li>
+			<li><button class="" onclick={randTank}>Rand</li>
 		</ul>
 	</nav>
 </section>

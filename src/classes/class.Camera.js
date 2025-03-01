@@ -515,15 +515,6 @@ export default class Camera {
 		return;
 	}
 
-	AddShapeToRenderLayer( geo, layer='0' ) {
-		// try {
-		// 	this.renderLayers[layer].add(geo);
-		// }
-		// catch (error) {
-		// 	console.warn('no drawing layer named ' + layer);
-		// }
-	}
-	
 	DrawBrainGraph() {
 		// if ( this.show_brainmap && !this.simulation.turbo ) {
 		// 	// anything to track?

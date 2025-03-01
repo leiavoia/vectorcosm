@@ -13,6 +13,7 @@
 	import Camera from './classes/class.Camera.js'
 	import Two from "two.js";
 	import * as SVGUtils from './util/svg.js'
+	import { setContext } from 'svelte';
 	
 	let vc_canvas;
 	let focus_object_panel;
@@ -35,12 +36,15 @@
 	
 	// use the API to send and receive messages to Vectorcosm
 	const api = new VectorcosmAPI( worker );
+	setContext('api', api);
 
 	// set up game loop and lifecycle hooks
 	let gameloop = new GameLoop();
+	setContext('gameloop', gameloop);
 	
 	// camera needs tank and window data before it can be set up
 	let camera = $state(null);
+	setContext('camera', camera);
 
 	gameloop.onStartFrame = () => {
 		// update all your stats here
@@ -290,6 +294,10 @@
 		if ( data ) {
 			simSettings = data;
 		} 		
+	} );
+	
+	api.RegisterResponseCallback( 'exportTank', str => {
+		globalThis.localStorage.setItem("tank", str);
 	} );
 	
 	// gameloop starts when drawing context is fully mounted (see component)

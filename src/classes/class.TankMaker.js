@@ -181,7 +181,6 @@ export default class TankMaker {
 					c.fill = 'transparent';
 					c.stroke = 'yellow';
 					c.linewidth = 20;
-					globalThis.vc.AddShapeToRenderLayer(c, +2);	
 				}
 			}
 			// make points
@@ -268,7 +267,6 @@ export default class TankMaker {
 				let c = globalThis.two.makeCircle( p[0], p[1], 10);
 				c.fill = 'orange';
 				c.stroke = 'transparent';
-				globalThis.vc.AddShapeToRenderLayer(c, +2);	
 			});
 		}
 		
@@ -392,7 +390,6 @@ export default class TankMaker {
 				path.fill = 'transparent';
 				path.stroke = utils.RandomColor( true, false, true ); 
 				path.linewidth = 20;		
-				globalThis.vc.AddShapeToRenderLayer(path, +2);	
 			}
 			
 			// apply cell mask to determine if it becomes a rock
