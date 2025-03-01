@@ -327,63 +327,69 @@
 
 	const keyFunctionMap = {
 		'Pause': _ => {
-				gameloop.playing = !gameloop.playing;
-				if ( gameloop.playing ) { gameloop.Start(); }
-			},
+			gameloop.playing = !gameloop.playing;
+			if ( gameloop.playing ) { gameloop.Start(); }
+		},
 		'p': _ => {
-				gameloop.playing = !gameloop.playing;
-				if ( gameloop.playing ) { gameloop.Start(); }
-			},
+			gameloop.playing = !gameloop.playing;
+			if ( gameloop.playing ) { gameloop.Start(); }
+		},
 		'_': _ => {
-				const diff = Math.abs( camera.scale - (camera.scale * (1/(1 + camera.z))) );
-				camera.MoveCamera( 0, 0, -diff );
-			},
+			const diff = Math.abs( camera.scale - (camera.scale * (1/(1 + camera.z))) );
+			camera.MoveCamera( 0, 0, -diff );
+		},
 		'-': _ => {
-				const diff = Math.abs( camera.scale - (camera.scale * (1/(1 + camera.z))) );
-				camera.MoveCamera( 0, 0, -diff );
-			},
+			const diff = Math.abs( camera.scale - (camera.scale * (1/(1 + camera.z))) );
+			camera.MoveCamera( 0, 0, -diff );
+		},
 		'=': _ => {
-				const diff = Math.abs( camera.scale - (camera.scale * ((1 + camera.z)/1)) );
-				camera.MoveCamera( 0, 0, diff );
-			},
+			const diff = Math.abs( camera.scale - (camera.scale * ((1 + camera.z)/1)) );
+			camera.MoveCamera( 0, 0, diff );
+		},
 		'+': _ => {
-				const diff = Math.abs( camera.scale - (camera.scale * ((1 + camera.z)/1)) );
-				camera.MoveCamera( 0, 0, diff );
-			},
+			const diff = Math.abs( camera.scale - (camera.scale * ((1 + camera.z)/1)) );
+			camera.MoveCamera( 0, 0, diff );
+		},
 		';': _ => {
-				camera.ResetCameraZoom();
-			},
+			camera.ResetCameraZoom();
+		},
 		// '\'': _ => {
 		// 		vc.ResizeTankToWindow(true);
 		// 		vc.ResetCameraZoom();
 		// 	},
 		'Home': _ => {
-				camera.ResetCameraZoom();
-			},
+			camera.ResetCameraZoom();
+		},
 		'ArrowLeft': _ => {
-				camera.MoveCamera( -100, 0 );
-			},
+			camera.MoveCamera( -100, 0 );
+		},
 		'ArrowRight': _ => {
-				camera.MoveCamera( 100, 0 );
-			},
+			camera.MoveCamera( 100, 0 );
+		},
 		'ArrowUp': _ => {
-				camera.MoveCamera( 0, -100 );
-			},
+			camera.MoveCamera( 0, -100 );
+		},
 		'ArrowDown': _ => {
-				camera.MoveCamera( 0, 100 );
-			},
-		// 'PageUp': _ => {
-		// 		vc.ShiftFocusTarget();
-		// 		if ( show_boid_details.value ) {
-		// 			RefreshBoidDetailsDynamicObjects( vc.focus_object );
-		// 		}			
-		// 	},
-		// 'PageDown': _ => {
-		// 		vc.ShiftFocusTarget(-1);
-		// 		if ( show_boid_details.value ) {
-		// 			RefreshBoidDetailsDynamicObjects( vc.focus_object );
-		// 		}			
-		// 	},
+			camera.MoveCamera( 0, 100 );
+		},
+		'PageUp': _ => {
+			let list = Array.from(renderObjects.values()).filter(o=>o.type=='boid');
+			let i = -1;
+			if ( camera.focus_obj_id > 0 ) { 
+				i = list.indexOf( renderObjects.get(camera.focus_obj_id) ) ?? -1;
+			}
+			i = (i+1 == list.length) ? 0 : i+1;
+			camera.TrackObject( list[i].oid );
+		},
+		'PageDown': _ => {
+			let list = Array.from(renderObjects.values()).filter(o=>o.type=='boid');
+			let i = list.length;
+			if ( camera.focus_obj_id > 0 ) { 
+				i = list.indexOf( renderObjects.get(camera.focus_obj_id) ) ?? -1;
+			}
+			i = (i-1 < 0) ? (list.length-1) : i-1;
+			camera.TrackObject( list[i].oid );		
+		},
 		// 's': _ => {
 		// 		vc.SaveTank();
 		// 	},
@@ -391,44 +397,41 @@
 		// 		vc.LoadTank();
 		// 	},
 		'1': _ => {
-				setPanelMode('tank_stats')
-			},
+			setPanelMode('tank_stats')
+		},
 		'2': _ => {
-				setPanelMode('sim_controls')
-			},
+			setPanelMode('sim_controls')
+		},
 		'3': _ => {
-				setPanelMode('settings')
-			},
+			setPanelMode('settings')
+		},
 		'4': _ => {
-				setPanelMode('boid_library')
-			},
+			setPanelMode('boid_library')
+		},
 		'5': _ => {
-				setPanelMode('sim_launcher')
-			},
+			setPanelMode('sim_launcher')
+		},
 		'Escape': _ => {
-				// if ( show_boid_details.value ) { show_boid_details.value = false; }
-				if ( camera.focus_obj_id > 0 ) { 
-					api.expect.pickObject = false; // stop any pending picking update
-					camera.TrackObject(false);
-					focus_object_panel.updateStats(null);
-				}
-				else { setPanelMode(null); }
-			},
+			// if ( show_boid_details.value ) { show_boid_details.value = false; }
+			if ( camera.focus_obj_id > 0 ) { 
+				api.expect.pickObject = false; // stop any pending picking update
+				camera.TrackObject(false);
+				focus_object_panel.updateStats(null);
+			}
+			else { setPanelMode(null); }
+		},
 		'End': _ => {
-				toggleFastForward();
-			},
+			toggleFastForward();
+		},
 		'c': _ => {
-				camera.CinemaMode( !camera.cinema_mode );
-			},
+			camera.CinemaMode( !camera.cinema_mode );
+		},
 		// '8': _ => {
 		// 		vc.animate_boids = !vc.animate_boids;
 		// 	},
 		// '6': _ => {
 		// 		vc.tank.bg_visible = !vc.tank.bg_visible;
 		// 		vc.tank.bg.visible = vc.tank.bg_visible;
-		// 	},
-		// '7': _ => {
-		// 		ToggleTankDebug();
 		// 	},
 		// 'b': _ => {
 		// 		vc.ToggleShowBrainmap()
