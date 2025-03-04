@@ -2,9 +2,9 @@ export default {
 
 	race_track: {
 		simtype: 'AvoidEdgesSimulation',
-		name: 'Obstacle Course',
+		name: 'Race Track',
 		num_boids: 60,
-		timeout: 24,
+		timeout: 36,
 		volume:4000000,
 		punishment: 2,
 		max_segment_spread: 170,

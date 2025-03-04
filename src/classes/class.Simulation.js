@@ -1018,15 +1018,29 @@ export class AvoidEdgesSimulation extends Simulation {
 					],
 					complexity: 0
 				}),
-				// interior
+			);
+			// interior
+			let rock_height = ( h - ( 2*edge_size + 3*tunnel_width) ) / 2;
+			this.tank.obstacles.push(
 				new Rock( { 
 					y: edge_size + tunnel_width,
 					x: 0,
 					hull: [
 						[ 0, 0 ],
 						[ w - (edge_size + tunnel_width), 0 ],
-						[ w - (edge_size + tunnel_width), h - (2*(edge_size + tunnel_width)) ],
-						[ 0, h - (2*(edge_size + tunnel_width)) ]
+						[ w - (edge_size + tunnel_width), rock_height ],
+						[ 0, rock_height ]
+					],
+					complexity: 0
+				}),
+				new Rock( { 
+					y: edge_size + 2*tunnel_width + rock_height,
+					x: edge_size + tunnel_width,
+					hull: [
+						[ 0, 0 ],
+						[ w - (edge_size + tunnel_width), 0 ],
+						[ w - (edge_size + tunnel_width), rock_height ],
+						[ 0, rock_height ]
 					],
 					complexity: 0
 				}),
@@ -1034,7 +1048,7 @@ export class AvoidEdgesSimulation extends Simulation {
 				
 			// food goes along tunnel with special data to act as progress markers
 			let food_num = 0;
-			let food_spacing = 200;
+			let food_spacing = 250;
 			for ( let x = (edge_size + tunnel_width/2); x < w - (edge_size + tunnel_width/2); x += food_spacing ) {
 				let food = new Food( x, (edge_size + tunnel_width/2) );
 				food.vx = 0;
@@ -1044,7 +1058,7 @@ export class AvoidEdgesSimulation extends Simulation {
 				food.permafood = true;
 				this.tank.foods.push(food);
 			}
-			for ( let y = (edge_size + tunnel_width/2); y < h - (edge_size + tunnel_width/2); y += food_spacing ) {
+			for ( let y = (edge_size + tunnel_width); y < h*0.5; y += food_spacing ) {
 				let food = new Food( w - (edge_size + tunnel_width/2), y );
 				food.vx = 0;
 				food.vy = 0;
@@ -1053,8 +1067,8 @@ export class AvoidEdgesSimulation extends Simulation {
 				food.permafood = true;
 				this.tank.foods.push(food);
 			}
-			for ( let x = w - (edge_size + tunnel_width/2); x > (edge_size + tunnel_width/2); x -= food_spacing ) {
-				let food = new Food( x, h- (edge_size + tunnel_width/2) );
+			for ( let x = w - (edge_size + tunnel_width/2); x > (edge_size + tunnel_width/2) ; x -= food_spacing ) {
+				let food = new Food( x, (edge_size + tunnel_width/2) + (rock_height + tunnel_width) );
 				food.vx = 0;
 				food.vy = 0;
 				food.goal = food_num++;
@@ -1062,8 +1076,24 @@ export class AvoidEdgesSimulation extends Simulation {
 				food.permafood = true;
 				this.tank.foods.push(food);
 			}
-			
-		
+			for ( let y = h*0.5; y < h - (edge_size + tunnel_width); y += food_spacing ) {
+				let food = new Food( (edge_size + tunnel_width/2), y );
+				food.vx = 0;
+				food.vy = 0;
+				food.goal = food_num++;
+				food.edibility = 1; // universal edibility
+				food.permafood = true;
+				this.tank.foods.push(food);
+			}
+			for ( let x = (edge_size + tunnel_width/2); x < w - (edge_size + tunnel_width/2); x += food_spacing ) {
+				let food = new Food( x, (edge_size + tunnel_width/2) + 2 * (rock_height + tunnel_width) );
+				food.vx = 0;
+				food.vy = 0;
+				food.goal = food_num++;
+				food.edibility = 1; // universal edibility
+				food.permafood = true;
+				this.tank.foods.push(food);
+			}
 		}
 		
 		else if ( this.settings.tunnel ) {
