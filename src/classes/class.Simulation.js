@@ -949,6 +949,10 @@ export class AvoidEdgesSimulation extends Simulation {
 			b.fitness_score = 0;
 		}
 		
+		// clear food
+		this.tank.foods.forEach( x => x.Kill() );
+		this.tank.foods.length = 0;
+				
 		if ( this.settings.spiral) {
 			let max_size = this.settings?.max_segment_spread || 200;
 			let tunnel_width = max_size * Math.random() + 120;
