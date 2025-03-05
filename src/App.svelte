@@ -257,6 +257,10 @@
 			}
 			return;
 		}
+		// rapid change in target object
+		else if ( camera.focus_obj_id > 0 && focus_object_id && focus_object_id != camera.focus_obj_id ) {
+			return;
+		}
 		// track objects and update UI
 		camera.TrackObject(focus_object_id);
 		if ( focus_object_panel ) {
