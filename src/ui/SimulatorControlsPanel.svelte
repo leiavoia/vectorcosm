@@ -71,7 +71,12 @@
 </script>
 
 <style>
-
+	.slider_block LABEL {
+		width: 6rem;
+	}
+	.slider_block OUTPUT {
+		width: 4rem;
+	}
 </style>
 
 <section>
@@ -95,7 +100,7 @@
 	
 	<div class="slider_block">
 		<label for="volume_slider">Tank Size:</label>
-		<input bind:value={settings.volume} onchange={()=>onchange('volume')} type="range" min="1000000" max="50000000" step="500000" id="volume_slider" />
+		<input bind:value={settings.volume} onchange={()=>onchange('volume')} type="range" min="1000000" max="100000000" step="500000" id="volume_slider" />
 		<output>{((settings.volume||0)/1000000).toFixed(1)}K</output>
 	</div>
 	
