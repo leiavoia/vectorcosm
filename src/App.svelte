@@ -18,14 +18,14 @@
 	let vc_canvas;
 	let focus_object_panel;
 	let simStatsPanel;
-	
-	let panel_mode = $state(null);
-	
 	let renderLayers = {};
 			
+	// control UI panel display - only one allowed at a time
+	let panel_mode = $state(null);
 	function setPanelMode( mode ) {
 		panel_mode = panel_mode == mode ? null : mode;
 	}
+	setContext('setPanelMode', setPanelMode); // allows panels to self-close
 
 	// vectorcosm simulation runs in a worker thread
 	const worker = new Worker(

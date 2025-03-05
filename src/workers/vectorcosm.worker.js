@@ -96,7 +96,7 @@ function_registry.set( 'update', params => {
 		'name': globalThis.vc.simulation.settings.name,
 		'segments': (globalThis.vc.simulation.settings.segments || 1),
 		'sims_in_queue': globalThis.vc.sim_queue.length,
-		'settings': globalThis.vc.simulation.settings,
+		'settings': Object.assign( { sim_meta_params: globalThis.vc.sim_meta_params }, globalThis.vc.simulation.settings )
 		// 'stats': globalThis.vc.simulation.stats, // warning: contains graph data
 	};
 		
@@ -227,7 +227,15 @@ function_registry.set( 'init', params => {
 
 
 function_registry.set( 'updateSimSettings', params => {
+	// look for meta params separately
+	if ( params.data?.sim_meta_params ) {
+		for ( let k in params.data.sim_meta_params ) {
+			globalThis.vc.sim_meta_params[k] = params.data.sim_meta_params[k];
+		}
+	}
 	for ( let k in params.data ) {
+		// skip meta params - those are saved in Vectorcosm itself
+		if ( k == 'sim_meta_params' ) { continue; }
 		switch (k) {
 			// special cases for changing number of tank objects
 			case 'num_boids': {
@@ -262,16 +270,25 @@ function_registry.set( 'updateSimSettings', params => {
 	}
 	globalThis.postMessage( {
 		functionName: 'updateSimSettings',
-		data: globalThis.vc.simulation.settings
+		data: Object.assign( { sim_meta_params: globalThis.vc.sim_meta_params }, globalThis.vc.simulation.settings )
 	} );
 });
 
 function_registry.set( 'pushSimQueue', params => {
-	const sims = params.data?.sims;
+	// look for meta params
+	let meta_params = params.data?.sim_meta_params;
+	if ( meta_params ) {
+		for ( let k in meta_params ) {
+			globalThis.vc.sim_meta_params[k] = meta_params[k];
+		}
+	}
+	// purge queue if requested
 	if ( params.data?.reset ) {
 		globalThis.vc.simulation.killme = true; // let nature take its course
 		globalThis.vc.sim_queue.length = 0;
 	}
+	// look for named simulations from the library
+	const sims = params.data?.sims;
 	if ( sims ) {
 		for ( let s of sims ) {
 			globalThis.vc.sim_queue.push( 
@@ -281,7 +298,7 @@ function_registry.set( 'pushSimQueue', params => {
 	}
 	globalThis.postMessage( {
 		functionName: 'pushSimQueue',
-		data: globalThis.vc.simulation.settings
+		data: Object.assign( { sim_meta_params: globalThis.vc.sim_meta_params }, globalThis.vc.simulation.settings )
 	} );
 });
 

@@ -92,11 +92,11 @@
 	{#if stats.settings.timeout} / <output>{stats.settings.timeout}</output>{/if}
 	
 	{#if stats.settings.timeout}
-		<br/>
 		{#if stats.segments > 1}
 			<br/>
 			Segments: <output id="segments_output">{stats.segments}</output>
 		{/if}
+		<br/>
 		Round: <output id="round_output">{stats.round_num}</output> / <output id="round_output">{stats.settings.rounds||'∞'}</output><br/>
 		Best: <output id="best_score_output">{stats.round_best_score.toFixed()}</output> | 
 		Avg: <output id="avg_score_output">{stats.round_avg_score.toFixed()}</output>

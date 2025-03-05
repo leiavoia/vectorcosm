@@ -21,7 +21,8 @@ export default class Vectorcosm {
 		this.max_foods = 400;
 		this.sim_meta_params = {
 			num_boids: null,
-			segments: null
+			segments: null,
+			rounds: null
 		};
 	}
 	
@@ -90,6 +91,7 @@ export default class Vectorcosm {
 		// meta params that carry over from sim to sim
 		if ( this.sim_meta_params.num_boids > 0 ) { this.simulation.settings.num_boids = this.sim_meta_params.num_boids; }
 		if ( this.sim_meta_params.segments > 1 ) { this.simulation.settings.segments = this.sim_meta_params.segments; }
+		if ( this.sim_meta_params.rounds > 0 ) { this.simulation.settings.rounds = this.sim_meta_params.rounds; }
 		this.tank.Sterilize(); 
 		this.simulation.tank.boids = boids;
 		this.simulation.Setup(); 

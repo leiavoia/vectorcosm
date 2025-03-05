@@ -9,7 +9,7 @@ export default class TankMaker {
 	constructor( tank, settings ) {
 		this.tank = tank;
 		this.settings = {
-			rock_strat: ['individual','voronoi'].pickRandom(),
+			rock_strat: [/* 'individual', */'voronoi'].pickRandom(),
 			individual_num_rocks: utils.RandomInt( 3, 15 ),
 			individual_blunt: (Math.random() > 0.7),
 			individual_margin: 150,

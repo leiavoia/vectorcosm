@@ -1,40 +1,46 @@
 <script>
 	import * as utils from '../util/utils.js'
-
+	import { getContext } from 'svelte';
+	
+	const setPanelMode = getContext('setPanelMode'); // allow self closing with setPanelMode()
+	
 	let { api } = $props();
 	
-	// assume there are no set meta params when program begins
-	// let meta_params = reactive({
-	// 	num_boids: ( globalThis.vc.sim_meta_params.num_boids || 0 ),
-	// 	segments: ( globalThis.vc.sim_meta_params.segments || 0 )
-	// });
+	let meta_num_boids = $state(0);
+	let meta_num_segments = $state(1);
+	let meta_num_rounds = $state(0);
 	
-	// function updateNumBoids() {
-	// 	if ( meta_params.num_boids < 2 ) { meta_params.num_boids = 0; } 
-	// 	if ( meta_params.segments && meta_params.num_boids ) {
-	// 		let diff = meta_params.num_boids % meta_params.segments;
-	// 		if ( diff ) {
-	// 			meta_params.num_boids -= diff;
-	// 			globalThis.vc.sim_meta_params.num_boids = meta_params.num_boids;
-	// 		}
-	// 	}
-	// 	globalThis.vc.sim_meta_params.num_boids = meta_params.num_boids;
-	// }
+	let selected_sim = $state(null);
 	
-	// function updateNumSegments() {
-	// 	if ( meta_params.segments < 1 ) { meta_params.segments = 0; } 
-	// 	if ( meta_params.segments && meta_params.num_boids ) {
-	// 		let diff = meta_params.num_boids % meta_params.segments;
-	// 		if ( diff ) {
-	// 			meta_params.num_boids -= diff;
-	// 			globalThis.vc.sim_meta_params.num_boids = meta_params.num_boids;
-	// 		}
-	// 	}
-	// 	globalThis.vc.sim_meta_params.segments = meta_params.segments;
-	// }
+	let comprehensive_sims = $state([
+		'quickstart',
+		'the_works',
+		'random',
+		'steering_comp',
+		'food_training_sim_comp',
+	]);
+	
+	let indv_sims = $state([
+		'natural_tank',
+		'petri_dish',
+		'finishing_school',
+		'obstacle_course',
+		'race_track',
+		'combat',
+		'turning_training_easy',
+		'turning_training_medium',
+		'turning_training_hard',
+		'turning_training_xhard',
+		'treasure_hunt_easy',
+		'treasure_hunt_hard',
+		'treasure_hunt_perpetual',
+		'food_training_sim_easy',
+		'food_training_sim_medium',
+		'food_training_sim_hard',
+	]);
 	
 	api.RegisterResponseCallback( 'pushSimQueue', data => {
-		// console.log(data);
+		 setPanelMode('sim_controls');
 	});
 	
 	function RunProgram( program_name ) {
@@ -90,16 +96,23 @@
 		}
 		api.SendMessage('pushSimQueue', {
 			sims: queue,
-			reset: true
+			reset: true, // clear queue
+			sim_meta_params: {
+				num_boids: meta_num_boids,
+				segments: meta_num_segments,
+				rounds: meta_num_rounds
+			}
 		});
 	}
 	
 </script>
 
 <style>
-	BUTTON {
-		width:100%;
-		margin-bottom:0.25rem;
+	.slider_block OUTPUT {
+		width: 4rem;
+	}
+	.slider_block LABEL {
+		width: 6rem;
 	}
 </style>
 
@@ -108,40 +121,57 @@
 		<h3>Training Programs</h3>
 	</header>
 
-	<button onclick={()=>RunProgram('quickstart')}>Quickstart</button>
-	<button onclick={()=>RunProgram('the_works')}>The Works</button>
-	<button onclick={()=>RunProgram('random')}>Random Suite</button>
-	<button onclick={()=>RunProgram('steering_comp')}>Steering - Comprehensive</button>
-	<button onclick={()=>RunProgram('food_training_sim_comp')}>Food Chase - Comprehensive</button>
-	<br/>
-	<br/>
-	<button onclick={()=>RunProgram('natural_tank')}>Natural Tank</button>
-	<button onclick={()=>RunProgram('petri_dish')}>Petri Dish</button>
-	<button onclick={()=>RunProgram('finishing_school')}>Finishing School</button>
-	<button onclick={()=>RunProgram('obstacle_course')}>Obstacle Course</button>
-	<button onclick={()=>RunProgram('race_track')}>Race Track</button>
-	<button onclick={()=>RunProgram('combat')}>Combat</button>
-	<button onclick={()=>RunProgram('turning_training_easy')}>Steering - Easy</button>
-	<button onclick={()=>RunProgram('turning_training_medium')}>Steering - Medium</button>
-	<button onclick={()=>RunProgram('turning_training_hard')}>Steering - Hard</button>
-	<button onclick={()=>RunProgram('turning_training_xhard')}>Steering - Extra Hard</button>
-	<button onclick={()=>RunProgram('treasure_hunt_easy')}>Treasure Hunt - Easy</button>
-	<button onclick={()=>RunProgram('treasure_hunt_hard')}>Treasure Hunt - Hard</button>
-	<button onclick={()=>RunProgram('treasure_hunt_perpetual')}>Treasure Hunt - Perpetual</button>
-	<button onclick={()=>RunProgram('food_training_sim_easy')}>Food Chase - Easy</button>
-	<button onclick={()=>RunProgram('food_training_sim_medium')}>Food Chase - Medium</button>
-	<button onclick={()=>RunProgram('food_training_sim_hard')}>Food Chase - Hard</button>
+	<h4>Comprehensive Training</h4>
+	<select bind:value={selected_sim} onchange={()=>RunProgram(selected_sim)}>
+		<option value="quickstart">Quickstart</option>
+		<option value="the_works">The Works</option>
+		<option value="random">Random Suite</option>
+		<option value="steering_comp">Steering - Comprehensive</option>
+		<option value="food_training_sim_comp">Food Chase - Comprehensive</option>
+	</select>
 	
-	<!-- meta params -->
-	<!-- <h3>Meta Parameters</h3>
-	<label for="num_rocks_slider">Boids</label>
-	<input v-model.number="meta_params.num_boids" @change="updateNumBoids()" type="range" min="1" max="250" step="1" style="margin-bottom:-0.25em;" id="meta_num_boids" />
-	<output for="meta_num_boids" id="meta_num_boids_output">{{meta_params.num_boids < 2 ? 'NOT SET' : meta_params.num_boids}}</output>
+	<h4>Individual Programs</h4>
+	<select bind:value={selected_sim} onchange={()=>RunProgram(selected_sim)}>
+		<option value="natural_tank">Natural Tank</option>
+		<option value="petri_dish">Petri Dish</option>
+		<option value="finishing_school">Finishing School</option>
+		<option value="obstacle_course">Obstacle Course</option>
+		<option value="race_track">Race Track</option>
+		<option value="combat">Combat</option>
+		<option value="turning_training_easy">Steering - Easy</option>
+		<option value="turning_training_medium">Steering - Medium</option>
+		<option value="turning_training_hard">Steering - Hard</option>
+		<option value="turning_training_xhard">Steering - Extra Hard</option>
+		<option value="treasure_hunt_easy">Treasure Hunt - Easy</option>
+		<option value="treasure_hunt_hard">Treasure Hunt - Hard</option>
+		<option value="treasure_hunt_perpetual">Treasure Hunt - Perpetual</option>
+		<option value="food_training_sim_easy">Food Chase - Easy</option>
+		<option value="food_training_sim_medium">Food Chase - Medium</option>
+		<option value="food_training_sim_hard">Food Chase - Hard</option>
+	</select>
+</section>
 
-	<br/>
+<section>
+	<header>
+		<h3>Meta Parameters</h3>
+	</header>	
 	
-	<label for="num_rocks_slider">Segments</label>
-	<input v-model.number="meta_params.segments" @change="updateNumSegments()" type="range" min="1" max="16" step="1" style="margin-bottom:-0.25em;" id="meta_num_segments" />
-	<output for="meta_num_segments" id="meta_num_segments_output">{{meta_params.segments < 2 ? 'NOT SET' : meta_params.segments}}</output> -->
-		
+	<div class="slider_block">
+		<label for="meta_num_boids">Boids:</label>
+		<input bind:value={meta_num_boids} type="range" min="0" max="250" step="1" id="meta_num_boids" />
+		<output>{meta_num_boids||'default'}</output>
+	</div>
+	
+	<div class="slider_block">
+		<label for="meta_num_segments">Segments:</label>
+		<input bind:value={meta_num_segments} type="range" min="0" max="16" step="1" id="meta_num_segments" />
+		<output>{meta_num_segments||1}</output>
+	</div>
+	
+	<div class="slider_block">
+		<label for="meta_num_rounds">Rounds:</label>
+		<input bind:value={meta_num_rounds} type="range" min="0" max="500" step="1" id="meta_num_rounds" />
+		<output>{meta_num_rounds||'default'}</output>
+	</div>
+	
 </section>	

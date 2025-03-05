@@ -404,7 +404,7 @@ export default {
 		num_boids: 1,
 		random_boid_pos: true,
 		random_food_pos: true,
-		timeout: 1000000,
+		timeout: 0,
 		// min_score: 5,
 		max_mutation: 0,
 		num_rocks: 5,

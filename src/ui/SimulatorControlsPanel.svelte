@@ -19,6 +19,10 @@
 		fruiting_speed: (settings_raw?.fruiting_speed ?? 1.0),
 		current: (settings_raw?.current ?? 0),
 		segments: (settings_raw?.segments ?? 1),
+		sim_meta_params: {
+			num_boids: (settings_raw?.sim_meta_params?.num_boids ?? null),
+			segments: (settings_raw?.sim_meta_params?.segments ?? 1),
+		}
 	});
 	
 	// when params are updated from the server, update our local set of variables

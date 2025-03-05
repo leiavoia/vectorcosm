@@ -481,6 +481,9 @@ export default class Simulation {
 
 export class NaturalTankSimulation extends Simulation {
 	Setup() {
+		// rounds is always zero
+		this.settings.rounds = 0;
+		this.settings.timeout = 0;
 		super.Setup();
 		this.Reset();
 	}
