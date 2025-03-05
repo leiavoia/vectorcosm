@@ -1,53 +1,24 @@
 import neataptic from "neataptic";
-import BodyPlan from '../classes/class.BodyPlan.js'
-import Sensor from '../classes/class.Sensor.js'
-// import Two from "two.js";
-// import * as Chart from "chart.js";
-import Chart from 'chart.js/auto';
-// you can optimize package size by not including everything. see:
-// https://www.chartjs.org/docs/latest/getting-started/integration.html
-import * as utils from '../util/utils.js'
 import Tank from '../classes/class.Tank.js'
 import Rock from '../classes/class.Rock.js'
 import Food from '../classes/class.Food.js'
 import Plant from '../classes/class.Plant.js'
+import BoidLibrary from '../classes/class.BoidLibrary.js'
 import { SimulationFactory, NaturalTankSimulation } from '../classes/class.Simulation.js'
-import BrainGraph from '../classes/class.BrainGraph.js'
 import { BoidFactory, Boid } from '../classes/class.Boids.js'
 import PubSub from 'pubsub-js'
-import * as TWEEN from '@tweenjs/tween.js'
 
 export default class Vectorcosm {
 
 	constructor() {
-		// stuff for tracking game objects
+		// game objects
 		this.next_object_id = 0; // sequential uuid for communicating with UI
-		
-		// main game loop
-		this.playing = false;
-		this.last_update_ts = 0;
-		this.last_update_delta = 0;
-		
 		this.simulation = null;
 		this.tank = null;
 		
-		// world settings
-		this.frames_per_turbo = 100;
-		this.turbo_time_delta = 1/30;
+		// settings
 		this.min_time_delta = 1/20;
 		this.max_foods = 400;
-		this.render_style = 'Natural'; // Natural, Vector, Zen, Grey
-		this.animate_boids = true;
-		this.animate_plants = true;
-		this.plant_intro_method = 'grow'; // 'grow' or 'fade'
-		this.plant_growth_animation_step = 0.05; // in seconds. reduces the number of geometry updates
-		this.show_collision_detection = false;
-		this.fps = 0;
-		this.fps_recs = [];
-		this.width = 0;
-		this.height = 0;
-		this.scale = 1;
-
 		this.sim_meta_params = {
 			num_boids: null,
 			segments: null
@@ -139,14 +110,6 @@ export default class Vectorcosm {
 		// fix delta supplied in ms
 		if ( delta && delta > 1 ) { delta /= 1000; }
 		
-		// Record FPS before it gets rectified next.
-		// NOTE: if turbo is active, it calculates the average outside this function.
-		if ( !this.simulation.turbo ) {
-			this.fps_recs.push(1/delta);
-			if ( this.fps_recs.length > 20 ) { this.fps_recs.shift(); }
-			this.fps = this.fps_recs.reduce( (a,b) => a+b, 0 ) / this.fps_recs.length;
-		}
-				
 		// 20 FPS minimum. beware of spikes from pausing
 		delta = Math.min( delta, this.min_time_delta); 
 		
@@ -208,72 +171,32 @@ export default class Vectorcosm {
 			}
 		}
 		
-		PubSub.publish('frame-update', 'hello world!');
-		// PubSub.publishSync('frame-update', 'hello world!');
-										
+		PubSub.publish('frame-update', 'hello world!');							
 	}		
 
-	RunSimulator()	{
-		if ( this.simulation && this.simulation.turbo && ( !this.simulation.settings?.timeout
-			|| this.simulation.stats.round_time <= this.simulation.settings.timeout ) ) {
-			// freeze automatic  screen drawing
-			// if ( this.two.playing ) { this.two.pause(); }
-			// we want to measure the actual FPS using performance counter
-			let start = performance.now();
-			// process frames in bulk
-			for ( let n=0; n < this.frames_per_turbo; n++ ) {
-				// ++this.two.frameCount; // fake it
-				this.update( this.turbo_time_delta );
-			}
-			// measure average performance
-			let end = performance.now();
-			let delta = end - start;
-			this.fps = 1 / ( ( delta / 1000 ) / this.frames_per_turbo );
-			// manually draw the screen once in a while
-			// --this.two.frameCount;
-			// this.two.update();
-			setTimeout( _ => this.RunSimulator(), 1000 );
-		}
-		else {
-			this.playing = true;
-			// this.two.play();
-		}
-	}
-	
-	ToggleSimulatorFF() {
-		if ( !this.simulation ) { return false; }
-		this.simulation.turbo = !this.simulation.turbo;
-		if ( this.simulation.turbo ) { this.RunSimulator(); }
-	}
-	TogglePause() {
-		this.playing = !this.playing;
-	}
-		
-	SaveLeader() {
+	SavePopulation( species=null, ids=null, to_db=false ) {
 		if ( this.simulation.tank.boids.length ) {
-			const b = this.simulation.tank.boids.sort( (a,b) => b.total_fitness_score - a.total_fitness_score )[0];
-			localStorage.setItem("leader", b.Export(true));
-		}		
-	}
-
-	LoadLeader() {
-		let json = localStorage.getItem("leader");
-		if (json) {
-			let b = new Boid( this.width*0.25, this.height*0.25, this.simulation.tank, JSON.parse(json) );
-			b.angle = Math.random() * Math.PI * 2;		
-			b.ScaleBoidByMass();
-			this.simulation.tank.boids.push(b);				
-		}		
-	}
-	
-	SavePopulation() {
-		if ( this.simulation.tank.boids.length ) {
-			let jsons = [];
-			for ( const b of this.simulation.tank.boids ) {
-				jsons.push( b.Export(false) );
+			let list = this.simulation.tank.boids;
+			if ( species ) {
+				list = list.filter( x => x.species == species );
 			}
-			return JSON.stringify(jsons).replace(/\d+\.\d+/g, x => parseFloat(x).toPrecision(6) );
-			// localStorage.setItem("population", str);
+			if ( ids ) {
+				if ( !Array.isArray(ids) ) { ids = [ids]; }
+				list = list.filter( x => ids.includes(x.oid) );
+			}
+			// if saving to database, push objects directly in
+			if ( to_db ) {
+				const lib = new BoidLibrary();
+				lib.Add( list );
+			}
+			else {
+				let jsons = [];
+				for ( const b of list ) {
+					jsons.push( b.Export(false) );
+				}
+				return JSON.stringify(jsons).replace(/\d+\.\d+/g, x => parseFloat(x).toPrecision(6) );
+				// localStorage.setItem("population", str);
+			}
 		}		
 	}
 			
@@ -282,7 +205,7 @@ export default class Vectorcosm {
 		if (json) {
 			json = JSON.parse(json);
 			for ( let j of json ) {
-				let b = new Boid( this.width*0.25, this.height*0.25, this.simulation.tank, j );
+				let b = new Boid( this.tank.width*0.25, this.tank.height*0.25, this.simulation.tank, j );
 				b.angle = Math.random() * Math.PI * 2;		
 				b.ScaleBoidByMass();
 				this.simulation.tank.boids.push(b);	

@@ -947,3 +947,16 @@ SECTION .slider_block INPUT {
 	position: relative;
 	top: 0.35rem;
 }
+
+.button_rack {
+	width: 100%;
+	display:flex;
+	flex-wrap: wrap; 
+	align-items:stretch;
+	column-gap:0.25rem;
+	margin-top: var(--pico-spacing);
+}
+.button_rack BUTTON {
+	flex: 1 1 auto;
+	margin-bottom: 0.25rem; 
+}	

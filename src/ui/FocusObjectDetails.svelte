@@ -1,10 +1,29 @@
 <script>
 	import { blur, fade } from 'svelte/transition';
+	import { getContext } from 'svelte';
 
+	let api = getContext('api');
+	
 	let boid = $state(null);
 	
 	export function updateStats(data) {
 		boid = data;
+	}
+
+	function SaveBoid() {
+		api.SendMessage('exportBoids', { db:true, ids: [boid.oid] });
+	}
+	
+	function SaveSpecies() {
+		api.SendMessage('exportBoids', { db:true, species: [boid.species] });
+	}
+	
+	function SaveTankPopulation() {
+		api.SendMessage('exportBoids', { db:true });
+	}
+	
+	function SmiteBoid() {
+		api.SendMessage('smite', { ids: [boid.oid] });
 	}
 	
 </script>
@@ -151,68 +170,6 @@
 			{#if boid.traits.poop_complexity==6}●{/if}
 		</output>
 	</p>
-		
-	<details style="margin-bottom: 0.5em">
-		<summary style="text-align:center; list-style-type: none;">...</summary>
-		<div>
-	
-			<!-- <button @click="SaveBoid()">Save</button>
-			<button @click="SaveSpecies()">Save Species</button>
-			<button @click="SaveTankPopulation()">Save All</button>
-			<button @click="SmiteBoid()">Smite</button> -->
-							
-			<p>ID: <output>{boid.id}</output></p>
-			<p>LIFESPAN: <output>{boid.lifespan}</output></p>
-			<p>MATURITY AGE: <output>{boid.maturity_age}</output></p>
-			<p>BITE: <output>{(boid.metab.bite_size||0).toFixed(1)}</output>
-				@ <output>{(boid.traits.bite_speed||0).toFixed(1)}s</output></p>
-			<p>METAB: <output>{(boid.metab.metabolic_rate||0).toFixed(1)}</output></p>
-			<p>DIGEST: <output>{(boid.metab.digest_rate||0).toFixed(1)}</output></p>
-			<table style="width:100%" id="nutrition_table">
-				<tbody>
-					<tr>
-						<td>Nutrition</td>
-						{#each boid.traits.nutrition as v}
-							<td class={{ verybad:(v<=-2), verygood:(v>=2), good:(v>0&&v<2) }}>
-								{v.toFixed(1)}
-							</td>
-						{/each}
-					</tr>	
-					<tr>
-						<td>Stomach</td>
-						{#each boid.metab.stomach as v}
-							<td class={{ good:(v>0), bad:(v<0) }}>
-								{v.toFixed(1)}
-							</td>
-						{/each}
-					</tr>	
-					<tr>
-						<td>Bowel</td>
-						{#each boid.metab.bowel as v}
-							<td>
-								{v.toFixed(1)}
-							</td>
-						{/each}
-					</tr>	
-					
-			</table>
-			<p>Food Mask: <output>{boid.traits.food_mask||0}</output></p>
-			
-			<h4>Stats</h4>
-			<p>
-				<span style="width:32%; display:inline-block;">bites:&nbsp;<output>{(boid.stats.food.bites||0).toFixed()}</output></span>
-				<span style="width:32%; display:inline-block;">edible:&nbsp;<output>{(boid.stats.food.edible||0).toFixed()}</output></span>
-				<span style="width:32%; display:inline-block;">toxins:&nbsp;<output>{(boid.stats.food.toxins||0).toFixed()}</output></span>
-				<span style="width:32%; display:inline-block;">total:&nbsp;<output>{(boid.stats.food.total||0).toFixed()}</output></span>
-				<span style="width:32%; display:inline-block;">inedible:&nbsp;<output>{(boid.stats.food.inedible||0).toFixed()}</output></span>
-				<span style="width:32%; display:inline-block;">tox_dmg:&nbsp;<output>{(boid.stats.food.toxin_dmg||0).toFixed()}</output></span>
-				<span style="width:32%; display:inline-block;">energy:&nbsp;<output>{(boid.stats.food.energy||0).toFixed()}</output></span>
-				<span style="width:32%; display:inline-block;">required:&nbsp;<output>{(boid.stats.food.required||0).toFixed()}</output></span>
-				<span style="width:32%; display:inline-block;">def_dmg:&nbsp;<output>{(boid.stats.food.deficit_dmg||0).toFixed()}</output></span>
-			</p>
-			<br/>
-		</div>
-	</details>
 
 	<details>
 		<summary>	
@@ -352,7 +309,69 @@
 			{/each}
 		</div>
 	</details>
-				
+			
+	<details style="margin-bottom: 0.5em">
+		<summary style="text-align:center; list-style-type: none;">•••</summary>
+		<div>
+			<div class="button_rack">
+				<button class="" onclick={SaveBoid}>Save</button>
+				<button class="" onclick={SaveSpecies}>Save Species</button>
+				<button class="" onclick={SaveTankPopulation}>Save All</button>
+				<button class="" onclick={SmiteBoid}>Smite</button>
+			</div>
+			<p>ID: <output>{boid.id}</output></p>
+			<p>LIFESPAN: <output>{boid.lifespan}</output></p>
+			<p>MATURITY AGE: <output>{boid.maturity_age}</output></p>
+			<p>BITE: <output>{(boid.metab.bite_size||0).toFixed(1)}</output>
+				@ <output>{(boid.traits.bite_speed||0).toFixed(1)}s</output></p>
+			<p>METAB: <output>{(boid.metab.metabolic_rate||0).toFixed(1)}</output></p>
+			<p>DIGEST: <output>{(boid.metab.digest_rate||0).toFixed(1)}</output></p>
+			<p>FOOD MASK: <output>{boid.traits.food_mask||0}</output></p>
+			<table style="width:100%" id="nutrition_table">
+				<tbody>
+					<tr>
+						<td>Nutrition</td>
+						{#each boid.traits.nutrition as v}
+							<td class={{ verybad:(v<=-2), verygood:(v>=2), good:(v>0&&v<2) }}>
+								{v.toFixed(1)}
+							</td>
+						{/each}
+					</tr>	
+					<tr>
+						<td>Stomach</td>
+						{#each boid.metab.stomach as v}
+							<td class={{ good:(v>0), bad:(v<0) }}>
+								{v.toFixed(1)}
+							</td>
+						{/each}
+					</tr>	
+					<tr>
+						<td>Bowel</td>
+						{#each boid.metab.bowel as v}
+							<td>
+								{v.toFixed(1)}
+							</td>
+						{/each}
+					</tr>	
+					
+			</table>
+			
+			<h4 class="topless">Stats</h4>
+			<p>
+				<span style="width:32%; display:inline-block;">bites:&nbsp;<output>{(boid.stats.food.bites||0).toFixed()}</output></span>
+				<span style="width:32%; display:inline-block;">edible:&nbsp;<output>{(boid.stats.food.edible||0).toFixed()}</output></span>
+				<span style="width:32%; display:inline-block;">toxins:&nbsp;<output>{(boid.stats.food.toxins||0).toFixed()}</output></span>
+				<span style="width:32%; display:inline-block;">total:&nbsp;<output>{(boid.stats.food.total||0).toFixed()}</output></span>
+				<span style="width:32%; display:inline-block;">inedible:&nbsp;<output>{(boid.stats.food.inedible||0).toFixed()}</output></span>
+				<span style="width:32%; display:inline-block;">tox_dmg:&nbsp;<output>{(boid.stats.food.toxin_dmg||0).toFixed()}</output></span>
+				<span style="width:32%; display:inline-block;">energy:&nbsp;<output>{(boid.stats.food.energy||0).toFixed()}</output></span>
+				<span style="width:32%; display:inline-block;">required:&nbsp;<output>{(boid.stats.food.required||0).toFixed()}</output></span>
+				<span style="width:32%; display:inline-block;">def_dmg:&nbsp;<output>{(boid.stats.food.deficit_dmg||0).toFixed()}</output></span>
+			</p>
+			<br/>
+		</div>
+	</details>
+											
 </section>	
 
 {/if}

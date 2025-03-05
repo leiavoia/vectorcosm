@@ -180,13 +180,21 @@ function_registry.set( 'loadTank', params => {
 });
 
 function_registry.set( 'exportBoids', params => {
-	const str = globalThis.vc.SavePopulation();
+	let db = params.data?.db || false;
+	let str = globalThis.vc.SavePopulation( params.data?.species, params.data?.ids, db );
 	globalThis.postMessage( { functionName: 'exportBoids', data: str } );
 });
 
 function_registry.set( 'loadBoids', params => {
 	globalThis.vc.LoadPopulation( params.data );
 	globalThis.postMessage( { functionName: 'loadBoids', data: null } );
+});
+
+function_registry.set( 'smite', params => {
+	let ids = params.data.ids;
+	let targets = globalThis.vc.tank.boids.filter( b => ids.includes(b.oid) );
+	for ( let t of targets ) { t.Kill(); }
+	globalThis.postMessage( { functionName: 'smite', data: targets.map(t=>t.oid) } );
 });
 
 function_registry.set( 'randTank', params => {

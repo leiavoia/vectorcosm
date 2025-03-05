@@ -61,7 +61,7 @@ export default class Tank {
 		this.marks = [];
 		this.whirls = []; // defined later for generating currents
 		this.bg_opacity = -1; // -1 == 'random', zero, or 0..1
-		this.bg_visible = globalThis.vc.render_style == 'Natural'; 		
+		this.bg_visible = true;
 		this.bg_theme = 'random';
 		// first param can be JSON to rehydrate entire object from save
 		if ( w && typeof w === 'object' ) {

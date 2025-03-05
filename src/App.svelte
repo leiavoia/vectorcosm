@@ -304,11 +304,16 @@
 	} );
 	
 	api.RegisterResponseCallback( 'exportTank', str => {
-		globalThis.localStorage.setItem("tank", str);
+		if ( str ) {
+			globalThis.localStorage.setItem("tank", str);
+		}
 	} );
 	
 	api.RegisterResponseCallback( 'exportBoids', str => {
-		globalThis.localStorage.setItem("population", str);
+		if ( str ) {
+			globalThis.localStorage.setItem("population", str);
+		}
+		PubSub.publish('boid-library-addition', null);
 	} );
 	
 	// gameloop starts when drawing context is fully mounted (see component)
@@ -692,27 +697,3 @@
 		<FocusObjectDetails bind:this={focus_object_panel}></FocusObjectDetails>
 	</aside>
 </div>
-
-
-
-<!-- // Camera Class:
-class Camera {
-	constructor() {
-		this.zoom = 1.0;
-		// ... etc ...
-	}	
-}
-
-// Svelte App:
-<script>
-	import Camera from './Camera.js'
-	import CameraControls from './CameraControls.js'
-	let camera = new Camera();
-</script>
-<CameraControls {camera}></CameraControls>
-
-// Camera Settings Control Panel
-<script>
-	let {camera} = $props();
-</script>
-<input type="range" min="1" max="10" step="0.1" bind:value={camera.zoom} /> -->

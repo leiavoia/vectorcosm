@@ -182,7 +182,7 @@
 		<button class={{ghost: !num_selected}} onclick={ToggleFavoriteSelectedRows}>Favorite</button>
 		<button class={{ghost: !num_selected}} onclick={DeleteSelectedRows}>Delete</button>
 	</div>
-	<div class="button_rack">
+	<div class="button_rack" style="margin-top:0;">
 		<button class={{ghost: !num_selected}} onclick={DeselectAll}>None</button>
 		<button onclick={SelectAll}>All</button>
 		<button onclick={ToggleQueryFavorites}>Favorites {star===null ? '' : (star ? '★' : '☆')}</button>
