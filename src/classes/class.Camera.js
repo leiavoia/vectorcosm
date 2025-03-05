@@ -165,7 +165,7 @@ export default class Camera {
 		center = center || !this.allow_hyperzoom;
 		 
 		// entire tank is smaller than screen - snap to center
-		if ( center && z && z * this.tank_width < this.window_width && z * this.tank_height < this.window_height ) { 
+		if ( center && z && z * this.tank_width <= this.window_width && z * this.tank_height <= this.window_height ) { 
 			const scalex = this.window_width / this.tank_width;
 			const scaley = this.window_height / this.tank_height;
 			const scale = Math.min(scalex,scaley); // min = contain, max = cover
@@ -183,7 +183,7 @@ export default class Camera {
 		// X pos	
 		const target_x = -( x * this.scale ) + ( 0.5 * this.window_width );
 		const max_x = -0.0001 + (this.tank_width * this.scale) - (this.window_width);
-		if ( this.scale * this.tank_width < this.window_width && center ) { this.renderLayers['tank'].position.x = -max_x / 2; }
+		if ( this.scale * this.tank_width <= this.window_width && center ) { this.renderLayers['tank'].position.x = -max_x / 2; }
 		else if ( target_x > 0 && center ) { this.renderLayers['tank'].position.x = 0; }  
 		else if ( target_x < -max_x && center ) { this.renderLayers['tank'].position.x = -max_x; }  
 		else { this.renderLayers['tank'].position.x = target_x; }
@@ -191,7 +191,7 @@ export default class Camera {
 		// Y pos
 		const target_y = -( y * this.scale ) + ( 0.5 * this.window_height );
 		const max_y = -0.0001 + (this.tank_height * this.scale) - (this.window_height);
-		if ( this.scale * this.tank_height < this.window_height && center ) { this.renderLayers['tank'].position.y = -max_y / 2; }
+		if ( this.scale * this.tank_height <= this.window_height && center ) { this.renderLayers['tank'].position.y = -max_y / 2; }
 		else if ( target_y > 0 && center ) { this.renderLayers['tank'].position.y = 0; }  
 		else if ( target_y < -max_y && center ) { this.renderLayers['tank'].position.y = -max_y; }
 		else { this.renderLayers['tank'].position.y = target_y; }

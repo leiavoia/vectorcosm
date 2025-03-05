@@ -460,9 +460,9 @@
 		// there is no "windowResizeFinished" event, so settle for timeout to avoid jank
 		if ( windowResizeTimeout ) { clearTimeout(windowResizeTimeout); }
 		windowResizeTimeout = setTimeout(function() {
-			camera.height = window.innerHeight;
-			camera.width = window.innerWidth;
 			globalThis.two.fit();
+			camera.window_width = two.width;
+			camera.window_height = two.height;			
 			camera.ResetCameraZoom(); // also does parallax
 		}, 200);
 	}
