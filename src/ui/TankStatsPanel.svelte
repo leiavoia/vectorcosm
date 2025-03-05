@@ -3,7 +3,8 @@
 	let {stats} = $props();
 	 
 	function uppercaseFirstLetter ( str ) {
-		return str.charAt(0).toUpperCase() + str.slice(1);
+		let words = str.split(/[\s_]/);
+		return words.map( w => w.charAt(0).toUpperCase() + w.slice(1) ).join(' ');
 	}
 	
 </script>
@@ -18,7 +19,7 @@
 	</header>
 	<p>
 		{#each Object.entries(stats) as [k, v]}
-			{uppercaseFirstLetter(k)}: <output>{v}</output><br/>
+			{uppercaseFirstLetter(k)}: <output>{v.toLocaleString()}</output><br/>
 		{/each}
 	</p>
 </section>	

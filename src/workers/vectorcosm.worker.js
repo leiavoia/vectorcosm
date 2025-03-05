@@ -101,12 +101,19 @@ function_registry.set( 'update', params => {
 	};
 		
 	// tank stats
+	let species = new Set();
+	for ( let b of globalThis.vc.tank.boids ) {
+		species.add(b.species);
+	}
 	let tankStats = {
 		boids: globalThis.vc.tank.boids.length,
-		obstacles: globalThis.vc.tank.obstacles.length,
+		species: species.size,
+		rocks: globalThis.vc.tank.obstacles.length,
 		plants: globalThis.vc.tank.plants.length,
 		foods: globalThis.vc.tank.foods.length,
 		marks: globalThis.vc.tank.marks.length,
+		boid_mass: Math.floor( globalThis.vc.tank.boids.reduce( (a,b) => a+b.mass, 0 ) ),
+		food_mass: Math.floor( globalThis.vc.tank.foods.reduce( (a,b) => a+b.value, 0 ) ),
 	}
 			
 	globalThis.postMessage( {
