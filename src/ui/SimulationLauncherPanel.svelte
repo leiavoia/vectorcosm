@@ -82,7 +82,18 @@
 				break;
 			}
 			case 'random' : {
+				// scale the number of random sims based on meta_num_rounds, if set
 				let num = utils.RandomInt( 3, 7 );
+				if ( meta_num_rounds > 0 ) {
+					let points = utils.RandomInt( 100, 300 );
+					if ( points < meta_num_rounds * 3 ) {
+						points = meta_num_rounds * 3;
+					}
+					while ( points > 0 ) {
+						queue.push( 'random' );
+						points -= meta_num_rounds;
+					}
+				}
 				for ( let i=0; i < num; i++ ) {
 					queue.push( 'random' );
 				}
