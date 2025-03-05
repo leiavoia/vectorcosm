@@ -293,7 +293,10 @@
 		// new sim, new settings
 		if ( data ) {
 			simSettings = data;
-		} 		
+		}
+		if ( simStatsPanel ) {
+			simStatsPanel.onRoundComplete();
+		}
 	} );
 	
 	api.RegisterResponseCallback( 'exportTank', str => {

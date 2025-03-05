@@ -110,7 +110,7 @@
 
 	{#if stats.sims_in_queue}
 		<br/>
-		Next: <output id="total_score_output">{stats.sims_in_queue}</output>
+		Simulations Remaining: <output id="total_score_output">{stats.sims_in_queue}</output>
 	{/if}
 	
 	<br/>

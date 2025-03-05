@@ -296,7 +296,7 @@ export default class Simulation {
 			
 		
 			this.Reset();
-			PubSub.publish('sim.round', this);
+			PubSub.publishSync('sim.round', this);
 			// check if entire simulation is over
 			let end_sim = false; // you can mark "killme" to terminate early 
 			if ( this.settings.rounds && this.stats.round_num > this.settings.rounds ) {
@@ -315,7 +315,7 @@ export default class Simulation {
 				PubSub.publish('sim.complete', this);
 			}
 		}
-		PubSub.publish('sim.update', this);
+		PubSub.publishSync('sim.update', this);
 	}	
 	
 	SetNumBoids(x) {
