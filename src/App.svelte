@@ -60,7 +60,16 @@
 		// update or cancel object tracking
 		if ( camera ) {
 			if ( camera.focus_obj_id > 0 ) {
-				api.SendMessage('pickObject', {oid:camera.focus_obj_id}); // send back for another round
+				// ask for first-time data if this is a new object we are tracking
+				let obj = renderObjects.get(camera.focus_obj_id);
+				let needs_sensors = obj && obj.geodata && !('sensors' in obj.geodata);
+				let needs_brain = obj && obj.geodata && !('brain_struct' in obj.geodata);
+				const params = {
+					oid: camera.focus_obj_id,
+					inc_sensor_geo: needs_sensors,
+					inc_brain: needs_brain
+				}
+				api.SendMessage('pickObject', params); // send back for another round
 			}
 			else if ( focus_object_panel ) {
 				focus_object_panel.updateStats(null); // null will make it go away
@@ -76,6 +85,7 @@
 	// this map contains the necessary info to draw and animate the objects.
 	// they are keyed by an object_id (oid) supplied by vectorcosm. 
 	let renderObjects = new Map();
+	setContext('renderObjects', renderObjects); // allows child elements to do lookups
 	
 	// tank stats we track each frame
 	let tankStats = $state.raw({});
@@ -243,6 +253,13 @@
 	// first frame or a repeat request
 	api.RegisterResponseCallback( 'pickObject', data => {
 		const focus_object_id = data ? data.oid : 0;
+		// capture brain in case we want to display braingraph
+		if ( data && data?.brain_struct ) {
+			const obj = renderObjects.get(focus_object_id);
+			if ( obj && 'geodata' in obj && !('brain_struct' in obj.geodata) ) {
+				obj.geodata.brain_struct = data.brain_struct;
+			}
+		}
 		// capture any sensor geometry so we can use it later
 		if ( data && data?.sensor_geo ) {
 			const obj = renderObjects.get(focus_object_id);
@@ -445,9 +462,16 @@
 		'c': _ => {
 			camera.CinemaMode( !camera.cinema_mode );
 		},
-		// 'b': _ => {
-		// 		vc.ToggleShowBrainmap()
-		// 	},
+		'b': _ => {
+			// if we don't already have have focus, pick some random boid
+			if ( camera.focus_obj_id <= 0 ) {
+				let boid = Array.from(renderObjects.values()).find(o=>o.type=='boid');
+				if ( boid ) { camera.TrackObject( boid.oid ); }
+			}
+			if ( focus_object_panel ) {
+				focus_object_panel.ToggleShowBrainGraph();
+			}
+		},
 		'9': _ => {
 			api.SendMessage('exportBoids',null);
 		},
@@ -508,7 +532,8 @@
 				x: x, 
 				y: y,
 				radius: Math.min( 60, 60 / camera.scale ), // pixels in world space
-				inc_sensor_geo:true // get boid sensor visualization on first request only
+				inc_sensor_geo:true, // get boid sensor visualization on first request only
+				inc_brain:true
 			};
 			camera.TrackObject(false); // unselect currently selected object
 			api.SendMessage('pickObject', params);

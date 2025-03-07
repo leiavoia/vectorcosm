@@ -1,12 +1,16 @@
 <script>
 	import { blur, fade } from 'svelte/transition';
 	import { getContext } from 'svelte';
+	import BrainGraph from './BrainGraph.svelte';
 
 	let api = getContext('api');
 	
 	let boid = $state(null);
 	
+	let show_brain_graph = $state(false);
+	
 	export function updateStats(data) {
+		if ( data === null && boid == null ) { return; }
 		boid = data;
 	}
 
@@ -26,6 +30,14 @@
 		api.SendMessage('smite', { ids: [boid.oid] });
 	}
 	
+	export function ToggleShowBrainGraph( force=null ) {
+		if ( force === true || force === false ) {
+			show_brain_graph = force;
+		} 
+		else {
+			show_brain_graph = !show_brain_graph;
+		}
+	}
 </script>
 
 <style>
@@ -146,7 +158,8 @@
 
 {#if boid !== null}
 
-<section in:fade={{duration:200}} out:fade={{duration:350}}>
+<!-- <section in:fade={{duration:200}} out:fade={{duration:350}}> -->
+<section in:fade={{duration:200}}>
 	<header>
 		<h3 style="text-align:center;">{boid.species.toUpperCase()}</h3>
 	</header>
@@ -279,6 +292,7 @@
 					<span class="{n.type}" style="background-color:{n.color}">{n.symbol}</span>
 				{/each}
 			</p>
+			<p style="margin-top:0.5rem;"><button onclick={ToggleShowBrainGraph} class={{outline:!show_brain_graph}}>Toggle BrainGraph</button></p>
 		</div>
 	</details>
 	
@@ -373,5 +387,9 @@
 	</details>
 											
 </section>	
+
+{#if show_brain_graph}
+	<BrainGraph {boid} />
+{/if}
 
 {/if}

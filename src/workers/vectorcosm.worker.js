@@ -133,7 +133,7 @@ function_registry.set( 'pickObject', params => {
 	if ( params.data?.oid ) {
 		// NOTE: we only check boids right now
 		let obj = globalThis.vc.tank.boids.find( o => o.oid == params.data.oid );
-		if ( obj ) { result = DescribeBoid(obj); }
+		if ( obj ) { result = DescribeBoid(obj, params.data?.inc_sensor_geo, params.data?.inc_brain); }
 	}
 	
 	// find the closest object to mouse click
@@ -159,7 +159,7 @@ function_registry.set( 'pickObject', params => {
 		}
 		// assemble a report based on object type
 		if ( closest ) {
-			result = DescribeBoid(closest, params.data?.inc_sensor_geo);
+			result = DescribeBoid(closest, params.data?.inc_sensor_geo, params.data?.inc_brain);
 		}
 	}
 	
@@ -368,7 +368,7 @@ let onSimNewSubscription = PubSub.subscribe('sim.new', (msg, sim) => {
 let vc = new Vectorcosm;
 globalThis.vc = vc; // handy reference for everyone else
 
-function DescribeBoid( o, inc_sensor_geo=false ) {
+function DescribeBoid( o, inc_sensor_geo=false,  inc_brain=false ) {
 	let data = { 
 		type: 'boid',
 		sensors: [],
@@ -434,6 +434,10 @@ function DescribeBoid( o, inc_sensor_geo=false ) {
 			s.detect=='obstacles' || 
 			s.type==='sense' )
 			.map( i => i.CreateGeometry() );
+	}
+	if ( inc_brain ) {	
+		// include data for brain graph 
+		data.brain_struct = o.brain.toJSON();
 	}
 				
 	return data;
