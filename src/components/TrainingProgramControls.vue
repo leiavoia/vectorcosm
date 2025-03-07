@@ -6,8 +6,8 @@
 
 	// assume there are no set meta params when program begins
 	let meta_params = reactive({
-		num_boids: ( window.vc.sim_meta_params.num_boids || 0 ),
-		segments: ( window.vc.sim_meta_params.segments || 0 )
+		num_boids: ( globalThis.vc.sim_meta_params.num_boids || 0 ),
+		segments: ( globalThis.vc.sim_meta_params.segments || 0 )
 	});
 	
 	function updateNumBoids() {
@@ -16,10 +16,10 @@
 			let diff = meta_params.num_boids % meta_params.segments;
 			if ( diff ) {
 				meta_params.num_boids -= diff;
-				window.vc.sim_meta_params.num_boids = meta_params.num_boids;
+				globalThis.vc.sim_meta_params.num_boids = meta_params.num_boids;
 			}
 		}
-		window.vc.sim_meta_params.num_boids = meta_params.num_boids;
+		globalThis.vc.sim_meta_params.num_boids = meta_params.num_boids;
 	}
 	
 	function updateNumSegments() {
@@ -28,70 +28,70 @@
 			let diff = meta_params.num_boids % meta_params.segments;
 			if ( diff ) {
 				meta_params.num_boids -= diff;
-				window.vc.sim_meta_params.num_boids = meta_params.num_boids;
+				globalThis.vc.sim_meta_params.num_boids = meta_params.num_boids;
 			}
 		}
-		window.vc.sim_meta_params.segments = meta_params.segments;
+		globalThis.vc.sim_meta_params.segments = meta_params.segments;
 	}
 	
 	function RunProgram( program_name ) {
-		window.vc.tank.Kill();
-		window.vc.tank = new Tank( 100,100 );
-		window.vc.tank.MakeBackground();
-		window.vc.SetRenderStyle( window.vc.render_style );
-		window.vc.ResetCameraZoom();
+		globalThis.vc.tank.Kill();
+		globalThis.vc.tank = new Tank( 100,100 );
+		globalThis.vc.tank.MakeBackground();
+		globalThis.vc.SetRenderStyle( globalThis.vc.render_style );
+		globalThis.vc.ResetCameraZoom();
 		// TODO: this would probably appreciate a defined API instead of overreaching
-		window.vc.sim_queue.length = 0;
+		globalThis.vc.sim_queue.length = 0;
 		switch (program_name) {
 			// compound simulation queues need to be defined here
 			case 'quickstart' : {
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_easy' ) );
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_medium' ) );
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'food_training_sim_easy' ) );
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'finishing_school' ) );
+				globalThis.vc.sim_queue.push( SimulationFactory( globalThis.vc.tank, 'turning_training_easy' ) );
+				globalThis.vc.sim_queue.push( SimulationFactory( globalThis.vc.tank, 'turning_training_medium' ) );
+				globalThis.vc.sim_queue.push( SimulationFactory( globalThis.vc.tank, 'food_training_sim_easy' ) );
+				globalThis.vc.sim_queue.push( SimulationFactory( globalThis.vc.tank, 'finishing_school' ) );
 				break;
 			}
 			case 'the_works' : {
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_easy' ) );
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_medium' ) );
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_hard' ) );
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'food_training_sim_medium' ) );
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'food_training_sim_hard' ) );
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_xhard' ) );
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'treasure_hunt_hard' ) );
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'finishing_school' ) );
+				globalThis.vc.sim_queue.push( SimulationFactory( globalThis.vc.tank, 'turning_training_easy' ) );
+				globalThis.vc.sim_queue.push( SimulationFactory( globalThis.vc.tank, 'turning_training_medium' ) );
+				globalThis.vc.sim_queue.push( SimulationFactory( globalThis.vc.tank, 'turning_training_hard' ) );
+				globalThis.vc.sim_queue.push( SimulationFactory( globalThis.vc.tank, 'food_training_sim_medium' ) );
+				globalThis.vc.sim_queue.push( SimulationFactory( globalThis.vc.tank, 'food_training_sim_hard' ) );
+				globalThis.vc.sim_queue.push( SimulationFactory( globalThis.vc.tank, 'turning_training_xhard' ) );
+				globalThis.vc.sim_queue.push( SimulationFactory( globalThis.vc.tank, 'treasure_hunt_hard' ) );
+				globalThis.vc.sim_queue.push( SimulationFactory( globalThis.vc.tank, 'finishing_school' ) );
 				break;
 			}
 			case 'steering_comp' : {
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_easy' ) );
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_medium' ) );
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_hard' ) );
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'turning_training_xhard' ) );
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'treasure_hunt_easy' ) );
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'finishing_school' ) );
+				globalThis.vc.sim_queue.push( SimulationFactory( globalThis.vc.tank, 'turning_training_easy' ) );
+				globalThis.vc.sim_queue.push( SimulationFactory( globalThis.vc.tank, 'turning_training_medium' ) );
+				globalThis.vc.sim_queue.push( SimulationFactory( globalThis.vc.tank, 'turning_training_hard' ) );
+				globalThis.vc.sim_queue.push( SimulationFactory( globalThis.vc.tank, 'turning_training_xhard' ) );
+				globalThis.vc.sim_queue.push( SimulationFactory( globalThis.vc.tank, 'treasure_hunt_easy' ) );
+				globalThis.vc.sim_queue.push( SimulationFactory( globalThis.vc.tank, 'finishing_school' ) );
 				break;
 			}
 			case 'food_training_sim_comp' : {
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'food_training_sim_easy' ) );
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'food_training_sim_medium' ) );
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'food_training_sim_hard' ) );
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'finishing_school' ) );
+				globalThis.vc.sim_queue.push( SimulationFactory( globalThis.vc.tank, 'food_training_sim_easy' ) );
+				globalThis.vc.sim_queue.push( SimulationFactory( globalThis.vc.tank, 'food_training_sim_medium' ) );
+				globalThis.vc.sim_queue.push( SimulationFactory( globalThis.vc.tank, 'food_training_sim_hard' ) );
+				globalThis.vc.sim_queue.push( SimulationFactory( globalThis.vc.tank, 'finishing_school' ) );
 				break;
 			}
 			case 'random' : {
 				let num = utils.RandomInt( 3, 7 );
 				for ( let i=0; i < num; i++ ) {
-					window.vc.sim_queue.push( SimulationFactory( window.vc.tank, 'random' ) );
+					globalThis.vc.sim_queue.push( SimulationFactory( globalThis.vc.tank, 'random' ) );
 				}
 				break;
 			}
 			// singles can be referenced by name
 			default : {
-				window.vc.sim_queue.push( SimulationFactory( window.vc.tank, program_name ) );
+				globalThis.vc.sim_queue.push( SimulationFactory( globalThis.vc.tank, program_name ) );
 				break;
 			}
 		}
-		window.vc.LoadNextSim();
+		globalThis.vc.LoadNextSim();
 	}
 	
 </script>

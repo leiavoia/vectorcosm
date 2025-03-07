@@ -36,11 +36,11 @@ export default class BodyPlan {
 		
 		// colors
 		const colors = [
-			'#' + Math.trunc( dna.shapedNumber( dna.genesFor(`color ${1}`,3,2), 0, 0xFFFFFF) ).toString(16).padStart(6,0), // line
-			'#' + Math.trunc( dna.shapedNumber( dna.genesFor(`color ${2}`,3,2), 0, 0xFFFFFF) ).toString(16).padStart(6,0), // fill
-			'#' + Math.trunc( dna.shapedNumber( dna.genesFor(`color ${3}`,3,1), 0, 0xFFFFFF) ).toString(16).padStart(6,0), // TBD
-			'#' + Math.trunc( dna.shapedNumber( dna.genesFor(`color ${4}`,3,1), 0, 0xFFFFFF) ).toString(16).padStart(6,0), // TBD
-			'#' + Math.trunc( dna.shapedNumber( dna.genesFor(`color ${5}`,3,1), 0, 0xFFFFFF) ).toString(16).padStart(6,0), // TBD
+			'#' + Math.trunc( dna.shapedNumber( dna.genesFor(`color ${1}`,3,2), 0, 0xFFFFFF) ).toString(16).padStart(6,'0'), // line
+			'#' + Math.trunc( dna.shapedNumber( dna.genesFor(`color ${2}`,3,2), 0, 0xFFFFFF) ).toString(16).padStart(6,'0'), // fill
+			'#' + Math.trunc( dna.shapedNumber( dna.genesFor(`color ${3}`,3,1), 0, 0xFFFFFF) ).toString(16).padStart(6,'0'), // TBD
+			'#' + Math.trunc( dna.shapedNumber( dna.genesFor(`color ${4}`,3,1), 0, 0xFFFFFF) ).toString(16).padStart(6,'0'), // TBD
+			'#' + Math.trunc( dna.shapedNumber( dna.genesFor(`color ${5}`,3,1), 0, 0xFFFFFF) ).toString(16).padStart(6,'0'), // TBD
 		];
 
 		// chance for transparency
@@ -54,25 +54,26 @@ export default class BodyPlan {
 		this.fill = colors[1]==='transparent' ? colors[1] : `${colors[1]}AA`;
 			
 		const MakeGradient = (label, req_color, transp='FF') => {
-			const stops = [ new Two.Stop(0, req_color+transp), new Two.Stop(1, req_color+transp) ];
+			const stops = [ [0, req_color+transp], [1, req_color+transp] ];
 			const num_stops = dna.shapedInt(dna.genesFor(`${label} gradient num_stops`), 0, 5, 1, 3);
 			for ( let n=0; n < num_stops; n++ ) {
 				const pct = dna.shapedNumber( dna.genesFor(`${label} gradient stop pct n`) );
 				const index = dna.shapedInt(dna.genesFor(`${label} gradient stop index n`), 0, colors.length-1);
-				stops.push( new Two.Stop(pct, colors[index]+transp));
+				stops.push( [pct, colors[index]+transp] );
 			}
-			stops.sort( (a,b) => a.offset - b.offset );
+			stops.sort( (a,b) => a[0] - b[0] );
+			
 			const longest_dim = Math.max(this.width,this.length);
 			let xoff = dna.shapedNumber( dna.genesFor(`${label} gradient xoff`), -this.length/2, this.length/2 );
 			let yoff = 0;
 			let radius = dna.shapedNumber( dna.genesFor(`${label} gradient radius`), longest_dim/10, longest_dim, longest_dim, 2.5 );
 			const gtype = dna.shapedNumber( dna.genesFor(`${label} gradient type`) ) < 0.4 ? 'linear' : 'radial';
 			const flip = dna.shapedNumber( dna.genesFor(`${label} gradient axis flip`) ) < 0.33;
-			let grad = null;
-			if ( gtype == 'radial' ) {
-				grad = window.two.makeRadialGradient(xoff, yoff, radius, ...stops );
-			}
-			else {
+			let grad = {type:'radial', xoff, yoff, radius, stops, units:'userSpaceOnUse' };
+			const spreadNum = dna.shapedNumber( dna.genesFor(`${label} gradient repeat`) );
+			grad.spread = (spreadNum > 0.66) ? 'pad' : ( spreadNum > 0.33 ? 'reflect' : 'repeat' );	
+			if ( flip ) { grad.spread = 'reflect'; }	
+			if ( gtype != 'radial' ) {
 				let xoff2 = xoff+radius;
 				let yoff2 = 0;
 				// random axis flip
@@ -82,12 +83,12 @@ export default class BodyPlan {
 					xoff = 0;
 					xoff2 = 0;
 				}
-				grad = window.two.makeLinearGradient(xoff, yoff, xoff2, yoff2, ...stops );
+				grad.type = 'linear';
+				grad.xoff = xoff;
+				grad.yoff = yoff;
+				grad.xoff2 = xoff2;
+				grad.yoff2 = yoff2;
 			}
-			grad.units = 'userSpaceOnUse'; // super important
-			const spreadNum = dna.shapedNumber( dna.genesFor(`${label} gradient repeat`) );
-			grad.spread = (spreadNum > 0.66) ? 'pad' : ( spreadNum > 0.33 ? 'reflect' : 'repeat' );	
-			if ( flip ) { grad.spread = 'reflect'; }	
 			return grad;
 		};
 		
@@ -177,45 +178,45 @@ export default class BodyPlan {
 				p[0] += x_adj;
 				p[1] += y_adj;
 			}
-			// build the shape
-			let anchors = this.points.map( p => new Two.Anchor( p[0], p[1] ) );
-			if ( !this.geo ) { 
-				this.geo = window.two.makePath(anchors);
-			}
-			else {
-				// technical: two.js has update hooks connected to splice function
-				this.geo.vertices.splice(0, this.geo.vertices.length, ...anchors);
-			}
+			// // build the shape
+			// let anchors = this.points.map( p => new Two.Anchor( p[0], p[1] ) );
+			// if ( !this.geo ) { 
+			// 	this.geo = globalThis.two.makePath(anchors);
+			// }
+			// else {
+			// 	// technical: two.js has update hooks connected to splice function
+			// 	this.geo.vertices.splice(0, this.geo.vertices.length, ...anchors);
+			// }
 			
-			// Vector style
-			if ( window.vc.render_style == 'Vector' ) {
-				// vectrex mode
-				this.geo.linewidth = 2;
-				this.geo.stroke = '#6cf';
-				this.geo.fill = 'transparent';
-			}
-			// Zen white
-			else if ( window.vc.render_style == 'Zen' ) {
-				// vectrex mode
-				this.geo.linewidth = 2;
-				this.geo.stroke = '#000';
-				this.geo.fill = 'transparent';
-			}
-			// Grey
-			// else if ( window.vc.render_style == 'Grey' ) {
+			// // Vector style
+			// if ( globalThis.vc.render_style == 'Vector' ) {
 			// 	// vectrex mode
 			// 	this.geo.linewidth = 2;
-			// 	this.geo.stroke = '#FFF';
+			// 	this.geo.stroke = '#6cf';
 			// 	this.geo.fill = 'transparent';
 			// }
-			// Natural style
-			else {
-				this.geo.linewidth = this.linewidth;
-				this.geo.stroke = this.stroke;
-				this.geo.fill = this.fill;
-				this.geo.curved = this.curved;
-				this.geo.dashes = this.dashes;
-			}
+			// // Zen white
+			// else if ( globalThis.vc.render_style == 'Zen' ) {
+			// 	// vectrex mode
+			// 	this.geo.linewidth = 2;
+			// 	this.geo.stroke = '#000';
+			// 	this.geo.fill = 'transparent';
+			// }
+			// // Grey
+			// // else if ( globalThis.vc.render_style == 'Grey' ) {
+			// // 	// vectrex mode
+			// // 	this.geo.linewidth = 2;
+			// // 	this.geo.stroke = '#FFF';
+			// // 	this.geo.fill = 'transparent';
+			// // }
+			// // Natural style
+			// else {
+			// 	this.geo.linewidth = this.linewidth;
+			// 	this.geo.stroke = this.stroke;
+			// 	this.geo.fill = this.fill;
+			// 	this.geo.curved = this.curved;
+			// 	this.geo.dashes = this.dashes;
+			// }
 			
 		}
 	}

@@ -7,6 +7,7 @@ import { DNAPlant } from '../classes/class.Plant.js'
 
 export default class Food {
 	constructor(x=0,y=0,params) {
+		this.oid = ++globalThis.vc.next_object_id;
 		// first param can be JSON to rehydrate entire object from save
 		if ( x && typeof x === 'object' ) {
 			params = x;
@@ -143,7 +144,7 @@ export default class Food {
 		// drag slows us down
 		if ( !this.frictionless ) { 
 			let drag = ( 
-				window.vc.tank.viscosity +
+				globalThis.vc.tank.viscosity +
 				( Math.min(Math.abs(this.vx) + Math.abs(this.vy),200) / 200 ) +
 				( Math.min(this.r,200) / 200 )
 			) / 3;
@@ -153,14 +154,14 @@ export default class Food {
 			this.vy *= drag;
 		}
 		// stay in tank
-		this.x = utils.clamp( this.x, 0, window.vc.tank.width );
-		this.y = utils.clamp( this.y, 0, window.vc.tank.height );
+		this.x = utils.clamp( this.x, 0, globalThis.vc.tank.width );
+		this.y = utils.clamp( this.y, 0, globalThis.vc.tank.height );
 		// update the object in space
 		this.r = Math.sqrt( 2 * this.value / Math.PI );
 		this.collision.radius = this.r;
 		// collision detection with obstacles
 		// things i might collide with:
-		let candidates = window.vc.tank.grid.GetObjectsByBox( 
+		let candidates = globalThis.vc.tank.grid.GetObjectsByBox( 
 			this.x - this.r,
 			this.y - this.r,
 			this.x + this.r,
@@ -185,19 +186,19 @@ export default class Food {
 		}
 		// if an object pushed us out of bounds and we gets stuck outside tank, remove
 		if ( touching_rock ) {
-			if ( this.x < 0 || this.x > window.vc.tank.width ) { this.Kill(); return; };
-			if ( this.y < 0 || this.y > window.vc.tank.height ) { this.Kill(); return; };
+			if ( this.x < 0 || this.x > globalThis.vc.tank.width ) { this.Kill(); return; };
+			if ( this.y < 0 || this.y > globalThis.vc.tank.height ) { this.Kill(); return; };
 		}
 		// plant a seed
 		if ( touching_rock && this.seed && this.age > 5 && Math.random() > 0.9999 && 
-			window.vc.tank.plants.length < window.vc.simulation.settings.num_plants ) {
+			globalThis.vc.tank.plants.length < globalThis.vc.simulation.settings.num_plants ) {
 			// only plant the seed if there are not too many other plants in the local area
 			let plant_the_seed = true;
 			if ( this.max_germ_density && this.germ_distance ) {
 				// [1] plants are not in the collision detection space, so we need to check all of them for now ;-(
 				let found = 0;
 				const csqrd = this.germ_distance * this.germ_distance;
-				for ( let p of window.vc.tank.plants ) {
+				for ( let p of globalThis.vc.tank.plants ) {
 					const xdiff = p.x - this.x;
 					const ydiff = p.y - this.y;
 					const absqrd = xdiff * xdiff + ydiff * ydiff; // dont need to sqrt here
@@ -214,38 +215,38 @@ export default class Food {
 				const plant = new DNAPlant( {dna:this.seed} );
 				plant.x = this.x;
 				plant.y = this.y;
-				plant.geo.position.x = this.x; // this is really ugly
-				plant.geo.position.y = this.y;
+				// plant.geo.position.x = this.x; // this is really ugly
+				// plant.geo.position.y = this.y;
 				plant.age = 0; // shim
-				window.vc.tank.plants.push(plant);
+				globalThis.vc.tank.plants.push(plant);
 				// [!] inconsistent behavior with rocks which automatically place themselves
-				window.vc.AddShapeToRenderLayer( plant.geo, 0 );			
+				// globalThis.vc.AddShapeToRenderLayer( plant.geo, 0 );			
 				this.Kill();
 			}
 		}
 		// drawing
 		else {
-			this.geo.position.x = this.x;
-			this.geo.position.y = this.y;
-			// limit expensive redraws
-			let radius = Math.max(this.r,5)
-			if ( radius != this.geo.radius ) {
-				this.geo.radius = radius;
-				// Natural style represents specific number of dots on the circle
-				if ( window.vc.render_style == 'Natural' ) {
-					let circ = radius * 2 * Math.PI;
-					let points = this.complexity+2;
-					points = points >= 7 ? 8 : points;
-					let segment = circ / ( points * 2 );
-					this.geo.linewidth = radius/2;
-					this.geo.dashes = [segment,segment];				
-				}
-			}
-			// fade out
-			if ( window.vc.animate_plants && !this.permafood && this.age > this.lifespan - 1 ) {
-				let pct = this.age - (this.lifespan-1);
-				this.geo.opacity = 1-pct;
-			}
+			// this.geo.position.x = this.x;
+			// this.geo.position.y = this.y;
+			// // limit expensive redraws
+			// let radius = Math.max(this.r,5)
+			// if ( radius != this.geo.radius ) {
+			// 	this.geo.radius = radius;
+			// 	// Natural style represents specific number of dots on the circle
+			// 	if ( globalThis.vc.render_style == 'Natural' ) {
+			// 		let circ = radius * 2 * Math.PI;
+			// 		let points = this.complexity+2;
+			// 		points = points >= 7 ? 8 : points;
+			// 		let segment = circ / ( points * 2 );
+			// 		this.geo.linewidth = radius/2;
+			// 		this.geo.dashes = [segment,segment];				
+			// 	}
+			// }
+			// // fade out
+			// if ( globalThis.vc.animate_plants && !this.permafood && this.age > this.lifespan - 1 ) {
+			// 	let pct = this.age - (this.lifespan-1);
+			// 	this.geo.opacity = 1-pct;
+			// }
 		}
 	}
 	// returns the amount eaten
@@ -257,23 +258,22 @@ export default class Food {
 		return eaten;
 	}
 	Kill() {
-		this.geo.remove();
+		// this.geo.remove();
 		this.dead = true;
 	}
 	// returns TRUE if the food is edible by the boid
 	IsEdibleBy( boid ) {
 		if ( this.edibility >= 1 ) { return true; } // legacy hack for simulations
 		return (1 << (this.complexity-1)) & boid.traits.food_mask;
-	}		
-	UpdateGeometry() {
+	}	
+	GeoData() {
 
-		if ( this.geo ) { this.geo.remove(); }
-
+		let geodata = { type:'circle', r:this.r };
+		
 		// rendering
 		let points = this.complexity+2;
 		if ( this.complexity==5 ) { points=8 } // unicode doesnt have heptagons ;-( 
 		else if ( this.complexity==6 ) { points=12; } // getting hard to discern at this point 
-				
 			
 		// colors hardcoded mostly for aesthetics. you could change them.
 		let colors = [
@@ -301,59 +301,113 @@ export default class Food {
 		}
 		components.sort( (a,b) => a.pct - b.pct );
 		
-		// Vector style - single color polygon
-		if ( window.vc.render_style == 'Vector' ) {
-			this.geo = window.two.makePolygon(this.x,this.y,this.r,points);
-			// const maincolor =  components[components.length-1].color;
-			// const secondcolor = components.length > 1 ? components[components.length-2].color : maincolor;
-			// let rgb = utils.HexColorToRGBArray(maincolor);
-			// let hsl = utils.rgb2hsl( rgb[0]/255, rgb[1]/255, rgb[2]/255 );
-			// this.geo.fill = `hsl(${hsl[0]*255},${hsl[1]*100}%,${hsl[2]*80}%)`;
-			// this.geo.stroke = maincolor;
-			this.geo.fill = 'transparent';
-			this.geo.stroke = '#F99';
-			this.geo.linewidth = 4;
-		}
+		// only show the two primary ingredients to keep it simple
+		const maincolor =  components[components.length-1].color;
+		const secondcolor = components.length > 1 ? components[components.length-2].color : maincolor;
+		let rgb = utils.HexColorToRGBArray(maincolor);
+		let hsl = utils.rgb2hsl( rgb[0]/255, rgb[1]/255, rgb[2]/255 );
+		geodata.fill = `hsl(${hsl[0]*255},${hsl[1]*100}%,${hsl[2]*80}%)`;
+		geodata.stroke = secondcolor;
+		// make dash pattern create a number of "pips" to represent food complexity.
+		// this is aesthetically better than using polygons to represent complexity.
+		let circ = this.r * 2 * Math.PI;
+		let segment = circ / ( points * 2 );
+		geodata.linewidth = this.r/2;
+		geodata.dashes = [segment,segment];
+		geodata.rotation = Math.random() * Math.PI; // aesthetic rotation
+			
+		return geodata;
+	}	
+	UpdateGeometry() {
+
 		
-		// Zen white style - 
-		else if ( window.vc.render_style == 'Zen' ) {
-			this.geo = window.two.makePolygon(this.x,this.y,this.r,points);
-			this.geo.fill = 'transparent';
-			this.geo.stroke = '#666';
-			this.geo.linewidth = 4;
-		}
+		// if ( this.geo ) { this.geo.remove(); }
+
+		// // rendering
+		// let points = this.complexity+2;
+		// if ( this.complexity==5 ) { points=8 } // unicode doesnt have heptagons ;-( 
+		// else if ( this.complexity==6 ) { points=12; } // getting hard to discern at this point 
+				
+			
+		// // colors hardcoded mostly for aesthetics. you could change them.
+		// let colors = [
+		// 	'#C42452',
+		// 	'#EB9223',
+		// 	'#EBE313',
+		// 	'#5DD94D',
+		// 	'#2CAED4',
+		// 	'#1F4BE3',
+		// 	'#991FE3',
+		// 	'#FF70E5',
+		// 	'#FFFFFF',
+		// 	'#666666',
+		// ];
 		
-		// Grey style - uses colors
-		else if ( window.vc.render_style == 'Grey' ) {
-			this.geo = window.two.makePolygon(this.x,this.y,this.r,points);
-			const maincolor =  components[components.length-1].color;
-			const secondcolor = components.length > 1 ? components[components.length-2].color : maincolor;
-			let rgb = utils.HexColorToRGBArray(maincolor);
-			let hsl = utils.rgb2hsl( rgb[0]/255, rgb[1]/255, rgb[2]/255 );
-			this.geo.fill = `hsl(${hsl[0]*255},${hsl[1]*100}%,${hsl[2]*80}%)`;
-			this.geo.stroke = maincolor;
-			this.geo.linewidth = 4;
-		}
+		// // sort nutrients by contribution
+		// let components = [];
+		// for ( let i=0; i < this.nutrients.length; i++ ) {
+		// 	if ( this.nutrients[i] ) {
+		// 		components.push({
+		// 			color: colors[i],
+		// 			pct: this.nutrients[i],
+		// 		});
+		// 	}
+		// }
+		// components.sort( (a,b) => a.pct - b.pct );
 		
-		// Natural style - 2-color dashed circle
-		else {
-			this.geo = window.two.makeCircle(this.x,this.y,this.r);
-			// only show the two primary ingredients to keep it simple
-			const maincolor =  components[components.length-1].color;
-			const secondcolor = components.length > 1 ? components[components.length-2].color : maincolor;
-			let rgb = utils.HexColorToRGBArray(maincolor);
-			let hsl = utils.rgb2hsl( rgb[0]/255, rgb[1]/255, rgb[2]/255 );
-			this.geo.fill = `hsl(${hsl[0]*255},${hsl[1]*100}%,${hsl[2]*80}%)`;
-			this.geo.stroke = secondcolor;
-			// make dash pattern create a number of "pips" to represent food complexity.
-			// this is aesthetically better than using polygons to represent complexity.
-			let circ = this.r * 2 * Math.PI;
-			let segment = circ / ( points * 2 );
-			this.geo.linewidth = this.r/2;
-			this.geo.dashes = [segment,segment];
-		}
+		// // Vector style - single color polygon
+		// if ( globalThis.vc.render_style == 'Vector' ) {
+		// 	this.geo = globalThis.two.makePolygon(this.x,this.y,this.r,points);
+		// 	// const maincolor =  components[components.length-1].color;
+		// 	// const secondcolor = components.length > 1 ? components[components.length-2].color : maincolor;
+		// 	// let rgb = utils.HexColorToRGBArray(maincolor);
+		// 	// let hsl = utils.rgb2hsl( rgb[0]/255, rgb[1]/255, rgb[2]/255 );
+		// 	// this.geo.fill = `hsl(${hsl[0]*255},${hsl[1]*100}%,${hsl[2]*80}%)`;
+		// 	// this.geo.stroke = maincolor;
+		// 	this.geo.fill = 'transparent';
+		// 	this.geo.stroke = '#F99';
+		// 	this.geo.linewidth = 4;
+		// }
 		
-		this.geo.rotation = Math.random() * Math.PI; // aesthetic rotation
-		window.vc.AddShapeToRenderLayer(this.geo,1); // main layer	
+		// // Zen white style - 
+		// else if ( globalThis.vc.render_style == 'Zen' ) {
+		// 	this.geo = globalThis.two.makePolygon(this.x,this.y,this.r,points);
+		// 	this.geo.fill = 'transparent';
+		// 	this.geo.stroke = '#666';
+		// 	this.geo.linewidth = 4;
+		// }
+		
+		// // Grey style - uses colors
+		// else if ( globalThis.vc.render_style == 'Grey' ) {
+		// 	this.geo = globalThis.two.makePolygon(this.x,this.y,this.r,points);
+		// 	const maincolor =  components[components.length-1].color;
+		// 	const secondcolor = components.length > 1 ? components[components.length-2].color : maincolor;
+		// 	let rgb = utils.HexColorToRGBArray(maincolor);
+		// 	let hsl = utils.rgb2hsl( rgb[0]/255, rgb[1]/255, rgb[2]/255 );
+		// 	this.geo.fill = `hsl(${hsl[0]*255},${hsl[1]*100}%,${hsl[2]*80}%)`;
+		// 	this.geo.stroke = maincolor;
+		// 	this.geo.linewidth = 4;
+		// }
+		
+		// // Natural style - 2-color dashed circle
+		// else {
+		// 	this.geo = globalThis.two.makeCircle(this.x,this.y,this.r);
+		// 	// only show the two primary ingredients to keep it simple
+		// 	const maincolor =  components[components.length-1].color;
+		// 	const secondcolor = components.length > 1 ? components[components.length-2].color : maincolor;
+		// 	let rgb = utils.HexColorToRGBArray(maincolor);
+		// 	let hsl = utils.rgb2hsl( rgb[0]/255, rgb[1]/255, rgb[2]/255 );
+		// 	this.geo.fill = `hsl(${hsl[0]*255},${hsl[1]*100}%,${hsl[2]*80}%)`;
+		// 	this.geo.stroke = secondcolor;
+		// 	// make dash pattern create a number of "pips" to represent food complexity.
+		// 	// this is aesthetically better than using polygons to represent complexity.
+		// 	let circ = this.r * 2 * Math.PI;
+		// 	let segment = circ / ( points * 2 );
+		// 	this.geo.linewidth = this.r/2;
+		// 	this.geo.dashes = [segment,segment];
+		// }
+		
+		// this.geo.rotation = Math.random() * Math.PI; // aesthetic rotation
+		// globalThis.vc.AddShapeToRenderLayer(this.geo,1); // main layer	
 	}
 }

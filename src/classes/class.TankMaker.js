@@ -9,7 +9,7 @@ export default class TankMaker {
 	constructor( tank, settings ) {
 		this.tank = tank;
 		this.settings = {
-			rock_strat: ['individual','voronoi'].pickRandom(),
+			rock_strat: [/* 'individual', */'voronoi'].pickRandom(),
 			individual_num_rocks: utils.RandomInt( 3, 15 ),
 			individual_blunt: (Math.random() > 0.7),
 			individual_margin: 150,
@@ -74,8 +74,8 @@ export default class TankMaker {
 		this.tank.FindSafeZones();
 		
 		// plants grow on rocks, so resetting rocks resets plants too
-		if ( window.vc.simulation ) {
-			window.vc.simulation.SetNumPlants(window.vc.simulation.settings.num_plants || 0);	
+		if ( globalThis.vc.simulation ) {
+			globalThis.vc.simulation.SetNumPlants(globalThis.vc.simulation.settings.num_plants || 0);	
 		}
 	}
 	
@@ -177,11 +177,10 @@ export default class TankMaker {
 			// draw the blotch as a yellow circle using two.js
 			if ( this.settings.visualize ) {
 				for ( let b of blotches ) { 
-					let c = window.two.makeCircle( b.x, b.y, b.r );
+					let c = globalThis.two.makeCircle( b.x, b.y, b.r );
 					c.fill = 'transparent';
 					c.stroke = 'yellow';
 					c.linewidth = 20;
-					window.vc.AddShapeToRenderLayer(c, +2);	
 				}
 			}
 			// make points
@@ -265,10 +264,9 @@ export default class TankMaker {
 		// points visualization
 		if ( this.settings.visualize ) {
 			pts.forEach( p => {
-				let c = window.two.makeCircle( p[0], p[1], 10);
+				let c = globalThis.two.makeCircle( p[0], p[1], 10);
 				c.fill = 'orange';
 				c.stroke = 'transparent';
-				window.vc.AddShapeToRenderLayer(c, +2);	
 			});
 		}
 		
@@ -388,11 +386,10 @@ export default class TankMaker {
 			// optional voronoi visualization
 			if ( this.settings.visualize ) {
 				let anchors = vertices.map( p => new Two.Anchor( p[0], p[1] ) );
-				let path = window.two.makePath(anchors);
+				let path = globalThis.two.makePath(anchors);
 				path.fill = 'transparent';
 				path.stroke = utils.RandomColor( true, false, true ); 
 				path.linewidth = 20;		
-				window.vc.AddShapeToRenderLayer(path, +2);	
 			}
 			
 			// apply cell mask to determine if it becomes a rock

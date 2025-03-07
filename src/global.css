@@ -1,0 +1,962 @@
+@charset "UTF-8";
+
+HTML,
+BODY {
+	height: 100%;
+	width: 100%;
+	height: 100vh;
+	width: 100vw;
+	margin: 0;
+	padding: 0;
+	/* required to prevent rogue scrollbars */
+	overflow: hidden;
+	/* cosmetic defaults */
+	background-color: #000;
+	background-attachment: fixed;
+	background-size: cover;
+	/* font-family: "Lato"; */
+}
+#pagewrapper {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	/* padding: 1rem; */ /* usually zero but this works too */
+	margin: 0;
+	/* if you want the content to scroll normally: */
+	overflow: auto;
+}
+
+
+/* latin-ext */
+@font-face {
+	font-family: "Lato";
+	font-style: italic;
+	font-weight: 100;
+	font-display: swap;
+	src: url(https://fonts.gstatic.com/s/lato/v24/S6u-w4BMUTPHjxsIPx-mPCLQ7A.woff2) format("woff2");
+	unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF,
+		U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+	font-family: "Lato";
+	font-style: italic;
+	font-weight: 100;
+	font-display: swap;
+	src: url(https://fonts.gstatic.com/s/lato/v24/S6u-w4BMUTPHjxsIPx-oPCI.woff2) format("woff2");
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+		U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin-ext */
+@font-face {
+	font-family: "Lato";
+	font-style: italic;
+	font-weight: 300;
+	font-display: swap;
+	src: url(https://fonts.gstatic.com/s/lato/v24/S6u_w4BMUTPHjxsI9w2_FQft1dw.woff2) format("woff2");
+	unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF,
+		U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+	font-family: "Lato";
+	font-style: italic;
+	font-weight: 300;
+	font-display: swap;
+	src: url(https://fonts.gstatic.com/s/lato/v24/S6u_w4BMUTPHjxsI9w2_Gwft.woff2) format("woff2");
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+		U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin-ext */
+@font-face {
+	font-family: "Lato";
+	font-style: italic;
+	font-weight: 400;
+	font-display: swap;
+	src: url(https://fonts.gstatic.com/s/lato/v24/S6u8w4BMUTPHjxsAUi-qJCY.woff2) format("woff2");
+	unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF,
+		U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+	font-family: "Lato";
+	font-style: italic;
+	font-weight: 400;
+	font-display: swap;
+	src: url(https://fonts.gstatic.com/s/lato/v24/S6u8w4BMUTPHjxsAXC-q.woff2) format("woff2");
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+		U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin-ext */
+@font-face {
+	font-family: "Lato";
+	font-style: italic;
+	font-weight: 700;
+	font-display: swap;
+	src: url(https://fonts.gstatic.com/s/lato/v24/S6u_w4BMUTPHjxsI5wq_FQft1dw.woff2) format("woff2");
+	unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF,
+		U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+	font-family: "Lato";
+	font-style: italic;
+	font-weight: 700;
+	font-display: swap;
+	src: url(https://fonts.gstatic.com/s/lato/v24/S6u_w4BMUTPHjxsI5wq_Gwft.woff2) format("woff2");
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+		U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin-ext */
+@font-face {
+	font-family: "Lato";
+	font-style: italic;
+	font-weight: 900;
+	font-display: swap;
+	src: url(https://fonts.gstatic.com/s/lato/v24/S6u_w4BMUTPHjxsI3wi_FQft1dw.woff2) format("woff2");
+	unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF,
+		U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+	font-family: "Lato";
+	font-style: italic;
+	font-weight: 900;
+	font-display: swap;
+	src: url(https://fonts.gstatic.com/s/lato/v24/S6u_w4BMUTPHjxsI3wi_Gwft.woff2) format("woff2");
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+		U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin-ext */
+@font-face {
+	font-family: "Lato";
+	font-style: normal;
+	font-weight: 100;
+	font-display: swap;
+	src: url(https://fonts.gstatic.com/s/lato/v24/S6u8w4BMUTPHh30AUi-qJCY.woff2) format("woff2");
+	unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF,
+		U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+	font-family: "Lato";
+	font-style: normal;
+	font-weight: 100;
+	font-display: swap;
+	src: url(https://fonts.gstatic.com/s/lato/v24/S6u8w4BMUTPHh30AXC-q.woff2) format("woff2");
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+		U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin-ext */
+@font-face {
+	font-family: "Lato";
+	font-style: normal;
+	font-weight: 300;
+	font-display: swap;
+	src: url(https://fonts.gstatic.com/s/lato/v24/S6u9w4BMUTPHh7USSwaPGR_p.woff2) format("woff2");
+	unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF,
+		U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+	font-family: "Lato";
+	font-style: normal;
+	font-weight: 300;
+	font-display: swap;
+	src: url(https://fonts.gstatic.com/s/lato/v24/S6u9w4BMUTPHh7USSwiPGQ.woff2) format("woff2");
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+		U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin-ext */
+@font-face {
+	font-family: "Lato";
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	/* src: url(./fonts/Lato/Lato-Regular.ttf) format('ttf'); */
+	src: url(https://fonts.gstatic.com/s/lato/v24/S6uyw4BMUTPHjxAwXjeu.woff2) format("woff2");
+	unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF,
+		U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+	font-family: "Lato";
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	/* src: url(./fonts/Lato/Lato-Regular.ttf) format('ttf'); */
+	src: url(https://fonts.gstatic.com/s/lato/v24/S6uyw4BMUTPHjx4wXg.woff2) format("woff2");
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+		U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin-ext */
+@font-face {
+	font-family: "Lato";
+	font-style: normal;
+	font-weight: 700;
+	font-display: swap;
+	/* src: url(./fonts/Lato/Lato-Regular.ttf) format('ttf'); */
+	src: url(https://fonts.gstatic.com/s/lato/v24/S6u9w4BMUTPHh6UVSwaPGR_p.woff2) format("woff2");
+	unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF,
+		U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+	font-family: "Lato";
+	font-style: normal;
+	font-weight: 700;
+	font-display: swap;
+	src: url(https://fonts.gstatic.com/s/lato/v24/S6u9w4BMUTPHh6UVSwiPGQ.woff2) format("woff2");
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+		U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin-ext */
+@font-face {
+	font-family: "Lato";
+	font-style: normal;
+	font-weight: 900;
+	font-display: swap;
+	src: url(https://fonts.gstatic.com/s/lato/v24/S6u9w4BMUTPHh50XSwaPGR_p.woff2) format("woff2");
+	unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF,
+		U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+	font-family: "Lato";
+	font-style: normal;
+	font-weight: 900;
+	font-display: swap;
+	src: url(https://fonts.gstatic.com/s/lato/v24/S6u9w4BMUTPHh50XSwiPGQ.woff2) format("woff2");
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+		U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+.lato-thin {
+	font-family: "Lato", sans-serif;
+	font-weight: 100;
+	font-style: normal;
+}
+
+.lato-light {
+	font-family: "Lato", sans-serif;
+	font-weight: 300;
+	font-style: normal;
+}
+
+.lato-regular {
+	font-family: "Lato", sans-serif;
+	font-weight: 400;
+	font-style: normal;
+}
+
+.lato-bold {
+	font-family: "Lato", sans-serif;
+	font-weight: 700;
+	font-style: normal;
+}
+
+.lato-black {
+	font-family: "Lato", sans-serif;
+	font-weight: 900;
+	font-style: normal;
+}
+
+.lato-thin-italic {
+	font-family: "Lato", sans-serif;
+	font-weight: 100;
+	font-style: italic;
+}
+
+.lato-light-italic {
+	font-family: "Lato", sans-serif;
+	font-weight: 300;
+	font-style: italic;
+}
+
+.lato-regular-italic {
+	font-family: "Lato", sans-serif;
+	font-weight: 400;
+	font-style: italic;
+}
+
+.lato-bold-italic {
+	font-family: "Lato", sans-serif;
+	font-weight: 700;
+	font-style: italic;
+}
+
+.lato-black-italic {
+	font-family: "Lato", sans-serif;
+	font-weight: 900;
+	font-style: italic;
+}
+
+/* ICONS FONT */
+@font-face {
+	font-family: "icons";
+	src:
+		url("assets/fonts/icons.woff") format("woff"),
+		url("assets/fonts/icons.ttf") format("truetype")
+		;
+	font-weight: normal;
+	font-style: normal;
+}
+
+[data-icon]:before {
+	font-family: "icons" !important;
+	content: attr(data-icon);
+	font-style: normal !important;
+	font-weight: normal !important;
+	font-variant: normal !important;
+	text-transform: none !important;
+	speak: none;
+	line-height: 1;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+[class^="icon-"]:before,
+[class*=" icon-"]:before {
+	font-family: "icons" !important;
+	font-style: normal !important;
+	font-weight: normal !important;
+	font-variant: normal !important;
+	text-transform: none !important;
+	speak: none;
+	line-height: 1;
+	color: var(--pico-color);
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+.icon-camera:before {
+	content: "\61";
+}
+.icon-play-circle:before {
+	content: "\62";
+}
+.icon-fast-backward:before {
+	content: "\63";
+}
+.icon-fast-forward:before {
+	content: "\64";
+}
+.icon-pause:before {
+	content: "\65";
+}
+.icon-play:before {
+	content: "\66";
+}
+.icon-stop:before {
+	content: "\68";
+}
+.icon-shuffle:before {
+	content: "\67";
+}
+.icon-cog:before {
+	content: "\69";
+}
+.icon-chart-bar:before {
+	content: "\6a";
+}
+.icon-sliders:before {
+	content: "\6b";
+}
+.icon-cancel:before {
+	content: "\6c";
+}
+.icon-cancel-circled:before {
+	content: "\6d";
+}
+.icon-cancel-squared:before {
+	content: "\6e";
+}
+.icon-lock:before {
+	content: "\6f";
+}
+.icon-bars:before {
+	content: "\70";
+}
+.icon-floppy:before {
+	content: "\71";
+}
+.icon-install:before {
+	content: "\72";
+}
+.icon-arrows-ccw:before {
+	content: "\73";
+}
+.icon-database:before {
+	content: "\74";
+}
+.icon-down-bold:before {
+	content: "\75";
+}
+.icon-eye:before {
+	content: "\76";
+}
+.icon-flag:before {
+	content: "\77";
+}
+.icon-heart:before {
+	content: "\78";
+}
+.icon-heart-empty:before {
+	content: "\79";
+}
+.icon-attention:before {
+	content: "\7a";
+}
+.icon-grid:before {
+	content: "\41";
+}
+.icon-cogs:before {
+	content: "\42";
+}
+.icon-share:before {
+	content: "\43";
+}
+.icon-spinner:before {
+	content: "\44";
+}
+.icon-tools:before {
+	content: "\45";
+}
+.icon-flow-tree:before {
+	content: "\46";
+}
+.icon-light-up:before {
+	content: "\47";
+}
+.icon-light-down:before {
+	content: "\48";
+}
+.icon-share-1:before {
+	content: "\49";
+}
+.icon-star-empty:before {
+	content: "\4a";
+}
+.icon-star:before {
+	content: "\4b";
+}
+
+/* pico overrides */
+:root {
+	/* --pico-font-family-emoji: "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"; */
+	--pico-font-family-sans-serif: "Lato", system-ui, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, Helvetica, Arial,
+		"Helvetica Neue", sans-serif, var(--pico-font-family-emoji);
+	--pico-font-family-monospace: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace,
+		var(--pico-font-family-emoji);
+	/* --pico-font-family: var(--pico-font-family-sans-serif); */
+	/* --pico-line-height: 1.5; */
+	/* --pico-font-weight: 400; */
+	--pico-font-size: 100%;
+	/* --pico-text-underline-offset: 0.1rem; */
+	/* --pico-border-radius: 0.25rem; */
+	/* --pico-border-radius: 0.5rem; */
+	/* --pico-border-width: 0.0625rem; */
+	/* --pico-outline-width: 0.125rem; */
+	/* --pico-transition: 0.2s ease-in-out; */
+	/* --pico-spacing: 1rem; */
+	/* --pico-typography-spacing-vertical: 1rem; */
+	/* --pico-block-spacing-vertical: var(--pico-spacing); */
+	/* --pico-block-spacing-horizontal: var(--pico-spacing); */
+	/* --pico-grid-column-gap: var(--pico-spacing); */
+	/* --pico-grid-row-gap: var(--pico-spacing); */
+	--pico-form-element-spacing-vertical: 0.2rem;
+	--pico-form-element-spacing-horizontal: 0.4rem;
+	/* --pico-group-box-shadow: 0 0 0 rgba(0, 0, 0, 0); */
+	/* --pico-group-box-shadow-focus-with-button: 0 0 0 var(--pico-outline-width) var(--pico-primary-focus); */
+	/* --pico-group-box-shadow-focus-with-input: 0 0 0 0.0625rem var(--pico-form-element-border-color); */
+	/* --pico-modal-overlay-backdrop-filter: blur(0.375rem); */
+	/* --pico-nav-element-spacing-vertical: 1rem;
+--pico-nav-element-spacing-horizontal: 0.5rem;
+--pico-nav-link-spacing-vertical: 0.5rem;
+--pico-nav-link-spacing-horizontal: 0.5rem; */
+	--pico-nav-element-spacing-vertical: 0.1rem;
+	--pico-nav-element-spacing-horizontal: 0.1rem;
+	--pico-nav-link-spacing-vertical: 0.2rem;
+	--pico-nav-link-spacing-horizontal: 0.4rem;
+	/* --pico-nav-breadcrumb-divider: ">"; */
+}
+
+/* color overrides */
+[data-theme="light"],
+:root:not([data-theme="dark"]) {
+	/* --pico-background-color: #fff; */
+	/* --pico-color: #000; */
+	/* --pico-text-selection-color: rgba(2, 154, 232, 0.25); */
+	/* --pico-muted-color: #646b79; */
+	/* --pico-muted-border-color: #e7eaf0; */
+	/* --pico-primary: #0172ad; */
+	/* --pico-primary-background: #0172ad; */
+	/* --pico-primary-border: var(--pico-primary-background); */
+	/* --pico-primary-underline: rgba(1, 114, 173, 0.5); */
+	/* --pico-primary-hover: #015887; */
+	/* --pico-primary-hover-background: #02659a; */
+	/* --pico-primary-hover-border: var(--pico-primary-hover-background); */
+	/* --pico-primary-hover-underline: var(--pico-primary-hover); */
+	/* --pico-primary-focus: rgba(2, 154, 232, 0.5); */
+	/* --pico-primary-inverse: #fff; */
+	/* --pico-secondary: #5d6b89; */
+	/* --pico-secondary-background: #525f7a; */
+	/* --pico-secondary-border: var(--pico-secondary-background); */
+	/* --pico-secondary-underline: rgba(93, 107, 137, 0.5); */
+	/* --pico-secondary-hover: #48536b; */
+	/* --pico-secondary-hover-background: #48536b; */
+	/* --pico-secondary-hover-border: var(--pico-secondary-hover-background); */
+	/* --pico-secondary-hover-underline: var(--pico-secondary-hover); */
+	/* --pico-secondary-focus: rgba(93, 107, 137, 0.25); */
+	/* --pico-secondary-inverse: #fff; */
+	/* --pico-contrast: #181c25; */
+	/* --pico-contrast-background: #181c25; */
+	/* --pico-contrast-border: var(--pico-contrast-background); */
+	/* --pico-contrast-underline: rgba(24, 28, 37, 0.5); */
+	/* --pico-contrast-hover: #000; */
+	/* --pico-contrast-hover-background: #000; */
+	/* --pico-contrast-hover-border: var(--pico-contrast-hover-background); */
+	/* --pico-contrast-hover-underline: var(--pico-secondary-hover); */
+	/* --pico-contrast-focus: rgba(93, 107, 137, 0.25); */
+	/* --pico-contrast-inverse: #fff; */
+	/* --pico-box-shadow: 0.0145rem 0.029rem 0.174rem rgba(129, 145, 181, 0.01698), 0.0335rem 0.067rem 0.402rem rgba(129, 145, 181, 0.024), 0.0625rem 0.125rem 0.75rem rgba(129, 145, 181, 0.03), 0.1125rem 0.225rem 1.35rem rgba(129, 145, 181, 0.036), 0.2085rem 0.417rem 2.502rem rgba(129, 145, 181, 0.04302), 0.5rem 1rem 6rem rgba(129, 145, 181, 0.06), 0 0 0 0.0625rem rgba(129, 145, 181, 0.015); */
+	/* --pico-h1-color: #2d3138; */
+	/* --pico-h2-color: #373c44; */
+	/* --pico-h3-color: #424751; */
+	/* --pico-h4-color: #4d535e; */
+	/* --pico-h5-color: #5c6370; */
+	/* --pico-h6-color: #646b79; */
+	/* --pico-mark-background-color: #fde7c0; */
+	/* --pico-mark-color: #0f1114; */
+	/* --pico-ins-color: #1d6a54; */
+	/* --pico-del-color: #883935; */
+	/* --pico-blockquote-border-color: var(--pico-muted-border-color); */
+	/* --pico-blockquote-footer-color: var(--pico-muted-color); */
+	/* --pico-button-box-shadow: 0 0 0 rgba(0, 0, 0, 0); */
+	/* --pico-button-hover-box-shadow: 0 0 0 rgba(0, 0, 0, 0); */
+	/* --pico-table-border-color: var(--pico-muted-border-color); */
+	/* --pico-table-row-stripped-background-color: rgba(111, 120, 135, 0.0375); */
+	/* --pico-code-background-color: #f3f5f7; */
+	/* --pico-code-color: #646b79; */
+	/* --pico-code-kbd-background-color: var(--pico-color); */
+	/* --pico-code-kbd-color: var(--pico-background-color); */
+	/* --pico-form-element-background-color: #fbfcfc; */
+	/* --pico-form-element-selected-background-color: #dfe3eb; */
+	/* --pico-form-element-border-color: #cfd5e2; */
+	/* --pico-form-element-color: #23262c; */
+	/* --pico-form-element-placeholder-color: var(--pico-muted-color); */
+	/* --pico-form-element-active-background-color: #fff; */
+	/* --pico-form-element-active-border-color: var(--pico-primary-border); */
+	/* --pico-form-element-focus-color: var(--pico-primary-border); */
+	/* --pico-form-element-disabled-opacity: 0.5; */
+	/* --pico-form-element-invalid-border-color: #b86a6b; */
+	/* --pico-form-element-invalid-active-border-color: #c84f48; */
+	/* --pico-form-element-invalid-focus-color: var(--pico-form-element-invalid-active-border-color); */
+	/* --pico-form-element-valid-border-color: #4c9b8a; */
+	/* --pico-form-element-valid-active-border-color: #279977; */
+	/* --pico-form-element-valid-focus-color: var(--pico-form-element-valid-active-border-color); */
+	/* --pico-switch-background-color: #bfc7d9; */
+	/* --pico-switch-checked-background-color: var(--pico-primary-background); */
+	/* --pico-switch-color: #fff; */
+	/* --pico-switch-thumb-box-shadow: 0 0 0 rgba(0, 0, 0, 0); */
+	/* --pico-range-border-color: #dfe3eb; */
+	/* --pico-range-active-border-color: #bfc7d9; */
+	/* --pico-range-thumb-border-color: var(--pico-background-color); */
+	/* --pico-range-thumb-color: var(--pico-secondary-background); */
+	/* --pico-range-thumb-active-color: var(--pico-primary-background); */
+	/* --pico-accordion-border-color: var(--pico-muted-border-color); */
+	/* --pico-accordion-active-summary-color: var(--pico-primary-hover); */
+	/* --pico-accordion-close-summary-color: var(--pico-color); */
+	/* --pico-accordion-open-summary-color: var(--pico-muted-color); */
+	/* --pico-card-background-color: var(--pico-background-color); */
+	/* --pico-card-border-color: var(--pico-muted-border-color); */
+	/* --pico-card-box-shadow: var(--pico-box-shadow); */
+	/* --pico-card-sectioning-background-color: #fbfcfc; */
+	/* --pico-dropdown-background-color: #fff; */
+	/* --pico-dropdown-border-color: #eff1f4; */
+	/* --pico-dropdown-box-shadow: var(--pico-box-shadow); */
+	/* --pico-dropdown-color: var(--pico-color); */
+	/* --pico-dropdown-hover-background-color: #eff1f4; */
+	/* --pico-loading-spinner-opacity: 0.5; */
+	/* --pico-modal-overlay-background-color: rgba(232, 234, 237, 0.75); */
+	/* --pico-progress-background-color: #dfe3eb; */
+	/* --pico-progress-color: var(--pico-primary-background); */
+	/* --pico-tooltip-background-color: var(--pico-contrast-background); */
+	/* --pico-tooltip-color: var(--pico-contrast-inverse); */
+	/* --pico-icon-valid: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='rgb(76, 155, 138)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E"); */
+	/* --pico-icon-invalid: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='rgb(200, 79, 72)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'%3E%3C/circle%3E%3Cline x1='12' y1='8' x2='12' y2='12'%3E%3C/line%3E%3Cline x1='12' y1='16' x2='12.01' y2='16'%3E%3C/line%3E%3C/svg%3E"); */
+	color-scheme: light;
+}
+
+@media only screen and (prefers-color-scheme: dark) {
+	:root:not([data-theme]) {
+		/* --pico-background-color: #13171f; */
+		--pico-color: #fff;
+		/* --pico-text-selection-color: rgba(1, 170, 255, 0.1875); */
+		/* --pico-muted-color: #7b8495; */
+		/* --pico-muted-border-color: #202632; */
+		--pico-primary: #80d4ff;
+		/* --pico-primary-background: #0172ad; */
+		--pico-primary-background: #3daee9;
+		/* --pico-primary-border: var(--pico-primary-background); */
+		/* --pico-primary-underline: rgba(1, 170, 255, 0.5); */
+		/* --pico-primary-hover: #79c0ff; */
+		/* --pico-primary-hover-background: #017fc0; */
+		/* --pico-primary-hover-border: var(--pico-primary-hover-background); */
+		/* --pico-primary-hover-underline: var(--pico-primary-hover); */
+		/* --pico-primary-focus: rgba(1, 170, 255, 0.375); */
+		/* --pico-primary-inverse: #fff; */
+		--pico-secondary: #969eaf;
+		/* --pico-secondary-background: #525f7a; */
+		/* --pico-secondary-border: var(--pico-secondary-background); */
+		/* --pico-secondary-underline: rgba(150, 158, 175, 0.5); */
+		/* --pico-secondary-hover: #b3b9c5; */
+		/* --pico-secondary-hover-background: #5d6b89; */
+		/* --pico-secondary-hover-border: var(--pico-secondary-hover-background); */
+		/* --pico-secondary-hover-underline: var(--pico-secondary-hover); */
+		/* --pico-secondary-focus: rgba(144, 158, 190, 0.25); */
+		/* --pico-secondary-inverse: #fff; */
+		--pico-contrast: #dfe3eb;
+		--pico-contrast-background: #eff1f4;
+		/* --pico-contrast-border: var(--pico-contrast-background); */
+		/* --pico-contrast-underline: rgba(223, 227, 235, 0.5); */
+		/* --pico-contrast-hover: #fff; */
+		/* --pico-contrast-hover-background: #fff; */
+		/* --pico-contrast-hover-border: var(--pico-contrast-hover-background); */
+		/* --pico-contrast-hover-underline: var(--pico-contrast-hover); */
+		/* --pico-contrast-focus: rgba(207, 213, 226, 0.25); */
+		/* --pico-contrast-inverse: #000; */
+		--pico-box-shadow: none;
+		--pico-h1-color: var(--pico-color);
+		--pico-h2-color: var(--pico-color);
+		--pico-h3-color: var(--pico-color);
+		--pico-h4-color: var(--pico-color);
+		--pico-h5-color: var(--pico-color);
+		--pico-h6-color: var(--pico-color);
+		/* --pico-mark-background-color: #014063; */
+		/* --pico-mark-color: #fff; */
+		/* --pico-ins-color: #62af9a; */
+		/* --pico-del-color: #ce7e7b; */
+		/* --pico-blockquote-border-color: var(--pico-muted-border-color); */
+		/* --pico-blockquote-footer-color: var(--pico-muted-color); */
+		/* --pico-button-box-shadow: 0 0 0 rgba(0, 0, 0, 0); */
+		/* --pico-button-hover-box-shadow: 0 0 0 rgba(0, 0, 0, 0); */
+		/* --pico-table-border-color: var(--pico-muted-border-color); */
+		/* --pico-table-row-stripped-background-color: rgba(111, 120, 135, 0.0375); */
+		/* --pico-code-background-color: #1a1f28; */
+		/* --pico-code-color: #8891a4; */
+		/* --pico-code-kbd-background-color: var(--pico-color); */
+		/* --pico-code-kbd-color: var(--pico-background-color); */
+		/* --pico-form-element-background-color: #1c212c; */
+		/* --pico-form-element-selected-background-color: #2a3140; */
+		/* --pico-form-element-border-color: #2a3140; */
+		/* --pico-form-element-color: #e0e3e7; */
+		/* --pico-form-element-placeholder-color: #8891a4; */
+		/* --pico-form-element-active-background-color: #1a1f28; */
+		/* --pico-form-element-active-border-color: var(--pico-primary-border); */
+		/* --pico-form-element-focus-color: var(--pico-primary-border); */
+		/* --pico-form-element-disabled-opacity: 0.5; */
+		/* --pico-form-element-invalid-border-color: #964a50; */
+		/* --pico-form-element-invalid-active-border-color: #b7403b; */
+		/* --pico-form-element-invalid-focus-color: var(--pico-form-element-invalid-active-border-color); */
+		/* --pico-form-element-valid-border-color: #2a7b6f; */
+		/* --pico-form-element-valid-active-border-color: #16896a; */
+		/* --pico-form-element-valid-focus-color: var(--pico-form-element-valid-active-border-color); */
+		/* --pico-switch-background-color: #333c4e; */
+		/* --pico-switch-checked-background-color: var(--pico-primary-background); */
+		/* --pico-switch-color: #fff; */
+		/* --pico-switch-thumb-box-shadow: 0 0 0 rgba(0, 0, 0, 0); */
+		/* --pico-range-border-color: #202632; */
+		--pico-range-border-color: #e9e9ed;
+		--pico-range-active-border-color: var(--pico-primary-background);
+		--pico-range-thumb-border-color: var(--pico-background-color);
+		--pico-range-thumb-color: var(--pico-primary-background);
+		/* --pico-range-thumb-active-color: var(--pico-primary); */
+		/* --pico-accordion-border-color: var(--pico-muted-border-color); */
+		/* --pico-accordion-active-summary-color: var(--pico-primary-hover); */
+		/* --pico-accordion-close-summary-color: var(--pico-color); */
+		/* --pico-accordion-open-summary-color: var(--pico-muted-color); */
+		/* --pico-card-background-color: #181c25; */
+		/* --pico-card-border-color: var(--pico-card-background-color); */
+		/* --pico-card-box-shadow: var(--pico-box-shadow); */
+		/* --pico-card-sectioning-background-color: #1a1f28; */
+		/* --pico-dropdown-background-color: #181c25; */
+		/* --pico-dropdown-border-color: #202632; */
+		/* --pico-dropdown-box-shadow: var(--pico-box-shadow); */
+		/* --pico-dropdown-color: var(--pico-color); */
+		/* --pico-dropdown-hover-background-color: #202632; */
+		/* --pico-loading-spinner-opacity: 0.5; */
+		/* --pico-modal-overlay-background-color: rgba(8, 9, 10, 0.75); */
+		/* --pico-progress-background-color: #202632; */
+		/* --pico-progress-background-color: #E9E9ED; */
+		/* --pico-progress-color: var(--pico-primary-background); */
+		/* --pico-tooltip-background-color: var(--pico-contrast-background); */
+		/* --pico-tooltip-color: var(--pico-contrast-inverse); */
+		/* --pico-icon-valid: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='rgb(42, 123, 111)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E"); */
+		/* --pico-icon-invalid: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='rgb(150, 74, 80)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'%3E%3C/circle%3E%3Cline x1='12' y1='8' x2='12' y2='12'%3E%3C/line%3E%3Cline x1='12' y1='16' x2='12.01' y2='16'%3E%3C/line%3E%3C/svg%3E"); */
+		color-scheme: dark;
+	}
+}
+
+[data-theme="dark"] {
+	/* --pico-background-color: #13171f; */
+	--pico-color: #fff;
+	/* --pico-text-selection-color: rgba(1, 170, 255, 0.1875); */
+	/* --pico-muted-color: #7b8495; */
+	/* --pico-muted-border-color: #202632; */
+	--pico-primary: #80d4ff;
+	/* --pico-primary-background: #0172ad; */
+	--pico-primary-background: #3daee9;
+	/* --pico-primary-border: var(--pico-primary-background); */
+	/* --pico-primary-underline: rgba(1, 170, 255, 0.5); */
+	/* --pico-primary-hover: #79c0ff; */
+	/* --pico-primary-hover-background: #017fc0; */
+	/* --pico-primary-hover-border: var(--pico-primary-hover-background); */
+	/* --pico-primary-hover-underline: var(--pico-primary-hover); */
+	/* --pico-primary-focus: rgba(1, 170, 255, 0.375); */
+	/* --pico-primary-inverse: #fff; */
+	--pico-secondary: #969eaf;
+	/* --pico-secondary-background: #525f7a; */
+	/* --pico-secondary-border: var(--pico-secondary-background); */
+	/* --pico-secondary-underline: rgba(150, 158, 175, 0.5); */
+	/* --pico-secondary-hover: #b3b9c5; */
+	/* --pico-secondary-hover-background: #5d6b89; */
+	/* --pico-secondary-hover-border: var(--pico-secondary-hover-background); */
+	/* --pico-secondary-hover-underline: var(--pico-secondary-hover); */
+	/* --pico-secondary-focus: rgba(144, 158, 190, 0.25); */
+	/* --pico-secondary-inverse: #fff; */
+	--pico-contrast: #dfe3eb;
+	--pico-contrast-background: #eff1f4;
+	/* --pico-contrast-border: var(--pico-contrast-background); */
+	/* --pico-contrast-underline: rgba(223, 227, 235, 0.5); */
+	/* --pico-contrast-hover: #fff; */
+	/* --pico-contrast-hover-background: #fff; */
+	/* --pico-contrast-hover-border: var(--pico-contrast-hover-background); */
+	/* --pico-contrast-hover-underline: var(--pico-contrast-hover); */
+	/* --pico-contrast-focus: rgba(207, 213, 226, 0.25); */
+	/* --pico-contrast-inverse: #000; */
+	--pico-box-shadow: none;
+	--pico-h1-color: var(--pico-color);
+	--pico-h2-color: var(--pico-color);
+	--pico-h3-color: var(--pico-color);
+	--pico-h4-color: var(--pico-color);
+	--pico-h5-color: var(--pico-color);
+	--pico-h6-color: var(--pico-color);
+	/* --pico-mark-background-color: #014063; */
+	/* --pico-mark-color: #fff; */
+	/* --pico-ins-color: #62af9a; */
+	/* --pico-del-color: #ce7e7b; */
+	/* --pico-blockquote-border-color: var(--pico-muted-border-color); */
+	/* --pico-blockquote-footer-color: var(--pico-muted-color); */
+	/* --pico-button-box-shadow: 0 0 0 rgba(0, 0, 0, 0); */
+	/* --pico-button-hover-box-shadow: 0 0 0 rgba(0, 0, 0, 0); */
+	/* --pico-table-border-color: var(--pico-muted-border-color); */
+	/* --pico-table-row-stripped-background-color: rgba(111, 120, 135, 0.0375); */
+	/* --pico-code-background-color: #1a1f28; */
+	/* --pico-code-color: #8891a4; */
+	/* --pico-code-kbd-background-color: var(--pico-color); */
+	/* --pico-code-kbd-color: var(--pico-background-color); */
+	/* --pico-form-element-background-color: #1c212c; */
+	/* --pico-form-element-selected-background-color: #2a3140; */
+	/* --pico-form-element-border-color: #2a3140; */
+	/* --pico-form-element-color: #e0e3e7; */
+	/* --pico-form-element-placeholder-color: #8891a4; */
+	/* --pico-form-element-active-background-color: #1a1f28; */
+	/* --pico-form-element-active-border-color: var(--pico-primary-border); */
+	/* --pico-form-element-focus-color: var(--pico-primary-border); */
+	/* --pico-form-element-disabled-opacity: 0.5; */
+	/* --pico-form-element-invalid-border-color: #964a50; */
+	/* --pico-form-element-invalid-active-border-color: #b7403b; */
+	/* --pico-form-element-invalid-focus-color: var(--pico-form-element-invalid-active-border-color); */
+	/* --pico-form-element-valid-border-color: #2a7b6f; */
+	/* --pico-form-element-valid-active-border-color: #16896a; */
+	/* --pico-form-element-valid-focus-color: var(--pico-form-element-valid-active-border-color); */
+	/* --pico-switch-background-color: #333c4e; */
+	/* --pico-switch-checked-background-color: var(--pico-primary-background); */
+	/* --pico-switch-color: #fff; */
+	/* --pico-switch-thumb-box-shadow: 0 0 0 rgba(0, 0, 0, 0); */
+	/* --pico-range-border-color: #202632; */
+	--pico-range-border-color: #e9e9ed;
+	--pico-range-active-border-color: var(--pico-primary-background);
+	--pico-range-thumb-border-color: var(--pico-background-color);
+	--pico-range-thumb-color: var(--pico-primary-background);
+	/* --pico-range-thumb-active-color: var(--pico-primary); */
+	/* --pico-accordion-border-color: var(--pico-muted-border-color); */
+	/* --pico-accordion-active-summary-color: var(--pico-primary-hover); */
+	/* --pico-accordion-close-summary-color: var(--pico-color); */
+	/* --pico-accordion-open-summary-color: var(--pico-muted-color); */
+	/* --pico-card-background-color: #181c25; */
+	/* --pico-card-border-color: var(--pico-card-background-color); */
+	/* --pico-card-box-shadow: var(--pico-box-shadow); */
+	/* --pico-card-sectioning-background-color: #1a1f28; */
+	/* --pico-dropdown-background-color: #181c25; */
+	/* --pico-dropdown-border-color: #202632; */
+	/* --pico-dropdown-box-shadow: var(--pico-box-shadow); */
+	/* --pico-dropdown-color: var(--pico-color); */
+	/* --pico-dropdown-hover-background-color: #202632; */
+	/* --pico-loading-spinner-opacity: 0.5; */
+	/* --pico-modal-overlay-background-color: rgba(8, 9, 10, 0.75); */
+	/* --pico-progress-background-color: #202632; */
+	/* --pico-progress-background-color: #E9E9ED; */
+	/* --pico-progress-color: var(--pico-primary-background); */
+	/* --pico-tooltip-background-color: var(--pico-contrast-background); */
+	/* --pico-tooltip-color: var(--pico-contrast-inverse); */
+	/* --pico-icon-valid: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='rgb(42, 123, 111)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E"); */
+	/* --pico-icon-invalid: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='rgb(150, 74, 80)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'%3E%3C/circle%3E%3Cline x1='12' y1='8' x2='12' y2='12'%3E%3C/line%3E%3Cline x1='12' y1='16' x2='12.01' y2='16'%3E%3C/line%3E%3C/svg%3E"); */
+	color-scheme: dark;
+}
+
+/* vectorcosm custom stuff */
+SECTION {
+	background: #0005;
+	backdrop-filter: blur(2px);
+	border-radius: calc(var(--pico-border-radius) * 2);
+	padding: var(--pico-spacing) var(--pico-spacing);
+	pointer-events: auto;
+	user-select: none;
+	max-width: 22rem;
+	color: var(--pico-color);
+	/* overflow:hidden; */
+}
+
+SECTION > *:first-child {
+	margin-top: 0;
+}
+
+SECTION > *:last-child {
+	margin-bottom: 0;
+}
+
+SECTION > HEADER:first-child {
+	font-weight: bold;
+	background-color: #0005;
+	margin-top: calc(-1 * var(--pico-spacing));
+	margin-left: calc(-1 * var(--pico-spacing));
+	margin-right: calc(-1 * var(--pico-spacing));
+	margin-bottom: var(--pico-spacing);
+	border-top-left-radius: calc(var(--pico-border-radius) * 2);
+	border-top-right-radius: calc(var(--pico-border-radius) * 2);
+	padding: calc(0.5 * var(--pico-spacing)) var(--pico-spacing);
+}
+SECTION > HEADER:last-child {
+	border-bottom-left-radius: calc(var(--pico-border-radius) * 2);
+	border-bottom-right-radius: calc(var(--pico-border-radius) * 2);
+}
+
+SECTION > FOOTER:last-child {
+	background-color: #0005;
+	margin-bottom: calc(-1 * var(--pico-spacing));
+	margin-left: calc(-1 * var(--pico-spacing));
+	margin-right: calc(-1 * var(--pico-spacing));
+	margin-top: var(--pico-spacing);
+	border-bottom-left-radius: calc(var(--pico-border-radius) * 2);
+	border-bottom-right-radius: calc(var(--pico-border-radius) * 2);
+	padding: calc(0.5 * var(--pico-spacing)) var(--pico-spacing);
+}
+
+SECTION > LABEL {
+	/* width: 4em; */
+	display: inline-block;
+	text-align: left;
+}
+
+SECTION NAV > UL {
+	align-items: stretch;
+	width: 100%;
+}
+SECTION NAV > UL > LI {
+	flex: 1;
+}
+SECTION NAV > UL > LI:last-child {
+	margin-right: 0;
+	padding-right: 0;
+}
+SECTION NAV > UL > LI > A,
+SECTION NAV > UL > LI > BUTTON {
+	width: 100%;
+}
+
+OUTPUT {
+	color: var(--pico-primary);
+	font-weight: bold;
+	display: inline;
+}
+
+P {
+	-webkit-margin-collapse: collapse;
+}
+
+SECTION > HEADER > :is(H1, H2, H3, H4, H5, H6) {
+	margin: 0;
+}
+
+SECTION:has(HEADER:last-child) {
+	padding-bottom: 0;
+}
+
+H1,
+H2,
+H3,
+H4,
+H5,
+H6 {
+	font-weight: 400;
+}
+
+INPUT[type="range"] {
+	margin-bottom: 0;
+}
+
+.marginless {
+	margin: 0;
+}
+.topless {
+	margin-top: 0;
+}
+.bottomless {
+	margin-bottom: 0;
+}
+.dim {
+	color: var(--pico-muted-color);
+}
+
+/* SECTION SECTION {
+background:none;
+backdrop-filter: none;
+}	 */
+
+SECTION .slider_block {
+	line-height: 0.3rem;
+}
+
+SECTION .slider_block LABEL {
+	width: 6.5rem;
+	display: inline-block;
+}
+SECTION .slider_block OUTPUT {
+	display: inline-block;
+	width: 3.5rem;
+	text-align: left;
+	padding-left: 0.35rem;
+}
+SECTION .slider_block INPUT {
+	width: 9rem;
+	margin-bottom: 0;
+	position: relative;
+	top: 0.35rem;
+}
+
+.button_rack {
+	width: 100%;
+	display:flex;
+	flex-wrap: wrap; 
+	align-items:stretch;
+	column-gap:0.25rem;
+	margin-top: var(--pico-spacing);
+}
+.button_rack BUTTON {
+	flex: 1 1 auto;
+	margin-bottom: 0.25rem; 
+}	

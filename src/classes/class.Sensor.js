@@ -300,16 +300,16 @@ export default class Sensor {
 		// also check tank edges
 		let lines = [];
 		if ( sx - this.r < 0 ) { // left 
-			lines.push([0,0,0,window.vc.tank.height]);
+			lines.push([0,0,0,globalThis.vc.tank.height]);
 		}
-		else if ( sx + this.r > window.vc.tank.width ) { // right
-			lines.push([window.vc.tank.width,0,window.vc.tank.width,window.vc.tank.height]);
+		else if ( sx + this.r > globalThis.vc.tank.width ) { // right
+			lines.push([globalThis.vc.tank.width,0,globalThis.vc.tank.width,globalThis.vc.tank.height]);
 		}
 		if ( sy - this.r < 0 ) { // top 
-			lines.push([0,0,window.vc.tank.width,0]);
+			lines.push([0,0,globalThis.vc.tank.width,0]);
 		}
-		else if ( sy + this.r > window.vc.tank.height ) { // bottom
-			lines.push([0,window.vc.tank.height,window.vc.tank.width,window.vc.tank.height]);
+		else if ( sy + this.r > globalThis.vc.tank.height ) { // bottom
+			lines.push([0,globalThis.vc.tank.height,globalThis.vc.tank.width,globalThis.vc.tank.height]);
 		}
 		if ( lines.length ) {
 			for ( let w of this.whiskers ) {
@@ -365,7 +365,7 @@ export default class Sensor {
 			// is self?
 			&& o !== this.owner
 			// simulation override?
-			&& !( o instanceof Boid && window.vc.simulation.settings?.ignore_other_boids===true )
+			&& !( o instanceof Boid && globalThis.vc.simulation.settings?.ignore_other_boids===true )
 			// on the ignore list?
 			&& !( this.owner.ignore_list && this.owner.ignore_list.has(o) )
 		};
@@ -528,11 +528,11 @@ export default class Sensor {
     senseDisplacement() {
         let val = 0;
         if (!this.owner.x && !this.owner.y) return [val];
-        if (this.next_update && this.next_update > window.vc.simulation.stats.round.time) {
+        if (this.next_update && this.next_update > globalThis.vc.simulation.stats.round_time) {
             val = this.last_val || 0;
             return [val];
         }
-        this.next_update = (this.next_update || window.vc.simulation.stats.round.time) + (this.interval || 1);
+        this.next_update = (this.next_update || globalThis.vc.simulation.stats.round_time) + (this.interval || 1);
         if (!this.history) this.history = [];
         this.history.push([this.owner.x, this.owner.y]);
         if (this.history.length > (this.intervals || 3)) this.history.shift();
@@ -602,12 +602,12 @@ export default class Sensor {
     }
 
     senseWorldX() {
-        let val = this.owner.x / window.vc.tank.width;
+        let val = this.owner.x / globalThis.vc.tank.width;
         return [val];
     }
 
     senseWorldY() {
-        let val = this.owner.y / window.vc.tank.height;
+        let val = this.owner.y / globalThis.vc.tank.height;
         return [val];
     }
 
@@ -634,7 +634,7 @@ export default class Sensor {
 
     senseFriends() {
         let val = 0;
-        if (window.vc.simulation.settings?.ignore_other_boids === true) return [val];
+        if (globalThis.vc.simulation.settings?.ignore_other_boids === true) return [val];
         let friends = this.owner.tank.grid.GetObjectsByCoords(this.owner.x, this.owner.y);
         if (friends) {
             friends = friends.filter(x => (x instanceof Boid) && x.species == this.owner.species);
@@ -646,7 +646,7 @@ export default class Sensor {
 
     senseEnemies() {
         let val = 0;
-        if (window.vc.simulation.settings?.ignore_other_boids === true) return [val];
+        if (globalThis.vc.simulation.settings?.ignore_other_boids === true) return [val];
         let friends = this.owner.tank.grid.GetObjectsByCoords(this.owner.x, this.owner.y);
         if (friends) {
             friends = friends.filter(x => (x instanceof Boid) && x.species != this.owner.species);
@@ -674,9 +674,9 @@ export default class Sensor {
         }
         const most_edge = Math.abs(Math.max(
             (sx < this.r ? (this.r - sx) : 0),
-            (sx > (window.vc.tank.width - this.r) ? (this.r - (window.vc.tank.width - sx)) : 0),
+            (sx > (globalThis.vc.tank.width - this.r) ? (this.r - (globalThis.vc.tank.width - sx)) : 0),
             (sy < this.r ? (this.r - sy) : 0),
-            (sy > (window.vc.tank.height - this.r) ? (this.r - (window.vc.tank.height - sy)) : 0)
+            (sy > (globalThis.vc.tank.height - this.r) ? (this.r - (globalThis.vc.tank.height - sy)) : 0)
         ) / (this.r * 2));
         val = Math.max(val, most_edge);
         val = utils.clamp(val, 0, 1);
@@ -688,35 +688,49 @@ export default class Sensor {
     }
 
  	CreateGeometry() {
-		let container = window.two.makeGroup();
+		let container = { type:'group', children:[] };
 		
 		// segmented vision
-		if ( this.segments) {
-			let geo = window.two.makeCircle(this.x, this.y, this.r);
-			geo.fill = 'transparent';
-			geo.linewidth = 1;
-			geo.stroke = this.color || '#AAEEAA77';
-			container.add(geo);
+		if ( this.segments ) {
+			// outer circle 
+			container.children.push({
+				type:'circle',
+				x: this.x, 
+				y: this.y, 
+				r: this.r,
+				fill: 'transparent',
+				linewidth: 1,
+				stroke: this.color || '#AAEEAA77'
+			});
 			// segment lines 
 			for ( let i=0; i<this.segdata.length; i++ ) {
 				const x2 = this.x + (this.r * Math.cos(Math.PI + this.segdata[i].left)); 
 				const y2 = this.y + (this.r * Math.sin(Math.PI + this.segdata[i].left));			
-				let line = window.two.makeLine(this.x, this.y, x2, y2);
-				line.fill = 'transparent';
-				if ( i > 0 ) { line.dashes = [2,8]; }
-				line.linewidth = 1;
-				line.stroke = this.color || '#AAEEAA77';
-				container.add(line);	
+				container.children.push({
+					type:'line',
+					x1: this.x, 
+					y1: this.y, 
+					x2, 
+					y2, 
+					fill: 'transparent',
+					stroke: this.color || '#AAEEAA77',
+					linewidth: 1,
+					dashes: ( i ? [2,8] : [] ),
+				});
 			}
 			// final line
 			const x2 = this.x + (this.r * Math.cos(Math.PI + this.segdata[this.segdata.length-1].right)); 
 			const y2 = this.y + (this.r * Math.sin(Math.PI + this.segdata[this.segdata.length-1].right));			
-			let line = window.two.makeLine(this.x, this.y, x2, y2);
-			line.fill = 'transparent';
-			// line.dashes = [2,8];
-			line.linewidth = 1;
-			line.stroke = this.color || '#AAEEAA77';
-			container.add(line);	
+			container.children.push({
+				type:'line',
+				x1: this.x, 
+				y1: this.y, 
+				x2, 
+				y2, 
+				fill: 'transparent',
+				stroke: this.color || '#AAEEAA77',
+				linewidth: 1,
+			});
 		}
 		
 		// whisker lines
@@ -728,21 +742,30 @@ export default class Sensor {
 				const sy = 0;
 				const ax2 = sx + (whisker_length * Math.cos(whisker_angle)); 
 				const ay2 = sy + (whisker_length * Math.sin(whisker_angle));
-				let line = window.two.makeLine(sx, sy, ax2, ay2);
-				line.fill = 'transparent';
-				line.linewidth = 2;
-				line.stroke = this.color || '#AAEEAA77';
-				container.add(line);
+				container.children.push({
+					type:'line',
+					x1: sx, 
+					y1: sy, 
+					x2: ax2, 
+					y2: ay2, 
+					fill: 'transparent',
+					stroke: this.color || '#AAEEAA77',
+					linewidth: 2,
+				});
 			}
 		}
 		
 		// basic circle
 		else {
-			let geo = window.two.makeCircle(this.x, this.y, this.r);
-			geo.fill = 'transparent';
-			geo.linewidth = 1;
-			geo.stroke = this.color || '#AAEEAA77';
-			container.add(geo);
+			container.children.push({
+				type:'circle',
+				x: this.x, 
+				y: this.y, 
+				r: this.r,
+				fill: 'transparent',
+				linewidth: 1,
+				stroke: this.color || '#AAEEAA77'
+			});
 		}
 						
 		return container;

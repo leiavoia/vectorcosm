@@ -28,12 +28,12 @@
 	function AddSelectedRowsToTank() {
 		rows.filter( _ => _.selected ).forEach( row => {
 			for ( let json of row.specimens ) {
-				let b = new Boid( 0, 0, window.vc.tank, JSON.parse(json) );
+				let b = new Boid( 0, 0, globalThis.vc.tank, JSON.parse(json) );
 				b.angle = Math.random() * Math.PI * 2;	
-				b.x = window.vc.tank.width*Math.random(), 
-				b.y = window.vc.tank.height*Math.random();	
+				b.x = globalThis.vc.tank.width*Math.random(), 
+				b.y = globalThis.vc.tank.height*Math.random();	
 				b.ScaleBoidByMass();
-				window.vc.tank.boids.push(b);							
+				globalThis.vc.tank.boids.push(b);							
 			}
 		});
 	}

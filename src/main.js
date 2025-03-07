@@ -1,5 +1,10 @@
-import { createApp } from 'vue'
-import App from './App.vue'
+import { mount } from 'svelte'
+import "@picocss/pico";
+import "./global.css";
+import App from './App.svelte';
 
-window.app = createApp(App);
-window.app.mount('#app');
+const app = mount(App, {
+  target: document.getElementById('app'),
+})
+
+export default app

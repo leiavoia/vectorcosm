@@ -24,6 +24,7 @@ export default class Rock {
 	// force_corners = BOOL default true
 	// new_points_respect_hull = BOOL default true. if false, new points can be outside hull
 	constructor( params ) {
+		this.oid = ++globalThis.vc.next_object_id;
 		this.sense = new Array(16).fill(0);
 		this.sense[0] = 0.2; // dull grey appearance
 		this.sense[1] = 0.2;
@@ -40,9 +41,9 @@ export default class Rock {
 			}, params);
 		}
 		// drawing geometry
-		this.geo = window.two.makeGroup();
-		this.geo.position.x = params.x;
-		this.geo.position.y = params.y;
+		// this.geo = globalThis.two.makeGroup();
+		// this.geo.position.x = params.x;
+		// this.geo.position.y = params.y;
 		// create the rock from scratch if this is not from a saved object
 		if ( !this.collision ) {
 			// position in space
@@ -98,9 +99,9 @@ export default class Rock {
 			// reel in points out of bounds
 			for ( let p of this.pts )  {
 				if ( p[0] + this.x < 0 ) { p[0] = -this.x; }
-				else if ( p[0] + this.x > window.vc.tank.width ) { p[0] = window.vc.tank.width - this.x; }
+				else if ( p[0] + this.x > globalThis.vc.tank.width ) { p[0] = globalThis.vc.tank.width - this.x; }
 				if ( p[1] + this.x < 0 ) { p[1] = -this.x; }
-				else if ( p[1] + this.y > window.vc.tank.height ) { p[1] = window.vc.tank.height - this.y; }
+				else if ( p[1] + this.y > globalThis.vc.tank.height ) { p[1] = globalThis.vc.tank.height - this.y; }
 			}
 			// recalculate bounds in case adjustments were made
 			this.x1 = 0;
@@ -179,13 +180,13 @@ export default class Rock {
 			}
 		}
 
-		this.UpdateGeometry();
+		// this.UpdateGeometry();
 				
 		// do this last or the scaling gets confused
-		window.vc.AddShapeToRenderLayer(this.geo,'0'); 
+		// globalThis.vc.AddShapeToRenderLayer(this.geo,'0'); 
 	}
 	Kill() {
-		this.geo.remove();
+		// this.geo.remove();
 		this.dead = true;
 	}
 	PointInHull( x, y, hull ) {
@@ -201,35 +202,41 @@ export default class Rock {
 		if ( as_JSON ) { output = JSON.stringify(output); }
 		return output;
 	}
+	GeoData() {
+		return {
+			triangles: this.triangles,
+			hull: this.collision.hull
+		}
+	}
 	// for use with switching visual styles	
 	UpdateGeometry() {
-		// out with the old
-		if ( this.geo ) { this.geo.remove( this.geo.children ); }
+		// // out with the old
+		// if ( this.geo ) { this.geo.remove( this.geo.children ); }
 		
-		// Natural style - triangles
-		if ( window.vc.render_style == 'Natural' ) {
-			for ( let t of this.triangles ) {
-				let p = window.two.makePath( ...t.slice(null, -1) );
-				p.linewidth = 1;
-				p.fill = t[6];
-				p.stroke = t[6];
-				this.geo.add(p);
-			}
-		}	
+		// // Natural style - triangles
+		// if ( globalThis.vc.render_style == 'Natural' ) {
+		// 	for ( let t of this.triangles ) {
+		// 		let p = globalThis.two.makePath( ...t.slice(null, -1) );
+		// 		p.linewidth = 1;
+		// 		p.fill = t[6];
+		// 		p.stroke = t[6];
+		// 		this.geo.add(p);
+		// 	}
+		// }	
 		
-		// representational vector styles - only renders hull outline
-		else {
-			let anchors = this.collision.hull.map( p => new Two.Anchor( p[0], p[1] ) );
-			let outline = window.two.makePath(anchors);
-			outline.linewidth = 4;
-			outline.fill = 'transparent';
-			outline.stroke = '#AAA';
-			outline.visible = true;
-			if ( window.vc.render_style == 'Grey' ) { 
-				outline.stroke = 'transparent'; 
-				outline.fill='#222';
-			}
-			this.geo.add( outline );
-		}
+		// // representational vector styles - only renders hull outline
+		// else {
+		// 	let anchors = this.collision.hull.map( p => new Two.Anchor( p[0], p[1] ) );
+		// 	let outline = globalThis.two.makePath(anchors);
+		// 	outline.linewidth = 4;
+		// 	outline.fill = 'transparent';
+		// 	outline.stroke = '#AAA';
+		// 	outline.visible = true;
+		// 	if ( globalThis.vc.render_style == 'Grey' ) { 
+		// 		outline.stroke = 'transparent'; 
+		// 		outline.fill='#222';
+		// 	}
+		// 	this.geo.add( outline );
+		// }
 	}
 }

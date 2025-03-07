@@ -1,159 +1,23 @@
 <!doctype html>
 <html lang="en">
+
 <head>
-	<title>Vectorcosm</title>
-	<style>
-		body {
-			margin: 0;
-			padding: 0;
-			font-family: "Lato";
-			font-weight: 300;
-			overflow: hidden;
-			background-color: #000;
-			background-attachment: fixed;
-			background-size: cover
-		}
-			
-		/* abysmal / ultra dark blue */
-		body.bg-theme-abysmal {
-			background:#000411;
-		}
-			
-		/* solid black */
-		body.bg-theme-black {
-			background:#000;
-		}
-			
-		/* solid white */
-		body.bg-theme-white {
-			background:#FFF;
-		}
-			
-		/* solid grey */
-		body.bg-theme-grey {
-			background:#444;
-		}
-			
-		/* deepwater */
-		body.bg-theme-deepwater {
-			background-image: linear-gradient( to top, #000 0%, #000 50%, #048 80%, #06A 100% );
-		}
-			
-		/* aquamarine */
-		body.bg-theme-aquamarine {
-			background-image: linear-gradient( to top, #001B1E 0%, #053A3E 50%, #147A86 80%, #3DA3AF 100% );
-		}
-			
-		/* nightmare */
-		body.bg-theme-nightmare {
-			background-image: linear-gradient( to top, #1B1330 0%, #29214A 50%, #363C6F 80%, #3D365E 100% );
-		}
-			
-		/* tropical */
-		body.bg-theme-tropical {
-			background-image: radial-gradient( ellipse 100% 100% at 100% 0%, #471F10, #391F2A, #0F3938, #0a242a); 
-		}
-			
-		/* hope */
-		body.bg-theme-hope {
-			background-image: linear-gradient( 315deg, #000000 0%, #5e5368 74% );
-		}
-			
-		/* leather */
-		body.bg-theme-leather {
-			background-image: linear-gradient(315deg, #1A0804 0%, #322007 74%);
-		}
-			
-		/* algae bloom */
-		body.bg-theme-algae {
-			background-image: linear-gradient( to top, #000 0%, #000000 30%, #1B312B 70%, #2A463A 100% ) ;
-		}
-			
-		/* bleak */
-		body.bg-theme-bleak {
-			background-image: linear-gradient( to bottom, #1F313F 0%, #000 75%, #000 100% );
-		}
-		
-		/* rain storm */
-		body.bg-theme-rainstorm {
-			background-image:
-				linear-gradient( to bottom, 
-					#0B162299 0%, 
-					#000 75%, 
-					#000 100% 
-				),
-				repeating-linear-gradient(to right, 
-					rgba(31,49,63,1) 0%, 
-					rgba(66,97,121,1) 21%, 
-					rgba(66,97,121,1) 24%, 
-					rgba(22,41,55,1) 47%, 
-					rgba(22,41,55,1) 53%, 
-					rgba(66,97,121,1) 81%, 
-					rgba(66,97,121,1) 84%, 
-					rgba(31,49,63,1) 100%
-				)
-			;
-		}	
-			
-		/* reactor */
-		body.bg-theme-reactor {
-			background-image:
-				radial-gradient( ellipse 100% 70% at 50% 100% , 
-					#081D68 0%, 
-					#000 90%, 
-					#000 100% 
-				)
-			;
-		}
-				
-		/* hades */
-		body.bg-theme-hades {
-			background-image:
-				radial-gradient( ellipse 100% 70% at 50% 100% , 
-					#300101 0%, 
-					#000 90%, 
-					#000 100% 
-				)
-			;
-		}
-				
-		/* thermal vent */
-		body.bg-theme-thermal-vent {
-			background-image:
-				radial-gradient( ellipse 100% 100% at 50% 100% , 
-					#251E0D 0%, 
-					#000 90%, 
-					#000 100% 
-				)
-			;
-		}	
-			
-		/* moonlit asteroid - https://uigradients.com/#MoonlitAsteroid */
-		body.bg-theme-asteroid {
-			background-image: radial-gradient( ellipse 100% 100% at 100% 0%, #2c5364, #203a43, #0f2027); 
-		}
-		
-		/* thermal vent */
-		body.bg-theme-blue-eye {
-			background: #254975 radial-gradient(at center, #254975, #0D0320);
-		}
-					
-	</style>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<link rel="canonical" href="https://leiavoia.net/vectorcosm/" />
 	<meta name="description" content="AI Aquarium for Digital Lifeforms" />
 	<meta name="keywords" content="AI,fish,aquarium,vector,SVG,el-fish" />
 	<meta name="author" content="leiavoia" />
-	<meta charset="UTF-8" />
-	<meta name="viewport" content="width=device-width, initial-scale=1" />
-	<!-- <link rel="icon" type="image/x-icon" href="img/favicon.ico" sizes="16x16" /> -->
 	<link rel="icon" type="image/x-icon" href="img/favicon.png" sizes="16x16" />
-	<meta charset="UTF-8">
+	<title>Vectorcosm</title>
+	<style>
+		HTML, BODY { background: #000; }
+	</style>	
 </head>
 
-
-<body id="body" class="bg-theme-deepwater">
-    <div id="app"> </div>
-    <script type="module" src="/src/main.js"></script>
+<body>
+	<div id="app"></div>
+	<script type="module" src="/src/main.js"></script>
 </body>
 
 </html>

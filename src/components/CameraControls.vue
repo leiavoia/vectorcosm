@@ -5,76 +5,76 @@
 	// let props = defineProps(['vc']);
 	
 	let vars = reactive({
-		animate_boids: window.vc.animate_boids,
-		animate_plants: window.vc.animate_plants,
-		show_collision_detection: window.vc.show_collision_detection,
-		responsive_tank_size: window.vc.responsive_tank_size,
-		allow_hyperzoom: window.vc.allow_hyperzoom,
-		transitions: window.vc.camera.transitions,
-		parallax: window.vc.camera.parallax,
-		show_boid_indicator_on_focus: window.vc.camera.show_boid_indicator_on_focus,
-		show_boid_info_on_focus: window.vc.camera.show_boid_info_on_focus,
-		show_boid_sensors_on_focus: window.vc.camera.show_boid_sensors_on_focus,
-		show_boid_collision_on_focus: window.vc.camera.show_boid_collision_on_focus,
-		transition_time: window.vc.camera.transition_time,
-		focus_time: window.vc.camera.focus_time,
-		show_markers: window.vc.show_markers,
+		animate_boids: globalThis.vc.animate_boids,
+		animate_plants: globalThis.vc.animate_plants,
+		show_collision_detection: globalThis.vc.show_collision_detection,
+		responsive_tank_size: globalThis.vc.responsive_tank_size,
+		allow_hyperzoom: globalThis.vc.allow_hyperzoom,
+		transitions: globalThis.vc.camera.transitions,
+		parallax: globalThis.vc.camera.parallax,
+		show_boid_indicator_on_focus: globalThis.vc.camera.show_boid_indicator_on_focus,
+		show_boid_info_on_focus: globalThis.vc.camera.show_boid_info_on_focus,
+		show_boid_sensors_on_focus: globalThis.vc.camera.show_boid_sensors_on_focus,
+		show_boid_collision_on_focus: globalThis.vc.camera.show_boid_collision_on_focus,
+		transition_time: globalThis.vc.camera.transition_time,
+		focus_time: globalThis.vc.camera.focus_time,
+		show_markers: globalThis.vc.show_markers,
 		// easing: TWEEN.Easing.Sinusoidal.InOut, // SEE: https://github.com/tweenjs/tween.js/blob/main/docs/user_guide.md
 	});
 	
 	watch(vars, _vars => {
-		window.vc.animate_boids = vars.animate_boids;
-		window.vc.animate_plants = vars.animate_plants;
-		window.vc.show_collision_detection = vars.show_collision_detection;
-		window.vc.responsive_tank_size = vars.responsive_tank_size;
-		window.vc.allow_hyperzoom = vars.allow_hyperzoom;
-		window.vc.camera.cinema_mode = vars.cinema_mode;
-		window.vc.camera.transitions = vars.transitions;
-		window.vc.camera.parallax = vars.parallax;
-		window.vc.camera.show_boid_indicator_on_focus = vars.show_boid_indicator_on_focus;
-		window.vc.camera.show_boid_info_on_focus = vars.show_boid_info_on_focus;
-		window.vc.camera.show_boid_sensors_on_focus = vars.show_boid_sensors_on_focus;
-		window.vc.camera.show_boid_collision_on_focus = vars.show_boid_collision_on_focus;
-		window.vc.camera.transition_time = vars.transition_time;
-		window.vc.camera.focus_time = vars.focus_time;
-		// window.vc.SaveSettings();
+		globalThis.vc.animate_boids = vars.animate_boids;
+		globalThis.vc.animate_plants = vars.animate_plants;
+		globalThis.vc.show_collision_detection = vars.show_collision_detection;
+		globalThis.vc.responsive_tank_size = vars.responsive_tank_size;
+		globalThis.vc.allow_hyperzoom = vars.allow_hyperzoom;
+		globalThis.vc.camera.cinema_mode = vars.cinema_mode;
+		globalThis.vc.camera.transitions = vars.transitions;
+		globalThis.vc.camera.parallax = vars.parallax;
+		globalThis.vc.camera.show_boid_indicator_on_focus = vars.show_boid_indicator_on_focus;
+		globalThis.vc.camera.show_boid_info_on_focus = vars.show_boid_info_on_focus;
+		globalThis.vc.camera.show_boid_sensors_on_focus = vars.show_boid_sensors_on_focus;
+		globalThis.vc.camera.show_boid_collision_on_focus = vars.show_boid_collision_on_focus;
+		globalThis.vc.camera.transition_time = vars.transition_time;
+		globalThis.vc.camera.focus_time = vars.focus_time;
+		// globalThis.vc.SaveSettings();
 	});
 			
 	function MoveCameraOut() {
-		const diff = Math.abs( window.vc.scale - (window.vc.scale * (1/(1 + 0.25))) );
-		window.vc.MoveCamera( 0, 0, -diff );
+		const diff = Math.abs( globalThis.vc.scale - (globalThis.vc.scale * (1/(1 + 0.25))) );
+		globalThis.vc.MoveCamera( 0, 0, -diff );
 	}
 	function MoveCameraIn() {
-		const diff = Math.abs( window.vc.scale - (window.vc.scale * ((1 + 0.25)/1)) );
-		window.vc.MoveCamera( 0, 0, diff );
+		const diff = Math.abs( globalThis.vc.scale - (globalThis.vc.scale * ((1 + 0.25)/1)) );
+		globalThis.vc.MoveCamera( 0, 0, diff );
 	}
 	function ResetCamera() {
-		window.vc.ResetCameraZoom();
+		globalThis.vc.ResetCameraZoom();
 	}
 	function MoveCameraLeft() {
-		window.vc.MoveCamera( -100, 0 );
+		globalThis.vc.MoveCamera( -100, 0 );
 	}
 	function MoveCameraRight() {
-		window.vc.MoveCamera( 100, 0 );
+		globalThis.vc.MoveCamera( 100, 0 );
 	}
 	function MoveCameraUp() {
-		window.vc.MoveCamera( 0, -100 );
+		globalThis.vc.MoveCamera( 0, -100 );
 	}
 	function MoveCameraDown() {
-		window.vc.MoveCamera( 0, 100 );
+		globalThis.vc.MoveCamera( 0, 100 );
 	}
 	function CinemaMode() {
 		vars.cinema_mode = !vars.cinema_mode;
-		window.vc.CinemaMode( vars.cinema_mode );
+		globalThis.vc.CinemaMode( vars.cinema_mode );
 	}
 	function ToggleHyperzoom() {
 		vars.allow_hyperzoom = !vars.allow_hyperzoom;
-		window.vc.allow_hyperzoom = vars.allow_hyperzoom;
-		window.vc.MoveCamera(0,0,0); // triggers update
+		globalThis.vc.allow_hyperzoom = vars.allow_hyperzoom;
+		globalThis.vc.MoveCamera(0,0,0); // triggers update
 	}
 	function ToggleShowMarkers() {
-		window.vc.ToggleShowMarkers();
-		vars.show_markers = window.vc.show_markers;
+		globalThis.vc.ToggleShowMarkers();
+		vars.show_markers = globalThis.vc.show_markers;
 	}
 						
 </script>

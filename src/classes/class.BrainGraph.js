@@ -11,7 +11,7 @@ export default class BrainGraph {
 		this.conns_geo = null;
 		this.nodes_geo = null;
 		this.window_resize_cb = event => this.onScreenSizeChange();
-		// window.vc.AddShapeToRenderLayer(this.geo,'ui'); // UI layer
+		// globalThis.vc.AddShapeToRenderLayer(this.geo,'ui'); // UI layer
 		// window.addEventListener("resize", this.window_resize_cb );
 	}
 	Kill() {

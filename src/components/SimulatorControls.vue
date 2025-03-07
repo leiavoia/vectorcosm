@@ -25,7 +25,7 @@
 		
 	function copyPropsFromSim() {
 		// settings
-		vars.scale = window.vc.scale;
+		vars.scale = globalThis.vc.scale;
 		vars.current = props.sim.settings?.current || 0;
 		vars.max_mutation = props.sim.settings.max_mutation;
 		vars.num_boids = props.sim.settings.num_boids;
@@ -58,16 +58,16 @@
 		vars.round.best_score = props.sim.stats.round.best_score;
 		vars.round.avg_score = props.sim.stats.round.avg_score;
 		vars.round.time = props.sim.stats.round.time;
-		vars.fps = window.vc.fps;
+		vars.fps = globalThis.vc.fps;
 		vars.name = props.sim.settings.name;
-		vars.xmin = window.vc.camera.xmin;
-		vars.ymin = window.vc.camera.ymin;
-		vars.xmax = window.vc.camera.xmax;
-		vars.ymax = window.vc.camera.ymax;
-		vars.camx = window.vc.camera.x;
-		vars.camy = window.vc.camera.y;
-		vars.camz = window.vc.camera.z;
-		vars.cinema_mode = window.vc.camera.cinema_mode;
+		vars.xmin = globalThis.vc.camera.xmin;
+		vars.ymin = globalThis.vc.camera.ymin;
+		vars.xmax = globalThis.vc.camera.xmax;
+		vars.ymax = globalThis.vc.camera.ymax;
+		vars.camx = globalThis.vc.camera.x;
+		vars.camy = globalThis.vc.camera.y;
+		vars.camz = globalThis.vc.camera.z;
+		vars.cinema_mode = globalThis.vc.camera.cinema_mode;
 	}
 	
 	vars = reactive(vars);
@@ -113,9 +113,9 @@
 	}
 
 	function updateScale() {
-		window.vc.SetViewScale(vars.scale);
-		window.vc.ResizeTankToWindow(true); // force
-		window.vc.ResetCameraZoom();
+		globalThis.vc.SetViewScale(vars.scale);
+		globalThis.vc.ResizeTankToWindow(true); // force
+		globalThis.vc.ResetCameraZoom();
 	}
 	
 	const loadCallbacksOnSim = () => {
@@ -198,43 +198,43 @@
 	}
 			
 	function ToggleSimulatorFF() {
-		window.vc.ToggleSimulatorFF();
+		globalThis.vc.ToggleSimulatorFF();
 	}
 	function TogglePause() {
-		window.vc.TogglePause();
+		globalThis.vc.TogglePause();
 	}
 	
 	function ToggleShowSensors() {
-		window.vc.ToggleShowSensors();
+		globalThis.vc.ToggleShowSensors();
 	}
 	
 	function ToggleShowBrainmap() {
-		window.vc.ToggleShowBrainmap();
+		globalThis.vc.ToggleShowBrainmap();
 	}
 	
 	function SavePopulation() {
-		window.vc.SavePopulation();
+		globalThis.vc.SavePopulation();
 	}
 	
 	function LoadPopulation() {
-		window.vc.LoadPopulation();
+		globalThis.vc.LoadPopulation();
 	}
 	
 	function RandomTank() {
 		// this is really overreaching and we should make something cleaner
-		const w = window.vc.tank.width;
-		const h = window.vc.tank.height;
-		const boids = window.vc.tank.boids.splice(0,window.vc.tank.boids.length);
-		window.vc.tank.Kill();
-		window.vc.tank = new Tank( w, h );
-		window.vc.tank.boids = boids;
-		window.vc.tank.boids.forEach( b => b.tank = window.vc.tank );
-		props.sim.tank = window.vc.tank;
-		window.vc.tank.MakeBackground();
-		const tm = new TankMaker( window.vc.tank, {} );
+		const w = globalThis.vc.tank.width;
+		const h = globalThis.vc.tank.height;
+		const boids = globalThis.vc.tank.boids.splice(0,globalThis.vc.tank.boids.length);
+		globalThis.vc.tank.Kill();
+		globalThis.vc.tank = new Tank( w, h );
+		globalThis.vc.tank.boids = boids;
+		globalThis.vc.tank.boids.forEach( b => b.tank = globalThis.vc.tank );
+		props.sim.tank = globalThis.vc.tank;
+		globalThis.vc.tank.MakeBackground();
+		const tm = new TankMaker( globalThis.vc.tank, {} );
 		tm.Make();
-		window.vc.SetRenderStyle( window.vc.render_style );
-		window.vc.ResetCameraZoom();
+		globalThis.vc.SetRenderStyle( globalThis.vc.render_style );
+		globalThis.vc.ResetCameraZoom();
 	}
 				
 </script>
