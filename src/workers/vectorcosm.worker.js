@@ -32,6 +32,7 @@ function_registry.set( 'update', params => {
 	
 	let delta = params.delta || 1/30;
 	let num_frames = params?.num_frames || 1;
+	let inc_boid_animation_data = params?.inc_boid_animation_data ?? false;
 	for ( let i=0; i < num_frames; i++ ) {
 		globalThis.vc.update(delta);
 	}
@@ -41,15 +42,37 @@ function_registry.set( 'update', params => {
 		type: 'tank',
 		geodata: AutoIncludeGeoData(globalThis.vc.tank)
 	});
-	renderObjects.push( ... globalThis.vc.tank.boids.map( o => ({
-		oid: o.oid,
-		type:'boid',
-		x: o.x,
-		y: o.y,
-		a: o.angle,
-		s: o.scale,
-		geodata: AutoIncludeGeoData(o)
-	}) ));
+	renderObjects.push( ... globalThis.vc.tank.boids.map( o => {
+		let return_obj = {
+			oid: o.oid,
+			type:'boid',
+			x: o.x,
+			y: o.y,
+			a: o.angle,
+			s: o.scale,
+			geodata: AutoIncludeGeoData(o)
+		};
+		if ( inc_boid_animation_data ) {
+			return_obj.anim = {
+				motor_fx: o.motors.map( m => {
+					// effect based on stroke power
+					const effect1 = ( m.this_stoke_time && m.last_amount ) ? (m.this_stoke_time ? m.last_amount : 0) : 0;
+					// effect based on stroke time (smoother but less accurate)
+					const effect2 = m.this_stoke_time ? (Math.sin(((m.t||0)/m.this_stoke_time) * Math.PI)) : 0;
+					// blended result
+					return (effect1 + effect2) / 2;
+				} ),
+				is_larva: ( o.age < o.larval_age && !globalThis.vc.simulation.settings?.ignore_lifecycle ),
+				larva_pct: ( ( o.larval_age - o.age ) / o.larval_age )
+			};
+			// almost dead?
+			if ( (o.metab.energy / o.metab.max_energy ) < 0.01 && !globalThis.vc.simulation.settings?.ignore_lifecycle ) {
+				let pct = o.metab.energy / ( o.metab.max_energy * 0.01 );
+				return_obj.anim.opacity = pct;
+			}
+		}
+		return return_obj;
+	}));
 	renderObjects.push( ... globalThis.vc.tank.plants.map( o => ({
 		oid: o.oid,
 		type:'plant',

@@ -34,6 +34,7 @@ export default class Camera {
 		this.show_boid_sensors_on_focus = true;
 		this.show_boid_info_on_focus = true;
 		this.center_camera_on_focus = true;
+		this.animate_boids = true;
 		this.dramatic_entrance = false; // might merge this with `transitions`
 		this.animation_min = 0.4 // zoom level beyond which we stop animating
 		// innards:

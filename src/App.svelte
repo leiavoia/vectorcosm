@@ -54,7 +54,8 @@
 		const data = {
 			f:'update',
 			num_frames: gameloop.updates_per_frame, // variable turbo
-			delta: ( gameloop.updates_per_frame > 1 ? gameloop.max_delta : delta )
+			delta: ( gameloop.updates_per_frame > 1 ? gameloop.max_delta : delta ),
+			inc_boid_animation_data: (camera && camera.animate_boids) ? true : false,
 		};
 		worker.postMessage( data );
 		// update or cancel object tracking
@@ -236,6 +237,14 @@
 				if ( !found.has(obj) ) {
 					if ( 'geo' in obj ) { obj.geo.remove(); }
 					renderObjects.delete(oid);
+				}
+			}
+			// animate objects
+			if ( camera && camera.animate_boids ) {
+				for ( let o of renderObjects.values() ) {
+					if ( o.type == 'boid' && o.geo ) {
+						AnimateBoid(o);
+					}
 				}
 			}
 		}
@@ -588,6 +597,101 @@
 		for ( let k in params ) {
 			simSettings[k] = params[k];
 		}		
+	}
+	
+	function AnimateBoid(b) {
+		if ( !b.geo || !b.anim ) { return; }
+		
+		// [!]EXPERIMENTAL - Animate geometry - proof of concept
+		// There is just enough here to be amusing, but its not accurate and needs improvement
+		if ( camera.animate_boids && gameloop.updates_per_frame <= 1 ) {
+		
+			const radius = 80; // good enough
+			
+			const do_animation = ( camera.z >= camera.animation_min )
+				&& ( b.x - radius < camera.xmax )
+				&& ( b.x + radius > camera.xmin )
+				&& ( b.y - radius < camera.ymax )
+				&& ( b.y + radius > camera.ymin );
+				// you might also consider switching to pixel pitch method
+				// && ( radius >= ( camera.xmax - camera.xmin ) / 100 )				
+				
+			// dynamic animation - don't animate unless we're on screen and close enough to see
+			if ( do_animation ) {
+				
+				// setup - record original position
+				if ( !b.geo.vertices[0].origin ) {
+					for ( let i=0; i < b.geo.vertices.length; i++ ) {
+						let v = b.geo.vertices[i];
+						v.origin = new Two.Vector().copy(v); 
+						v.a = Math.atan2( v.y, v.x ); // note y normally goes first
+					}
+				}
+				if ( !b.anim.bounds ) {
+					b.anim.bounds = b.geo.getBoundingClientRect(true);
+				}
+				
+				// if we are a "larva", unfold from a sphere
+				if ( b.anim.is_larva ) {
+					// setup: sort vertices in radial order and assign starting positions
+					if ( !( 'xp' in b.geo.vertices[0] ) ) {
+						// the nose point is always at zero degrees
+						for ( let i=0; i < b.geo.vertices.length; i++ ) {
+							b.geo.vertices[i].a = i * ( ( 2*Math.PI ) / b.geo.vertices.length );
+							b.geo.vertices[i].xp = Math.cos(b.geo.vertices[i].a) * Math.min(b.anim.bounds.width, b.anim.bounds.height) * 0.5;
+							b.geo.vertices[i].yp = Math.sin(b.geo.vertices[i].a) * Math.min(b.anim.bounds.width, b.anim.bounds.height) * 0.5;
+						}
+					}
+					// blend larval position and adult position
+					const effect = 1 - b.anim.larva_pct;
+					for ( let i=0; i<b.geo.vertices.length; i++ ) {
+						let v = b.geo.vertices[i];
+						v.x = v.xp + ( v.origin.x - v.xp ) * effect;
+						v.y = v.yp + ( v.origin.y - v.yp ) * effect;
+					}				
+				}
+				
+				// normal adult animation cycle
+				else {
+					for ( let m=0; m < b.anim.motor_fx.length; m++ ) {
+						if ( m >= b.geo.vertices.length ) { break; }
+						const effect = b.anim.motor_fx[m];
+						const effect2 = effect;
+						// other fun options:
+						// const effect2 = Math.max( 0, Math.log(effect)+1 );
+						// const effect2 = 0.5 * Math.sin( 1.5 * Math.PI + 2 * Math.PI * effect ) + 0.5;
+						let v = b.geo.vertices[m];
+						if ( !( 'xoff' in v ) ) { 
+							v.x = v.origin.x
+							v.y = v.origin.y
+							v.xoff = (0.1 + Math.random()) * 0.25 * b.anim.bounds.width * (Math.random() > 0.5 ? 1 : -1 );
+							v.yoff = (0.1 + Math.random()) * 0.25 * b.anim.bounds.height * (Math.random() > 0.5 ? 1 : -1 );
+							delete v.xp; delete v.xy; // larval stuff
+						}
+						v.x = v.origin.x + v.xoff * effect;
+						// do opposing vertex
+						const oppo_index = m==0 ? 0 : (b.geo.vertices.length - m);
+						if ( oppo_index !== m ) { 
+							v.y = v.origin.y + v.yoff * effect2;
+							const v2 = b.geo.vertices[oppo_index]; 
+							if ( !( 'xoff' in v2 ) ) { 
+								v2.x = v2.origin.x
+								v2.y = v2.origin.y
+								v2.xoff = v.xoff;
+								v2.yoff = -v.yoff;
+							}
+							v2.x = v2.origin.x + v2.xoff * effect;
+							v2.y = v2.origin.y + v2.yoff * effect2;
+						}
+					}
+				}
+				
+				// opacity
+				if ( 'opacity' in b.anim ) { b.geo.opacity = b.anim.opacity; }
+				else if ( b.geo.opacity < 1 ) { b.geo.opacity = 1; }
+				
+			}
+		}	
 	}
 	
 	UpdateIdleTime(); // start immediately
