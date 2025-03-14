@@ -1,4 +1,6 @@
 <script>
+	import * as SVGUtils from '../util/svg.js'
+	
 	let {camera} = $props();
 	
 	let layers = $state([
@@ -136,31 +138,6 @@
 		<button onclick={CinemaMode} class={{outline:!cinema_mode_active}}>⏩&#xFE0E;</button>
 	</div>
 </section>
-
-<section>
-	<header>
-		<h3>Layers</h3>
-	</header>	
-	
-	<div class="slider_block">
-		<label for="bg_opacity_input">BG Opacity:</label>
-		<input id="bg_opacity_input" type="range" min="0" max="1" step="0.01" bind:value={layers[0].opacity} />
-		<output>{(layers[0].opacity*100).toFixed(0)}%</output>
-	</div>
-	
-	<div class="slider_block">
-		<label for="rock_opacity_input">Rock Opacity:</label>
-		<input id="rock_opacity_input" type="range" min="0" max="1" step="0.01" bind:value={layers[4].opacity} />
-		<output>{(layers[4].opacity*100).toFixed(0)}%</output>
-	</div>
-	
-	<div class="button_rack options">
-	{#each layers as layer}
-		<button onclick={()=>toggleLayer(layer)} class={{outline:!layer.visible}}>{layer.label}</button>
-	{/each}
-	</div>
-		
-</section>
 	
 <section>
 	<header>
@@ -186,3 +163,32 @@
 	</div>
 			
 </section>	
+
+<section>
+	<header>
+		<h3>Layers</h3>
+	</header>	
+	
+	<div class="slider_block">
+		<label for="bg_opacity_input">BG Opacity:</label>
+		<input id="bg_opacity_input" type="range" min="0" max="1" step="0.01" bind:value={layers[0].opacity} />
+		<output>{(layers[0].opacity*100).toFixed(0)}%</output>
+	</div>
+	
+	<div class="slider_block">
+		<label for="rock_opacity_input">Rock Opacity:</label>
+		<input id="rock_opacity_input" type="range" min="0" max="1" step="0.01" bind:value={layers[4].opacity} />
+		<output>{(layers[4].opacity*100).toFixed(0)}%</output>
+	</div>
+	
+	<div class="button_rack options">
+	{#each layers as layer}
+		<button onclick={()=>toggleLayer(layer)} class={{outline:!layer.visible}}>{layer.label}</button>
+	{/each}
+	</div>
+	
+	<div class="button_rack">
+		<button onclick={SVGUtils.ExportSceneToSVG}>Export Scene To SVG</button>
+	</div>
+		
+</section>

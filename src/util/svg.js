@@ -112,3 +112,29 @@ export function RehydrateColor( c ) {
 		return grad;			
 	}
 }
+
+export function ExportSceneToSVG() {
+	if (globalThis.two.renderer.domElement) {
+		// extract the background gradient - this is quite tricky and dont currently have a solution.
+		// const backgroundElement = document.querySelector('#vectorcosm_drawing_container');
+		// const computedStyle = getComputedStyle(backgroundElement);
+		// const backgroundGradient = computedStyle.background-image || 'black';
+		const backgroundGradient = 'black';
+		// assemble the SVG
+		let str = `<svg version="1.1" width="${globalThis.two.width}" height="${globalThis.two.height}" xmlns="http://www.w3.org/2000/svg">`;
+		str += `<defs><style><![CDATA[ .background { fill: ${backgroundGradient}; } ]]></style></defs>`;
+		str += '<rect class="background" width="100%" height="100%"></rect>';
+		str += globalThis.two.renderer.domElement.innerHTML;
+		str += '</svg>';
+		var blob = new Blob([str], { type: "image/svg+xml;charset=utf-8" });
+		// force download
+		var fileURL = URL.createObjectURL(blob);
+		const downloadLink = document.createElement('a');
+		downloadLink.href = fileURL;
+		downloadLink.download = 'vectorcosm.svg';
+		document.body.appendChild(downloadLink);
+		downloadLink.click();
+		URL.revokeObjectURL(fileURL);
+		downloadLink.remove();
+	}
+}
