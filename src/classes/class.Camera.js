@@ -364,7 +364,6 @@ export default class Camera {
 			// pick a boid and chase it down
 			const b = this.PickRandomObjectOfType('boid');
 			if ( b ) {
-				console.log('Cinema: track boid');
 				const zoom = utils.BiasedRand( 
 					this.min_zoom,
 					this.max_zoom,
@@ -432,7 +431,6 @@ export default class Camera {
 			if ( roll < 0.25 ) {
 				obj = this.PickRandomObjectOfType('obstacle');
 				if ( obj ) {
-					console.log('Cinema: focus rock');
 					// pick a point on the hull, not on the interior
 					const pt = obj.geodata.hull.pickRandom();
 					target_x = obj.x + pt[0];
@@ -443,7 +441,6 @@ export default class Camera {
 			if ( !obj && roll < 0.5 ) {
 				obj = this.PickRandomObjectOfType('plant');
 				if ( obj ) {
-					console.log('Cinema: focus plant');
 					// pick a point near but slightly above the base
 					target_x = obj.x;
 					target_y = obj.y - 200;
@@ -453,7 +450,6 @@ export default class Camera {
 			if ( !obj && roll < 0.90 ) {
 				obj = this.PickRandomObjectOfType('boid');
 				if ( obj ) {
-					console.log('Cinema: focus boid');
 					target_x = obj.x;
 					target_y = obj.y;
 				}
@@ -462,13 +458,9 @@ export default class Camera {
 			if ( !obj ) {
 				obj = this.PickRandomObjectOfType('food');
 				if ( obj ) {
-					console.log('Cinema: focus food');
 					target_x = obj.x;
 					target_y = obj.y;
 				}
-			}
-			if ( !obj ) {
-				console.log('Cinema: random point in space');
 			}
 			// adjust point to sit inside a margin to avoid pan/zoom jank
 			// Note: margin gets too big when zoom number is too small.
@@ -499,7 +491,6 @@ export default class Camera {
 			return;
 		}
 		// whole scene
-		console.log('Cinema: whole scene');
 		if ( this.transitions ) {
 			this.tween = new TWEEN.Tween(this)
 				.to({
@@ -518,52 +509,11 @@ export default class Camera {
 		}
 		else {
 			this.ResetCameraZoom();
-			// console.log('reset camera zoom');
 			this.cinema_timeout = setTimeout( _ => this.CinemaMode(), this.focus_time );
 		}
 		return;
 	}
 
-	DrawBrainGraph() {
-		// if ( this.show_brainmap && !this.simulation.turbo ) {
-		// 	// anything to track?
-		// 	if ( this.tank.boids.length ) {	
-		// 		let target = this.focus_object || this.tank.boids.sort( (a,b) => b.total_fitness_score - a.total_fitness_score )[0];
-		// 		this.TrackObject(target);
-		// 		this.braingraph =  this.braingraph ?? new BrainGraph(target, this.two);
-		// 		this.braingraph.setTarget(target);
-		// 		this.braingraph.Draw();
-		// 	}
-		// 	// otherwise close
-		// 	else if ( this.braingraph ) {
-		// 		this.braingraph.Kill();
-		// 		this.braingraph = null;				
-		// 	}
-		// }
-		// else if ( this.braingraph ) {
-		// 	this.braingraph.Kill();
-		// 	this.braingraph = null;				
-		// }
-	}
-		
-	ShiftFocusTarget( up = true ) {
-		// if ( !this.tank.boids.length ) { return; }
-		// if ( !this.focus_object ) { 
-		// 	this.TrackObject(this.tank.boids[0]);
-		// }
-		// else {
-		// 	let i = this.tank.boids.indexOf( this.focus_object );
-		// 	if ( i == -1 ) { i == 0; }
-		// 	else if ( !up || up <= 0 ) {
-		// 		if ( --i < 0 ) { i = this.tank.boids.length-1; }
-		// 	}
-		// 	else {
-		// 		if ( ++i == this.tank.boids.length ) { i = 0; }
-		// 	}
-		// 	this.TrackObject( this.tank.boids[i] );
-		// }
-	}
-	
 	AdjustBackgroundForParallax() {
 		// // static background provides faux parallax
 		// if ( !this.parallax ) { return; }

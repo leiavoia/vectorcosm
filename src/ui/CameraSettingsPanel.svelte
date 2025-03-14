@@ -48,7 +48,9 @@
 		camera.transition_time = camera_transition_time;
 	} );
 	
-	let cinema_mode_active = $state(false);
+	// Note: these are not reactive in the Camera class, so UI wont update if 
+	// camera is updated from outside this componant.
+	let cinema_mode_active = $state(camera.cinema_mode);
 	let camera_focus_time = $state(camera.focus_time);
 	let camera_transition_time = $state(camera.transition_time);
 	
