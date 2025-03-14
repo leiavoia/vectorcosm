@@ -840,6 +840,7 @@ SECTION > HEADER:first-child {
 	border-top-right-radius: calc(var(--pico-border-radius) * 2);
 	padding: calc(0.5 * var(--pico-spacing)) var(--pico-spacing);
 }
+SECTION.nocontent > HEADER,
 SECTION > HEADER:last-child {
 	border-bottom-left-radius: calc(var(--pico-border-radius) * 2);
 	border-bottom-right-radius: calc(var(--pico-border-radius) * 2);
@@ -892,7 +893,7 @@ SECTION > HEADER > :is(H1, H2, H3, H4, H5, H6) {
 	margin: 0;
 }
 
-SECTION:has(HEADER:last-child) {
+SECTION:has(HEADER:last-child), SECTION.nocontent {
 	padding-bottom: 0;
 }
 
