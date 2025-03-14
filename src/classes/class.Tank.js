@@ -71,20 +71,17 @@ export default class Tank {
 		this.grid = new SpaceGrid(this.width,this.height,300);
 		this.CreateDataGrid(this.width,this.height);
 	}
-	
+
 	Export( as_JSON=false ) {
 		let output = {};
-		let datakeys = ['width','height','whirls','viscosity','background_triangles','bg_opacity', 'bg_visible', 'bg_theme'];		
+		let datakeys = ['width','height','whirls','viscosity','background_triangles',
+			'bg_opacity', 'bg_visible', 'bg_theme', 'mutate_whirls_every', 'turbulence'];		
 		for ( let k of datakeys ) { output[k] = this[k]; }
 		if ( as_JSON ) { output = JSON.stringify(output); }
 		return output;
 	}
 		
 	Kill() {
-		// if ( this.bg ) { this.bg.remove(); }
-		// if ( this.tankframe ) { this.tankframe.remove(); }
-		// if ( this.spgeo ) { this.spgeo.remove(); }
-		// this.DrawDebugBoundaryRectangle(false);
 		for ( let r of this.obstacles ) { r.Kill(); }
 		this.Sterilize();
 	}
@@ -106,7 +103,7 @@ export default class Tank {
 			y: this.height * Math.random(),
 			strength: Math.random(),
 			dir: (Math.random() > 0.5) ? 1 : 0, // direction CW / CCW 
-			locality: utils.RandomFloat(0.18, 0.80, 0.5, 0.5 ), // locality exponent (smaller is more local effect)
+			locality: utils.RandomFloat(0.18, 0.80 ), // locality exponent (smaller is more local effect)
 			// note: use 0.5 for a perfectly circular current. Use 0.5..1.0 for a whirlpool effect.
 			pull: utils.RandomFloat(0.3, 0.7) // 0.5=neutral, <0.5=inward, >0.5=outward
 		} );
@@ -135,7 +132,7 @@ export default class Tank {
 				w.x = utils.Clamp( w.x + ( ( this.width * 0.2 * Math.random() ) - ( ( this.width * 0.1 ))  ), 0, this.width);
 				w.y = utils.Clamp( w.y + ( ( this.height * 0.2 * Math.random() ) - ( ( this.height * 0.1 ))  ), 0, this.height);
 				w.strength = ( w.strength + Math.random() ) / 2;
-				w.locality = ( w.locality + utils.RandomFloat(0.18, 0.80, 0.5, 0.5 ) ) / 2;
+				w.locality = ( w.locality + utils.RandomFloat(0.18, 0.80) ) / 2;
 				w.pull = ( w.pull + utils.RandomFloat(0.3, 0.7) ) / 2; 
 			}
 		}
@@ -288,17 +285,6 @@ export default class Tank {
 	// background layer
 	MakeBackground() {
 		this.SetBGTheme();
-		
-		// // tank frame
-		// if ( this.tankframe ) { this.tankframe.remove(); }
-		// this.tankframe = globalThis.two.makeRectangle(this.width/2, this.height/2, this.width, this.height );
-		// this.tankframe.stroke = "#888888";
-		// this.tankframe.linewidth = '2';
-		// this.tankframe.fill = 'transparent';		
-		// globalThis.vc.AddShapeToRenderLayer(this.tankframe, '-2');
-						
-		// if ( this.bg ) { this.bg.remove(); }
-		// this.bg = globalThis.two.makeGroup();
 		
 		// random delauney background
 		if ( !this.background_triangles ) {
@@ -578,8 +564,6 @@ export default class Tank {
 						// update dependant info
 						rock.collider.x = rock.x;
 						rock.collider.y = rock.y;
-						// rock.geo.position.x = rock.x;
-						// rock.geo.position.y = rock.y;
 					}
 				}
 			}

@@ -197,7 +197,7 @@ export default class Rock {
 	}
 	Export( as_JSON=false ) {
 		let output = {};
-		let datakeys = ['x','y','collision','triangles'];		
+		let datakeys = ['x','y','collision','triangles','pts'];		
 		for ( let k of datakeys ) { output[k] = this[k]; }
 		if ( as_JSON ) { output = JSON.stringify(output); }
 		return output;

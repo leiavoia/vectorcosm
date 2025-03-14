@@ -63,22 +63,22 @@ export default class Vectorcosm {
 				
 	}
 
-	LoadStartingPopulationFromFile(file) {
-		return fetch( file, { headers: { 'Accept': 'application/json' } } )
-		.then(response => response.json())
-		.then(data => {
-			const n = this.simulation.settings.num_boids;
-			this.simulation.SetNumBoids(0); // clear tank of generic boids
-			for ( let j of data ) {
-				let brain = neataptic.Network.fromJSON(j);
-				const b = BoidFactory(this.simulation.settings.species, this.width*0.25, this.height*0.25, this.simulation.tank );
-				b.brain = brain;
-				b.angle = Math.random() * Math.PI * 2;		
-				this.simulation.tank.boids.push(b);	
-			}
-			this.simulation.SetNumBoids(n); // back to normal
-		});
-	}
+	// LoadStartingPopulationFromFile(file) {
+	// 	return fetch( file, { headers: { 'Accept': 'application/json' } } )
+	// 	.then(response => response.json())
+	// 	.then(data => {
+	// 		const n = this.simulation.settings.num_boids;
+	// 		this.simulation.SetNumBoids(0); // clear tank of generic boids
+	// 		for ( let j of data ) {
+	// 			let brain = neataptic.Network.fromJSON(j);
+	// 			const b = BoidFactory(this.simulation.settings.species, this.width*0.25, this.height*0.25, this.simulation.tank );
+	// 			b.brain = brain;
+	// 			b.angle = Math.random() * Math.PI * 2;		
+	// 			this.simulation.tank.boids.push(b);	
+	// 		}
+	// 		this.simulation.SetNumBoids(n); // back to normal
+	// 	});
+	// }
 	
 	LoadNextSim() {
 		let boids = this.simulation ? this.simulation.tank.boids.splice(0,this.simulation.tank.boids.length) : [];
@@ -217,15 +217,13 @@ export default class Vectorcosm {
 	
 	ExportTank() {
 		if ( this.tank ) {
-			//
-			// TODO: it would be nice to save the sim params too
-			//
 			const scene = {
 				tank: this.tank.Export(),
 				boids: this.tank.boids.map( x => x.Export() ),
 				obstacles: this.tank.obstacles.map( x => x.Export() ),
 				foods: this.tank.foods.map( x => x.Export() ),
 				plants: this.tank.plants.map( x => x.Export() ),
+				sim_settings: this.simulation.settings,
 			};
 			return JSON.stringify(scene).replace(/\d+\.\d+/g, x => parseFloat(x).toPrecision(6) );
 		}
@@ -250,11 +248,13 @@ export default class Vectorcosm {
 				current: 0.1,
 				tide: 600,
 			}, settings ?? {} );
+			settings = Object.assign( settings, scene.sim_settings );
+			// manually recalculate the volume to make sure UI stays in sync
+			settings.volume = this.tank.width * this.tank.height;
 			this.sim_queue.push( new NaturalTankSimulation(this.tank,settings));
 			this.LoadNextSim();
 			this.tank.boids = scene.boids.map( o => {
-				// let b = new Boid( this.width*0.25, this.height*0.25, this.simulation.tank, JSON.parse(json) );
-				let b = new Boid( o.x || this.width*Math.random(), o.y || this.height*Math.random(), this.tank, o );
+				let b = new Boid( 0, 0, this.tank, o );
 				b.angle = Math.random() * Math.PI * 2;		
 				b.ScaleBoidByMass();
 				return b;
@@ -262,10 +262,6 @@ export default class Vectorcosm {
 			this.tank.obstacles = scene.obstacles.map( x => new Rock(x) );
 			this.tank.foods = scene.foods.map( x => new Food(x) );
 			this.tank.plants = scene.plants.map( x => new Plant.PlantTypes[x.classname](x) );
-			// hack settings back in
-			this.simulation.settings.num_boids = scene.boids.length;
-			this.simulation.settings.num_plants = scene.plants.length;
-			this.simulation.settings.num_rocks = scene.obstacles.length;
 		}		
 	}
 	
