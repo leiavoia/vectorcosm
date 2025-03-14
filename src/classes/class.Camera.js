@@ -147,6 +147,11 @@ export default class Camera {
 			this.focus_obj_id = 0;
 			return; 
 		}
+		// remove target-specific elements
+		if ( this.focus_overlay_geo && oid && oid != this.focus_obj_id ) {
+			this.focus_overlay_geo.remove();
+			this.focus_overlay_geo = null;
+		}		
 		// start tracking
 		const obj = this.renderObjects.get(oid);
 		if ( !obj ) { return this.TrackObject(false); } // object has died - stop tracking
@@ -607,30 +612,6 @@ export default class Camera {
 		// 	// 	this.renderLayers['backdrop'].scale,
 		// 	// );
 		// }
-	}
-	
-	SetShowUI(x) {
-		this.show_ui = !!x;
-		let el = document.getElementById('ui_container');
-		if ( this.show_ui ) { el.style.visibility = 'visible'; }
-		else { el.style.visibility = 'hidden'; }
-	}
-	
-	ToggleUI() {
-		this.SetShowUI( !this.show_ui );
-	}
-	
-	SetShowSensors(x) {
-		this.show_collision_detection = !this.show_collision_detection;
-	}
-	
-	ToggleShowSensors() {
-		this.SetShowSensors( !this.show_collision_detection );
-	}
-	
-	ToggleShowBrainmap() {
-		if ( this.show_brainmap ) { this.TrackObject(false); }
-		this.show_brainmap = !this.show_brainmap;
 	}
 	
 }
