@@ -263,7 +263,9 @@
 		// record and update stats
 		tankStats = data.tankStats;
 		simStats = data.simStats;
-		simStats.fps = gameloop.fps_avg.toFixed(0);
+		simStats.fps = gameloop.updates_per_frame > 1
+			? (gameloop.fps * gameloop.updates_per_frame).toFixed(0)
+			: gameloop.fps_avg.toFixed(0);
 		gameloop.EndSimFrame();
 	});
 		
