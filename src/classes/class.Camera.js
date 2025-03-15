@@ -37,6 +37,7 @@ export default class Camera {
 		this.animate_boids = true;
 		this.dramatic_entrance = false; // might merge this with `transitions`
 		this.animation_min = 0.4 // zoom level beyond which we stop animating
+		this.background_attachment = 'screen'; // 'screen' or 'tank'
 		// innards:
 		this.focus_geo = null;
 		this.focus_overlay_geo = null;
@@ -286,6 +287,37 @@ export default class Camera {
 			if ( !last_tween ) { tween.start(); }
 			last_tween = tween;
 		}
+	}
+	
+	RescaleBackground() {
+		// scale the background to cover the tank.
+		// because of various rescaling calls, the background may not be 100% of the tank size,
+		// and the tank size may not match the screen. there are two levels of scaling going on.
+		
+		// if the background is attached to the tank, make sure the layers are nested correctly
+		if ( this.background_attachment == 'tank' ) {
+			if ( this.renderLayers['bg'].parent !== this.renderLayers['tank'] ) {
+				this.renderLayers['tank'].add(this.renderLayers['bg']);
+			}
+		}
+	
+		// get normalized coordinates of the background layer as-is
+		this.renderLayers['bg'].scale = 1; // reset to get accurate coords
+		let coords = this.renderLayers['bg'].getBoundingClientRect();
+		
+		// decide which container we are scaling for: screen or tank
+		let container = this.background_attachment == 'screen' ? globalThis.two : this.renderLayers['tank'];
+		
+		// calculate scaling bg_layer -> container
+		const scale_x = container.width / coords.width;
+		const scale_y = container.height / coords.height;
+		
+		// scale to stretch:
+		this.renderLayers['bg'].scale = new Two.Vector(scale_x, scale_y);	
+		
+		// alternative scale to fit/cover:
+		// const scale = Math.max( scale_x, scale_y );
+		// renderLayers['bg'].scale = scale;
 	}
 	
 	// if force is FALSE, `responsive_tank_size` setting will be honored

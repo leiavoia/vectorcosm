@@ -103,6 +103,7 @@
 				if ( o?.geodata && renderObjects.has(o.oid) ) {
 					const obj = renderObjects.get(o.oid);
 					if ( 'geo' in obj ) {
+						SVGUtils.RemoveUnusedGradients(obj.geo);
 						obj.geo.remove();
 						renderObjects.delete(o.oid);
 					}
@@ -168,8 +169,19 @@
 								vc_canvas.SetTheme(o.geodata.bg_theme_class);
 							}
 							
+							// tank frame is a fixed size
+							geo = globalThis.two.makeRectangle(o.geodata.width/2, o.geodata.height/2, o.geodata.width, o.geodata.height );
+							geo.stroke = "#888888";
+							geo.linewidth = '2';
+							geo.fill = 'transparent';	
+							renderLayers['ui'].add(geo);
+							
+							// remove old background triangles - loop backwards over children and remove each one
+							for ( let i=renderLayers['bg'].children.length-1; i>=0; i-- ) {
+								renderLayers['bg'].children[i].remove();
+							}
+							
 							// background triangles get their own layer so we can scale it independently
-							renderLayers['bg'].children.forEach( c => c.remove() );
 							renderLayers['bg'].opacity = o.geodata.bg_opacity || 1;
 							for ( let t of o.geodata.triangles ) {
 								let p = globalThis.two.makePath( ...t.slice(null, -1) );
@@ -179,24 +191,17 @@
 								renderLayers['bg'].add(p);
 							}
 							
-							// for fixed backgrounds, add the background into the fg layer
-							// renderLayers['tank'].add(renderLayers['bg']);
-							
-							// tank frame is a fixed size
-							geo = globalThis.two.makeRectangle(o.geodata.width/2, o.geodata.height/2, o.geodata.width, o.geodata.height );
-							geo.stroke = "#888888";
-							geo.linewidth = '2';
-							geo.fill = 'transparent';	
-							renderLayers['ui'].add(geo);
 							// set up a camera
 							if ( !camera ) {
 								camera = new Camera( renderLayers, renderObjects );
 								camera.window_width = two.width;
 								camera.window_height = two.height;
+								camera.background_attachment = 'screen'; // or 'tank'
 							}
 							camera.tank_width = o.geodata.width;
 							camera.tank_height = o.geodata.height;
 							camera.ResetCameraZoom();
+							camera.RescaleBackground();
 							camera.DramaticEntrance();
 						}
 					}
@@ -235,7 +240,10 @@
 			// remove all objects not found
 			for ( let [oid,obj] of renderObjects ) {
 				if ( !found.has(obj) ) {
-					if ( 'geo' in obj ) { obj.geo.remove(); }
+					if ( 'geo' in obj ) { 
+						SVGUtils.RemoveUnusedGradients(obj.geo);
+						obj.geo.remove(); 
+					}
 					renderObjects.delete(oid);
 				}
 			}
@@ -247,6 +255,10 @@
 					}
 				}
 			}
+		}
+		// count SVGs every so often
+		if ( ( gameloop.updates_per_frame <= 1 /* && data.simStats.framenum % 60 == 0 */ ) ) {
+			data.tankStats.SVGs = SVGUtils.CountSVGElements(globalThis.two.scene);
 		}
 		// record and update stats
 		tankStats = data.tankStats;
@@ -505,6 +517,7 @@
 			globalThis.two.fit();
 			camera.window_width = two.width;
 			camera.window_height = two.height;			
+			camera.RescaleBackground();
 			camera.ResetCameraZoom(); // also does parallax
 		}, 200);
 	}

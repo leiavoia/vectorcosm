@@ -80,8 +80,8 @@ export function RehydrateGeoData( data ) {
 	// children 
 	if ( data?.children ) {
 		for ( let child of data.children ) { 
-			child = RehydrateGeoData(child);
-			geo.add(child); 
+			const c = RehydrateGeoData(child);
+			if ( c ) { geo.add( c ); }
 		}
 	}
 	return geo;
@@ -93,6 +93,8 @@ export function RehydrateColor( c ) {
 	if ( typeof c === 'string' ) { return c; }
 	// gradients have special syntax
 	if ( typeof c === 'object' ) {
+		// NOTE: gradients in two.js are never deleted.
+		// if we create gradients, we have to manually clean them up with RemoveUnusedGradients.
 		let grad;
 		let type = c?.type || 'linear';
 		let stops = ( c?.stops || [1,'#FFF'] ).map( s => new Two.Stop(s[0], s[1]) );
@@ -136,5 +138,33 @@ export function ExportSceneToSVG() {
 		downloadLink.click();
 		URL.revokeObjectURL(fileURL);
 		downloadLink.remove();
+	}
+}
+
+// count current number of svgs
+export function CountSVGElements(node=null) {
+	if ( !node ) { node = globalThis.two.scene; }
+	let count = 1; // count this node
+	if (node.children) {
+		for (let child of node.children) {
+			count += CountSVGElements(child);
+		}
+	}
+	return count;
+}
+
+// Two.js does not delete gradient when they become orphaned. we have to do our own book keeping.
+export function RemoveUnusedGradients(node=null) {
+	if ( !node ) { node = globalThis.two.scene; }
+	if ( node.stroke?._renderer?.type=='linear-gradient' || node.stroke?._renderer?.type=='radial-gradient' ) {
+		globalThis.two.remove(node.stroke);
+	}
+	if ( node.fill?._renderer?.type=='linear-gradient' || node.fill?._renderer?.type=='radial-gradient' ) {
+		globalThis.two.remove(node.fill);
+	}
+	if ( node?.children?.length ) {
+		for ( let child of node.children ) {
+			RemoveUnusedGradients(child);
+		}
 	}
 }
