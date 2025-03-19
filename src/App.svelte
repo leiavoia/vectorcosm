@@ -261,7 +261,7 @@
 			}
 			// animate objects
 			// TODO: pre-assign animation function to objects to avoid if statements
-			if ( camera && (camera.animate_boids || camera.animate_plants || camera.animate_foods || camera.animate_marks) ) {
+			if ( gameloop.updates_per_frame === 1 && camera && (camera.animate_boids || camera.animate_plants || camera.animate_foods || camera.animate_marks) ) {
 				for ( let o of renderObjects.values() ) {
 					if ( o.type == 'boid' && o.geo && camera.animate_boids) {
 						AnimateBoid(o);
