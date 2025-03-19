@@ -108,6 +108,7 @@
 					if ( 'geo' in obj ) {
 						SVGUtils.RemoveUnusedGradients(obj.geo);
 						obj.geo.remove();
+						globalThis.two.release(obj.geo);
 						renderObjects.delete(o.oid);
 					}
 				}
@@ -181,7 +182,9 @@
 							
 							// remove old background triangles - loop backwards over children and remove each one
 							for ( let i=renderLayers['bg'].children.length-1; i>=0; i-- ) {
-								renderLayers['bg'].children[i].remove();
+								const child = renderLayers['bg'].children[i]
+								child.remove();
+								globalThis.two.release(child);
 							}
 							
 							// background triangles get their own layer so we can scale it independently
@@ -251,6 +254,7 @@
 					if ( 'geo' in obj ) { 
 						SVGUtils.RemoveUnusedGradients(obj.geo);
 						obj.geo.remove(); 
+						globalThis.two.release(obj.geo);
 					}
 					renderObjects.delete(oid);
 				}
