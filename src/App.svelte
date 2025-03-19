@@ -602,7 +602,7 @@
 	
 	function UpdateIdleTime() {
 		idle_for += 0.5;
-		is_idle = idle_for >= 2 && !panel_mode;
+		is_idle = idle_for >= 2;
 		setTimeout( UpdateIdleTime, 500 );
 	};
 	
@@ -729,7 +729,7 @@
 		filter: none;
 		opacity: 1;
 	}
-	div.nav.is_idle {
+	div.nav.is_idle:not(.panel_open) {
 		opacity: 0;
 		filter: blur(2rem);
 	}
@@ -779,7 +779,7 @@
 
 <svelte:window {onkeydown} {onresize} />
 
-<div id="pagewrapper" data-theme="dark" class="{is_idle ? 'hidecursor' : ''}">
+<div id="pagewrapper" data-theme="dark" class={[{hidecursor:is_idle}]}>
 	<!-- 
 		Vectorcosm two.js canvas area is fixed to the entire screen.
 		all UI elements sit on top of it.
@@ -793,7 +793,7 @@
 	
 	<main>
 		<!-- all your normal UI elements go in here -->
-		<div class={['nav', {is_idle:is_idle}]}>
+		<div class={['nav', {panel_open:!!panel_mode}, {is_idle:is_idle}]}>
 			<button onclick={_ => setPanelMode('tank_stats')} 	
 				class:selected={panel_mode=='tank_stats'} 
 				title="Tank Stats"
