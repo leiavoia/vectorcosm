@@ -582,7 +582,8 @@
 	}
 	
 	function onmousemove(event) {
-		if ( dragging && camera.focus_obj_id <= 0 ) {
+		const now_tracking = camera.focus_obj_id > 0 && camera.center_camera_on_focus;
+		if ( dragging && !now_tracking ) {
 			// camera pan - don't move the camera on fudge clicks
 			const dx = event.clientX - drag_start_x;
 			const dy = event.clientY - drag_start_y;
