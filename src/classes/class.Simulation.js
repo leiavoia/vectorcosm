@@ -337,10 +337,14 @@ export default class Simulation {
 	}
 	
 	AddNewBoidToTank() {
-		const b = BoidFactory(this.settings?.species, Math.random()*this.tank.width, Math.random()*this.tank.height, this.tank );
+		const b = BoidFactory(this.settings?.species, 0, 0, this.tank);
+		this.AddBoidToTank(b);
+	}
+	
+	AddBoidToTank(b) {
 		b.angle = Math.random() * Math.PI * 2;
-		b.x = (Math.random() * this.tank.width * 0.8) + this.tank.width * 0.1;
-		b.y = (Math.random() * this.tank.height * 0.6) + this.tank.height * 0.1; // stay away from the bottom
+		b.x = (Math.random() * this.tank.width * 0.8) + this.tank.width * 0.1; // stay away from edges
+		b.y = (Math.random() * this.tank.height * 0.6) + this.tank.height * 0.1; // stay away from edges
 		if ( this.settings?.safe_spawn && this.tank.safe_pts?.length ) {
 			const p = this.tank.safe_pts.pickRandom();
 			b.x = p[0] + ( Math.random() * p[2]*1.4 - p[2]*0.7 ); 

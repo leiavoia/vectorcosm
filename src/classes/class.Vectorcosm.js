@@ -207,10 +207,9 @@ export default class Vectorcosm {
 		if (json) {
 			json = JSON.parse(json);
 			for ( let j of json ) {
-				let b = new Boid( this.tank.width*0.25, this.tank.height*0.25, this.simulation.tank, j );
-				b.angle = Math.random() * Math.PI * 2;		
+				let b = new Boid( 0, 0, this.simulation.tank, j );
 				b.ScaleBoidByMass();
-				this.simulation.tank.boids.push(b);	
+				this.simulation.AddBoidToTank(b); // handles safe spawn
 			}			
 		}		
 	}

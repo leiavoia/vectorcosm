@@ -359,11 +359,8 @@ function_registry.set( 'addSavedBoidsToTank', async params => {
 		for ( let row of results ) {
 			for ( let json of row.specimens ) {
 				let b = new Boid( 0, 0, globalThis.vc.tank, JSON.parse(json) );
-				b.angle = Math.random() * Math.PI * 2;	
-				b.x = globalThis.vc.tank.width*Math.random(), 
-				b.y = globalThis.vc.tank.height*Math.random();	
 				b.ScaleBoidByMass();
-				globalThis.vc.tank.boids.push(b);	
+				globalThis.vc.simulation.AddBoidToTank(b); // handles safe spawn
 				num_added++;						
 			}
 		}
