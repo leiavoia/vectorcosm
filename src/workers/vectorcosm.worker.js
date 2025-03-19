@@ -76,13 +76,23 @@ function_registry.set( 'update', params => {
 		}
 		return return_obj;
 	}));
-	renderObjects.push( ... globalThis.vc.tank.plants.map( o => ({
-		oid: o.oid,
-		type:'plant',
-		x: o.x,
-		y: o.y,
-		geodata: AutoIncludeGeoData(o)
-	}) ));
+	renderObjects.push( ... globalThis.vc.tank.plants.map( o => {
+		let return_obj = {
+			oid: o.oid,
+			type:'plant',
+			x: o.x,
+			y: o.y,
+			geodata: AutoIncludeGeoData(o)
+		};
+		if ( inc_plant_animation_data ) {
+			return_obj.anim = {
+				age: o.age,
+				lifespan: o.lifespan,
+				perma: o.perma // support for plants that don't die or have natural life cycle
+			}
+		}
+		return return_obj;
+	}));
 	renderObjects.push( ... globalThis.vc.tank.foods.map( o => {
 		let return_obj = {
 			oid: o.oid,

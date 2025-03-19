@@ -15,6 +15,7 @@ export default class Plant {
 		this.generation = 1;
 		this.dead = false;
 		this.age = 0;
+		this.perma = false;
 		this.lifespan = 100000000;
 		this.fruit_interval = 30; // sane defaults
 		this.next_fruit = 30; // sane defaults
@@ -73,7 +74,6 @@ export class DNAPlant extends Plant {
 		this.dna = new DNA( this.dna ); // will either be number of chars, or full string if rehydrating
 		this.RehydrateFromDNA();
 		this.CreateBody();
-		this.UpdatePointsByGrowth(true);
 	}
 	Update(delta) {
 		super.Update(delta);
@@ -120,9 +120,6 @@ export class DNAPlant extends Plant {
 				}
 			}
 		}
-		
-		// TODO: limit calls to save frame rate, fade in, or use staggered growth spurts
-		this.UpdatePointsByGrowth();
 		
 		this.Animate(delta);	
 	}
@@ -355,7 +352,7 @@ export class DNAPlant extends Plant {
 		}
 			
 		// create the final shape
-		this.geo = { type:'group', children: [] };
+		this.geo = { type:'group', children: [], animation_method:this.traits.animation_method };
 		for ( let points of this.shapes ) {
 			let shape = { 
 				type: 'path',
@@ -370,14 +367,12 @@ export class DNAPlant extends Plant {
 			this.geo.children.push(shape);
 		}
 	}
-	UpdatePointsByGrowth( force=false ) { ;; }	
 	SortByY(a,b) { return b[1] - a[1]; }
 	SortByX(a,b) { return b[0] - a[0]; }
 	SortByAngle(a,b) { Math.atan2(b[1],b[0]) - Math.atan2(a[1],a[0]); }
 	RandomizeAge() {
 		this.age = this.lifespan * Math.random();
 		this.next_fruit = Math.floor( this.age + this.fruit_interval * Math.random() );
-		this.UpdatePointsByGrowth(true);
 	}	
 }
 Plant.PlantTypes.DNAPlant = DNAPlant;
@@ -386,6 +381,8 @@ export class PendantLettuce extends Plant {
 	constructor(x=0, y=0) {
 		super(x,y);
 		this.type = 'PendantLettuce'; // avoids JS classname mangling
+		this.perma = true; // ignore lifecycle
+		this.age = 30; // dodges animation effects
 		if ( !this.fruit_interval ) { this.fruit_interval = utils.RandomInt(60,120); }
 		if ( !this.next_fruit ) { this.next_fruit = this.fruit_interval / ( globalThis.vc?.simulation?.settings?.fruiting_speed || 1 ); }
 		this.CreateBody();
@@ -394,7 +391,7 @@ export class PendantLettuce extends Plant {
 		return this.geo;
 	}	
 	CreateBody() {
-		this.geo = { type:'group', children: [] };
+		this.geo = { type:'group', children: [], animation_method:'sway' };
 		const n = utils.BiasedRandInt( 3, 16, 8, 0.8 );
 		const r = utils.BiasedRandInt( 50, 200, 100, 0.6);
 		const max_variance = r*0.3; 
@@ -474,9 +471,10 @@ export class VectorGrass extends Plant {
 	constructor(x=0, y=0) {
 		super(x,y);
 		this.type = 'VectorGrass'; // avoids JS classname mangling
+		this.perma = true; // ignore lifecycle
+		this.age = 30; // dodges animation effects
 		if ( !this.fruit_interval ) { this.fruit_interval = utils.RandomInt(20,30); }
 		if ( !this.next_fruit ) { this.next_fruit = this.fruit_interval / ( globalThis.vc?.simulation?.settings?.fruiting_speed || 1 ); }
-		this.traits = { animation_method:'legacy_sway' }; // shim
 		this.CreateBody();
 	}
 	GeoData() {
@@ -513,7 +511,8 @@ export class VectorGrass extends Plant {
 		}
 		this.geo = {
 			type:'group',
-			children: blades
+			children: blades,
+			animation_method:'legacy_sway'
 		};
 		return this.geo;
 	}
@@ -556,9 +555,10 @@ export class WaveyVectorGrass extends Plant {
 	constructor(x=0, y=0) {
 		super(x,y);
 		this.type = 'WaveyVectorGrass'; // avoids JS classname mangling
+		this.perma = true; // ignore lifecycle
+		this.age = 30; // dodges animation effects
 		if ( !this.fruit_interval ) { this.fruit_interval = utils.RandomInt(45,60); }
 		if ( !this.next_fruit ) { this.next_fruit = this.fruit_interval / ( globalThis.vc?.simulation?.settings?.fruiting_speed || 1 ); }
-		this.traits = { animation_method:'sway' }; // shim
 		this.CreateBody();
 	}
 	GeoData() {
@@ -599,7 +599,8 @@ export class WaveyVectorGrass extends Plant {
 		}
 		this.geo = {
 			type:'group',
-			children: blades
+			children: blades,
+			animation_method:'sway'
 		};
 		return this.geo;
 	}

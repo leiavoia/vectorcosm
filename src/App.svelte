@@ -215,6 +215,11 @@
 					else if ( o.type=='plant' ) {
 						geo = SVGUtils.RehydrateGeoData(o.geodata);
 						renderLayers['plants'].add(geo);
+						// hack: animated plants exhibit a large, unsatisfactory "pop" 
+						// when being rendered in full here, then being shifted by next frame.
+						// if the camera is animating plants in the first few frames of a sim, turn the 
+						// plant rendering off and let the animation function to it back on later.
+						if ( camera && camera.animate_plants ) { geo.visible = false; }
 					}
 					else if ( o.type=='mark' ) {
 						geo = SVGUtils.RehydrateGeoData(o.geodata);
@@ -252,18 +257,18 @@
 			}
 			// animate objects
 			// TODO: pre-assign animation function to objects to avoid if statements
-			if ( camera && camera.animate_boids ) {
+			if ( camera && (camera.animate_boids || camera.animate_plants || camera.animate_foods || camera.animate_marks) ) {
 				for ( let o of renderObjects.values() ) {
-					if ( o.type == 'boid' && o.geo ) {
+					if ( o.type == 'boid' && o.geo && camera.animate_boids) {
 						AnimateBoid(o);
 					}
-					else if ( o.type == 'mark' && o.geo ) {
+					else if ( o.type == 'mark' && o.geo && camera.animate_marks ) {
 						AnimateMark(o);
 					}
-					else if ( o.type == 'food' && o.geo ) {
+					else if ( o.type == 'food' && o.geo && camera.animate_foods ) {
 						AnimateFood(o);
 					}
-					else if ( o.type == 'plant' && o.geo ) {
+					else if ( o.type == 'plant' && o.geo && camera.animate_plants ) {
 						AnimatePlant(o);
 					}
 				}
@@ -647,6 +652,7 @@
 			let pct = o.anim.age - (o.anim.lifespan-1);
 			o.geo.opacity = 1-pct;
 		}
+		// fade in
 		else if ( !o.geodata.permafood && o.anim.age < 3 ) {
 			o.geo.opacity = Math.min( o.anim.age / 0.5, 1 );
 			o.geo.scale = Math.min( o.anim.age / 1, 1 );
@@ -656,6 +662,58 @@
 	
 	function AnimatePlant(o) {
 		if ( !o.geo || !o.anim ) { return; }
+		// reenable plants turned off on loading. this dodges the first-frame pop.
+		if ( !o.geo.visible ) { o.geo.visible = true; }
+		// historical note: we used to base strength on local tank current,
+		// but this is an unnecessary level of detail to get the effect.
+		// instead, randomly assign a strength level to prevent uniformity.
+		if ( !o.geodata.strength ) { 
+			o.geodata.strength = 0.2 + Math.random() * 0.5; 
+			// exceptionally large plants need lower sway to avoid motion sickness
+			const dims = o.geo.getBoundingClientRect(true);
+			const longest_dim = Math.max( dims.width, dims.height );
+			if ( longest_dim > 600 ) { o.geodata.strength *= 0.5; }
+		}
+		let animation_time = ( simStats?.round_time ?? 0 ) * o.geodata.strength;
+		// sway individual shapes
+		// FIXME: make blades wave from base - need to do rotate-around-point math
+		if ( o.geodata.animation_method == 'sway' ) {		
+			for ( let i=0; i < o.geo.children.length; i++ ) {
+				const child = o.geo.children[i];
+				const radius = (child.vertices[0].y - child.vertices[child.vertices.length-1].y) / 2;
+				const angle = 0.1 * Math.cos( i + animation_time );
+				child.rotation = angle;
+				if ( !child.x_offset ) { // stash for repeated calls
+					const dims = child.getBoundingClientRect(true);
+					child.x_offset = ( dims.right + dims.left ) / 2;
+				}
+				child.position.x = ( Math.sin(angle) * radius ) + child.x_offset;
+			}
+		}
+		// old sway motion for vector grass
+		else if ( o.geodata.animation_method == 'legacy_sway' ) {
+			for ( let i=0; i < o.geo.children.length; i++ ) {
+				const child = o.geo.children[i];
+				child.rotation = 0.2 * Math.cos( i + animation_time );
+			}
+		}
+		// simpler skew animation works for any plant type
+		else {
+			let rad = o.geodata.radius || 200; // not currently supplied by API
+			let mod = 0.35 * ( 1.15-(rad/500) );
+			o.geo.skewX = mod * Math.cos( animation_time );
+			o.geo.skewY = mod * Math.sin( animation_time );			
+		}
+		// fade out
+		if ( !o.anim.perma && o.anim.age > o.anim.lifespan - 8 ) {
+			let diff = o.anim.age - (o.anim.lifespan-8);
+			o.geo.opacity = 8-diff;
+		}
+		// fade in
+		else if ( o.anim.age < 10 ) {
+			o.geo.opacity = 0.5 + Math.min( o.anim.age / 20, 1 );
+			o.geo.scale = Math.min( o.anim.age / 10, 1 );
+		}		
 	}
 	
 	function AnimateMark(o) {

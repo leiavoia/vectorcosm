@@ -15,7 +15,9 @@
 
 	let settings = $state([
 		{name: 'animate_boids', label: 'Animate Boids', on: !!camera.animate_boids, disabled:false},
-		{name: 'animate_plants', label: 'Animate Plants', on: !!camera.animate_plants, disabled:true},
+		{name: 'animate_plants', label: 'Animate Plants', on: !!camera.animate_plants, disabled:false},
+		{name: 'animate_marks', label: 'Animate Marks', on: !!camera.animate_marks, disabled:false},
+		{name: 'animate_foods', label: 'Animate Food', on: !!camera.animate_foods, disabled:false},
 		{name: 'allow_hyperzoom', label: 'Allow Hyperzoom', on: !!camera.allow_hyperzoom, disabled:false},
 		{name: 'transitions', label: 'Cinema Transitions', on: !!camera.transitions, disabled:false},
 		{name: 'parallax', label: 'Parallax', on: !!camera.parallax, disabled:true},

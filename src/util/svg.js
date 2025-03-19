@@ -154,13 +154,16 @@ export function CountSVGElements(node=null) {
 }
 
 // Two.js does not delete gradient when they become orphaned. we have to do our own book keeping.
+// SEE: https://github.com/jonobr1/two.js/issues/766
 export function RemoveUnusedGradients(node=null) {
 	if ( !node ) { node = globalThis.two.scene; }
 	if ( node.stroke?._renderer?.type=='linear-gradient' || node.stroke?._renderer?.type=='radial-gradient' ) {
 		globalThis.two.remove(node.stroke);
+		if ( 'dispose' in node.stroke ) { node.stroke.dispose(); }
 	}
 	if ( node.fill?._renderer?.type=='linear-gradient' || node.fill?._renderer?.type=='radial-gradient' ) {
 		globalThis.two.remove(node.fill);
+		if ( 'dispose' in node.fill ) { node.fill.dispose(); }
 	}
 	if ( node?.children?.length ) {
 		for ( let child of node.children ) {
