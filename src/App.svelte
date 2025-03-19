@@ -56,8 +56,11 @@
 			num_frames: gameloop.updates_per_frame, // variable turbo
 			delta: ( gameloop.updates_per_frame > 1 ? gameloop.max_delta : delta ),
 			inc_boid_animation_data: (camera && camera.animate_boids) ? true : false,
+			inc_mark_animation_data: (camera && camera.animate_marks) ? true : false,
+			inc_food_animation_data: (camera && camera.animate_foods) ? true : false,
+			inc_plant_animation_data: (camera && camera.animate_plants) ? true : false,
 		};
-		worker.postMessage( data );
+		worker.postMessage( data ); // TODO standardize this as API call
 		// update or cancel object tracking
 		if ( camera ) {
 			if ( camera.focus_obj_id > 0 ) {
@@ -248,10 +251,20 @@
 				}
 			}
 			// animate objects
+			// TODO: pre-assign animation function to objects to avoid if statements
 			if ( camera && camera.animate_boids ) {
 				for ( let o of renderObjects.values() ) {
 					if ( o.type == 'boid' && o.geo ) {
 						AnimateBoid(o);
+					}
+					else if ( o.type == 'mark' && o.geo ) {
+						AnimateMark(o);
+					}
+					else if ( o.type == 'food' && o.geo ) {
+						AnimateFood(o);
+					}
+					else if ( o.type == 'plant' && o.geo ) {
+						AnimatePlant(o);
 					}
 				}
 			}
@@ -613,6 +626,57 @@
 		for ( let k in params ) {
 			simSettings[k] = params[k];
 		}		
+	}
+	
+	function AnimateFood(o) {
+		if ( !o.geo || !o.anim ) { return; }
+		// resize the food
+		let radius = Math.max(o.anim.r,5) // note: it tracks its own radius instead of calculating from food value
+		if ( radius != o.geo.radius ) { // limit expensive redraws
+			o.geo.radius = radius;
+			let circ = radius * 2 * Math.PI;
+			let points = o.geodata.complexity+2;
+			if ( o.geodata.complexity==5 ) { points=8 } // unicode doesnt have heptagons ;-( 
+			else if ( o.geodata.complexity==6 ) { points=12; } // getting hard to discern at this point 
+			let segment = circ / ( points * 2 );
+			o.geo.linewidth = radius/2;
+			o.geo.dashes = [segment,segment];
+		}
+		// fade out
+		if ( !o.geodata.permafood && o.anim.age > o.anim.lifespan - 1 ) {
+			let pct = o.anim.age - (o.anim.lifespan-1);
+			o.geo.opacity = 1-pct;
+		}
+		else if ( !o.geodata.permafood && o.anim.age < 3 ) {
+			o.geo.opacity = Math.min( o.anim.age / 0.5, 1 );
+			o.geo.scale = Math.min( o.anim.age / 1, 1 );
+			o.geo.rotation = ( 1 - Math.pow(o.anim.age / 3, 0.25) ) * Math.PI + o.geodata.r;
+		}
+	}
+	
+	function AnimatePlant(o) {
+		if ( !o.geo || !o.anim ) { return; }
+	}
+	
+	function AnimateMark(o) {
+		if ( !o.geo || !o.anim ) { return; }
+		// fade in/out
+		const max_opacity = 0.5;
+		const fade_in = 0.65;
+		const fade_out = 2;
+		// smells linger
+		if ( o.anim.sense_type >= 3 && o.anim.sense_type < 12 ) {
+			if ( o.anim.age < fade_in ) {
+				o.geo.opacity = max_opacity * ( o.anim.age / fade_in );
+			}
+			else if ( o.anim.age > o.anim.lifespan - fade_out ) {
+				o.geo.opacity = max_opacity * ( (o.anim.lifespan - o.anim.age) / fade_out );
+			}
+		}
+		// sounds and colors flash
+		else {
+			o.geo.opacity = Math.pow( 1 - o.anim.age / o.anim.lifespan, 4 );
+		}
 	}
 	
 	function AnimateBoid(b) {

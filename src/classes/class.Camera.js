@@ -35,6 +35,9 @@ export default class Camera {
 		this.show_boid_info_on_focus = true;
 		this.center_camera_on_focus = true;
 		this.animate_boids = true;
+		this.animate_plants = true;
+		this.animate_marks = true;
+		this.animate_foods = true;
 		this.dramatic_entrance = false; // might merge this with `transitions`
 		this.animation_min = 0.4 // zoom level beyond which we stop animating
 		this.background_attachment = 'screen'; // 'screen' or 'tank'

@@ -84,8 +84,6 @@ export default class Food {
 		}
 		components.sort( (a,b) => a.pct - b.pct );
 		
-		this.UpdateGeometry();
-		
 		// sensory data comes from nutrient composition unless overridden by creator
 		if ( !params || !params?.sense ) {
 			// visual color comes from mixing the two primary colors
@@ -268,7 +266,13 @@ export default class Food {
 	}	
 	GeoData() {
 
-		let geodata = { type:'circle', r:this.r };
+		let geodata = { 
+			type:'circle', 
+			r:this.r,
+			lifespan:this.lifespan,
+			permafood:this.permafood,
+			complexity:this.complexity,
+		};
 		
 		// rendering
 		let points = this.complexity+2;
@@ -318,96 +322,4 @@ export default class Food {
 			
 		return geodata;
 	}	
-	UpdateGeometry() {
-
-		
-		// if ( this.geo ) { this.geo.remove(); }
-
-		// // rendering
-		// let points = this.complexity+2;
-		// if ( this.complexity==5 ) { points=8 } // unicode doesnt have heptagons ;-( 
-		// else if ( this.complexity==6 ) { points=12; } // getting hard to discern at this point 
-				
-			
-		// // colors hardcoded mostly for aesthetics. you could change them.
-		// let colors = [
-		// 	'#C42452',
-		// 	'#EB9223',
-		// 	'#EBE313',
-		// 	'#5DD94D',
-		// 	'#2CAED4',
-		// 	'#1F4BE3',
-		// 	'#991FE3',
-		// 	'#FF70E5',
-		// 	'#FFFFFF',
-		// 	'#666666',
-		// ];
-		
-		// // sort nutrients by contribution
-		// let components = [];
-		// for ( let i=0; i < this.nutrients.length; i++ ) {
-		// 	if ( this.nutrients[i] ) {
-		// 		components.push({
-		// 			color: colors[i],
-		// 			pct: this.nutrients[i],
-		// 		});
-		// 	}
-		// }
-		// components.sort( (a,b) => a.pct - b.pct );
-		
-		// // Vector style - single color polygon
-		// if ( globalThis.vc.render_style == 'Vector' ) {
-		// 	this.geo = globalThis.two.makePolygon(this.x,this.y,this.r,points);
-		// 	// const maincolor =  components[components.length-1].color;
-		// 	// const secondcolor = components.length > 1 ? components[components.length-2].color : maincolor;
-		// 	// let rgb = utils.HexColorToRGBArray(maincolor);
-		// 	// let hsl = utils.rgb2hsl( rgb[0]/255, rgb[1]/255, rgb[2]/255 );
-		// 	// this.geo.fill = `hsl(${hsl[0]*255},${hsl[1]*100}%,${hsl[2]*80}%)`;
-		// 	// this.geo.stroke = maincolor;
-		// 	this.geo.fill = 'transparent';
-		// 	this.geo.stroke = '#F99';
-		// 	this.geo.linewidth = 4;
-		// }
-		
-		// // Zen white style - 
-		// else if ( globalThis.vc.render_style == 'Zen' ) {
-		// 	this.geo = globalThis.two.makePolygon(this.x,this.y,this.r,points);
-		// 	this.geo.fill = 'transparent';
-		// 	this.geo.stroke = '#666';
-		// 	this.geo.linewidth = 4;
-		// }
-		
-		// // Grey style - uses colors
-		// else if ( globalThis.vc.render_style == 'Grey' ) {
-		// 	this.geo = globalThis.two.makePolygon(this.x,this.y,this.r,points);
-		// 	const maincolor =  components[components.length-1].color;
-		// 	const secondcolor = components.length > 1 ? components[components.length-2].color : maincolor;
-		// 	let rgb = utils.HexColorToRGBArray(maincolor);
-		// 	let hsl = utils.rgb2hsl( rgb[0]/255, rgb[1]/255, rgb[2]/255 );
-		// 	this.geo.fill = `hsl(${hsl[0]*255},${hsl[1]*100}%,${hsl[2]*80}%)`;
-		// 	this.geo.stroke = maincolor;
-		// 	this.geo.linewidth = 4;
-		// }
-		
-		// // Natural style - 2-color dashed circle
-		// else {
-		// 	this.geo = globalThis.two.makeCircle(this.x,this.y,this.r);
-		// 	// only show the two primary ingredients to keep it simple
-		// 	const maincolor =  components[components.length-1].color;
-		// 	const secondcolor = components.length > 1 ? components[components.length-2].color : maincolor;
-		// 	let rgb = utils.HexColorToRGBArray(maincolor);
-		// 	let hsl = utils.rgb2hsl( rgb[0]/255, rgb[1]/255, rgb[2]/255 );
-		// 	this.geo.fill = `hsl(${hsl[0]*255},${hsl[1]*100}%,${hsl[2]*80}%)`;
-		// 	this.geo.stroke = secondcolor;
-		// 	// make dash pattern create a number of "pips" to represent food complexity.
-		// 	// this is aesthetically better than using polygons to represent complexity.
-		// 	let circ = this.r * 2 * Math.PI;
-		// 	let segment = circ / ( points * 2 );
-		// 	this.geo.linewidth = this.r/2;
-		// 	this.geo.dashes = [segment,segment];
-		// }
-		
-		// this.geo.rotation = Math.random() * Math.PI; // aesthetic rotation
-		// globalThis.vc.AddShapeToRenderLayer(this.geo,1); // main layer	
-	}
 }

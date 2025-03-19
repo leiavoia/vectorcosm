@@ -33,6 +33,9 @@ function_registry.set( 'update', params => {
 	let delta = params.delta || 1/30;
 	let num_frames = params?.num_frames || 1;
 	let inc_boid_animation_data = params?.inc_boid_animation_data ?? false;
+	let inc_mark_animation_data = params?.inc_mark_animation_data ?? false;
+	let inc_plant_animation_data = params?.inc_plant_animation_data ?? false;
+	let inc_food_animation_data = params?.inc_food_animation_data ?? false;
 	for ( let i=0; i < num_frames; i++ ) {
 		globalThis.vc.update(delta);
 	}
@@ -80,24 +83,40 @@ function_registry.set( 'update', params => {
 		y: o.y,
 		geodata: AutoIncludeGeoData(o)
 	}) ));
-	renderObjects.push( ... globalThis.vc.tank.foods.map( o => ({
-		oid: o.oid,
-		type:'food',
-		x: o.x,
-		y: o.y,
-		s: 1,
-		r: o.r, // needed to render dynamic radius
-		geodata: AutoIncludeGeoData(o)
-	}) ));
-	renderObjects.push( ... globalThis.vc.tank.marks.map( o => ({
-		oid: o.oid,
-		type:'mark',
-		x: o.x,
-		y: o.y,
-		age: o.age,
-		lifespan: o.lifespan,
-		geodata: AutoIncludeGeoData(o),
-	}) ));
+	renderObjects.push( ... globalThis.vc.tank.foods.map( o => {
+		let return_obj = {
+			oid: o.oid,
+			type:'food',
+			x: o.x,
+			y: o.y,
+			geodata: AutoIncludeGeoData(o)
+		};
+		if ( inc_food_animation_data ) {
+			return_obj.anim = {
+				r: o.r,
+				age: o.age,
+				lifespan: o.lifespan,
+			}
+		}
+		return return_obj;
+	}));
+	renderObjects.push( ... globalThis.vc.tank.marks.map( o => {
+		let return_obj = {
+			oid: o.oid,
+			type:'mark',
+			x: o.x,
+			y: o.y,
+			geodata: AutoIncludeGeoData(o),
+		};
+		if ( inc_mark_animation_data ) {
+			return_obj.anim = {
+				age: o.age,
+				lifespan: o.lifespan,
+				sense_type: o.strongest_sense,
+			}
+		}
+		return return_obj;
+	}));
 	renderObjects.push( ... globalThis.vc.tank.obstacles.map( o => ({
 		oid: o.oid,
 		type:'obstacle',
