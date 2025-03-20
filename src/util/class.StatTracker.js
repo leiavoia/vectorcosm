@@ -6,7 +6,16 @@ import * as utils from './utils.js';
 //	recordsPerLayer: number of records to keep in each layer. Useful for graph displays.
 //	base: the number of records averaged to create the next higher order record.
 //	onInsert: callback function that reports new data being inserted. Useful for interactive graph updates or alarms.
-//		Callback takes the form of function( data, layerIndex )
+//		Callback takes the form of function( data, layerIndex ). Example:
+//			statTracker.onInsert = ( data, layer ) => {
+//				if ( layer === 0 ) {
+//					fpsChart1.data.labels.push(gameloop.frame);
+//					fpsChart1.update();
+//					if ( fpsChart1.data.labels.length > recordsPerLayer ) {
+//						fpsChart1.data.labels.shift();
+//					}
+//				}
+//			}
 export class StatTracker {
 	constructor(params) {
 		this.base = utils.Clamp( params.base || 10, 2, 100 );

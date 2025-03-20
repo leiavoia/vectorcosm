@@ -14,7 +14,8 @@
 	import Two from "two.js";
 	import * as SVGUtils from './util/svg.js'
 	import { setContext } from 'svelte';
-	
+	import {StatTracker, CompoundStatTracker} from './util/class.StatTracker.js'
+
 	let vc_canvas;
 	let focus_object_panel;
 	let simStatsPanel;
@@ -26,6 +27,18 @@
 		panel_mode = panel_mode == mode ? null : mode;
 	}
 	setContext('setPanelMode', setPanelMode); // allows panels to self-close
+
+	// performance tracking
+	let performanceTracker = new CompoundStatTracker( { numLayers: 2, base: 10, recordsPerLayer: 60, stats:[
+		'fps',
+		'delta',
+		'drawtime',
+		'simtime',
+		'waittime',
+	] });
+	
+	// tank object tracking
+	// let tankStatTracker = new CompoundStatTracker( { numLayers: 3, base: 6, recordsPerLayer:20, stats:['boids','foods','bfratio'] });
 
 	// vectorcosm simulation runs in a worker thread
 	const worker = new Worker(
@@ -48,6 +61,13 @@
 
 	gameloop.onStartFrame = () => {
 		// update all your stats here
+		performanceTracker.Insert({
+			fps: gameloop.fps,
+			delta: gameloop.delta,
+			drawtime: gameloop.drawtime,
+			simtime: gameloop.simtime,
+			waittime: gameloop.waittime,
+		});			
 	}
 
 	gameloop.onStartSim = delta => {
@@ -604,7 +624,7 @@
 	}
 	
 	function onmousemove(event) {
-		const now_tracking = camera.focus_obj_id > 0 && camera.center_camera_on_focus;
+		const now_tracking = camera && camera.focus_obj_id > 0 && camera.center_camera_on_focus;
 		if ( dragging && !now_tracking ) {
 			// camera pan - don't move the camera on fudge clicks
 			const dx = event.clientX - drag_start_x;
