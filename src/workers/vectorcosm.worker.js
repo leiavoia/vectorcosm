@@ -80,10 +80,13 @@ function_registry.set( 'update', params => {
 		let return_obj = {
 			oid: o.oid,
 			type:'plant',
-			x: o.x,
-			y: o.y,
 			geodata: AutoIncludeGeoData(o)
 		};
+		// plants don't move - that's kinda their whole thing
+		if ( return_obj.geodata ) {
+			return_obj.x = o.x;
+			return_obj.y = o.y;
+		}
 		if ( inc_plant_animation_data ) {
 			return_obj.anim = {
 				age: o.age,
@@ -114,10 +117,13 @@ function_registry.set( 'update', params => {
 		let return_obj = {
 			oid: o.oid,
 			type:'mark',
-			x: o.x,
-			y: o.y,
 			geodata: AutoIncludeGeoData(o),
 		};
+		// marks don't move
+		if ( return_obj.geodata ) {
+			return_obj.x = o.x;
+			return_obj.y = o.y;
+		}		
 		if ( inc_mark_animation_data ) {
 			return_obj.anim = {
 				age: o.age,
@@ -135,6 +141,21 @@ function_registry.set( 'update', params => {
 		geodata: AutoIncludeGeoData(o),
 	}) ));
 	
+	renderObjects.push( ... globalThis.vc.tank.obstacles.map( o => {
+		let return_obj = {
+			oid: o.oid,
+			type:'obstacle',
+			geodata: AutoIncludeGeoData(o),
+		};
+		// rocks don't move
+		if ( return_obj.geodata ) {
+			return_obj.x = o.x;
+			return_obj.y = o.y;
+		}
+		return return_obj;
+	}));
+	
+		
 	// compile simulation stats
 	let simStats = {
 		'best_score': globalThis.vc.simulation.stats.best_score,
