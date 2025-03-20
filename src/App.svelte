@@ -638,7 +638,7 @@
 	}
 	
 	function AnimateFood(o) {
-		if ( !o.geo || !o.anim ) { return; }
+		if ( !o.geo || !o.anim || camera.z < camera.animation_min ) { return; }
 		// resize the food
 		let radius = Math.max(o.anim.r,5) // note: it tracks its own radius instead of calculating from food value
 		if ( radius != o.geo.radius ) { // limit expensive redraws
@@ -665,7 +665,9 @@
 	}
 	
 	function AnimatePlant(o) {
-		if ( !o.geo || !o.anim ) { return; }
+		// note: dynamic animations cause jank unless we track animation cycle time per-plant.
+		// optimization: we can calculate plant-is-in-frame before committing to animation.
+		if ( !o.geo || !o.anim /* || camera.z < camera.animation_min */ ) { return; }
 		// reenable plants turned off on loading. this dodges the first-frame pop.
 		if ( !o.geo.visible ) { o.geo.visible = true; }
 		// historical note: we used to base strength on local tank current,
@@ -721,6 +723,7 @@
 	}
 	
 	function AnimateMark(o) {
+		// note: marks look good at a distance, so do not turn off animations based on camera zoom
 		if ( !o.geo || !o.anim ) { return; }
 		// fade in/out
 		const max_opacity = 0.5;
