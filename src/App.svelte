@@ -2,6 +2,7 @@
 
 	import FocusObjectDetails from './ui/FocusObjectDetails.svelte';
 	import TankStatsPanel from './ui/TankStatsPanel.svelte';
+	import PerfStatsPanel from './ui/PerfStatsPanel.svelte';
 	import SimStatsPanel from './ui/SimStatsPanel.svelte';
 	import SimulatorControlsPanel from './ui/SimulatorControlsPanel.svelte';
 	import SimulationLauncherPanel from './ui/SimulationLauncherPanel.svelte';
@@ -974,10 +975,12 @@
 		{#if panel_mode==='sim_controls'}
 			<SimulatorControlsPanel settings={simSettings} onupdate={params=>onSimulatorControlsUpdate(params)}></SimulatorControlsPanel>
 			<SimStatsPanel bind:this={simStatsPanel} stats={simStats} chartdata={simChartData}></SimStatsPanel>
-			<TankStatsPanel stats={tankStats} open={false}></TankStatsPanel>
+			<!-- <TankStatsPanel stats={tankStats} open={false}></TankStatsPanel> -->
+			<!-- <PerfStatsPanel tracker={performanceTracker} open={false}></PerfStatsPanel> -->
 		{:else if panel_mode==='tank_stats'}
 			<TankStatsPanel stats={tankStats}></TankStatsPanel>
 			<SimStatsPanel bind:this={simStatsPanel} stats={simStats} chartdata={simChartData}></SimStatsPanel>
+			<PerfStatsPanel tracker={performanceTracker} open={false}></PerfStatsPanel>
 		{:else if panel_mode==='settings'}
 			<CameraSettingsPanel camera={camera}></CameraSettingsPanel>
 		{:else if panel_mode==='boid_library'}
