@@ -139,12 +139,6 @@ export default class Tank {
 		
 		// update the actual data grid
 		this.CreateDataGrid(this.width,this.height);
-		
-		// update visualization if its currently on
-		// if ( this.debug_geo ) {
-		// 	this.DrawDebugBoundaryRectangle(true);
-		// }
-				
 	}
 		
 	CreateDataGrid(w,h) {
@@ -202,7 +196,6 @@ export default class Tank {
 		let gridcell_size = Math.max( 300, Math.sqrt( gridcell_area ) );
 		this.grid = new SpaceGrid(w,h,gridcell_size);
 		this.CreateDataGrid(w,h);
-		this.ScaleBackground();
 	}
 	
 	DrawDebugBoundaryRectangle( on = true ) {
@@ -276,10 +269,6 @@ export default class Tank {
 			bg_theme = Tank.backdrop_themes.filter( x => !x.omitFromRandom ).pickRandom();
 		}
 		if ( save ) { this.bg_theme = bg_theme.name; }
-		// // update BODY class		
-		// let classes = document.body.getAttribute("class")
-		// 	.replace(/\s*bg-theme-.+\b/, '') + ' ' + bg_theme.class;
-		// document.body.setAttribute("class", classes.trim() );
 	}
 	
 	// background layer
@@ -465,22 +454,6 @@ export default class Tank {
 			height: this.height,
 			bg_opacity: this.bg_opacity
 		};
-	}
-	
-	ScaleBackground() {
-		// // scale background layer
-		// if ( this.bg ) { 
-		// 	this.bg.scale = 1; // reset to one
-		// 	const rect = this.bg.getBoundingClientRect(true);
-		// 	this.bg.scale = new Two.Vector( 
-		// 		(this.width * globalThis.vc.scale) / rect.width, 
-		// 		(this.height * globalThis.vc.scale) / rect.height 
-		// 	);
-		// }
-		// // scale debug geometry (fluid currents, etc)
-		// if ( this.debug_geo ) {			
-		// 	this.DrawDebugBoundaryRectangle();
-		// }
 	}
 	
 	MakePrettyDecor() {

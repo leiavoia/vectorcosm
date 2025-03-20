@@ -1,4 +1,4 @@
-import * as utils from './utils.js';
+import * as utils from '../util/utils.js';
 
 // Tracks a single-value statistic over multiple orders of magnitude.
 // PARAMS

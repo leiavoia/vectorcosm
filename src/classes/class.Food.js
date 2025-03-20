@@ -213,38 +213,10 @@ export default class Food {
 				const plant = new DNAPlant( {dna:this.seed} );
 				plant.x = this.x;
 				plant.y = this.y;
-				// plant.geo.position.x = this.x; // this is really ugly
-				// plant.geo.position.y = this.y;
 				plant.age = 0; // shim
 				globalThis.vc.tank.plants.push(plant);
-				// [!] inconsistent behavior with rocks which automatically place themselves
-				// globalThis.vc.AddShapeToRenderLayer( plant.geo, 0 );			
 				this.Kill();
 			}
-		}
-		// drawing
-		else {
-			// this.geo.position.x = this.x;
-			// this.geo.position.y = this.y;
-			// // limit expensive redraws
-			// let radius = Math.max(this.r,5)
-			// if ( radius != this.geo.radius ) {
-			// 	this.geo.radius = radius;
-			// 	// Natural style represents specific number of dots on the circle
-			// 	if ( globalThis.vc.render_style == 'Natural' ) {
-			// 		let circ = radius * 2 * Math.PI;
-			// 		let points = this.complexity+2;
-			// 		points = points >= 7 ? 8 : points;
-			// 		let segment = circ / ( points * 2 );
-			// 		this.geo.linewidth = radius/2;
-			// 		this.geo.dashes = [segment,segment];				
-			// 	}
-			// }
-			// // fade out
-			// if ( globalThis.vc.animate_plants && !this.permafood && this.age > this.lifespan - 1 ) {
-			// 	let pct = this.age - (this.lifespan-1);
-			// 	this.geo.opacity = 1-pct;
-			// }
 		}
 	}
 	// returns the amount eaten
@@ -256,7 +228,6 @@ export default class Food {
 		return eaten;
 	}
 	Kill() {
-		// this.geo.remove();
 		this.dead = true;
 	}
 	// returns TRUE if the food is edible by the boid

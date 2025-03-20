@@ -15,7 +15,7 @@
 	import Two from "two.js";
 	import * as SVGUtils from './util/svg.js'
 	import { setContext } from 'svelte';
-	import {StatTracker, CompoundStatTracker} from './util/class.StatTracker.js'
+	import {StatTracker, CompoundStatTracker} from './classes/class.StatTracker.js'
 
 	let vc_canvas;
 	let focus_object_panel;

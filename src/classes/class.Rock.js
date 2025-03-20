@@ -40,10 +40,6 @@ export default class Rock {
 				new_points_respect_hull: true
 			}, params);
 		}
-		// drawing geometry
-		// this.geo = globalThis.two.makeGroup();
-		// this.geo.position.x = params.x;
-		// this.geo.position.y = params.y;
 		// create the rock from scratch if this is not from a saved object
 		if ( !this.collision ) {
 			// position in space
@@ -179,11 +175,6 @@ export default class Rock {
 				]);
 			}
 		}
-
-		// this.UpdateGeometry();
-				
-		// do this last or the scaling gets confused
-		// globalThis.vc.AddShapeToRenderLayer(this.geo,'0'); 
 	}
 	Kill() {
 		// this.geo.remove();
@@ -208,35 +199,5 @@ export default class Rock {
 			hull: this.collision.hull
 		}
 	}
-	// for use with switching visual styles	
-	UpdateGeometry() {
-		// // out with the old
-		// if ( this.geo ) { this.geo.remove( this.geo.children ); }
-		
-		// // Natural style - triangles
-		// if ( globalThis.vc.render_style == 'Natural' ) {
-		// 	for ( let t of this.triangles ) {
-		// 		let p = globalThis.two.makePath( ...t.slice(null, -1) );
-		// 		p.linewidth = 1;
-		// 		p.fill = t[6];
-		// 		p.stroke = t[6];
-		// 		this.geo.add(p);
-		// 	}
-		// }	
-		
-		// // representational vector styles - only renders hull outline
-		// else {
-		// 	let anchors = this.collision.hull.map( p => new Two.Anchor( p[0], p[1] ) );
-		// 	let outline = globalThis.two.makePath(anchors);
-		// 	outline.linewidth = 4;
-		// 	outline.fill = 'transparent';
-		// 	outline.stroke = '#AAA';
-		// 	outline.visible = true;
-		// 	if ( globalThis.vc.render_style == 'Grey' ) { 
-		// 		outline.stroke = 'transparent'; 
-		// 		outline.fill='#222';
-		// 	}
-		// 	this.geo.add( outline );
-		// }
-	}
+
 }

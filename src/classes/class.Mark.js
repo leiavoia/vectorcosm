@@ -97,28 +97,6 @@ export default class Mark {
 		}
 		
 		return geo;
-		
-		// // fade in/out
-		// const max_opacity = 0.5;
-		// const fade_in = 0.65;
-		// const fade_out = 2;
-		// if ( globalThis.vc.animate_boids && globalThis.vc.show_markers ) {
-		// 	// smells linger
-		// 	if ( this.strongest_sense >= 3 && this.strongest_sense < 12 ) {
-		// 		if ( this.age < fade_in ) {
-		// 			geo.opacity = max_opacity * ( this.age / fade_in );
-		// 		}
-		// 		else if ( this.age > this.lifespan - fade_out ) {
-		// 			geo.opacity = max_opacity * ( (this.lifespan - this.age) / fade_out );
-		// 		}
-		// 	}
-		// 	// sounds and colors flash
-		// 	else {
-		// 		geo.opacity = Math.pow( 1 - this.age / this.lifespan, 20 );
-		// 	}
-		// 	// geo.rotation += 0.2 * delta; // egregious eye candy
-		// }
-		
 	}
 	Kill() {
 		this.dead = true;
