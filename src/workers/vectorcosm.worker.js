@@ -462,7 +462,7 @@ function DescribeBoid( o, inc_sensor_geo=false,  inc_brain=false ) {
 	}
 		
 	// brain outputs
-	data.brain_outputs = o.brain.nodes
+	data.brain_outputs = o.brain.network.nodes
 		.filter(n => n.type=='output')
 		.map(n => ({val:n.activation.toFixed(2)}) );
 	data.brain_outputs.forEach( (n,i) => n.name = o.motors[i].name );
@@ -484,7 +484,7 @@ function DescribeBoid( o, inc_sensor_geo=false,  inc_brain=false ) {
 	}) );
 	
 	// brain nodes
-	data.brain = o.brain.nodes.map( n => {
+	data.brain = o.brain.network.nodes.map( n => {
 		let value = utils.clamp(n.activation,-1,1);
 		let hexval = utils.DecToHex( Math.round(Math.abs(value) * 255) );
 		return { 
@@ -507,7 +507,7 @@ function DescribeBoid( o, inc_sensor_geo=false,  inc_brain=false ) {
 	}
 	if ( inc_brain ) {	
 		// include data for brain graph 
-		data.brain_struct = o.brain.toJSON();
+		data.brain_struct = o.brain.network.toJSON();
 	}
 				
 	return data;
