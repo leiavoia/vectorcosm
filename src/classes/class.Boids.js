@@ -161,7 +161,7 @@ export class Boid {
 			Object.assign(this,json);
 			this.dna = new DNA(this.dna);
 			this.RehydrateFromDNA();
-			this.brain = new Brain({brain:this.brain});
+			this.brain = new Brain({json:this.brain});
 			this.ScaleBoidByMass();
 		}
 		
@@ -690,10 +690,7 @@ export class Boid {
 			}
 			if ( m.hasOwnProperty('mitosis') && m.t >= m.this_stoke_time ) {
 				const mutation_rate = utils.Clamp( globalThis.vc?.simulation?.settings?.max_mutation, 0, 1 );
-				const speciation_rate = 
-					('speciation_rate' in globalThis.vc?.simulation?.settings)
-					? utils.Clamp( globalThis.vc?.simulation?.settings?.speciation_rate || 0, 0, 1 )
-					: ( globalThis.vc?.simulation?.settings?.allow_speciation ? ( mutation_rate / 1000 ) : 0 ) ;							
+				const speciation_rate = utils.Clamp( globalThis.vc?.simulation?.settings?.speciation_rate || 0, 0, 1 );
 				for ( let n=0; n < m.mitosis; n++ ) { 
 					let offspring = this.Copy(true, mutation_rate, mutation_rate, speciation_rate); // reset state and mutate organism
 					offspring.age = 0; // simulation can assign a random age on Copy
@@ -1460,6 +1457,12 @@ export class Boid {
 		else if ( synRoll <= 0.07 ) { this.traits.synesthesia = 2; } // 4%
 		
 		this.MakeSensorLabels();
+		
+		// create a species hash to compare to other species
+		this.species_hash = utils.murmurhash3_32_gc(
+			this.sensor_labels.join() + this.motors.map( m => m.name ).join()
+		);
+		
 	}
 			
 	Copy( reset=false, dna_mutation=0, brain_mutation=0, speciation_chance=0 ) {
@@ -1470,26 +1473,30 @@ export class Boid {
 		let datakeys = ['species','generation'];
 		for ( let k of datakeys ) { b[k] = this[k]; }
 		b.dna = new DNA( this.dna.str );
+		// transplant the brain first to prevent a default DNA brain from growing 
 		b.brain = new Brain({brain:this.brain});
-		if ( b?.body?.geo ) b.body.geo.remove(); // out with the old
 		if ( brain_mutation ) {
 			const max_nn_muts = 50;
 			const nn_mutations = utils.RandomInt( 1, Math.ceil( max_nn_muts * brain_mutation ) );
 			b.brain.Mutate(nn_mutations);
 		}
+		// mutate DNA before rehydratng
 		if ( dna_mutation ) {
 			const max_dna_muts = 20;
 			b.dna.mutate( 
 				utils.RandomInt( 1, Math.ceil( max_dna_muts * dna_mutation ) ),
 				(1-speciation_chance)
 			); 
-			// subspecies names
-			if ( b.dna.str.substring(1,256) != this.dna.str.substring(1,256) ) {
-				b.species = b.species.replace(/\s+\w+$/g, '') + ' ' + utils.RandomName(9);
-				// console.log('new species: ' + b.species);
-			}
 		}
+		// create the boid in full
 		b.RehydrateFromDNA();
+		// subspecies names
+		if ( b.species_hash != this.species_hash ) {
+			b.species = b.species.replace(/\s+\w+$/g, '') + ' ' + utils.RandomName(9);
+			console.log('new species: ' + b.species);
+			// remap brain inputs and outputs to align with changes in abilities
+			b.brain.Remap(b);
+		}
 		// b.mass = b.body.mass; // random boids start adult size / full grown
 		b.mass = ( 0.5 + Math.random() * 0.5 ) * b.body.mass; // random size
 		b.ScaleBoidByMass();			
@@ -1504,14 +1511,13 @@ export class Boid {
 		// POD we can just copy over
 		let datakeys = ['id','x','y','species','age','stomach_contents', 'energy', 'mass', 'scale', 'length', 'width', 'generation', 'metab' ];		
 		for ( let k of datakeys ) { b[k] = this[k]; }
-		b.brain = this.brain.toJSON(); // misnomor, its not actually JSON, its POD object
+		b.brain = this.brain.toJSON();
 		b.dna = this.dna.str;
-		let output = b;
 		// trim insignificant digits to save space
 		if ( as_JSON ) {
-			output = JSON.stringify(b).replace(/\d+\.\d+/g, x => parseFloat(x).toPrecision(6) );
+			return JSON.stringify(b).replace(/\d+\.\d+/g, x => parseFloat(x).toPrecision(6) );
 		}
-		return output;
+		return b;
 	}
 	
 	// For debugging collision and bodyplan stuff

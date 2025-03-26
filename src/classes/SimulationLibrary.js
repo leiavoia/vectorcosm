@@ -395,7 +395,7 @@ export default {
 		no_combat:true,
 		invasives: 5,
 		invasives_freq: 500,
-		allow_speciation: false, // temporary until we get brain rewiring figured out
+		speciation_rate: 1/60,
 	},
 			
 	petri_dish: {

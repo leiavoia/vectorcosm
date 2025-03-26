@@ -975,8 +975,7 @@
 		{#if panel_mode==='sim_controls'}
 			<SimulatorControlsPanel settings={simSettings} onupdate={params=>onSimulatorControlsUpdate(params)}></SimulatorControlsPanel>
 			<SimStatsPanel bind:this={simStatsPanel} stats={simStats} chartdata={simChartData}></SimStatsPanel>
-			<!-- <TankStatsPanel stats={tankStats} open={false}></TankStatsPanel> -->
-			<!-- <PerfStatsPanel tracker={performanceTracker} open={false}></PerfStatsPanel> -->
+			<TankStatsPanel stats={tankStats} open={false}></TankStatsPanel>
 		{:else if panel_mode==='tank_stats'}
 			<TankStatsPanel stats={tankStats}></TankStatsPanel>
 			<SimStatsPanel bind:this={simStatsPanel} stats={simStats} chartdata={simChartData}></SimStatsPanel>

@@ -465,7 +465,7 @@ function DescribeBoid( o, inc_sensor_geo=false,  inc_brain=false ) {
 	data.brain_outputs = o.brain.network.nodes
 		.filter(n => n.type=='output')
 		.map(n => ({val:n.activation.toFixed(2)}) );
-	data.brain_outputs.forEach( (n,i) => n.name = o.motors[i].name );
+	data.brain_outputs.forEach( (n,i) => n.name = o.motors[i]?.name || 'UNKNOWN' );
 		
 	// motors
 	data.motors = o.motors.map( m => ({
@@ -507,7 +507,7 @@ function DescribeBoid( o, inc_sensor_geo=false,  inc_brain=false ) {
 	}
 	if ( inc_brain ) {	
 		// include data for brain graph 
-		data.brain_struct = o.brain.network.toJSON();
+		data.brain_struct = o.brain.network.toJSON(); // POD
 	}
 				
 	return data;
