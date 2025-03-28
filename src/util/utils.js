@@ -156,7 +156,7 @@ export function RandomFloat( min, max ) {
 	max = Number.parseFloat(max);
 	return (Math.random() * (max-min) ) + min;
 	}
-export function RandomInt( min, max ) { 
+export function RandomInt( min=0, max=Number.MAX_SAFE_INTEGER ) { 
 	min = Number.parseInt(min);
 	max = Number.parseInt(max);
 	return Math.floor( (Math.random() * ((max+1)-min) ) + min );

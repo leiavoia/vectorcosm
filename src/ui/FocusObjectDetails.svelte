@@ -19,7 +19,7 @@
 	}
 	
 	function SaveSpecies() {
-		api.SendMessage('exportBoids', { db:true, species: [boid.species] });
+		api.SendMessage('exportBoids', { db:true, species: [boid.genus] });
 	}
 	
 	function SaveTankPopulation() {
@@ -161,7 +161,12 @@
 <!-- <section in:fade={{duration:200}} out:fade={{duration:350}}> -->
 <section in:fade={{duration:200}}>
 	<header>
-		<h3 style="text-align:center;">{boid.species.toUpperCase()}</h3>
+		<h3 style="text-align:center;">
+			{boid.genus.toUpperCase()}
+			{#if boid.species != boid.genus}
+				{boid.species.toUpperCase()}
+			{/if}
+		</h3>
 	</header>
 
 	<p style="text-align:center;">
@@ -334,6 +339,7 @@
 				<button class="" onclick={SmiteBoid}>Smite</button>
 			</div>
 			<p>ID: <output>{boid.id}</output></p>
+			<p>SPECIATION: <output>{boid.speciation}</output></p>
 			<p>LIFESPAN: <output>{boid.lifespan}</output></p>
 			<p>MATURITY AGE: <output>{boid.maturity_age}</output></p>
 			<p>BITE: <output>{(boid.metab.bite_size||0).toFixed(1)}</output>

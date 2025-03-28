@@ -86,10 +86,12 @@ export class Boid {
 		this.oid = ++globalThis.vc.next_object_id;
 		this.ResetStats();
 		this.sense = new Array(16).fill(0);
-		this.id = Math.random();
+		this.id = utils.RandomInt();
 		this.dna = '';
 		this.generation = 1;
+		this.speciation = 1;
 		this.tank = tank;
+		this.genus = 'unknown';
 		this.species = 'unknown';
 		this.x = x;
 		this.y = y;
@@ -556,7 +558,7 @@ export class Boid {
 						this.y - this.collision.radius,
 						this.x + this.collision.radius,
 						this.y + this.collision.radius,
-						o => o instanceof Boid && o.species != this.species && o != this )
+						o => o instanceof Boid && o.genus != this.genus && o != this )
 					.find( b => {
 						let dx = b.x - this.x;
 						let dy = b.y - this.y;
@@ -767,7 +769,8 @@ export class Boid {
 	static Random(x,y,tank) {
 		let b = new Boid(x,y,tank);
 		b.dna = new DNA();
-		b.species = utils.RandomName(9);
+		b.genus = utils.RandomName(9);
+		b.species = b.genus;
 		b.age = utils.RandomInt( 0, b.lifespan * 0.5 );
 		b.RehydrateFromDNA();
 		b.brain = new Brain({boid:b});
@@ -1458,19 +1461,32 @@ export class Boid {
 		
 		this.MakeSensorLabels();
 		
-		// create a species hash to compare to other species
-		this.species_hash = utils.murmurhash3_32_gc(
-			this.sensor_labels.join() + this.motors.map( m => m.name ).join()
-		);
+		this.species_hash = this.CreateSpeciesHash();
 		
 	}
-			
+
+	// analyzes species-defining features to create a hash for quick comparisons
+	CreateSpeciesHash() {			
+		return utils.murmurhash3_32_gc(
+			// sensor labels
+			this.sensor_labels.join() 
+			// motors - basic features
+			+ this.motors.map( m =>
+				// lop off last character which represents the motor timing - this is not a defining feature
+				m.name.substring(0, m.name.length - 1)
+			).join()
+			// diet
+			+ this.traits.food_mask
+			+ this.traits.poop_complexity
+		);
+	}
+	
 	Copy( reset=false, dna_mutation=0, brain_mutation=0, speciation_chance=0 ) {
 		brain_mutation = utils.Clamp( brain_mutation, 0, 1 );
 		dna_mutation = utils.Clamp( dna_mutation, 0, 1 );
 		let b = new Boid(this.x, this.y, this.tank);
 		// POD we can just copy over
-		let datakeys = ['species','generation'];
+		let datakeys = ['species','genus','generation','speciation'];
 		for ( let k of datakeys ) { b[k] = this[k]; }
 		b.dna = new DNA( this.dna.str );
 		// transplant the brain first to prevent a default DNA brain from growing 
@@ -1492,8 +1508,8 @@ export class Boid {
 		b.RehydrateFromDNA();
 		// subspecies names
 		if ( b.species_hash != this.species_hash ) {
-			b.species = b.species.replace(/\s+\w+$/g, '') + ' ' + utils.RandomName(9);
-			console.log('new species: ' + b.species);
+			b.species = utils.RandomName(9);
+			b.speciation += 1;
 			// remap brain inputs and outputs to align with changes in abilities
 			b.brain.Remap(b);
 		}
@@ -1509,7 +1525,7 @@ export class Boid {
 	Export( as_JSON=false ) {
 		let b = {};
 		// POD we can just copy over
-		let datakeys = ['id','x','y','species','age','stomach_contents', 'energy', 'mass', 'scale', 'length', 'width', 'generation', 'metab' ];		
+		let datakeys = ['id','x','y','species','genus','age','stomach_contents', 'energy', 'mass', 'scale', 'length', 'width', 'generation','speciation', 'metab' ];		
 		for ( let k of datakeys ) { b[k] = this[k]; }
 		b.brain = this.brain.toJSON();
 		b.dna = this.dna.str;

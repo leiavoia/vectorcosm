@@ -445,7 +445,7 @@ function DescribeBoid( o, inc_sensor_geo=false,  inc_brain=false ) {
 	};
 	
 	// scalar values we can just copy
-	for ( let i of ['oid','id','species','generation',
+	for ( let i of ['oid','id','species','genus','generation','speciation',
 		'length','width','inertia','angmo',
 		'age', 'lifespan', 'maturity_age', 'scale', 'mass',
 		'metab', 'traits', 'stats'
