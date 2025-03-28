@@ -164,6 +164,17 @@ export class Boid {
 			this.dna = new DNA(this.dna);
 			this.RehydrateFromDNA();
 			this.brain = new Brain({json:this.brain});
+			if ( json.motor_state ) { // temporary object for storage only
+				for ( let i=0; i<this.motors.length; i++ ) {
+					let m = this.motors[i];
+					let s = json.motor_state[i];
+					m.t = s.t;
+					m.last_amount = s.last_amount;
+					m.this_stoke_time = s.this_stoke_time;
+					m.strokepow = s.strokepow;					
+				}
+				delete json.motor_state;
+			}
 			this.ScaleBoidByMass();
 		}
 		
@@ -1529,6 +1540,13 @@ export class Boid {
 		for ( let k of datakeys ) { b[k] = this[k]; }
 		b.brain = this.brain.toJSON();
 		b.dna = this.dna.str;
+		// save motor timings - not doing this can mess up sensative mitosis strategies
+		b.motor_state = this.motors.map( m => ({
+			t: m.t,
+			last_amount: m.last_amount,
+			this_stoke_time: m.this_stoke_time,
+			strokepow: m.strokepow,
+		}));
 		// trim insignificant digits to save space
 		if ( as_JSON ) {
 			return JSON.stringify(b).replace(/\d+\.\d+/g, x => parseFloat(x).toPrecision(6) );
