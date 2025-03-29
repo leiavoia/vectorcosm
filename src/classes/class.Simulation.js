@@ -174,7 +174,7 @@ export default class Simulation {
 	Update( delta ) {
 		if ( this.complete ) { return; }
 		if ( this.killme ) {
-			PubSub.publish('sim.complete', this);
+			PubSub.publishSync('sim.complete', this);
 			return;
 		}
 		// extinction check
@@ -307,7 +307,7 @@ export default class Simulation {
 			}
 			if ( end_sim ) {
 				this.complete = true;
-				PubSub.publish('sim.complete', this);
+				PubSub.publishSync('sim.complete', this);
 			}
 		}
 		PubSub.publishSync('sim.update', this);
