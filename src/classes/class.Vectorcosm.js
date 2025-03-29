@@ -83,7 +83,6 @@ export default class Vectorcosm {
 	
 	LoadNextSim() {
 		let boids = this.simulation ? this.simulation.tank.boids.splice(0,this.simulation.tank.boids.length) : [];
-		const was_turbo = this.simulation ? this.simulation.turbo : false; 
 		this.simulation = this.sim_queue.shift();
 		// if the simulation is empty create a natural tank environment
 		if ( !this.simulation ) { 
@@ -96,7 +95,6 @@ export default class Vectorcosm {
 		this.tank.Sterilize(); 
 		this.simulation.tank.boids = boids;
 		this.simulation.Setup(); 
-		this.simulation.turbo = was_turbo;
 	}
 	
 	// if no volume is supplied, current volume will be used

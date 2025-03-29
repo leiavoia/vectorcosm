@@ -605,37 +605,35 @@ export class Boid {
 					}
 			
 					// draw indicator circle
-					if ( !globalThis.vc?.simulation?.turbo ) {
-						// let mark = null;
-						// let marksize = Math.min( 80, Math.sqrt(attack_force) );
-						// if ( victim.dead ) {
-						// 	mark = globalThis.two.makeGroup();
-						// 	mark.add( globalThis.two.makeLine( -marksize, -marksize, marksize, marksize ) );
-						// 	mark.add( globalThis.two.makeLine( -marksize, marksize, marksize, -marksize ) );
-						// 	mark.position.x = victim.x;
-						// 	mark.position.y = victim.y;
-						// }
-						// else {
-						// 	mark = globalThis.two.makeCircle( victim.x, victim.y, marksize );
-						// }
-						// mark.stroke = 'red';
-						// mark.fill = 'transparent';
-						// mark.linewidth = 6;
-						// // mark.dashes = [30, 6, 6, 6];
-						// globalThis.vc.AddShapeToRenderLayer(mark,1);
-						// // make it go away after 2s - 
-						// if ( globalThis.vc.animate_boids ) {
-						// 	new TWEEN.Tween(mark)
-						// 		.to( { opacity:0, scale:2 }, 2000 )
-						// 		.easing(TWEEN.Easing.Quadratic.Out)
-						// 		// switch to absolute tracking after chase completed
-						// 		.onComplete( obj => obj.remove() )
-						// 		.start();
-						// }
-						// else {
-						// 	setTimeout( _ => mark.remove(), 2000 );
-						// }
-					}
+					// let mark = null;
+					// let marksize = Math.min( 80, Math.sqrt(attack_force) );
+					// if ( victim.dead ) {
+					// 	mark = globalThis.two.makeGroup();
+					// 	mark.add( globalThis.two.makeLine( -marksize, -marksize, marksize, marksize ) );
+					// 	mark.add( globalThis.two.makeLine( -marksize, marksize, marksize, -marksize ) );
+					// 	mark.position.x = victim.x;
+					// 	mark.position.y = victim.y;
+					// }
+					// else {
+					// 	mark = globalThis.two.makeCircle( victim.x, victim.y, marksize );
+					// }
+					// mark.stroke = 'red';
+					// mark.fill = 'transparent';
+					// mark.linewidth = 6;
+					// // mark.dashes = [30, 6, 6, 6];
+					// globalThis.vc.AddShapeToRenderLayer(mark,1);
+					// // make it go away after 2s - 
+					// if ( globalThis.vc.animate_boids ) {
+					// 	new TWEEN.Tween(mark)
+					// 		.to( { opacity:0, scale:2 }, 2000 )
+					// 		.easing(TWEEN.Easing.Quadratic.Out)
+					// 		// switch to absolute tracking after chase completed
+					// 		.onComplete( obj => obj.remove() )
+					// 		.start();
+					// }
+					// else {
+					// 	setTimeout( _ => mark.remove(), 2000 );
+					// }
 				}				
 				// if we decided to activate a new stroke, record the power it was
 				// activated with instead of using a varying stroke each frame.

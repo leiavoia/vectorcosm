@@ -74,7 +74,6 @@ export default class Simulation {
 			framenum: 0,
 			delta: 0
 		};
-		this.turbo = false;
 		this.complete = false;
 	}
 	
