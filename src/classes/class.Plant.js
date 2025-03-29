@@ -391,7 +391,7 @@ export class PendantLettuce extends Plant {
 		return this.geo;
 	}	
 	CreateBody() {
-		this.geo = { type:'group', children: [], animation_method:'sway' };
+		this.geo = { type:'group', children: [], animation_method:'skew' };
 		const n = utils.BiasedRandInt( 3, 16, 8, 0.8 );
 		const r = utils.BiasedRandInt( 50, 200, 100, 0.6);
 		const max_variance = r*0.3; 
