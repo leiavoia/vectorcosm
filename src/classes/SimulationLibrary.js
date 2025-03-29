@@ -395,7 +395,7 @@ export default {
 		no_combat:true,
 		invasives: 5,
 		invasives_freq: 500,
-		speciation_rate: 1/60,
+		speciation_rate: 1/30,
 	},
 			
 	petri_dish: {

@@ -1303,7 +1303,6 @@ export class Boid {
 			}
 			// random chance to have blended channel detection
 			if ( rejects.length ) {
-				rejects.shuffle();
 				while ( rejects.length ) {
 					let num = this.dna.shapedInt( this.dna.genesFor('smell merge ' + rejects.length, 1, true), 2, 3);
 					num = utils.Clamp( num, 1, rejects.length );
@@ -1347,7 +1346,6 @@ export class Boid {
 			}
 			// random chance to have blended channel detection
 			if ( rejects.length ) {
-				rejects.shuffle();
 				while ( rejects.length ) {
 					let num = this.dna.shapedInt( this.dna.genesFor('audio merge ' + rejects.length, 1, true), 2, 3);
 					num = utils.Clamp( num, 1, rejects.length );
@@ -1473,7 +1471,6 @@ export class Boid {
 		this.MakeSensorLabels();
 		
 		this.species_hash = this.CreateSpeciesHash();
-		
 	}
 
 	// analyzes species-defining features to create a hash for quick comparisons
@@ -1484,11 +1481,13 @@ export class Boid {
 			// motors - basic features
 			+ this.motors.map( m =>
 				// lop off last character which represents the motor timing - this is not a defining feature
-				m.name.substring(0, m.name.length - 1)
+				(m.linear || m.angular) 
+				? m.name.substring(0, m.name.length - 1)
+				: m.name
 			).join()
 			// diet
-			+ this.traits.food_mask
-			+ this.traits.poop_complexity
+			+ ',' + this.traits.food_mask
+			+ ',' + this.traits.poop_complexity
 		);
 	}
 	
@@ -1532,7 +1531,7 @@ export class Boid {
 		if ( reset ) { b.Reset(); }
 		return b;
 	}
-			
+
 	Export( as_JSON=false ) {
 		let b = {};
 		// POD we can just copy over
