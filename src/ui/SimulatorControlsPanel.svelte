@@ -51,17 +51,11 @@
 	}
 	
 	function saveTank() {
-		api.SendMessage('exportTank',null);
-		// this is going to return JSON that we need to store in localStorage.
-		// webworker does not have access to localStorage.
-		// the main app already handles this event so we don't need to do anything here.
+		api.SendMessage('saveTank',null);
 	}
 	
 	function loadTank() {
-		const tank = globalThis.localStorage.getItem("tank");
-		if ( tank ) {
-			api.SendMessage('loadTank', { tank, settings: $state.snapshot(settings) });
-		}
+		api.SendMessage('loadTank', { id:0, settings: $state.snapshot(settings) });
 	}
 	
 	function randTank() {

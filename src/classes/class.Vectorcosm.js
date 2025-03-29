@@ -7,6 +7,7 @@ import BoidLibrary from '../classes/class.BoidLibrary.js'
 import { SimulationFactory, NaturalTankSimulation } from '../classes/class.Simulation.js'
 import { BoidFactory, Boid } from '../classes/class.Boids.js'
 import PubSub from 'pubsub-js'
+import {db} from '../classes/db.js'
 
 export default class Vectorcosm {
 
@@ -214,7 +215,7 @@ export default class Vectorcosm {
 		}		
 	}
 	
-	ExportTank() {
+	async SaveTank( id=0 ) {
 		if ( this.tank ) {
 			const scene = {
 				tank: this.tank.Export(),
@@ -224,14 +225,18 @@ export default class Vectorcosm {
 				plants: this.tank.plants.map( x => x.Export() ),
 				sim_settings: this.simulation.settings,
 			};
-			return JSON.stringify(scene).replace(/\d+\.\d+/g, x => parseFloat(x).toPrecision(6) );
+			const row = { id, scene, date: Date.now() };
+			await db.tanks.put(row);
 		}
 	}
-			
-	LoadTank( json, settings ) {
-		if (json) {
+	
+	async LoadTank( id=0, settings=null ) {
+		if ( id >= 0 ) {
+			const data = await db.tanks.get(id);
+			if ( !data ) { return null; }
+			const scene = data.scene;
 			this.tank.Kill();
-			const scene = JSON.parse(json);
+			// console.log(scene);
 			this.tank = new Tank( scene.tank );
 			this.tank.MakeBackground();
 			settings = Object.assign( {

@@ -1,7 +1,10 @@
 import Dexie from 'dexie';
 
-export const db = new Dexie('vc-populations');
-db.version(1).stores({
-  populations: '++id, species, star, date', // Primary key and indexed props
+export const db = new Dexie('vectorcosm');
+
+db.version(2).stores({
+	// table		Primary Key		Indexed Properties		Not Indexed
+	populations:	'++id, 			species, star, date',	// 
+	tanks:			'++id, 			date',					// scene
 });
 

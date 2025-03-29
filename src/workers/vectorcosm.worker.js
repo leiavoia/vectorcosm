@@ -249,13 +249,13 @@ function_registry.set( 'endSim', params => {
 	globalThis.postMessage( { functionName: 'endSim', data: null } );
 });
 
-function_registry.set( 'exportTank', params => {
-	const str = globalThis.vc.ExportTank();
-	globalThis.postMessage( { functionName: 'exportTank', data: str } );
+function_registry.set( 'saveTank', params => {
+	globalThis.vc.SaveTank( params?.data?.id ?? 0 );
+	globalThis.postMessage( { functionName: 'saveTank', data: null } );
 });
 
 function_registry.set( 'loadTank', params => {
-	globalThis.vc.LoadTank( params.data.tank, params.data?.settings );
+	globalThis.vc.LoadTank( params?.data?.id ?? 0, params.data?.settings );
 	globalThis.postMessage( { functionName: 'loadTank', data: null } );
 });
 

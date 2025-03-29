@@ -386,10 +386,8 @@
 		}
 	} );
 	
-	api.RegisterResponseCallback( 'exportTank', str => {
-		if ( str ) {
-			globalThis.localStorage.setItem("tank", str);
-		}
+	api.RegisterResponseCallback( 'saveTank', str => {
+		;;
 	} );
 	
 	api.RegisterResponseCallback( 'exportBoids', str => {
@@ -490,14 +488,11 @@
 			camera.TrackObject( list[i].oid );		
 		},
 		's': _ => {
-			api.SendMessage('exportTank',null);
+			api.SendMessage('saveTank',null);
 		},
 		'a': _ => {
-			const tank = globalThis.localStorage.getItem("tank");
-			if ( tank ) {
-				camera.dramatic_entrance = -1; // evaluates to "true" but resets to false on next action
-				api.SendMessage('loadTank', { tank, settings: $state.snapshot(simSettings) });
-			}
+			camera.dramatic_entrance = -1; // evaluates to "true" but resets to false on next action
+			api.SendMessage('loadTank', { id:0, settings: $state.snapshot(simSettings) });
 		},
 		'1': _ => {
 			setPanelMode('tank_stats')
