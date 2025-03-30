@@ -16,11 +16,15 @@ export default class TankMaker {
 			individual_separate: (Math.random() > 0.5),
 			individual_max_complexity: 2,
 			voronoi_points: null,
-			voronoi_mask_strat: ['zone','xzone','random','hole','burg','sine','depth','cave','trench'].pickRandom(),
+			voronoi_mask_strat: ['radial','zone','xzone','random','hole','burg','sine','depth','cave','trench'].pickRandom(),
 			voronoi_sine_freq: utils.RandomFloat(0.5,20),
 			voronoi_sine_amplitude: utils.RandomFloat(0.05,0.4),
 			voronoi_sine_vshift: utils.RandomFloat(0.0,0.45),
 			voronoi_sine_hshift: utils.RandomFloat(0,1),
+			voronoi_radial_cycles: utils.RandomInt(1,7),
+			voronoi_radial_spin: Math.random(),
+			voronoi_radial_center_x: Math.random(), // 0..1
+			voronoi_radial_center_y: Math.random(), // 0..1
 			voronoi_mask_random_chance: 0.26,
 			voronoi_max_complexity: 2,
 			voronoi_point_strategy: ['blotch','random','square','hex'].pickRandom(),
@@ -285,6 +289,20 @@ export default class TankMaker {
 			depth: ( px, py ) => {
 				const y = (py-ymin) / (ymax-ymin);
 				return Math.pow( Math.random(), 0.5 ) < y;
+			},
+			radial: ( px, py ) => {
+				let center_x = xmin + (xmax-xmin) * this.settings.voronoi_radial_center_x;
+				let center_y = ymin + (ymax-ymin) * this.settings.voronoi_radial_center_y;
+				// hyperextension - center point does not need to be inside tank
+				center_x = center_x * 2 - center_x * 0.5;
+				center_y = center_y * 2 - center_y * 0.5;
+				const dx = px - center_x;
+				const dy = py - center_y;
+				const angle = Math.atan2(dy, dx) + Math.PI;
+				const chance = Math.abs( Math.sin( angle * this.settings.voronoi_radial_cycles + this.settings.voronoi_radial_spin ) );
+				const fudge = 0.15;
+				const hit =  Math.random() > chance + fudge;
+				return hit;
 			},
 			cave: ( px, py ) => {
 				let y = (py-ymin) / (ymax-ymin);
