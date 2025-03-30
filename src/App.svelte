@@ -369,7 +369,10 @@
 	} );
 	
 	api.RegisterResponseCallback( 'simComplete', data => {
-	
+		// a series of trainings is completed - halt fast forward
+		if ( !data.in_queue ) {
+			gameloop.updates_per_frame = 1; 	
+		}
 	} );
 	
 	api.RegisterResponseCallback( 'simNew', data => {

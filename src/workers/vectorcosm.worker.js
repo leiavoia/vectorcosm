@@ -408,14 +408,10 @@ let onSimCompleteSubscription = PubSub.subscribe('sim.complete', (msg, sim) => {
 		functionName: 'simComplete',
 		data: {
 			settings: sim.settings,
-			stats: sim.stats // complete summary including chartdata
+			stats: sim.stats, // complete summary including chartdata
+			in_queue: globalThis.vc.sim_queue.length
 		}
 	} );
-	// if there are no other sims in queue, save boids
-	if ( globalThis.vc.sim_queue.length == 0 ) {
-		const str = globalThis.vc.SavePopulation();
-		globalThis.postMessage( { functionName: 'exportBoids', data: str } );
-	}
 });
 let onSimRoundSubscription = PubSub.subscribe('sim.round', (msg, sim) => {
 	let datapacket = Object.assign({}, sim.stats);

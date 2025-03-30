@@ -82,9 +82,14 @@ export default class Vectorcosm {
 	// }
 	
 	LoadNextSim() {
+		// if the simulation queue is empty, save a copy of the final population
+		if ( ! this.sim_queue.length ) { 
+			this.SavePopulation( null, this.tank.boids.map(b=>b.oid), 'Trained Population' );
+		}
+		// temporarily remove boids from tank so they don't get sterilized
 		let boids = this.simulation ? this.simulation.tank.boids.splice(0,this.simulation.tank.boids.length) : [];
+		// start the next simulation; default to natural tank if queue is empty
 		this.simulation = this.sim_queue.shift();
-		// if the simulation is empty create a natural tank environment
 		if ( !this.simulation ) { 
 			this.simulation = SimulationFactory(this.tank, 'natural_tank');
 		}
@@ -92,6 +97,7 @@ export default class Vectorcosm {
 		if ( this.sim_meta_params.num_boids > 0 ) { this.simulation.settings.num_boids = this.sim_meta_params.num_boids; }
 		if ( this.sim_meta_params.segments > 1 ) { this.simulation.settings.segments = this.sim_meta_params.segments; }
 		if ( this.sim_meta_params.rounds > 0 ) { this.simulation.settings.rounds = this.sim_meta_params.rounds; }
+		// clean the tank and transplant boids back in
 		this.tank.Sterilize(); 
 		this.simulation.tank.boids = boids;
 		this.simulation.Setup(); 
@@ -175,7 +181,7 @@ export default class Vectorcosm {
 		PubSub.publish('frame-update', 'hello world!');							
 	}		
 
-	SavePopulation( species=null, ids=null, to_db=false ) {
+	SavePopulation( species=null, ids=null, to_db=false /* can also be a string label */ ) {
 		if ( this.simulation.tank.boids.length ) {
 			let list = this.simulation.tank.boids;
 			if ( species ) {
@@ -188,15 +194,16 @@ export default class Vectorcosm {
 			// if saving to database, push objects directly in
 			if ( to_db ) {
 				const lib = new BoidLibrary();
-				lib.Add( list );
+				let label = to_db !== true ? to_db : null;
+				lib.Add( list, label );
 			}
+			// otherwise return JSON
 			else {
 				let jsons = [];
 				for ( const b of list ) {
 					jsons.push( b.Export(false) );
 				}
 				return JSON.stringify(jsons).replace(/\d+\.\d+/g, x => parseFloat(x).toPrecision(6) );
-				// localStorage.setItem("population", str);
 			}
 		}		
 	}
@@ -234,7 +241,6 @@ export default class Vectorcosm {
 			if ( !data ) { return null; }
 			const scene = data.scene;
 			this.tank.Kill();
-			// console.log(scene);
 			this.tank = new Tank( scene.tank );
 			this.tank.MakeBackground();
 			settings = Object.assign( {

@@ -8,13 +8,14 @@ export default class BoidLibrary {
 	
 	}
 	
-	async Add( population ) {
+	async Add( population, label=null ) {
 		if ( !Array.isArray(population) ) { population = [population]; }
-		let species = new Set( population.map( _ => _.species ) );
-		species = species.size === 1 ? population[0].species : 'mixed';
+		if ( !label ) {
+			let species = new Set( population.map( _ => _.genus==_.species ? _.genus : `${_.genus} ${_.species}` ) );
+			label = species.size === 1 ? population[0].species : 'mixed';
+		}
 		const row = {
-			// id: utils.RandomInt(),
-			species: species,
+			species: label,
 			date: Date.now(),
 			count: population.length,
 			star: 0,
