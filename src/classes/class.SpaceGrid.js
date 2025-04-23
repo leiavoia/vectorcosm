@@ -1,6 +1,8 @@
 
 export default class SpaceGrid {
-
+	
+	static qid = 0;
+	
 	constructor( width, height, cellsize = 300 ) {
 		this.cellsize = Math.floor(cellsize) // prevents weird float rounding errors;
 		this.cells_x = Math.ceil( (width+1) / this.cellsize );
@@ -83,17 +85,20 @@ export default class SpaceGrid {
 	}
 	
 	GetObjectsByBox( x1, y1, x2, y2, test_func=null ) {
+		SpaceGrid.qid++; // trick to filter unique objects
 		let cells = this.GetCellsByBox( x1, y1, x2, y2 );
 		let objs = [];
 		for ( let cell of cells ) { 
 			for ( let o of cell ) {
-				if ( !test_func || test_func(o) ) {
-					objs.push(o);
+				if ( o.collision.qid < SpaceGrid.qid ) {
+					o.collision.qid = SpaceGrid.qid;
+					if ( !test_func || test_func(o) ) {
+						objs.push(o);
+					}
 				}
 			}
 		}
-		if ( cells.length===1 ) { return objs; }
-		return objs.unique();
+		return objs;
 	}
 	
 	GetCellsByBox( x1, y1, x2, y2 ) {

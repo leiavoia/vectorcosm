@@ -113,7 +113,8 @@ export default class Rock {
 				shape: 'polygon',
 				fixed: true,
 				hull: [],
-				aabb: { x1: 0, y1: 0, x2:this.x2, y2:this.y2 } // we already know this and don't need to compute
+				aabb: { x1: 0, y1: 0, x2:this.x2, y2:this.y2 }, // we already know this and don't need to compute
+				qid: 0
 			};
 			let delaunay = Delaunator.from(this.pts);
 			for ( let i of delaunay.hull ) {

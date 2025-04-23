@@ -35,7 +35,7 @@ export default class Food {
 		this.dead = false;		
 		Object.assign( this, params );
 		this.r = Math.sqrt( 2 * this.value / Math.PI ) * 10;
-		this.collision = { radius: this.r, shape: 'circle' };		
+		this.collision = { radius: this.r, shape: 'circle', qid:0 };		
 		// make sure we have exactly 8 nutrient indexes
 		if ( this.nutrients.length !== 8 ) {
 			for ( let i=0; i < 8; i++ ) {

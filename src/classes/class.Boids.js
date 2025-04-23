@@ -140,7 +140,8 @@ export class Boid {
 		this.collision = {
 			shape: 'circle',
 			fixed: false,
-			radius: 15 // TODO: update
+			radius: 15, // TODO: update
+			qid: 0
 		};
 		this.momentum_x = 0; // use momentum with the momentum_based code in Update()
 		this.momentum_y = 0;
