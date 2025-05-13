@@ -347,8 +347,8 @@ export class Boid {
 		// OPTIMIZATION: we can avoid useless calls to sensors by only sensing when there is
 		// one or more motor that is waiting for a signal. If all motors are busy
 		// then the sensors have no practical purpose and are only for UI enjoyment.
-		let do_sensors = false;
-		if ( !globalThis.vc.boid_sensors_every_frame ) {
+		let do_sensors = globalThis.vc.boid_sensors_every_frame;
+		if ( !do_sensors ) {
 			for ( let m of this.motors ) {
 				if ( !m.t && !m?.skip_sensor_check ) { do_sensors = true; break; }
 			}
@@ -371,10 +371,16 @@ export class Boid {
 			}
 		}
 		
-		// CPU optimization: we don't need to run AI every frame either
-		if ( do_sensors ) {
+		// CPU optimization: we don't need to run AI every frame either.
+		// Explained: activating a neural network when it cannot be used it wasted cycles.
+		// However, because spiking networks incorporate some element of timing patterns,
+		// it may give different results running continuously vs. only when necessary.
+		const activate_brain = do_sensors 
+			|| globalThis.vc.boid_sensors_every_frame
+			|| ( globalThis.vc.boid_snn_every_frame && this.brain.type==='snn' );
+		if ( activate_brain ) {
 			// movement / motor control 				
-			let brain_outputs = this.brain.Activate( this.sensor_outputs );
+			let brain_outputs = this.brain.Activate( this.sensor_outputs, globalThis.vc.simulation.stats.round_time );
 			for ( let i=0; i < brain_outputs.length; i++ ) {
 				let level = Math.tanh(brain_outputs[i]); // FIXME tanh?
 				this.ActivateMotor( i, level, delta );
@@ -1427,6 +1433,7 @@ export class Boid {
 		
 		// random chance to get any of the non-collision sensors	
 		const non_coll_sensors = {
+			'pulse': 		1.0, // [!] TEMPORARY - We don't have a brain yet to know if we need this
 			'energy': 		0.5,
 			'inertia': 		0.3,
 			'spin': 		0.1,
@@ -1444,7 +1451,13 @@ export class Boid {
 		for ( let k in non_coll_sensors ) {
 			const n = this.dna.shapedNumber( this.dna.genesFor(`has sensor ${k} chance`,2,true), 0, 1 );
 			if ( n < non_coll_sensors[k] ) {
-				this.sensors.push( new Sensor({detect:k}, this) );
+				if ( k==='pulse' ) {
+					this.sensors.push( new Sensor({detect:k, name:'pulse1', power:Math.random()*0.5+0.25, phase:Math.random()*4}, this) );
+					this.sensors.push( new Sensor({detect:k, name:'pulse2', power:Math.random()*0.5+0.25, phase:Math.random()*16}, this) );
+				}
+				else {
+					this.sensors.push( new Sensor({detect:k}, this) );
+				}
 			}
 		}
 		

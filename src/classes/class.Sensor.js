@@ -174,6 +174,9 @@ export default class Sensor {
 				case 'chaos':
 					this.senseFunction = this.senseChaos;
 					break;
+				case 'pulse':
+					this.senseFunction = this.sensePulse;
+					break;
 				case 'friends':
 					this.senseFunction = this.senseFriends;
 					break;
@@ -618,6 +621,11 @@ export default class Sensor {
 
     senseToxins() {
         let val = this.owner.metab.toxins ? 1 : 0;
+        return [val];
+    }
+
+    sensePulse() {
+        let val = Math.abs( Math.sin( this.phase * globalThis.vc.simulation.stats.round_time ) );
         return [val];
     }
 

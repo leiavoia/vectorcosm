@@ -284,7 +284,11 @@
 				{#each boid.brain as n}
 					{#if n.symbol !== 'I'}
 						<div class="box">
-							<div style="height:{(n.value||0)*100}%; background-color:{n.value>=0?'#AAEEAA':'#B70808'};"></div>
+							{#if n.symbol === 'O'}
+								<div style="height:{Math.abs(n.value||0)*100}%; background-color:cyan;"></div>
+							{:else}
+								<div style="height:{Math.abs(n.value||0)*100}%; background-color:{n.color};"></div>
+							{/if}
 						</div>
 					{/if}
 				{/each}

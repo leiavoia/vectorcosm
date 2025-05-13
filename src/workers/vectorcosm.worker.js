@@ -457,12 +457,20 @@ function DescribeBoid( o, inc_sensor_geo=false,  inc_brain=false ) {
 		data.sensors.push({ name: o.sensor_labels[i], val });
 	}
 		
-	// brain outputs
-	data.brain_outputs = o.brain.network.nodes
-		.filter(n => n.type=='output')
-		.map(n => ({val:n.activation.toFixed(2)}) );
-	data.brain_outputs.forEach( (n,i) => n.name = o.motors[i]?.name || 'UNKNOWN' );
-		
+	// brain outputs - depends on brain type
+	if ( o.brain.type==='snn' ) {
+		data.brain_outputs = o.brain.outputs.map( (v,i) => ({
+			name: (o.motors[i]?.name || 'UNKNOWN'),
+			val: v
+		}));
+	}
+	else {
+		data.brain_outputs = o.brain.network.nodes
+			.filter(n => n.type=='output')
+			.map(n => ({val:n.activation.toFixed(2)}) );
+		data.brain_outputs.forEach( (n,i) => n.name = o.motors[i]?.name || 'UNKNOWN' );
+	}
+	
 	// motors
 	data.motors = o.motors.map( m => ({
 		name: m.name,
@@ -480,16 +488,46 @@ function DescribeBoid( o, inc_sensor_geo=false,  inc_brain=false ) {
 	}) );
 	
 	// brain nodes
-	data.brain = o.brain.network.nodes.map( n => {
-		let value = utils.clamp(n.activation,-1,1);
-		let hexval = utils.DecToHex( Math.round(Math.abs(value) * 255) );
-		return { 
-			type: n.type, 
-			value,
-			symbol: (n.type=='input' ? 'I' : ( n.type=='output' ? 'O' : n.squash.name.charAt(0) ) ),
-			color: ( n.activation >= 0 ? ('#00' + hexval + '00') : ('#' + hexval + '0000') )
-		};
-	});
+	if ( o.brain.type === 'snn' ) {
+		data.brain = o.brain.network.nodes.map( (n,i) => {
+			let v = n.fired===o.brain.network.tick ? 1 : n.v;
+			let hexval = utils.DecToHex( Math.round(Math.abs(v) * 255) );
+			let color = ( v >= 0 ? ('#00' + hexval + '00') : ('#' + hexval + '0000') );
+			if ( v === 1 ) { color = '#FFFFFF'; }
+			const is_input = o.brain.network.inputs.contains(i);
+			return { 
+				type: (is_input ? 'input' : 'node'), 
+				value: v,
+				symbol: (is_input ? 'I' : 'N'),
+				color: color 
+			};
+		});
+		// separate outputs
+		data.brain.push( ...o.brain.network.outputs.map( n => {
+			let v = n.output;
+			let hexval = utils.DecToHex( Math.round(Math.abs(v) * 255) );
+			let color = ( v >= 0 ? ('#00' + hexval + '00') : ('#' + hexval + '0000') );
+			return { 
+				type: 'output', 
+				value: v,
+				symbol: 'O',
+				color: color 
+			};
+		}) );
+	}
+	else {
+		data.brain = o.brain.network.nodes.map( n => {
+			let value = utils.clamp(n.activation,-1,1);
+			let hexval = utils.DecToHex( Math.round(Math.abs(value) * 255) );
+			return { 
+				type: n.type, 
+				value,
+				symbol: (n.type=='input' ? 'I' : ( n.type=='output' ? 'O' : n.name.charAt(0) ) ),
+				color: ( n.activation >= 0 ? ('#00' + hexval + '00') : ('#' + hexval + '0000') )
+			};
+		});	
+	}
+		
 	if ( inc_sensor_geo ) {	
 		// include sensor visualization geometry
 		data.sensor_geo = { type:'group' };
@@ -503,7 +541,12 @@ function DescribeBoid( o, inc_sensor_geo=false,  inc_brain=false ) {
 	}
 	if ( inc_brain ) {	
 		// include data for brain graph 
-		data.brain_struct = o.brain.network.toJSON(); // POD
+		if ( o.brain.type === 'snn' ) {
+			data.brain_struct = o.brain.network.Export(false); // POD
+		}
+		else {
+			data.brain_struct = o.brain.network.toJSON(); // POD
+		}
 	}
 				
 	return data;

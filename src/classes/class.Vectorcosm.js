@@ -18,6 +18,8 @@ export default class Vectorcosm {
 		this.tank = null;
 		
 		// settings
+		this.boid_sensors_every_frame = false;
+		this.boid_snn_every_frame = true;
 		this.min_time_delta = 1/20;
 		this.max_foods = 400;
 		this.sim_meta_params = {
