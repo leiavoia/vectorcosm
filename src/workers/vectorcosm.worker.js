@@ -488,6 +488,7 @@ function DescribeBoid( o, inc_sensor_geo=false,  inc_brain=false ) {
 	}) );
 	
 	// brain nodes
+	data.brain_type = o.brain.type; // hint for UI to switch rendering modes
 	if ( o.brain.type === 'snn' ) {
 		data.brain = o.brain.network.nodes.map( (n,i) => {
 			let v = n.fired===o.brain.network.tick ? 1 : n.v;
@@ -505,8 +506,10 @@ function DescribeBoid( o, inc_sensor_geo=false,  inc_brain=false ) {
 		// separate outputs
 		data.brain.push( ...o.brain.network.outputs.map( n => {
 			let v = n.output;
-			let hexval = utils.DecToHex( Math.round(Math.abs(v) * 255) );
-			let color = ( v >= 0 ? ('#00' + hexval + '00') : ('#' + hexval + '0000') );
+			let r = utils.DecToHex( Math.round(Math.abs(v) * 230) );
+			let g = utils.DecToHex( Math.round(Math.abs(v) * 120) );
+			let b = utils.DecToHex( Math.round(Math.abs(v) * 30) );
+			let color = '#' + r + g + b;
 			return { 
 				type: 'output', 
 				value: v,
@@ -519,11 +522,18 @@ function DescribeBoid( o, inc_sensor_geo=false,  inc_brain=false ) {
 		data.brain = o.brain.network.nodes.map( n => {
 			let value = utils.clamp(n.activation,-1,1);
 			let hexval = utils.DecToHex( Math.round(Math.abs(value) * 255) );
+			let color = ( n.activation >= 0 ? ('#00' + hexval + '00') : ('#' + hexval + '0000') );
+			if ( n.type=='output' ) {
+				let r = utils.DecToHex( Math.round(Math.abs(value) * 240) );
+				let g = utils.DecToHex( Math.round(Math.abs(value) * 130) );
+				let b = utils.DecToHex( Math.round(Math.abs(value) * 24) );
+				color = '#' + r + g + b;			
+			} 
 			return { 
 				type: n.type, 
 				value,
 				symbol: (n.type=='input' ? 'I' : ( n.type=='output' ? 'O' : n.squash.name.charAt(0) ) ),
-				color: ( n.activation >= 0 ? ('#00' + hexval + '00') : ('#' + hexval + '0000') )
+				color: color
 			};
 		});	
 	}

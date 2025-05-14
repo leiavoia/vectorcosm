@@ -132,6 +132,7 @@
 	summary {
 		list-style: none; 
 		margin:0;
+		clear:right;
 	}
 	summary:after { display:none; }
 	summary > div.krell {
@@ -147,6 +148,17 @@
 		margin-right:2px; 
 		width:10px; 
 		height:1.25em;
+	}
+	.krell.micro {
+		flex-wrap: wrap;
+	}
+	.krell.micro .box {
+		height:4px;
+		width:4px;
+		margin:1px; 
+	}
+	.krell.micro .box > DIV {
+		height:100% !important;
 	}
 	.box > div {
 		/* min-height:1px; */ /* enable this if you want some visual indicator that it exists */
@@ -280,18 +292,24 @@
 						
 	<details>
 		<summary>
-			<div class="krell">
-				{#each boid.brain as n}
-					{#if n.symbol !== 'I'}
-						<div class="box">
-							{#if n.symbol === 'O'}
-								<div style="height:{Math.abs(n.value||0)*100}%; background-color:cyan;"></div>
-							{:else}
-								<div style="height:{Math.abs(n.value||0)*100}%; background-color:{n.color};"></div>
-							{/if}
-						</div>
-					{/if}
-				{/each}
+			<div class={{krell:true, micro:false}}>
+				{#if boid.brain_type==='snn'}
+					{#each boid.brain as n}
+						{#if n.symbol === 'O'}
+							<div class="box">
+								<div style="height:{Math.abs(n.value||0)*100}%; background-color:#AAEEAA;"></div>
+							</div>
+						{/if}
+					{/each}
+				{:else}
+					{#each boid.brain as n}
+						{#if n.symbol !== 'I'}
+							<div class="box">
+								<div style="height:{(n.value||0)*100}%; background-color:{n.symbol==='O'?'#AAEEAA':(n.value>=0?'#AAEEAA':'#B70808')};"></div>
+							</div>
+						{/if}
+					{/each}
+				{/if}
 			</div>			
 			<h4>Brain</h4>
 		</summary>
