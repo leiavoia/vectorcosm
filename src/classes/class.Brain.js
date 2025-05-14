@@ -69,14 +69,21 @@ export default class Brain {
 	Activate( inputs, timestamp ) {
 		// SSN
 		if ( this.type==='snn' ) {
-			let delta = 0;
-			if ( this.last_update ) { 
-				delta = timestamp - this.last_update; 
+			const tick_interval = 1/60;
+			// start the clock
+			if ( !this.last_update ) { 
+				this.last_update = timestamp - tick_interval; // one free tick
+			} 
+			// don't allow overly long deltas
+			else if ( timestamp - this.last_update > 0.5 ) {
+				this.last_update = timestamp - 0.5;
 			}
-			let ticks = Math.floor( delta / (1/60) ) || 1;
-			for ( let t=0; t < ticks; t++ ) {
+			// don't allow artificial ticks on short time intervals.
+			// if elapsed time hasn't arrived, do nothing. wait for the next round.
+			while ( this.last_update + tick_interval < timestamp ) {
 				this.network.Tick( inputs ); // case
 				this.network.CalculateOutputs(); // maybe optimize this out by doing only once?
+				this.last_update += tick_interval;
 			}
 			if ( !this.outputs.length ) {
 				this.outputs = this.network.outputs.map( o => o.output );
@@ -96,7 +103,6 @@ export default class Brain {
 				if ( Number.isNaN(this.outputs[k]) ) { this.outputs[k] = 0; }
 			}
 		}
-		this.last_update = timestamp;
 		return this.outputs;
 	}
 	
