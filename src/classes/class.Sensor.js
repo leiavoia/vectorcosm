@@ -625,8 +625,12 @@ export default class Sensor {
     }
 
     sensePulse() {
-        let val = Math.abs( Math.sin( this.phase * globalThis.vc.simulation.stats.round_time ) );
-        return [val];
+		// if phase is zero, use a constant value instead
+		let val = this.power;
+		if ( this.phase ) {
+			val = Math.abs( Math.sin( globalThis.vc.simulation.stats.round_time / this.phase ) );
+		}
+        return [val /* * this.power */];
     }
 
     senseMalnourished() {

@@ -1431,9 +1431,26 @@ export class Boid {
 			}
 		}
 		
+		// Note: copied from Brain.MakeBrain - we need to know brain type to influence sensors
+		const brain_type_roll = this.dna.shapedNumber( this.dna.genesFor('brain network type',3), 0, 1, 0.5, 2 );
+		const brain_type = ( brain_type_roll < 0.25 || brain_type_roll > 0.75 ) ? 'snn' : 'perceptron';
+		let pulse_chance_0 = 0.0;
+		let pulse_chance_1 = 0.3;
+		let pulse_chance_2 = 0.2;
+		let pulse_chance_3 = 0.02;
+		if ( brain_type == 'snn' ) {
+			pulse_chance_0 = 0.7;
+			pulse_chance_1 = 0.9;
+			pulse_chance_2 = 0.8;
+			pulse_chance_3 = 0.2;
+		}
+		
 		// random chance to get any of the non-collision sensors	
 		const non_coll_sensors = {
-			'pulse': 		1.0, // [!] TEMPORARY - We don't have a brain yet to know if we need this
+			'pulse0': 		pulse_chance_0,
+			'pulse1': 		pulse_chance_1,
+			'pulse2': 		pulse_chance_2,
+			'pulse3': 		pulse_chance_3,
 			'energy': 		0.5,
 			'inertia': 		0.3,
 			'spin': 		0.1,
@@ -1451,9 +1468,12 @@ export class Boid {
 		for ( let k in non_coll_sensors ) {
 			const n = this.dna.shapedNumber( this.dna.genesFor(`has sensor ${k} chance`,2,true), 0, 1 );
 			if ( n < non_coll_sensors[k] ) {
-				if ( k==='pulse' ) {
-					this.sensors.push( new Sensor({detect:k, name:'pulse1', power:Math.random()*0.5+0.25, phase:Math.random()*4}, this) );
-					this.sensors.push( new Sensor({detect:k, name:'pulse2', power:Math.random()*0.5+0.25, phase:Math.random()*16}, this) );
+				if ( k.substring(0,5)==='pulse' ) {
+					const pulse_num = parseInt( k.substring(5,6) );
+					const phase = pulse_num ? this.dna.shapedNumber( this.dna.genesFor(`pulse{$pulse_num} phase`,1), 0, 1 + Math.pow(4,pulse_num) ) : 0;
+					const power = this.dna.shapedNumber( this.dna.genesFor(`pulse{$pulse_num} pow`,1), 0, 1, 0.5, 3 );
+					const name = k + '/' + Math.ceil(phase);
+					this.sensors.push( new Sensor({detect:'pulse', name, power, phase}, this) );
 				}
 				else {
 					this.sensors.push( new Sensor({detect:k}, this) );

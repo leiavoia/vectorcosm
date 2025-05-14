@@ -117,13 +117,26 @@ export default class Brain {
 	}
 	
 	MakeBrain( boid ) {
-		this.type = 'snn'; // FORCE TEMPORARILY
 		
 		const inputs = boid.sensor_labels.length;
 		const outputs = boid.motors.length || 1;
 
+		// determine what kind of brain network we are going to make first
+		// NOTE: gene codes are copied in Boid sensor creation to avoid chicken/egg issues.
+		// SNNs require special pulse "sensors", but we need to know sensor layout before making brains.
+		const network_type_roll = boid.dna.shapedNumber( boid.dna.genesFor('brain network type',3), 0, 1, 0.5, 2 );
+		this.type = ( network_type_roll < 0.25 || network_type_roll > 0.75 ) ? 'snn' : 'perceptron';
+		
 		if ( this.type==='snn' ) {
-			const nodes = Math.max( 16, inputs * 2 + outputs );
+			// how many nodes to start with
+			const num_node_mult = boid.dna.shapedNumber( boid.dna.genesFor('num_node_mult',3), 1.5, 5, 2.5, 3 );
+			const nodes = inputs * num_node_mult + outputs;
+			// connectivity pattern [NOT IMPLEMENTED YET]
+			const conn_pattern_roll = boid.dna.shapedNumber( boid.dna.genesFor('conn_pattern_roll',3) );
+			let pattern = 'random';
+			if ( conn_pattern_roll < 0.5 ) { pattern = 'linear'; }
+			if ( conn_pattern_roll < 0.3 ) { pattern = 'cellular'; }
+			// commit
 			let snn = new SpikingNeuralNetwork( nodes, inputs, outputs );
 			return snn;
 		}

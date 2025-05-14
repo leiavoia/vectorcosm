@@ -522,7 +522,7 @@ function DescribeBoid( o, inc_sensor_geo=false,  inc_brain=false ) {
 			return { 
 				type: n.type, 
 				value,
-				symbol: (n.type=='input' ? 'I' : ( n.type=='output' ? 'O' : n.name.charAt(0) ) ),
+				symbol: (n.type=='input' ? 'I' : ( n.type=='output' ? 'O' : n.squash.name.charAt(0) ) ),
 				color: ( n.activation >= 0 ? ('#00' + hexval + '00') : ('#' + hexval + '0000') )
 			};
 		});	
