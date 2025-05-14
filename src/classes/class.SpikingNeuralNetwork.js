@@ -1,22 +1,30 @@
 
 // tuning config
-const max_node_connections = 8;
-const max_output_connections = 10;
+const max_node_connections = 7;
+const max_output_connections = 7;
 const longjump_chance = 0.15;
 
+// default method of wiring nodes
+export const ConnectionStrategy = {
+	random: 0,
+	linear: 1,
+	cellular: 2,
+	layered: 3,
+}
+				
 // various functions used by output adapters
-const OutputStrategies = {
+export const OutputStrategies = {
 	rate: function( o, current_tick ) {
 		o.output = Math.min( 1, o.train.length / o.max_age );
 	},
-	step: function( o, current_tick ) {
-		let sum = 0;
-		for ( let tick of o.train ) {
-			sum += 1;
-		}
-		const threshold = Math.sqrt( o.max_age * o.nodes.length ) * o.mod;
-		o.output = ( sum >= threshold ) ? 1 : 0;
-	},
+	// step: function( o, current_tick ) {
+	// 	let sum = 0;
+	// 	for ( let tick of o.train ) {
+	// 		sum += 1;
+	// 	}
+	// 	const threshold = Math.sqrt( o.max_age * o.nodes.length ) * o.mod;
+	// 	o.output = ( sum >= threshold ) ? 1 : 0;
+	// },
 	pressure: function( o, current_tick ) {
 		o.output -= (1/30) / o.mod; // decay
 		if ( o.output < 0 ) { o.output = 0; }
@@ -37,7 +45,7 @@ const OutputStrategies = {
 };
 
 export default class SpikingNeuralNetwork {
-	constructor( num_nodes=0, num_inputs=0, num_outputs=0 ) {
+	constructor( num_nodes=0, num_inputs=0, num_outputs=0, conn_strat=-1 ) {
 		this.tick = -1;
 		this.nodes = [];
 		this.events_next = []; // alternates index, weight, index, weight, ...
@@ -45,6 +53,13 @@ export default class SpikingNeuralNetwork {
 		this.inputs = []; // indexes point to other nodes for help on per-frame inputs
 		this.outputs = [];
 		this.use_decay = true;
+		this.conn_strat = conn_strat;
+		// if no connection strategy was specified, pick one at random for fun
+		if ( conn_strat < 0 ) {
+			const keys = Object.keys(ConnectionStrategy);
+			let key = keys[ Math.floor( Math.random() * keys.length ) ];
+			this.conn_strat = ConnectionStrategy[key];
+		}	
 		for ( let i=0; i < num_inputs; i++ ) {
 			this.inputs.push( Math.round( i * (num_nodes/num_inputs) ) );
 		}
@@ -62,7 +77,7 @@ export default class SpikingNeuralNetwork {
 				output: 0, 
 				strat_name: strat_name,
 				strat: OutputStrategies[strat_name],
-				max_age: 10 + Math.ceil( Math.random() * 50 ),
+				max_age: 10 + Math.ceil( Math.random() * 30 ),
 				mod: ( Math.random() + Math.random() )
 			} );
 		}
@@ -91,23 +106,56 @@ export default class SpikingNeuralNetwork {
 		}
 	}
 	ChooseTargetNodeForConnection( node_index ) {
-		const total_nodes = this.nodes.length;
-		// const cell_size = 45; // experimental
-		// const num_cells = Math.ceil(total_nodes/cell_size); // experimental
-		// const locality = Math.ceil(cell_size/2);
-		// const range = cell_size;
-		const locality = Math.ceil( Math.sqrt(total_nodes) );
-		const range = 1 + 2 * locality;
-		let choice = Math.random() < longjump_chance
-			// small chance for longshot
-			? Math.floor(Math.random() * total_nodes)
-			// otherwise choose from nodes nearby
-			: ( Math.floor(Math.random() * range) - locality );
-			// : ( Math.floor(Math.random() * range) );
-		let index = ( total_nodes + choice + node_index ) % total_nodes; // javascript cant handle negative number modulus
-		// let index = ( total_nodes + choice + Math.floor( i / cell_size ) * cell_size ) % total_nodes; // javascript cant handle negative number modulus
-		if ( index === node_index ) { index = ( node_index + 1 ) % total_nodes; }
-		return index;
+		// random: total chaos is not necessarily bad
+		if ( this.conn_strat == ConnectionStrategy.random ) {
+			let index = Math.floor( Math.random() * this.nodes.length );
+			if ( index == node_index ) { // don't link to self
+				index = ( index + 1 ) % this.nodes.length;
+			}
+			return index;
+		}
+		// linear strategy: keep things wired locally in a continuous modular 1-dimensional space (a ring)
+		else if ( this.conn_strat == ConnectionStrategy.linear ) {
+			const total_nodes = this.nodes.length;
+			const locality = Math.ceil( Math.sqrt(total_nodes) );
+			const range = 1 + 2 * locality;
+			let choice = Math.random() < longjump_chance
+				// small chance for longshot
+				? Math.floor(Math.random() * total_nodes)
+				// otherwise choose from nodes nearby
+				: ( Math.floor(Math.random() * range) - locality );
+			let index = ( total_nodes + choice + node_index ) % total_nodes; // rotate
+			if ( index === node_index ) { index = ( node_index + 1 ) % total_nodes; } // exclude self
+			return index;
+		}
+		// cellular strategy: keep nodes together in little modules
+		else if ( this.conn_strat == ConnectionStrategy.cellular ) {
+			const total_nodes = this.nodes.length;
+			const num_cells = Math.ceil( Math.sqrt(total_nodes) );
+			const cell_size = Math.ceil( total_nodes / num_cells );
+			const locality = Math.ceil(cell_size/2);
+			const range = cell_size;
+			let choice = Math.random() < longjump_chance
+				// small chance for longshot
+				? Math.floor(Math.random() * total_nodes)
+				// otherwise choose from nodes nearby
+				: ( Math.floor(Math.random() * range) );
+			let index = ( total_nodes + choice + Math.floor( node_index / cell_size ) * cell_size ) % total_nodes; // rotate
+			if ( index === node_index ) { index = ( node_index + 1 ) % total_nodes; } // exclude self
+			return index;
+		}
+		// layered strategy: cellular strategy with nodes that only connect forward
+		else if ( this.conn_strat == ConnectionStrategy.layered ) {
+			const total_nodes = this.nodes.length;
+			const num_cells = Math.ceil( Math.cbrt(total_nodes) );
+			const cell_size = Math.ceil( total_nodes / num_cells );
+			const locality = Math.ceil(cell_size/2);
+			const range = cell_size;
+			let choice = Math.floor(Math.random() * range) + cell_size;
+			let index = ( total_nodes + choice + Math.floor( node_index / cell_size ) * cell_size ) % total_nodes; // rotate
+			if ( index === node_index ) { index = ( node_index + 1 ) % total_nodes; } // exclude self, theoretically impossible
+			return index;
+		}
 	}
 	CreateRandomNode() {
 		const node = {
@@ -440,7 +488,8 @@ export default class SpikingNeuralNetwork {
 				if ( inc_state ) { output.o = o.output; }
 				return output;
 			}),
-			inputs: this.inputs.slice()
+			inputs: this.inputs.slice(),
+			conn_strat: this.conn_strat
 		};
 		if ( inc_state ) { obj.tick = this.tick; }
 		return asJSON ? JSON.stringify( obj ) : obj ;
@@ -463,6 +512,7 @@ export default class SpikingNeuralNetwork {
 			mod: o.m,
 			train: [],
 		}));
+		this.conn_strat = from.conn_strat;
 		this.inputs = from.inputs;
 		this.tick = -1;
 		this.events_next.length = 0;
