@@ -415,22 +415,34 @@ export default class SpikingNeuralNetwork {
 			}
 		}
 	}
-	Export( asJSON=true ) {
+	Export( asJSON=true, inc_state=false ) {
 		const obj = {
-			nodes: this.nodes.map( n => ({
-				t: +n.threshold.toFixed(3), // name change
-				d: +n.decay.toFixed(4),
-				r: n.refract,
-				c: n.conns.slice().map( (v,i) => (i%2) ? +v.toFixed(3) : v ),							
-			})),
-			outputs: this.outputs.map( o => ({
-				n: o.nodes.slice(),
-				s: o.strat_name,
-				a: o.max_age,
-				m: +o.mod.toFixed(3)
-			})),
+			nodes: this.nodes.map( n => { 
+				let node = {
+					t: +n.threshold.toFixed(3), // name change
+					d: +n.decay.toFixed(4),
+					r: n.refract,
+					c: n.conns.slice().map( (v,i) => (i%2) ? +v.toFixed(3) : v )
+				};
+				if ( inc_state ) { 
+					node.v = n.v; 
+					node.f = n.fired;
+				}
+				return node;
+			}),
+			outputs: this.outputs.map( o => {
+				let output = {
+					n: o.nodes.slice(),
+					s: o.strat_name,
+					a: o.max_age,
+					m: +o.mod.toFixed(3)
+				};
+				if ( inc_state ) { output.o = o.output; }
+				return output;
+			}),
 			inputs: this.inputs.slice()
 		};
+		if ( inc_state ) { obj.tick = this.tick; }
 		return asJSON ? JSON.stringify( obj ) : obj ;
 	}
 	Import( json ) { /* JSON string or raw object */

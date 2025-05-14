@@ -500,7 +500,8 @@ function DescribeBoid( o, inc_sensor_geo=false,  inc_brain=false ) {
 				type: (is_input ? 'input' : 'node'), 
 				value: v,
 				symbol: (is_input ? 'I' : 'N'),
-				color: color 
+				color: color,
+				fired: (n.fired===o.brain.network.tick)
 			};
 		});
 		// separate outputs
