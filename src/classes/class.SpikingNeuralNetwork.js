@@ -60,27 +60,6 @@ export default class SpikingNeuralNetwork {
 			let key = keys[ Math.floor( Math.random() * keys.length ) ];
 			this.conn_strat = ConnectionStrategy[key];
 		}	
-		for ( let i=0; i < num_inputs; i++ ) {
-			this.inputs.push( Math.round( i * (num_nodes/num_inputs) ) );
-		}
-		let output_strats = Object.keys(OutputStrategies);
-		for ( let i=0; i < num_outputs; i++ ) {
-			let nodes = [];
-			const num_conns = Math.ceil( Math.random() * max_output_connections );
-			for ( let n=0; n<num_conns; n++ ) {
-				nodes.push( Math.floor(Math.random()*num_nodes) );
-			}
-			let strat_name = output_strats[ Math.floor( Math.random() * output_strats.length ) ];
-			this.outputs.push( {
-				nodes,
-				train: [], 
-				output: 0, 
-				strat_name: strat_name,
-				strat: OutputStrategies[strat_name],
-				max_age: 10 + Math.ceil( Math.random() * 30 ),
-				mod: ( Math.random() + Math.random() )
-			} );
-		}
 		// create nodes
 		for ( let i=0; i<num_nodes; i++ ) {
 			const node = this.CreateRandomNode();
@@ -90,6 +69,32 @@ export default class SpikingNeuralNetwork {
 		for ( let i = 0; i < this.nodes.length; i++ ) {
 			this.CreateRandomConnections( i );
 		};
+		// assign inputs
+		for ( let i=0; i < num_inputs; i++ ) {
+			this.inputs.push( Math.round( i * (num_nodes/num_inputs) ) );
+		}
+		// create outputs
+		for ( let i=0; i < num_outputs; i++ ) {
+			this.CreateRandomOutputNode();
+		}
+	}
+	CreateRandomOutputNode() {
+		let output_strats = Object.keys(OutputStrategies);
+		let nodes = [];
+		const num_conns = Math.ceil( Math.random() * max_output_connections );
+		for ( let n=0; n<num_conns; n++ ) {
+			nodes.push( Math.floor(Math.random()*this.nodes.length) );
+		}
+		let strat_name = output_strats[ Math.floor( Math.random() * output_strats.length ) ];
+		this.outputs.push( {
+			nodes,
+			train: [], 
+			output: 0, 
+			strat_name: strat_name,
+			strat: OutputStrategies[strat_name],
+			max_age: 10 + Math.ceil( Math.random() * 30 ),
+			mod: ( Math.random() + Math.random() )
+		} );	
 	}
 	CreateRandomConnections( node_index, num_conns=0 ) {
 		const total_nodes = this.nodes.length;
