@@ -261,11 +261,11 @@ export default class SpikingNeuralNetwork {
 			conn_remove: 50,
 			conn_reassign: 60,
 			conn_reverse: 30,
-			output_strat: 10,
-			output_conn_add: 20,
-			output_conn_remove: 20,
-			output_train_length: 60,
-			output_mod: 50,
+			output_strat: 30,
+			output_conn_add: 60,
+			output_conn_remove: 60,
+			output_train_length: 180,
+			output_mod: 150,
 		};
 		let keys = Object.keys(options);
 		const total = Object.values(options).reduce( (a,c) => a+c, 0 );
