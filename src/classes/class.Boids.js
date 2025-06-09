@@ -382,7 +382,7 @@ export class Boid {
 			|| ( globalThis.vc.boid_snn_every_frame && this.brain.type==='snn' );
 		if ( activate_brain ) {
 			// movement / motor control 				
-			let brain_outputs = this.brain.Activate( this.sensor_outputs, Date.now() / 1000 ); // use global time, not simulator time
+			let brain_outputs = this.brain.Activate( this.sensor_outputs, globalThis.vc.simulation.stats.round_time );
 			for ( let i=0; i < brain_outputs.length; i++ ) {
 				let level = Math.tanh(brain_outputs[i]); // FIXME tanh?
 				this.ActivateMotor( i, level, delta );

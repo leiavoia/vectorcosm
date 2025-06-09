@@ -71,7 +71,7 @@ export default class Brain {
 		if ( this.type==='snn' ) {
 			const tick_interval = 1/60;
 			// start the clock
-			if ( !this.last_update ) { 
+			if ( !this.last_update || this.last_update > timestamp ) { // indicates first tick
 				this.last_update = timestamp - tick_interval; // one free tick
 			} 
 			// don't allow overly long deltas
@@ -434,6 +434,7 @@ export default class Brain {
 		return this;
 	}
 	Reset() {
+		this.last_update = 0;
 		if ( this.type==='snn' ) { 
 			this.network.Reset();
 		}
