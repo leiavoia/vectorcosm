@@ -433,5 +433,9 @@ export default class Brain {
 		
 		return this;
 	}
-	
+	Reset() {
+		if ( this.type==='snn' ) { 
+			this.network.Reset();
+		}
+	}
 }

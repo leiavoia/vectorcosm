@@ -33,6 +33,8 @@ export class Boid {
 		this.angle = Math.random()*Math.PI*2;
 		this.inertia = 0; // forward motion power, can be negative
 		this.angmo = 0; // angular momentum / rotational inertia
+		// flatline brain
+		if ( this.brain ) { this.brain.Reset(); }
 		// zero out all motor timing
 		for ( const m of this.motors ) {
 			m.t = 0;

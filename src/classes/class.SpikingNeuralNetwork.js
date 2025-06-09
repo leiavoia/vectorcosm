@@ -523,4 +523,16 @@ export default class SpikingNeuralNetwork {
 		this.events_next.length = 0;
 		this.events_now.length = 0;
 	}
+	Reset() {
+		this.tick = -1;
+		this.events_next.length = 0;
+		this.events_now.length = 0;
+		for ( let n of this.nodes ) { 
+			n.v = 0; 
+			n.fired = -2;
+		}
+		for ( let n of this.outputs ) { 
+			n.train.length = 0;
+		}	
+	}
 }
