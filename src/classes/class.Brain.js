@@ -82,9 +82,9 @@ export default class Brain {
 			// if elapsed time hasn't arrived, do nothing. wait for the next round.
 			while ( this.last_update + tick_interval < timestamp ) {
 				this.network.Tick( inputs ); // case
-				this.network.CalculateOutputs(); // maybe optimize this out by doing only once?
 				this.last_update += tick_interval;
 			}
+			this.network.CalculateOutputs();
 			if ( !this.outputs.length ) {
 				this.outputs = this.network.outputs.map( o => o.output );
 			}

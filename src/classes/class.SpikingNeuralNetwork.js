@@ -209,7 +209,7 @@ export default class SpikingNeuralNetwork {
 			}
 		}
 		this.events_now.length=0; // purge queue in one shot instead of shifting each item
-		// console.log(this.tick);
+		this.RecordOutputs();
 	}
 	ReceiveSignal( index, v ) {
 		let n = this.nodes[index];
@@ -231,6 +231,12 @@ export default class SpikingNeuralNetwork {
 	}
 	CalculateOutputs() {
 		for ( let o of this.outputs ) {
+			// calculate a result
+			o.strat(o,this.tick);
+		}
+	}
+	RecordOutputs() {
+		for ( let o of this.outputs ) {
 			// clear old events from the spike train
 			const oldest = this.tick - o.max_age;
 			while ( o.train.length && o.train[0] < oldest ) {
@@ -243,8 +249,6 @@ export default class SpikingNeuralNetwork {
 					o.train.push( this.tick );
 				}
 			}
-			// calculate a result
-			o.strat(o,this.tick);
 		}
 	}
 	Mutate( reps=1 ) {
