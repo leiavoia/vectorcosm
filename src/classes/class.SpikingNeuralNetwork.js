@@ -266,8 +266,8 @@ export default class SpikingNeuralNetwork {
 			conn_reassign: 60,
 			conn_reverse: 30,
 			output_strat: 30,
-			output_conn_add: 60,
-			output_conn_remove: 60,
+			output_conn_add: 200,
+			output_conn_remove: 200,
 			output_train_length: 180,
 			output_mod: 150,
 		};

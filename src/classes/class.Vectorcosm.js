@@ -20,7 +20,7 @@ export default class Vectorcosm {
 		// settings
 		this.boid_sensors_every_frame = false;
 		this.boid_snn_every_frame = false;
-		this.min_time_delta = 1/20;
+		this.min_time_delta = 1/30;
 		this.max_foods = 400;
 		this.sim_meta_params = {
 			num_boids: null,
