@@ -120,6 +120,7 @@ export class Boid {
 			poop_buoy: 0,					// you were going to ask eventually anyway
 			base_bite_size: 1,				// amount of food per bite attempt per mass
 			bite_speed: 1,					// time in seconds for bite to reset
+			boxfit: [],						// [ [ metabolism points, size points, label ] ]
 		};
 		this.metab = {
 			digest_rate: 1,					// current amount of food digested per second
@@ -871,9 +872,66 @@ export class Boid {
 			this.traits.poop_map[i] = badfood[to];
 		}
 		
+		// do some accounting on the traits we've created
+		{
+			// total all positive nutrition requirements
+			let cost = this.traits.nutrition.reduce( (a,c) => a + (c>0?c:0), 0 );
+			this.traits.boxfit.push([ cost * 1.5, cost, 'body.nutrition']);
+			
+			// more food sources costs more
+			cost = 0;
+			for ( let i = 0; i < 6; i++ ) {
+				if ( this.traits.food_mask & (1 << i) ) {
+					cost += 3 + i;
+				}
+			}
+			this.traits.boxfit.push([ cost*2.5, cost, 'body.diet']);
+			
+			// lower threshold to grow. lower is better.
+			cost = 1 - this.traits.growth_min_energy_pct;
+			this.traits.boxfit.push([ cost, cost, 'body.growth_min_energy_pct']);
+			
+			// growth cost is probably not something we want to include
+			cost = 1 - this.traits.growth_min_energy_pct;
+			this.traits.boxfit.push([ cost, cost, 'body.growth_cost']);
+			
+			// faster raw growth rate. higher is better.
+			cost = 100 * this.traits.growth_rate;
+			this.traits.boxfit.push([ cost, cost, 'body.growth_rate']);
+			
+			// larger stomach means fewer trips to the fridge - higher is better
+			cost = 50 * this.traits.base_stomach_size;
+			this.traits.boxfit.push([ 0, cost, 'body.base_stomach_size']);
+			
+			// bowel size has very little impact
+			cost = 20 * this.traits.base_bowel_size;
+			this.traits.boxfit.push([ 0, cost, 'body.base_bowel_size']);
+			
+			// faster digestion speed means more growth - higher is better
+			cost = 3 * this.traits.base_digest_rate * 100;
+			this.traits.boxfit.push([ 0, cost, 'body.base_digest_rate']);
+			
+			// larger energy reserves - higher is better
+			cost = this.traits.base_energy_meter * 10;
+			this.traits.boxfit.push([ cost*0.2, cost, 'body.base_energy_meter']);
+			
+			// larger bite size means we get while the getting is good - higher is better
+			cost = this.traits.base_bite_size * 20;
+			this.traits.boxfit.push([ cost*0.2, cost, 'body.base_bite_size']);
+			
+			// bite speed allows faster eating - higher is better
+			cost = this.traits.bite_speed;
+			this.traits.boxfit.push([ cost*0.2, cost, 'body.bite_speed']);
+		}
+		
 		this.ScaleBoidByMass();
 
 		// MOTORS ---------------------\/------------------------
+		const min_linear_motor = 80;			
+		const max_linear_motor = 1800;			
+		const min_angular_motor = 3;			
+		const max_angular_motor = 100;
+			
 		this.motors = [];
 		let has_linear = false;
 		let has_angular = false;
@@ -921,10 +979,10 @@ export class Boid {
 			let motor = { min_act, stroketime, t:0, strokefunc, wheel, min_age };
 			
 			const linearGene = this.dna.genesFor(`motor linear ${n}`, 2, 1);
-			let linear = this.dna.shapedNumber(linearGene,80, 1800, 600, 2.5);
+			let linear = this.dna.shapedNumber(linearGene, min_linear_motor, max_linear_motor, 600, 2.5);
 			
 			const angularGene = this.dna.genesFor(`motor angular ${n}`, 2, 1);
-			let angular = this.dna.shapedNumber(angularGene,3, 100, 20, 2);
+			let angular = this.dna.shapedNumber(angularGene, min_angular_motor, max_angular_motor, 20, 2);
 			
 			const linearFlipGene = this.dna.genesFor(`motor linear flip ${n}`, 1, true);
 			// prefer front-swimmers: don't flip the first motor unless we already have
@@ -1022,6 +1080,19 @@ export class Boid {
 				motor2.sym = this.motors.length - 2;
 			} 
 		}
+		
+		// do accounting for regular motors: these mostly influence body size
+		for ( let [i,m] of this.motors.entries() ) {
+			let cost = 0;
+			if ( m.linear ) {
+				cost += 10 * ( Math.abs(m.linear) - min_linear_motor ) / ( max_linear_motor - min_linear_motor ) ;
+			}
+			if ( m.angular ) {
+				cost += 4 * ( Math.abs(m.angular) - min_angular_motor ) / ( max_angular_motor - min_angular_motor ) ;
+			}
+			this.traits.boxfit.push([ 0, cost, `motors.${m.name}`]);
+		}
+			
 			
 		// reproductive motors
 		const mitosis_num = this.dna.shapedInt( this.dna.genesFor('mitosis num',2,true), 1,5,1,3);
@@ -1043,6 +1114,8 @@ export class Boid {
 			use_max: true, // prevents cheating on time
 			skip_sensor_check:true
 		});
+		// TODO: cost of reproduction depends on variety of factors
+		this.traits.boxfit.push([ 0, mitosis_num * 1.2, `motors.mitosis`]);
 		
 		// combat
 		const canAttack = this.dna.shapedNumber( this.dna.genesFor(`attack motor chance`,1,1) );
@@ -1060,8 +1133,9 @@ export class Boid {
 				skip_sensor_check:true
 				// TODO: throttle
 			});
+			this.traits.boxfit.push([ attackValue, attackValue * 3, `motors.attack`]);
 		}
-
+		
 		// mark motors (calls, scents, "pheromones", flashes of light, etc...)
 		const hasScent1 = this.dna.shapedNumber( 0x08000000 | this.dna.genesFor(`hasScent1`,1,1) );
 		if ( hasScent1 > 0.42 ) { 
@@ -1092,6 +1166,8 @@ export class Boid {
 				r: radius,
 				skip_sensor_check:true
 			});		
+			const cost = strength * radius * 0.001;
+			this.traits.boxfit.push([ cost * 0.2, cost, `motors.scent1`]);
 		}
 		
 		const hasScent2 = this.dna.shapedNumber( 0x08000000 | this.dna.genesFor(`hasScent2`,1,1) );
@@ -1117,6 +1193,8 @@ export class Boid {
 				r: radius,
 				skip_sensor_check:true
 			});		
+			const cost = strength * radius * 0.001;
+			this.traits.boxfit.push([ cost * 0.2, cost, `motors.scent2`]);
 		}
 		
 		const hasCall1 = this.dna.shapedNumber( 0x08000000 | this.dna.genesFor(`hasCall1`,1,1) );
@@ -1142,6 +1220,8 @@ export class Boid {
 				r: radius,
 				skip_sensor_check:true
 			});		
+			const cost = strength * radius * 0.001;
+			this.traits.boxfit.push([ cost * 0.2, cost, `motors.call1`]);
 		}
 		
 		const hasSignal1 = this.dna.shapedNumber( 0x08000000 | this.dna.genesFor(`hasSignal1`,1,1) );
@@ -1173,6 +1253,8 @@ export class Boid {
 				r: radius,
 				skip_sensor_check:true
 			});		
+			const cost = strength * radius * 0.0005;
+			this.traits.boxfit.push([ cost * 0.2, cost, `motors.signal1`]);
 		}
 		
 		// // connect motor animations to specific points
@@ -1233,6 +1315,10 @@ export class Boid {
 			let longest = whiskers.reduce( (a,c) => Math.max(a,c.l), 0 );
 			for ( let w of whiskers ) { w.l = w.l / longest; }
 			this.sensors.push( new Sensor({ whiskers, x:0, y:0, r:radius, type:'whisker', detect:'whisker', color:'#FF22BB77', name:'whisker' }, this ) );		
+			
+			// boxfit costs
+			const cost = whiskers.reduce( (a,c) => a + c.l, 0 );
+			this.traits.boxfit.push([ cost * 0.3, cost, `sensors.whiskers`]);
 		}
 				
 		// experimental: food-locator
@@ -1257,6 +1343,7 @@ export class Boid {
 				color: '#1444DDFF'
 				},
 			this ) );
+			this.traits.boxfit.push([ radius * 0.01, radius * 0.01, `sensors.food_locator`]);
 		}
 		
 		// color vision
@@ -1285,11 +1372,15 @@ export class Boid {
 				const segments = this.dna.shapedInt(this.dna.genesFor('vision num segments',2,true), 2, 18, 6, 5 );
 				const cone = this.dna.shapedNumber(this.dna.genesFor('vision cone',2,true), Math.PI*0.5, Math.PI*2, Math.PI, 2 );
 				this.sensors.push( new Sensor({ type:'sense', name: 'v1', segments, cone, color: '#FFFFFFBB', sensitivity:sensitivity/2, detect: detect, x: 0, y: 0, r: radius*1.25, falloff:1.2 }, this ) );
+				const cost = segments * cone * radius * 0.0002;
+				this.traits.boxfit.push([ cost, cost, `sensors.seg_vision`]);
 			}
 			// binary vision
 			else {
 				this.sensors.push( new Sensor({ type:'sense', name: 'v1', color: '#AAEEFFBB', sensitivity, fov:true, attenuation:true, detect: detect, x: xoff, y: yoff, r: radius, }, this ) );2
 				this.sensors.push( new Sensor({ type:'sense', name: 'v2', color: '#AAEEFFBB', sensitivity, fov:true, attenuation:true, detect: detect, x: xoff, y: -yoff, r: radius, }, this ) );
+				const cost = 2 * radius * 0.0005;
+				this.traits.boxfit.push([ cost, cost, `sensors.bin_vision`]);
 			}
 		}
 		
@@ -1323,8 +1414,9 @@ export class Boid {
 			if ( detect.length ) {
 				let sensitivity = this.dna.shapedNumber(this.dna.genesFor('smell sensitivity',2,1), 0.1, 3, 0.5, 3 );
 				const chance = this.dna.shapedNumber(this.dna.genesFor('stereo smell',3,true));
+				const mono = chance > 0.5;
 				// mono
-				if ( chance > 0.5 ) {
+				if ( mono ) {
 					this.sensors.push( new Sensor({ type:'sense', name: 'smell', color: '#FFBB00FF', falloff:2, sensitivity, detect: detect, x: xoff, y: 0, r: radius, }, this ) );
 				} 
 				// stereo
@@ -1332,6 +1424,9 @@ export class Boid {
 					this.sensors.push( new Sensor({ type:'sense', name: 'smell1', color: '#FFBB00FF', falloff:2, sensitivity, detect: detect, x: xoff, y: yoff, r: radius, }, this ) );
 					this.sensors.push( new Sensor({ type:'sense', name: 'smell2', color: '#FFBB00FF', falloff:2, sensitivity, detect: detect, x: xoff, y: -yoff, r: radius, }, this ) );
 				}
+				// cost
+				const cost = radius * 0.002 * detect.length;
+				this.traits.boxfit.push([ cost, cost * (mono?1:1.6) , `sensors.smell`]);
 			}
 		}
 		
@@ -1366,8 +1461,9 @@ export class Boid {
 			if ( detect.length ) {
 				let sensitivity = this.dna.shapedNumber(this.dna.genesFor('audio sensitivity',2,1), 0.1, 3, 0.5, 3 );
 				const chance = this.dna.shapedNumber(this.dna.genesFor('stereo audio',3,true));
+				const mono = chance > 0.5;
 				// mono
-				if ( chance > 0.5 ) {
+				if ( mono ) {
 					this.sensors.push( new Sensor({ type:'sense', name: 'audio', color: '#EE3311FF', falloff:2, sensitivity, detect: detect, x: xoff, y: 0, r: radius, }, this ) );
 				} 
 				// stereo
@@ -1375,6 +1471,9 @@ export class Boid {
 					this.sensors.push( new Sensor({ type:'sense', name: 'audio1', color: '#EE3311FF', falloff:2, sensitivity, detect: detect, x: xoff, y: yoff, r: radius, }, this ) );
 					this.sensors.push( new Sensor({ type:'sense', name: 'audio2', color: '#EE3311FF', falloff:2, sensitivity, detect: detect, x: xoff, y: -yoff, r: radius, }, this ) );
 				}
+				// cost
+				const cost = radius * 0.005 * detect.length;
+				this.traits.boxfit.push([ cost, cost * (mono?1:1.6) , `sensors.hearing`]);
 			}
 		}
 		
@@ -1395,8 +1494,9 @@ export class Boid {
 				let a = ( this.dna.shapedNumber( this.dna.genesFor(`${detect} sensor angle ${n}`,2,1), 0, Math.PI * 2) + Math.PI ) % (Math.PI * 2);
 				const symmetryGene = this.dna.genesFor(`${detect} sensor symmetry ${n}`,2,true);
 				let color = detect==='obstacles' ? '#FF22BB77' : null;
+				const single = this.dna.shapedNumber(symmetryGene, 0,1,0.5,0) < 0.33;
 				// single
-				if ( this.dna.shapedNumber(symmetryGene, 0,1,0.5,0) < 0.33 ) {
+				if ( single) {
 					this.sensors.push( new Sensor({ x:d, y:sy, r, angle:0, detect, color, name:`${detect}${n}` }, this ) );			
 				}
 				// double
@@ -1409,6 +1509,9 @@ export class Boid {
 						i++;
 					}
 				}
+				// cost
+				const cost = r * 0.01;
+				this.traits.boxfit.push([ cost, cost * (single?1:1.6) , `sensors.food${n}`]);
 			}
 		}
 		
@@ -1418,6 +1521,8 @@ export class Boid {
 			const proprio_chance = this.dna.shapedNumber( this.dna.genesFor('has proprio',3,true) );
 			if ( proprio_chance < 0.25 ) { 
 				this.sensors.push( new Sensor({detect:'proprio'}, this) );
+				const cost = this.motors.length * 0.4;
+				this.traits.boxfit.push([ cost, cost * 0.25, `sensors.proprioception`]);
 			}
 		}
 		
@@ -1430,6 +1535,8 @@ export class Boid {
 				let invert = roll < 0.1;
 				let name = `disp_${interval}x${intervals}${invert?'i':''}`;
 				this.sensors.push( new Sensor({detect:'displacement',name,interval,intervals,invert}, this) );
+				const cost = (intervals + interval) * 0.2;
+				this.traits.boxfit.push([ cost, cost * 0.25, `sensors.displacement`]);
 			}
 		}
 		
@@ -1476,9 +1583,11 @@ export class Boid {
 					const power = this.dna.shapedNumber( this.dna.genesFor(`pulse{$pulse_num} pow`,1), 0, 1, 0.5, 3 );
 					const name = k + '/' + Math.ceil(phase);
 					this.sensors.push( new Sensor({detect:'pulse', name, power, phase}, this) );
+					this.traits.boxfit.push([ 1, 0.5, `sensors.pulse`]);
 				}
 				else {
 					this.sensors.push( new Sensor({detect:k}, this) );
+					this.traits.boxfit.push([ 1, 0.5, `sensors.${k}`]);
 				}
 			}
 		}
@@ -1489,9 +1598,11 @@ export class Boid {
 			const n = this.dna.shapedNumber( this.dna.genesFor(`roll for chaos`,2,true), 0, 1 );
 			if ( n < 0.5 ) {
 				this.sensors.push( new Sensor({detect:'chaos'}, this) );
+				this.traits.boxfit.push([ 0.2, 3, `sensors.chaos`]);
 			}	
 			else {		
 				this.sensors.push( new Sensor({detect:'displacement',name:'disp_1x3',interval:1, intervals:3}, this) );
+				this.traits.boxfit.push([ 1, 0.5, `sensors.displacement`]);
 			}
 		}
 		
@@ -1505,6 +1616,26 @@ export class Boid {
 		this.MakeSensorLabels();
 		
 		this.species_hash = this.CreateSpeciesHash();
+		
+		// tally the boxfit costs
+		const metab_cost = Math.trunc(this.traits.boxfit.reduce( (a,c) => a + c[0], 0 ));
+		const size_cost = Math.trunc(this.traits.boxfit.reduce( (a,c) => a + c[1], 0 ));
+		this.traits.boxfit_metab_cost = metab_cost;
+		this.traits.boxfit_size_cost = size_cost;
+		this.traits.base_metabolic_rate = ( metab_cost / 40 ) * 0.003; // so much magic numberz
+		// console.log(`M=${metab_cost}, S=${size_cost}`, this.traits.boxfit);
+		// overwrite the randomish values created by the BodyPlan - we have more exact numbers now
+		const size_ratio = this.body.length / this.body.width;
+		this.body.length = Math.pow(size_cost*2,0.6);
+		this.body.width = Math.pow(size_cost*2,0.6) / size_ratio;
+		this.body.mass = this.body.length * this.body.width;
+		this.body.max_length = this.body.length * this.dna.shapedNumber( this.dna.genesFor('max_length',2,true), 1,1.5,1.1,1.4);
+		this.body.max_width = this.body.width * this.dna.shapedNumber( this.dna.genesFor('body max_width',2,true), 1,1.5,1.1,1.4);
+		this.body.min_length = this.body.length * this.dna.shapedNumber( this.dna.genesFor('body min_length',2,true), 0.6,1,0.9,1.4);
+		this.body.min_width = this.body.width * this.dna.shapedNumber( this.dna.genesFor('body min_width',2,true), 0.6,1,0.9,1.4);
+		
+		// TODO: we want to include the brain in the cost analysis 
+		// but we don't get a brain transplant until after this function
 	}
 
 	// analyzes species-defining features to create a hash for quick comparisons
