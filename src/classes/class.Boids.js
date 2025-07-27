@@ -1625,19 +1625,19 @@ export class Boid {
 		
 		// tally the boxfit costs
 		const metab_cost = Math.trunc(this.traits.boxfit.reduce( (a,c) => a + c[0], 0 ));
-		const size_cost = 1.25 * Math.trunc(this.traits.boxfit.reduce( (a,c) => a + c[1], 0 ));
+		const size_cost = 5 * Math.trunc(this.traits.boxfit.reduce( (a,c) => a + c[1], 0 ));
 		this.traits.boxfit_metab_cost = metab_cost;
-		this.traits.boxfit_size_cost = size_cost;
+		this.traits.boxfit_size_cost = size_cost; // basically the "area" of the resulting body
 		this.traits.base_metabolic_rate = ( metab_cost / 40 ) * 0.003; // so much magic numberz
 		
 		// console.log(`M=${metab_cost}, S=${size_cost}`, this.traits.boxfit);
 		
 		// manually calculate body dimensions to pass to bodyplan
-		const size_ratio_l = this.dna.shapedNumber( this.dna.genesFor('body_size_ratio_l',2,1), 1, 10, 3, 3);
-		const size_ratio_w = this.dna.shapedNumber( this.dna.genesFor('body_size_ratio_w',2,1), 1, 8, 3, 3);
+		const size_ratio_l = this.dna.shapedNumber( this.dna.genesFor('body_size_ratio_l',2,1), 1, 10, 6, 2);
+		const size_ratio_w = this.dna.shapedNumber( this.dna.genesFor('body_size_ratio_w',2,1), 1, 8, 3, 2);
 		const size_ratio = size_ratio_l / size_ratio_w;
-		const new_length = Math.pow(size_cost*2,0.6);
-		const new_width = Math.pow(size_cost*2,0.6) / size_ratio;
+		const new_length = Math.sqrt( size_cost * size_ratio );
+		const new_width = Math.sqrt( size_cost / size_ratio );
 		
 		// now create the body shape
 		this.body = new BodyPlan( this.dna, new_length, new_width );
