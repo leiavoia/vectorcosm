@@ -32,6 +32,7 @@ export default class Rock {
 		// the object can either be a saved object with all data
 		if ( params.collision ) {	
 			Object.assign( this, params );	
+			this.collision.qid = 0; // must reset this on loaded objects
 		}
 		// or parameters to build a new rock from scratch
 		else {
@@ -189,6 +190,7 @@ export default class Rock {
 	}
 	Export( as_JSON=false ) {
 		let output = {};
+		this.collision.qid = 0; // don't save this. ok to reset
 		let datakeys = ['x','y','collision','triangles','pts'];		
 		for ( let k of datakeys ) { output[k] = this[k]; }
 		if ( as_JSON ) { output = JSON.stringify(output); }

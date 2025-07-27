@@ -272,7 +272,7 @@ export default class Vectorcosm {
 			this.tank.obstacles = scene.obstacles.map( x => new Rock(x) );
 			this.tank.foods = scene.foods.map( x => new Food(x) );
 			this.tank.plants = scene.plants.map( x => new Plant.PlantTypes[x.classname](x) );
-		}		
+		}
 	}
 	
 }

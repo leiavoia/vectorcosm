@@ -185,6 +185,7 @@ export class Boid {
 				}
 				delete json.motor_state;
 			}
+			this.collision.qid = 0; // must reset this on loaded objects
 		}
 	}
 	MakeSensorLabels() {
