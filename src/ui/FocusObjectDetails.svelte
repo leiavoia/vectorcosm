@@ -400,15 +400,39 @@
 			
 			<h4 class="topless">Stats</h4>
 			<p>
-				<span style="width:32%; display:inline-block;">bites:&nbsp;<output>{(boid.stats.food.bites||0).toFixed()}</output></span>
-				<span style="width:32%; display:inline-block;">edible:&nbsp;<output>{(boid.stats.food.edible||0).toFixed()}</output></span>
-				<span style="width:32%; display:inline-block;">toxins:&nbsp;<output>{(boid.stats.food.toxins||0).toFixed()}</output></span>
-				<span style="width:32%; display:inline-block;">total:&nbsp;<output>{(boid.stats.food.total||0).toFixed()}</output></span>
-				<span style="width:32%; display:inline-block;">inedible:&nbsp;<output>{(boid.stats.food.inedible||0).toFixed()}</output></span>
-				<span style="width:32%; display:inline-block;">tox_dmg:&nbsp;<output>{(boid.stats.food.toxin_dmg||0).toFixed()}</output></span>
-				<span style="width:32%; display:inline-block;">energy:&nbsp;<output>{(boid.stats.food.energy||0).toFixed()}</output></span>
-				<span style="width:32%; display:inline-block;">required:&nbsp;<output>{(boid.stats.food.required||0).toFixed()}</output></span>
-				<span style="width:32%; display:inline-block;">def_dmg:&nbsp;<output>{(boid.stats.food.deficit_dmg||0).toFixed()}</output></span>
+				<span style="width:32%; display:inline-block;" title="Number of food bites taken">
+					bites:&nbsp;<output>{(boid.stats.food.bites||0).toFixed()}</output>
+				</span>
+				<span style="width:32%; display:inline-block;" title="Edible food eaten">
+					edible:&nbsp;<output>{(boid.stats.food.edible||0).toFixed()}</output>
+				</span>
+				<span style="width:32%; display:inline-block;" title="Toxic food eaten">
+					toxins:&nbsp;<output>{(boid.stats.food.toxins||0).toFixed()}</output>
+				</span>
+				<span style="width:32%; display:inline-block;" title="Total food eaten">
+					total:&nbsp;<output>{(boid.stats.food.total||0).toFixed()}</output>
+				</span>
+				<span style="width:32%; display:inline-block;" title="Inedible food eaten">
+					inedible:&nbsp;<output>{(boid.stats.food.inedible||0).toFixed()}</output>
+				</span>
+				<span style="width:32%; display:inline-block;" title="Damage from toxic food">
+					tox_dmg:&nbsp;<output>{(boid.stats.food.toxin_dmg||0).toFixed()}</output>
+				</span>
+				<span style="width:32%; display:inline-block;" title="Energy obtained from food">
+					energy:&nbsp;<output>{(boid.stats.food.energy||0).toFixed()}</output>
+				</span>
+				<span style="width:32%; display:inline-block;" title="Nutrient-required food eaten">
+					required:&nbsp;<output>{(boid.stats.food.required||0).toFixed()}</output>
+				</span>
+				<span style="width:32%; display:inline-block;" title="Damage from malnutrition">
+					def_dmg:&nbsp;<output>{(boid.stats.food.deficit_dmg||0).toFixed()}</output>
+				</span>
+				<span style="width:32%; display:inline-block;" title="Energy burned from base metabolic rate">
+					metab:&nbsp;<output>{(boid.stats.metab.base||0).toFixed()}</output>
+				</span>
+				<span style="width:32%; display:inline-block;" title="Energy burned by motors">
+					motor:&nbsp;<output>{(boid.stats.metab.motors||0).toFixed()}</output>
+				</span>
 			</p>
 			<br/>
 		</div>

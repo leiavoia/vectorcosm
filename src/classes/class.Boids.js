@@ -80,6 +80,10 @@ export class Boid {
 				dmg_dealt: 0,
 				dmg_received: 0,
 				kills: 0
+			},
+			metab: {
+				base: 0,
+				motors: 0
 			}
 		};
 	}
@@ -221,6 +225,7 @@ export class Boid {
 		// larva get a discount for doing nothing
 		if ( !globalThis.vc.simulation.settings?.ignore_lifecycle && this.age < this.larval_age ) { energy_to_burn *= 0.5; }
 		this.metab.energy -= energy_to_burn;
+		this.stats.metab.base += energy_to_burn;
 		
 		// digestion (optimized by not processing stomach contents every single frame)
 		const digestInterval = 0.5; // we can factor this out when tuning optimization is balanced
@@ -664,8 +669,9 @@ export class Boid {
 			// don't allow overtaxing
 			delta = Math.min( delta, m.this_stoke_time - m.t ); 
 			// cost of doing business
-			let cost = ( m.cost * Math.abs(m.strokepow) * delta * this.mass ) / 800;
+			let cost = ( m.cost * Math.abs(m.strokepow) * delta * this.mass ) / 400;
 			this.metab.energy -= cost;
+			this.stats.metab.motors += cost;
 			
 			// increase stroke time
 			m.t = utils.clamp(m.t+delta, 0, m.this_stoke_time); 
@@ -833,7 +839,7 @@ export class Boid {
 		this.traits.growth_rate				= this.dna.shapedNumber( this.dna.genesFor('growth_rate',2,1), 0.0005, 0.02, 0.01, 2 );
 		this.traits.base_stomach_size		= this.dna.shapedNumber( this.dna.genesFor('base_stomach_size',2,1), 0.5, 0.02, 0.1, 2 );
 		this.traits.base_bowel_size			= this.dna.shapedNumber( this.dna.genesFor('base_bowel_size',2,1), 0.01, 0.2, 0.07, 2 );
-		this.traits.base_metabolic_rate		= this.dna.shapedNumber( this.dna.genesFor('base_metabolic_rate',2,1), 0.002, 0.008, 0.004, 1.4 );
+		// this.traits.base_metabolic_rate		= this.dna.shapedNumber( this.dna.genesFor('base_metabolic_rate',2,1), 0.002, 0.008, 0.004, 1.4 );
 		this.traits.base_digest_rate		= this.dna.shapedNumber( this.dna.genesFor('base_digest_rate',2,1), 0.001, 0.008, 0.003, 1.5 );
 		this.traits.base_energy_meter		= this.dna.shapedNumber( this.dna.genesFor('base_energy_meter',2,1), 0.4, 2, 1, 2 );
 		this.traits.base_bite_size			= this.traits.base_stomach_size * this.dna.shapedNumber( this.dna.genesFor('base_bite_size',2,1), 0.2, 0.8, 0.4, 2 );
