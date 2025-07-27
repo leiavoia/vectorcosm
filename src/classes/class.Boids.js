@@ -730,7 +730,7 @@ export class Boid {
 					// we've spent all this time producing them. However if they are
 					// given max energy, they immediately start to grow which doesnt
 					// make a lot of sense. Instead start them at their growth minimum.
-					offspring.energy = offspring.metab.max_energy * offspring.traits.growth_min_energy_pct;
+					offspring.metab.energy = offspring.metab.max_energy * offspring.traits.growth_min_energy_pct;
 					this.tank.boids.push(offspring);
 				}
 				// babies aren't free. we just lost a lot of mass.
