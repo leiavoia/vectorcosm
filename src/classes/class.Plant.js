@@ -1,5 +1,3 @@
-
-import Two from "two.js";
 import * as utils from '../util/utils.js'
 import Food from '../classes/class.Food.js'
 import DNA from '../classes/class.DNA.js'

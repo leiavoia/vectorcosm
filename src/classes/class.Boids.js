@@ -30,6 +30,7 @@ export class Boid {
 		this.metab.stomach_total = 0;
 		this.metab.bowel.fill(0);
 		this.metab.bowel_total = 0;
+		this.metab.seed_dna = null;
 		this.angle = Math.random()*Math.PI*2;
 		this.inertia = 0; // forward motion power, can be negative
 		this.angmo = 0; // angular momentum / rotational inertia
@@ -142,6 +143,7 @@ export class Boid {
 			deficient: false,				// UI flag. true if any required nutrient is currently causing harm from deficiency
 			toxins: false,					// UI flag. true if stomach contains any toxins 
 			growing: false,					// UI flag. true if boid actively grew mass on this frame
+			seed_dna: null					// DNA str of seed swallowed from food
 		};
 		// collision
 		this.collision = {
@@ -294,7 +296,7 @@ export class Boid {
 			// potty time?
 			if ( this.metab.bowel_total >= this.metab.bowel_size ) {
 				// TODO: if there's too much crap on the screen, consider just having 
-				// it absorb into the background ether instead of ignoring it.
+				// it absorb into the background aether instead of ignoring it.
 				if ( globalThis.vc.tank.foods.length < 300 && globalThis.vc.simulation.settings?.poop!==false ) {
 					const f = new Food( this.x, this.y, { 
 						value: this.metab.bowel_total * 0.5, // reduce value to avoid virtuous cycles  
@@ -302,12 +304,14 @@ export class Boid {
 						buoy_start: ( this.traits.poop_buoy + ( 1 - (2 * Math.random()) ) ),
 						buoy_end: ( (this.traits.poop_buoy-2) + ( 1 - (2 * Math.random()) ) ),
 						nutrients: this.metab.bowel.map( v => v / this.metab.bowel_total ),
-						complexity: this.traits.poop_complexity
+						complexity: this.traits.poop_complexity,
+						seed: this.metab.seed_dna
 						} );
 					globalThis.vc.tank.foods.push(f);
 				}
 				this.metab.bowel_total = 0;
 				this.metab.bowel.fill(0);
+				this.metab.seed_dna = null;
 			}			
 			
 			// if we have enough energy to grow, let's grow
@@ -517,6 +521,8 @@ export class Boid {
 					}
 					this.metab.stomach_total = this.metab.stomach.reduce( (a,c) => a + (c>0?c:0), 0 );
 					this.stats.food.bites++;
+					// if the food has a seed, save the seed for excretion.
+					if ( food.seed ) { this.metab.seed_dna = food.seed; }
 					// certain simulations use food for sequential target practice
 					if ( globalThis.vc.simulation.settings?.on_bite_ignore ) {
 						if ( !this.ignore_list ) {
@@ -854,7 +860,7 @@ export class Boid {
 		this.traits.poop_map = [];
 		let badfood = this.traits.nutrition.map(_=>_).sort( (a,b) => a-b );
 		for ( let i=0; i< this.traits.nutrition.length; i++ ) {
-			let to = this.dna.shapedInt( this.dna.genesFor(`poopmap ${i}`, 2, 1 ), 0, 7, 0, 10 );
+			let to = this.dna.shapedInt( this.dna.genesFor(`poopmap ${i}`, 2, 1 ), 0, 7, 0, 4 );
 			this.traits.poop_map[i] = badfood[to];
 		}
 		

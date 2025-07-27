@@ -232,6 +232,7 @@ export default class Food {
 	}
 	// returns TRUE if the food is edible by the boid
 	IsEdibleBy( boid ) {
+		if ( this.dead ) { return false; }
 		if ( this.edibility >= 1 ) { return true; } // legacy hack for simulations
 		return (1 << (this.complexity-1)) & boid.traits.food_mask;
 	}	
