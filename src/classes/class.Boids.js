@@ -183,11 +183,7 @@ export class Boid {
 				}
 				delete json.motor_state;
 			}
-			this.ScaleBoidByMass();
 		}
-		
-		// [!]HACKY - move this - we don't know max energy until ScaleBoidByMass runs
-		this.metab.energy = this.metab.max_energy;	
 	}
 	MakeSensorLabels() {
 		this.sensor_labels = [];
@@ -811,7 +807,7 @@ export class Boid {
 		this.lifespan = this.dna.shapedInt( this.dna.genesFor('lifespan',2,1), 60, 800, 300, 2 );
 		this.maturity_age = this.dna.shapedInt( this.dna.genesFor('maturity age',2,1), 0.1 * this.lifespan, 0.9 * this.lifespan, 0.25 * this.lifespan, 2.5 );
 		this.larval_age = Math.min( this.maturity_age, this.dna.shapedInt( this.dna.genesFor('larval_age',2,1), 2, 25, 5, 4 ) );
-		if ( !this.metab.energy ) { this.metab.energy = this.metab.max_energy; }
+		
 		// nutrition and metabolism
 		// TODO: more complex organisms should have more complex diets
 		// food mask - determines what complexity levels of food we can eat
@@ -1660,6 +1656,9 @@ export class Boid {
 
 		// fill out our form	
 		this.ScaleBoidByMass();
+		
+		// reset energy level to max if this is a new organism
+		if ( !this.metab.energy ) { this.metab.energy = this.metab.max_energy; }
 	}
 
 	// analyzes species-defining features to create a hash for quick comparisons
