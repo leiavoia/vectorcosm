@@ -3,25 +3,18 @@ import * as utils from '../util/utils.js'
 
 export default class BodyPlan {
 
-	constructor( dna ) {
-		// sane defaults
-		this.length = 30; // collision size, must fit inside genomic boundary
-		this.width = 20; // collision size, must fit inside genomic boundary
-		this.mass = this.length * this.width;
-		this.max_length = 30; // genomic boundary
-		this.max_width = 20; // genomic boundary
-		this.min_length = 30; // genomic boundary
-		this.min_width = 20; // genomic boundary
+	// supply length and width if you have them from manual calculation,
+	// otherwise they are generated from DNA
+	constructor( dna, length=null, width=null ) {
+		// setup
 		this.points = [];
 		this.linewidth = 2;
 		this.stroke = "#AEA";
 		this.fill = 'transparent'; // "#AEA";
 		this.dashes = [];
 		this.curved = false;
-		
-		// setup
-		this.length = dna.shapedInt( dna.genesFor('body length',3,2), 8,120,25,3);
-		this.width = dna.shapedInt( dna.genesFor('body width',3,2), 8,70,17,3);
+		this.length = length || dna.shapedInt( dna.genesFor('body length',3,2), 8,120,25,3);
+		this.width = width || dna.shapedInt( dna.genesFor('body width',3,2), 8,70,17,3);
 		this.mass = this.length * this.width;
 		this.max_length = this.length * dna.shapedNumber( dna.genesFor('max_length',2,true), 1,1.5,1.1,1.4);
 		this.max_width = this.width * dna.shapedNumber( dna.genesFor('body max_width',2,true), 1,1.5,1.1,1.4);

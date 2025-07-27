@@ -166,8 +166,8 @@ export class Boid {
 		if ( json && typeof json === 'object' ) {
 			Object.assign(this,json);
 			this.dna = new DNA(this.dna);
-			this.RehydrateFromDNA();
 			this.brain = new Brain({json:this.brain});
+			this.RehydrateFromDNA();
 			if ( json.motor_state ) { // temporary object for storage only
 				for ( let i=0; i<this.motors.length; i++ ) {
 					let m = this.motors[i];
@@ -792,7 +792,6 @@ export class Boid {
 		b.species = b.genus;
 		b.age = utils.RandomInt( 0, b.lifespan * 0.5 );
 		b.RehydrateFromDNA();
-		b.brain = new Brain({boid:b});
 		// b.mass = b.body.mass; // random boids start adult size / full grown
 		b.mass = ( 0.5 +Math.random() * 0.5 ) * b.body.mass; // random size
 		b.ScaleBoidByMass();	
@@ -802,21 +801,6 @@ export class Boid {
 	
 	// fill traits based on values mined from our DNA
 	RehydrateFromDNA() {
-	
-		// if ( this?.body?.geo ) { this.body.geo.remove(); }
-		this.body = new BodyPlan( this.dna );
-		this.sense[0] = this.body.sensor_colors[0];
-		this.sense[1] = this.body.sensor_colors[1];
-		this.sense[2] = this.body.sensor_colors[2];
-		this.sense[3] =  Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 1',2,1), -0.25, 1, 0.2, 2 ) );
-		this.sense[4] =  Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 2',2,1), -0.25, 1, 0.4, 2 ) );
-		this.sense[5] =  Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 3',2,1), -0.25, 1, 0.6, 2 ) );
-		this.sense[6] =  Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 4',2,1), -0.25, 1, 0.8, 2 ) );
-		this.sense[7] =  Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 5',2,1), -0.25, 1, 0.7, 2 ) );
-		this.sense[8] =  Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 6',2,1), -0.25, 1, 0.5, 2 ) );
-		this.sense[9] =  Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 7',2,1), -0.25, 1, 0.3, 2 ) );
-		this.sense[10] = Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 8',2,1), -0.25, 1, 0.1, 2 ) );
-		this.sense[11] = Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 9',2,1), -0.25, 1, 0.05, 2 ) );
 
 		this.lifespan = this.dna.shapedInt( this.dna.genesFor('lifespan',2,1), 60, 800, 300, 2 );
 		this.maturity_age = this.dna.shapedInt( this.dna.genesFor('maturity age',2,1), 0.1 * this.lifespan, 0.9 * this.lifespan, 0.25 * this.lifespan, 2.5 );
@@ -924,8 +908,6 @@ export class Boid {
 			this.traits.boxfit.push([ cost*0.2, cost, 'body.bite_speed']);
 		}
 		
-		this.ScaleBoidByMass();
-
 		// MOTORS ---------------------\/------------------------
 		const min_linear_motor = 80;			
 		const max_linear_motor = 1800;			
@@ -1478,7 +1460,7 @@ export class Boid {
 		}
 		
 		// food sensors
-		const my_max_dim = Math.max( this.body.length, this.body.width );
+		const my_max_dim = 50;
 		const max_sensor_radius = Math.sqrt(my_max_dim) * 50;
 		const min_sensor_radius = Math.min( my_max_dim*1.5, max_sensor_radius );
 		for ( let detect of ['food'/* ,'obstacles' */] ) {
@@ -1617,25 +1599,61 @@ export class Boid {
 		
 		this.species_hash = this.CreateSpeciesHash();
 		
+		// if we are copying from an existing organism, brain has already been mutated and transplanted at this point.
+		// otherwise create brain now. brain needs data from this function to create correct number of inputs and outputs,
+		// so it will be null at this point. chicken/egg problem.
+		if ( this.brain === null ) {
+			this.brain = new Brain({boid:this});
+		}
+		
+		// calculate the cost of the brain (which we now definately have!)
+		if ( this.brain.type === 'snn' ) {
+			const node_cost = this.brain.network.nodes.length;
+			this.traits.boxfit.push([ node_cost * 0.1, node_cost * 0.2, `brain.snn_nodes`]);
+			const conn_cost = this.brain.network.nodes.reduce( (a,c) => a + (c.conns.length / 2), 0 );
+			this.traits.boxfit.push([ conn_cost * 0.04, conn_cost * 0.02, `brain.snn_conns`]);
+		}
+		else if ( this.brain.type === 'perceptron' ) {
+			// middle nodes cost more
+			const node_cost = this.brain.network.nodes.reduce( (a,c) => a + ( (c.type=='input' || c.type=='output') ? 1 : 5 ) , 0 );
+			this.traits.boxfit.push([ node_cost * 0.1, node_cost * 0.2, `brain.perceptron_nodes`]);
+			const conn_cost = this.brain.network.connections.length;
+			this.traits.boxfit.push([ conn_cost * 0.05, conn_cost * 0.025, `brain.perceptron_conns`]);
+		}
+		
 		// tally the boxfit costs
 		const metab_cost = Math.trunc(this.traits.boxfit.reduce( (a,c) => a + c[0], 0 ));
-		const size_cost = Math.trunc(this.traits.boxfit.reduce( (a,c) => a + c[1], 0 ));
+		const size_cost = 1.25 * Math.trunc(this.traits.boxfit.reduce( (a,c) => a + c[1], 0 ));
 		this.traits.boxfit_metab_cost = metab_cost;
 		this.traits.boxfit_size_cost = size_cost;
 		this.traits.base_metabolic_rate = ( metab_cost / 40 ) * 0.003; // so much magic numberz
-		// console.log(`M=${metab_cost}, S=${size_cost}`, this.traits.boxfit);
-		// overwrite the randomish values created by the BodyPlan - we have more exact numbers now
-		const size_ratio = this.body.length / this.body.width;
-		this.body.length = Math.pow(size_cost*2,0.6);
-		this.body.width = Math.pow(size_cost*2,0.6) / size_ratio;
-		this.body.mass = this.body.length * this.body.width;
-		this.body.max_length = this.body.length * this.dna.shapedNumber( this.dna.genesFor('max_length',2,true), 1,1.5,1.1,1.4);
-		this.body.max_width = this.body.width * this.dna.shapedNumber( this.dna.genesFor('body max_width',2,true), 1,1.5,1.1,1.4);
-		this.body.min_length = this.body.length * this.dna.shapedNumber( this.dna.genesFor('body min_length',2,true), 0.6,1,0.9,1.4);
-		this.body.min_width = this.body.width * this.dna.shapedNumber( this.dna.genesFor('body min_width',2,true), 0.6,1,0.9,1.4);
 		
-		// TODO: we want to include the brain in the cost analysis 
-		// but we don't get a brain transplant until after this function
+		// console.log(`M=${metab_cost}, S=${size_cost}`, this.traits.boxfit);
+		
+		// manually calculate body dimensions to pass to bodyplan
+		const size_ratio_l = this.dna.shapedNumber( this.dna.genesFor('body_size_ratio_l',2,1), 1, 10, 3, 3);
+		const size_ratio_w = this.dna.shapedNumber( this.dna.genesFor('body_size_ratio_w',2,1), 1, 8, 3, 3);
+		const size_ratio = size_ratio_l / size_ratio_w;
+		const new_length = Math.pow(size_cost*2,0.6);
+		const new_width = Math.pow(size_cost*2,0.6) / size_ratio;
+		
+		// now create the body shape
+		this.body = new BodyPlan( this.dna, new_length, new_width );
+		this.sense[0] = this.body.sensor_colors[0];
+		this.sense[1] = this.body.sensor_colors[1];
+		this.sense[2] = this.body.sensor_colors[2];
+		this.sense[3] =  Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 1',2,1), -0.25, 1, 0.2, 2 ) );
+		this.sense[4] =  Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 2',2,1), -0.25, 1, 0.4, 2 ) );
+		this.sense[5] =  Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 3',2,1), -0.25, 1, 0.6, 2 ) );
+		this.sense[6] =  Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 4',2,1), -0.25, 1, 0.8, 2 ) );
+		this.sense[7] =  Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 5',2,1), -0.25, 1, 0.7, 2 ) );
+		this.sense[8] =  Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 6',2,1), -0.25, 1, 0.5, 2 ) );
+		this.sense[9] =  Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 7',2,1), -0.25, 1, 0.3, 2 ) );
+		this.sense[10] = Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 8',2,1), -0.25, 1, 0.1, 2 ) );
+		this.sense[11] = Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 9',2,1), -0.25, 1, 0.05, 2 ) );
+
+		// fill out our form	
+		this.ScaleBoidByMass();
 	}
 
 	// analyzes species-defining features to create a hash for quick comparisons
