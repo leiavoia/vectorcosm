@@ -126,6 +126,7 @@ export class Boid {
 			base_bite_size: 1,				// amount of food per bite attempt per mass
 			bite_speed: 1,					// time in seconds for bite to reset
 			boxfit: [],						// [ [ metabolism points, size points, label ] ]
+			offspring_investment: 0.5,		// the degree of energy banking a parent puts into offspring
 		};
 		this.metab = {
 			digest_rate: 1,					// current amount of food digested per second
@@ -672,7 +673,7 @@ export class Boid {
 			// don't allow overtaxing
 			delta = Math.min( delta, m.this_stoke_time - m.t ); 
 			// cost of doing business
-			let cost = ( m.cost * Math.abs(m.strokepow) * delta * this.mass ) / 400;
+			let cost = ( m.cost * Math.abs(m.strokepow) * delta * this.mass ) / 650;
 			this.metab.energy -= cost;
 			this.stats.metab.motors += cost;
 			
@@ -729,11 +730,11 @@ export class Boid {
 					offspring.angle = utils.RandomFloat(0, Math.PI*2);
 					offspring.mass = this.mass / ( m.mitosis + 1 );
 					offspring.ScaleBoidByMass();
-					// we're going to say that babies start with some energy because
-					// we've spent all this time producing them. However if they are
-					// given max energy, they immediately start to grow which doesnt
-					// make a lot of sense. Instead start them at their growth minimum.
-					offspring.metab.energy = offspring.metab.max_energy * offspring.traits.growth_min_energy_pct;
+					// the parent decides how much energy to invest into babies. 
+					// If they are given max energy, they immediately start to grow 
+					// which doesnt make a lot of sense. If they don't have enough
+					// energy, they don't stand a chance of surviving.
+					offspring.metab.energy = this.traits.offspring_investment * offspring.metab.max_energy;
 					this.tank.boids.push(offspring);
 				}
 				// babies aren't free. we just lost a lot of mass.
@@ -837,6 +838,7 @@ export class Boid {
 			let i = this.dna.shapedInt( this.dna.genesFor(`nutrition fallback index`,2,1), 0, 7, 0, 2 );
 			this.traits.nutrition[i] = this.dna.shapedNumber( this.dna.genesFor(`nutrition value fallback`,2,1), 0.2, 3, 1, 5 );
 		}
+		this.traits.offspring_investment	= this.dna.shapedNumber( this.dna.genesFor('offspring_investment',2,1), 0.1, 1.0, 0.5, 2 );
 		this.traits.growth_min_energy_pct	= this.dna.shapedNumber( this.dna.genesFor('growth_min_energy_pct',2,1), 0.1, 0.9, 0.4, 1.8 );
 		this.traits.growth_cost				= this.dna.shapedNumber( this.dna.genesFor('growth_cost',2,1), 0.002, 0.05, 0.01, 2 );
 		this.traits.growth_rate				= this.dna.shapedNumber( this.dna.genesFor('growth_rate',2,1), 0.0005, 0.02, 0.01, 2 );
@@ -1093,10 +1095,17 @@ export class Boid {
 			mitosis_num*this.lifespan*0.05,
 			2);
 		const offspring_portion =  (1/(mitosis_num+2)) * mitosis_num;
+		// Cost of mitosis depends on how much energy the parent wants to invest in the offspring.
+		// Higher investment gives offspring a higher starting energy level.
+		// Cost is measured as energy per second per mass, sort of. 
+		// [!]arbitrary. motor functions factor in mass already
+		const mitosis_min_cost = ( 200 * offspring_portion ) / stroketime;
+		const mitosis_max_cost = ( 800 * offspring_portion ) / stroketime;
+		const mitosis_cost = mitosis_min_cost + ( mitosis_max_cost - mitosis_min_cost ) * this.traits.offspring_investment;
 		this.motors.push({
 			mitosis: mitosis_num, // number of new organisms
 			min_act: this.dna.shapedNumber( this.dna.genesFor('mitosis min act',2), 0.05, 0.9, 0.2, 5),
-			cost: ( 500 * offspring_portion ) / stroketime, // per second per mass, sort of. [!]arbitrary. motor functions factor in mass already
+			cost: mitosis_cost, 
 			stroketime: stroketime, 
 			strokefunc: 'linear_up', 
 			name: `mitosis+${mitosis_num}`,
@@ -1635,7 +1644,7 @@ export class Boid {
 		const size_cost = 5 * Math.trunc(this.traits.boxfit.reduce( (a,c) => a + c[1], 0 ));
 		this.traits.boxfit_metab_cost = metab_cost;
 		this.traits.boxfit_size_cost = size_cost; // basically the "area" of the resulting body
-		this.traits.base_metabolic_rate = ( metab_cost / 40 ) * 0.003; // so much magic numberz
+		this.traits.base_metabolic_rate = ( metab_cost / 40 ) * 0.0022; // so much magic numberz
 		
 		// console.log(`M=${metab_cost}, S=${size_cost}`, this.traits.boxfit);
 		
