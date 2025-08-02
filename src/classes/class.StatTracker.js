@@ -86,6 +86,12 @@ export class CompoundStatTracker {
 			if ( this.trackers[name] ) {
 				this.trackers[name].Insert( data[name] );
 			}
+			// if we don't already have this stat tracked, make a new tracker
+			else {
+				// use an existing tracker as a template for the new one
+				let example = this.trackers[ Object.keys(this.trackers).pop() ]; // get a sample
+				this.trackers[name] = new StatTracker( example );
+			}
 		}
 		if ( this.onInsert ) {
 			// we dont want all child stats to fire a bunch of events for onInsert.

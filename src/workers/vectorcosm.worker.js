@@ -416,6 +416,7 @@ let onSimCompleteSubscription = PubSub.subscribe('sim.complete', (msg, sim) => {
 let onSimRoundSubscription = PubSub.subscribe('sim.round', (msg, sim) => {
 	let datapacket = Object.assign({}, sim.stats);
 	delete(datapacket.chartdata); // don't need all of this every frame
+	delete(datapacket.records); // don't need all of this every frame
 	globalThis.postMessage( {
 		functionName: 'simRound',
 		data: datapacket

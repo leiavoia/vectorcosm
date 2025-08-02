@@ -226,6 +226,7 @@ export class Boid {
 		if ( !globalThis.vc.simulation.settings?.ignore_lifecycle && this.age < this.larval_age ) { energy_to_burn *= 0.5; }
 		this.metab.energy -= energy_to_burn;
 		this.stats.metab.base += energy_to_burn;
+		globalThis.vc.simulation.RecordStat('energy_used',energy_to_burn);
 		
 		// digestion (optimized by not processing stomach contents every single frame)
 		const digestInterval = 0.5; // we can factor this out when tuning optimization is balanced
@@ -521,8 +522,11 @@ export class Boid {
 						const v = morsel * food.nutrients[i];
 						this.metab.stomach[i] = Math.max( v, this.metab.stomach[i] + v );
 					}
+					// stat tracking
 					this.metab.stomach_total = this.metab.stomach.reduce( (a,c) => a + (c>0?c:0), 0 );
 					this.stats.food.bites++;
+					globalThis.vc.simulation.RecordStat('bites',1);
+					globalThis.vc.simulation.RecordStat('food_eaten',morsel);
 					// if the food has a seed, save the seed for excretion.
 					if ( food.seed ) { this.metab.seed_dna = food.seed; }
 					// certain simulations use food for sequential target practice
@@ -612,6 +616,7 @@ export class Boid {
 					if ( victim.metab.energy <= 0 && !globalThis.vc.simulation.settings?.ignore_lifecycle ) {
 						victim.Kill('attack');
 						this.stats.combat.kills++;
+						globalThis.vc.simulation.RecordStat('kills',1);
 						// prizes!
 						const f = new Food( victim.x, victim.y, { 
 							value: victim.mass * 0.25, // reduce value to avoid virtuous cycles  
@@ -677,6 +682,7 @@ export class Boid {
 			let cost = ( m.cost * Math.abs(m.strokepow) * delta * this.mass ) / 650;
 			this.metab.energy -= cost;
 			this.stats.metab.motors += cost;
+			globalThis.vc.simulation.RecordStat('energy_used',cost);
 			
 			// increase stroke time
 			m.t = utils.clamp(m.t+delta, 0, m.this_stoke_time); 
@@ -741,7 +747,7 @@ export class Boid {
 				// babies aren't free. we just lost a lot of mass.
 				this.mass /= ( m.mitosis + 1 );
 				this.ScaleBoidByMass();
-				
+				globalThis.vc.simulation.RecordStat('births',m.mitosis);
 			}
 			else if ( m.hasOwnProperty('bud') && m.t >= m.this_stoke_time ) {
 				const mutation_rate = utils.Clamp( globalThis.vc?.simulation?.settings?.max_mutation, 0, 1 );
@@ -755,6 +761,7 @@ export class Boid {
 				offspring.ScaleBoidByMass();
 				offspring.metab.energy = offspring.metab.max_energy;
 				this.tank.boids.push(offspring);
+				globalThis.vc.simulation.RecordStat('births',1);
 			}
 			// reset stroke when complete
 			if ( m.t >= m.this_stoke_time ) { 
@@ -807,6 +814,8 @@ export class Boid {
 		this.stats.death.age_remaining = Math.floor( this.lifespan - this.age );
 		this.stats.death.age_remaining_pct = Math.floor( ( 1 - (this.age / this.lifespan) ) * 100 );
 		// console.log(this.stats.death);
+		globalThis.vc.simulation.RecordStat('deaths',1);
+		globalThis.vc.simulation.RecordStat('death_from_'+this.stats.death.cause,1);
 	}
 
 	static Random(x,y,tank) {

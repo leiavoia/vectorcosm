@@ -4,10 +4,11 @@ import Food from '../classes/class.Food.js'
 import Rock from '../classes/class.Rock.js'
 import * as utils from '../util/utils.js'
 import { BoidFactory } from '../classes/class.Boids.js'
-import SimulationLibrary from "./SimulationLibrary.js";
-import {Circle} from 'collisions';
+import SimulationLibrary from "./SimulationLibrary.js"
+import {Circle} from 'collisions'
 import { RandomPlant } from '../classes/class.Plant.js'
 import PubSub from 'pubsub-js'
+import {CompoundStatTracker} from '../classes/class.StatTracker.js'
 
 export function SimulationFactory( tank, name_or_settings ) {
 	// random pick from the library
@@ -55,6 +56,7 @@ export default class Simulation {
 			fruiting_speed: 1.0,
 			onExtinction: 'random',
 			speciation_rate: 0,
+			tally_freq: 10 // how often to flush the tally and record stats
 		};
 		if ( settings ) {
 			this.settings = Object.assign(this.settings, settings);
@@ -67,14 +69,69 @@ export default class Simulation {
 			round_num: 0,
 			round_best_score: 0,
 			round_avg_score: 0,
+			framenum: 0,
+			delta: 0,
 			chartdata: {
 				averages: [],
 				highscores: []
 			},
-			framenum: 0,
-			delta: 0
+			// at 10-second intervals, we get about 3 hours of recording
+			records: new CompoundStatTracker( 
+				{ numLayers: 4, base: 10, recordsPerLayer: 30, stats:[
+				'boids',
+				'foods',
+				'plants',
+				'boid_mass',
+				'food_mass',
+				'species',
+				'avg_age',
+				'births',
+				'deaths',
+				'food_eaten',
+				'energy_used',
+				'bites',
+				'kills',
+			] }),
+			tally: {}, // accumulator for point-in-time stats which get recorded periodically
+			last_tally: 0, // tracks to time next tally flush
 		};
 		this.complete = false;
+	}
+	
+	// records a numerical statistic to the tally sheet / accumulator
+	RecordStat( name, value ) {
+		if ( !this.stats.tally[ name ] ) { this.stats.tally[ name ] = 0; }
+		this.stats.tally[ name ] += value;
+	}
+	
+	// add all tally sheet data to the long term records
+	FlushTally() {
+		const time_since_last_flush = this.stats.round_time - this.stats.last_tally;
+		if ( time_since_last_flush >= this.settings.tally_freq ) {
+			this.CalculatePeriodicStats();
+			this.stats.records.Insert( this.stats.tally );
+			for ( let k in this.stats.tally ) {
+				this.stats.tally[k] = 0;
+			};	
+			this.stats.last_tally = this.stats.round_time;
+		}
+	}
+	
+	// surveys all objects in the tank and records stats that observe totals and averages.
+	// if you need accumulated stats (calories burned, kills, deaths, births, etc),
+	// then use RecordStat() throughout the code to record events when they happen.
+	CalculatePeriodicStats() {
+		this.RecordStat( 'boids', this.tank.boids.length );
+		this.RecordStat( 'foods', this.tank.foods.length );
+		this.RecordStat( 'plants', this.tank.plants.length );
+		this.RecordStat( 'boid_mass', this.tank.boids.reduce( (a,c) => a + c.mass, 0 ) );
+		this.RecordStat( 'food_mass', this.tank.foods.reduce( (a,c) => a + c.value, 0 ) );
+		this.RecordStat( 'avg_age', this.tank.boids.reduce( (a,c) => a + c.age, 0 ) );
+		let species = new Set();
+		for ( let b of globalThis.vc.tank.boids ) {
+			species.add(b.species);
+		}
+		this.RecordStat( 'species', species.size );
 	}
 	
 	// inherit me	
@@ -192,6 +249,7 @@ export default class Simulation {
 		this.stats.round_time += delta;
 		this.stats.delta = delta;
 		this.stats.framenum++;
+		this.FlushTally();
 		// score boids on performance
 		if ( this.settings.timeout ) { // endless sims (time=0) don't need to waste CPU cycles
 			for ( let b of this.tank.boids ) { this.ScoreBoidPerFrame(b); }
