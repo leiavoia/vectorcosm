@@ -54,7 +54,8 @@ export default class Vectorcosm {
 			// SimulationFactory(this.tank, 'treasure_hunt_perpetual'),
 			// SimulationFactory(this.tank, 'obstacle_course'),
 			// SimulationFactory(this.tank, 'race_track'),
-			SimulationFactory(this.tank, 'natural_tank'),
+			// SimulationFactory(this.tank, 'natural_tank'),
+			SimulationFactory(this.tank, 'peaceful_tank'),
 		];
 		
 		// subscribe to critical events

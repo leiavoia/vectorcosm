@@ -22,6 +22,7 @@
 	
 	let indv_sims = $state([
 		'natural_tank',
+		'peaceful_tank',
 		'petri_dish',
 		'finishing_school',
 		'obstacle_course',
@@ -144,6 +145,7 @@
 	<h4>Individual Programs</h4>
 	<select bind:value={selected_sim} onchange={()=>RunProgram(selected_sim)}>
 		<option value="natural_tank">Natural Tank</option>
+		<option value="peaceful_tank">Peaceful Tank (no fighting)</option>
 		<option value="petri_dish">Petri Dish</option>
 		<option value="finishing_school">Finishing School</option>
 		<option value="obstacle_course">Obstacle Course</option>
