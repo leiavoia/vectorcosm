@@ -570,13 +570,14 @@ export class Boid {
 					return 0; 
 				}
 				// tank capacity sanity cap
-				if ( m.hasOwnProperty('mitosis') && ( this.tank.boids.length >= (globalThis.vc?.simulation?.settings?.num_boids || 100)
+				if ( ( m.hasOwnProperty('bud') || m.hasOwnProperty('mitosis') ) && 
+					( this.tank.boids.length >= (globalThis.vc?.simulation?.settings?.num_boids || 100)
 					|| globalThis.vc.simulation.settings?.ignore_lifecycle ) ) {
 					m.last_amount = 0;
 					m.this_stoke_time = 0;
 					return 0; 
 				}
-				// mitosis and other triggers must use the full amount, regardless of activation
+				// reproduction and other triggers must use the full amount, regardless of activation
 				if ( m.hasOwnProperty('use_max') ) {
 					amount = 1; 
 				}
@@ -702,13 +703,13 @@ export class Boid {
 			if ( m.hasOwnProperty('angular') ) {
 				this.angmo += m.angular * amount;
 			}
-			if ( m.hasOwnProperty('brake') ) {
+			else if ( m.hasOwnProperty('brake') ) {
 				let v = (this.inertia > 0)
 					? utils.clamp(-amount*m.brake,-this.inertia,0)
 					: utils.clamp(amount*m.brake,0,-this.inertia);
 				this.inertia += v;
 			}
-			if ( m.hasOwnProperty('sense') && m.t <= delta ) { // first frame
+			else if ( m.hasOwnProperty('sense') && m.t <= delta ) { // first frame
 				if ( !globalThis.vc?.simulation?.settings?.no_marks ) {
 					this.tank.marks.push( new Mark({
 						x: this.x,
@@ -741,6 +742,19 @@ export class Boid {
 				this.mass /= ( m.mitosis + 1 );
 				this.ScaleBoidByMass();
 				
+			}
+			else if ( m.hasOwnProperty('bud') && m.t >= m.this_stoke_time ) {
+				const mutation_rate = utils.Clamp( globalThis.vc?.simulation?.settings?.max_mutation, 0, 1 );
+				const speciation_rate = utils.Clamp( globalThis.vc?.simulation?.settings?.speciation_rate || 0, 0, 1 );
+				let offspring = this.Copy(true, mutation_rate, mutation_rate, speciation_rate); // reset state and mutate organism
+				offspring.age = 0; // simulation can assign a random age on Copy
+				offspring.x = this.x;
+				offspring.y = this.y;
+				offspring.angle = utils.RandomFloat(0, Math.PI*2);
+				offspring.mass = this.mass * this.traits.offspring_investment * 0.5; 
+				offspring.ScaleBoidByMass();
+				offspring.metab.energy = offspring.metab.max_energy;
+				this.tank.boids.push(offspring);
 			}
 			// reset stroke when complete
 			if ( m.t >= m.this_stoke_time ) { 
@@ -1088,34 +1102,60 @@ export class Boid {
 			
 			
 		// reproductive motors
-		const mitosis_num = this.dna.shapedInt( this.dna.genesFor('mitosis num',2,true), 1,5,1,3);
-		const stroketime = this.dna.shapedInt( this.dna.genesFor('mitosis stroketime',2,true), 
-			mitosis_num*this.lifespan*0.02, 
-			mitosis_num*this.lifespan*0.10,
-			mitosis_num*this.lifespan*0.05,
-			2);
-		const offspring_portion =  (1/(mitosis_num+2)) * mitosis_num;
-		// Cost of mitosis depends on how much energy the parent wants to invest in the offspring.
-		// Higher investment gives offspring a higher starting energy level.
-		// Cost is measured as energy per second per mass, sort of. 
-		// [!]arbitrary. motor functions factor in mass already
-		const mitosis_min_cost = ( 200 * offspring_portion ) / stroketime;
-		const mitosis_max_cost = ( 800 * offspring_portion ) / stroketime;
-		const mitosis_cost = mitosis_min_cost + ( mitosis_max_cost - mitosis_min_cost ) * this.traits.offspring_investment;
-		this.motors.push({
-			mitosis: mitosis_num, // number of new organisms
-			min_act: this.dna.shapedNumber( this.dna.genesFor('mitosis min act',2), 0.05, 0.9, 0.2, 5),
-			cost: mitosis_cost, 
-			stroketime: stroketime, 
-			strokefunc: 'linear_up', 
-			name: `mitosis+${mitosis_num}`,
-			min_age: this.maturity_age,
-			min_scale: 0.65, // prevents infinite subdivision
-			use_max: true, // prevents cheating on time
-			skip_sensor_check:true
-		});
-		// TODO: cost of reproduction depends on variety of factors
-		this.traits.boxfit.push([ 0, mitosis_num * 1.2, `motors.mitosis`]);
+		const repro_type_roll = this.dna.shapedInt( this.dna.genesFor('repro_type_roll num',3,true), 0, 1);
+		// mitosis
+		if ( repro_type_roll < 0.5 ) {
+			const mitosis_num = this.dna.shapedInt( this.dna.genesFor('mitosis num',2,true), 1,5,1,3);
+			const stroketime = this.dna.shapedInt( this.dna.genesFor('mitosis stroketime',2,true), 
+				mitosis_num*this.lifespan*0.02, 
+				mitosis_num*this.lifespan*0.10,
+				mitosis_num*this.lifespan*0.05,
+				2);
+			const offspring_portion =  (1/(mitosis_num+2)) * mitosis_num;
+			// Cost of mitosis depends on how much energy the parent wants to invest in the offspring.
+			// Higher investment gives offspring a higher starting energy level.
+			// Cost is measured as energy per second per mass, sort of. 
+			// [!]arbitrary. motor functions factor in mass already
+			const mitosis_min_cost = ( 200 * offspring_portion ) / stroketime;
+			const mitosis_max_cost = ( 800 * offspring_portion ) / stroketime;
+			const mitosis_cost = mitosis_min_cost + ( mitosis_max_cost - mitosis_min_cost ) * this.traits.offspring_investment;
+			this.motors.push({
+				mitosis: mitosis_num, // number of new organisms
+				min_act: this.dna.shapedNumber( this.dna.genesFor('mitosis min act',2), 0.05, 0.9, 0.2, 5),
+				cost: mitosis_cost, 
+				stroketime: stroketime, 
+				strokefunc: 'linear_up', 
+				name: `mitosis+${mitosis_num}`,
+				min_age: this.maturity_age,
+				min_scale: 0.65, // prevents infinite subdivision
+				use_max: true, // prevents cheating on time
+				skip_sensor_check:true
+			});
+			// TODO: cost of reproduction depends on variety of factors
+			this.traits.boxfit.push([ 0, mitosis_num * 1.2, `motors.mitosis`]);
+		}
+		// budding
+		else {
+			const stroketime = this.lifespan * 0.5 * this.traits.offspring_investment;
+			const min_cost = 200 / stroketime;
+			const max_cost = 800 / stroketime;
+			const cost = min_cost + ( max_cost - min_cost ) * this.traits.offspring_investment;
+			const min_act = this.dna.shapedNumber( this.dna.genesFor('bud min act',2), 0.05, 0.9, 0.2, 5);
+			this.motors.push({
+				bud: 1,
+				min_act: min_act,
+				cost: cost, 
+				stroketime: stroketime, 
+				strokefunc: 'linear_up', 
+				name: `bud`,
+				min_age: this.maturity_age,
+				min_scale: (0.65 + 0.35 * this.traits.offspring_investment), // higher than mitosis!
+				use_max: true, // prevents cheating on time
+				skip_sensor_check:true
+			});
+			// requiring a large body for budding differentiates this from mitosis method
+			this.traits.boxfit.push([ 1 * this.traits.offspring_investment, 20 * this.traits.offspring_investment, `motors.bud`]);
+		}
 		
 		// combat
 		const canAttack = this.dna.shapedNumber( this.dna.genesFor(`attack motor chance`,1,1) );
