@@ -13,11 +13,6 @@
 	const chartlabels = []; // used by the chart. "labels" are actually timestamps or turns
 					
 	Chart.defaults.color = '#FFF';
-	Chart.defaults.backgroundColor = '#000000AA';
-	Chart.defaults.elements.line.backgroundColor = '#41A34F';
-	Chart.defaults.elements.line.borderColor = '#41A34F';
-	Chart.defaults.elements.bar.backgroundColor = '#41A34F';
-	Chart.defaults.elements.bar.borderColor = '#41A34F';
 	Chart.defaults.elements.point.radius = 0;
 			 
 	onMount(() => {
@@ -85,6 +80,24 @@
 			
 	function MakeSimulatorChart( element, records ) {
 		
+		// maps specific datasets to specific colors
+		const axis_colors = {
+			'boids':		'#1472bc',
+			'foods':		'#d9900c',
+			'plants':		'#00C955',
+			'boid_mass':	'#4AB9F7',
+			'food_mass':	'#DEDD41',
+			'species':		'#CD5FD0',
+			'births':		'#EEEEEE',
+			'deaths':		'#787878',
+			'food_eaten':	'#9C6307',
+			'energy_used':	'#B1C844',
+			'bites':		'#987E2F',
+			'kills':		'#DD1111',
+			'avg_age':		'#5429B8',
+		}
+				
+		// fixed set of colors for any dynamic datasets we dont know about
 		const colors = [
 			'#FF6F61', // coral red
 			'#6FCF97', // green
@@ -109,11 +122,34 @@
 		];
 		let next_color = 0;
 		
-		// we need to create each dataset with its own y axis
+		// we need to create each dataset with its own y axis.
+		// some datasets logically share the same scale. 
+		// others will be created on the fly
 		const axes = {
 			x: { display: false },
-			// add named y axes as we go
+			y_small_nums: { display: false }, // <20
+			y_med_nums: { display: false }, // 0-500
+			y_large_nums: { display: false }, // thousands
+			y_mass: { display: false }, // boids and food
+			// add named custom y axes as we go
 		};
+		
+		// maps certain datasets to named axis 
+		const axis_map = {
+			'boids':		'y_med_nums',
+			'foods':		'y_med_nums',
+			'plants':		'y_med_nums',
+			'boid_mass':	'y_mass',
+			'food_mass':	'y_mass',
+			'species':		'y_small_nums',
+			'births':		'y_small_nums',
+			'deaths':		'y_small_nums',
+			'food_eaten':	'y_large_nums',
+			'energy_used':	'y_large_nums',
+			'bites':		'y_med_nums',
+			'kills':		'y_small_nums',
+			// 'avg_age':		'',
+		}
 		
 		// these datasets are on by default. all others must be toggled on
 		const visible_datasets = [/* 'boids','foods', */'boid_mass','food_mass'];
@@ -122,21 +158,24 @@
 		// each tracker tracks a set of named statistics.
 		// each stat has 4 layers of data (fine grained to general)
 		for ( let k in records.trackers ) {
+			let yAxisID = `y-${k}`;
+			// use a named axis if one makes sense
+			if ( k in axis_map ) {
+				yAxisID = axis_map[k];
+			}
 			// create an independent Y Axis
-			const yAxisID = `y-${k}`;
-			axes[yAxisID] = {
-				type: 'linear',
-                position: 'left',
-				display: false
-			};
+			else {
+				axes[yAxisID] = { display: false };
+			}
+			// use a designated color if possible, dynamic otherwise
+			let color = ( k in axis_colors) ? axis_colors[k] : colors[next_color++ % colors.length];
 			// create the dataset
 			const dataset = {
 				label: k,
 				data: [], // will populate later
-				// order: (next_color+1),
-				backgroundColor: colors[next_color % colors.length],
-				borderColor: colors[next_color % colors.length],
-				borderWidth: 2,
+				backgroundColor: color,
+				borderColor: color,
+				borderWidth: 3,
 				fill:false,
 				tension: 0.2,
 				yAxisID: yAxisID,
