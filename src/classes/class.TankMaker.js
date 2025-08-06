@@ -33,7 +33,7 @@ export default class TankMaker {
 			scale_x: utils.RandomFloat( 0.5, 5 ),
 			scale_y: utils.RandomFloat( 0.5, 5 ),
 			skew_x: (Math.random() > 0.75 ? Math.random()*2 : 0),
-			rock_color_scheme: null,
+			rock_color_schemes: [],
 			add_centerpiece_rocks: false,
 			add_substrate: false,
 			visualize: false
@@ -42,9 +42,16 @@ export default class TankMaker {
 	}
 	
 	Make() {
-		// if the rock theme is null, chance to pick a homogenous theme
-		if ( this.settings.rock_color_scheme === null && Math.random() > 0.7 ) {
-			this.settings.rock_color_scheme = Object.keys(Rock.color_schemes).pickRandom();
+		// if no rock themes selected, pick a few
+		if ( !this.settings.rock_color_schemes.length ) {
+			// how many do we want?
+			const num_schemes = utils.RandomInt( 1, 5 );
+			// pick random schemes
+			this.settings.rock_color_schemes = [];
+			for ( let i=0; i<num_schemes; i++ ) {
+				let scheme = Object.keys(Rock.color_schemes).pickRandom();
+				this.settings.rock_color_schemes.push(scheme); // duplicates okay
+			}
 		}
 		
 		// make rocks according to general strategy selected. If nothing selected, pick one at random.
@@ -83,6 +90,17 @@ export default class TankMaker {
 		}
 	}
 	
+	PickRandomRockColor() {
+		// rock theme randomly selected from pre-chosen list.
+		if ( this.settings.rock_color_schemes.length===1 ) { 
+			this.settings.rock_color_schemes[0];	
+		}
+		// we select an index with a weighted random number.
+		// each successive index has a lower chance of being selected.
+		const rock_theme_index = utils.BiasedRandInt(0, this.settings.rock_color_schemes.length-1, 0, 1);
+		return this.settings.rock_color_schemes[rock_theme_index];	
+	}
+	
 	MakeIndividualRocks() {
 		const num_rocks = this.settings.individual_num_rocks;
 		this.tank.obstacles.forEach( x => x.Kill() );
@@ -103,7 +121,7 @@ export default class TankMaker {
 					complexity: utils.RandomInt(0,this.settings.individual_max_complexity),
 					new_points_respect_hull: false,
 					blunt,
-					color_scheme: this.settings.rock_color_scheme
+					color_scheme: this.PickRandomRockColor()
 				})
 				this.tank.obstacles.push(rock);
 			}
@@ -482,7 +500,7 @@ export default class TankMaker {
 					force_corners: false,
 					complexity: utils.RandomInt(0,this.settings.voronoi_max_complexity),
 					new_points_respect_hull: true,
-					color_scheme: this.settings.rock_color_scheme
+					color_scheme: this.PickRandomRockColor()
 				}),
 			);
 		})
