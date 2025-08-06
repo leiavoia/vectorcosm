@@ -28,7 +28,7 @@ export default class Tank {
 		{ name: 'Nightmare', class: 'bg-theme-nightmare' },
 		{ name: 'Tropical', class: 'bg-theme-tropical' },
 		{ name: 'Hope', class: 'bg-theme-hope' },
-		{ name: 'Leather', class: 'bg-theme-leather' },
+		// { name: 'Leather', class: 'bg-theme-leather' },
 	];
 				
 	static background_themes = {
@@ -45,6 +45,16 @@ export default class Tank {
 		'Moss Garden': ['#07290C','#001B04','#0C1F01'],
 		'Moonlight': ['#001C41','#001C41','#00355e','#05080f','#001C41','#001C41','#00355e','#05080f','#004b9b'],
 		'Crushed Grapes': ['#081212','#2D1F04','#3A2905','#2D2908','#1F132B','#140C1C','#0F2222','#132C2C'],
+		'Forest': ['#232d1a', '#3a4a2b', '#4e5c3a', '#2c3b24', '#1a2212'],
+		'Stormy': ['#1b2a34', '#27404e', '#3a5a6b', '#22303a', '#162028'],
+		'Cinder': ['#2d2321', '#3c2f2b', '#4a3b36', '#5c4a42', '#1a1412'],
+		'Undersea': ['#1a232d', '#27404e', '#3a5a6b', '#2c3b4a', '#162028'],
+		'Harbor': ['#232d26', '#3a4a3f', '#4e5c53', '#2c3b34', '#1a221c'],
+		'Pine': ['#1a2321', '#27402e', '#3a5a43', '#22302a', '#162018'],
+		'Canyon': ['#2d2321', '#3c2f2b', '#4a3b36', '#5c4a42', '#1a1412'],
+		'Lagoon': ['#1a232d', '#27404e', '#3a5a6b', '#2c3b4a', '#162028'],
+		'Sludge': ['#232d2a', '#3a4a43', '#4e5c53', '#2c3b34', '#1a221c'],
+		'Cavern': ['#1a1c23', '#23263a', '#2e304a', '#3a3b5c', '#14161a'],
 	};
 						
 	constructor( w, h ) {
@@ -347,7 +357,7 @@ export default class Tank {
 			// randomized color schemes 
 			for ( let n=0; n < 5; n++ ) {
 				const colors = [];
-				const num_colors = utils.RandomInt(2,5,3,0.5);
+				const num_colors = utils.RandomInt(2,5);
 				for ( let c=0; c < num_colors; c++ ){
 					const color = utils.RandomColor( true, false, false, true );
 					colors.push(color);

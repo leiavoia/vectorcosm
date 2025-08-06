@@ -6,14 +6,25 @@ import {Point, Polygon, Result} from 'collisions';
 export default class Rock {
 
 	static color_schemes = {
-		'Grey Marble': 		['#7d8488','#6f737a'],
-		'Old Marble': 		['#a4bdb7'],
+		'Grey Marble': 			['#7d8488','#6f737a'],
+		'Old Marble': 			['#a4bdb7'],
 		'Light Copper Oxide':	['#67a197','#77a096','#7ca098'],
 		'Sandstone': 			['#96806d','#A29276','#9c957b','#94735a','#8a7a77','#b1966c'],
 		'Slate': 				['#AAAAAA','#999999'],
 		'Wavebreak': 			['#878b8a','#4B4E50','#6c7471'],
 		'Mossyrock': 			['#447047','#518545','#679c4f','#425345','#546b59'],
 		'Pink Quartz': 			['#E0B69C','#C08A74','#E2B8A1','#9b6854','#cfcdcd','#c48865','#d8d0cd','#c2b7ac','#c4b6a8'],
+		'Obsidian': ['#1a1a1a', '#232323', '#2d2d2d', '#3b3b3b'],
+		'Granite': ['#8d8d8d', '#b0a99f', '#a9a9a9', '#c2b9b0', '#7e7e7e'],
+		'Limestone': ['#e5e1d8', '#d6d2c4', '#cfcab8', '#f2f0e6'],
+		'Basalt': ['#2c2c2c', '#444444', '#555555', '#383838'],
+		'Jade': ['#5e8e7a', '#7bbf8c', '#4a6f66', '#9fd1ae'],
+		'Flint': ['#5a5a5a', '#7c7c7c', '#a1a1a1', '#6e6e6e'],
+		'Bluestone': ['#5c728b', '#7990a7', '#6c8299', '#495e75'],
+		'Tiger Eye': ['#c2b280', '#e1c16e', '#b8860b', '#8b7d6b'],
+		'Pyrite': ['#c0ba68', '#c0b34e', '#d8d084', '#96903b'],
+		'Serpentine': ['#a7c957', '#6a994e', '#386641', '#b7e4c7'],
+		'Hematite': ['#575757', '#7d7d7d', '#a9a9a9', '#434343'],
 	};
 		
 	// x, y (position)
