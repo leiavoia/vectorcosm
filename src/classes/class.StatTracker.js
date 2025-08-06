@@ -96,7 +96,7 @@ export class CompoundStatTracker {
 		if ( this.onInsert ) {
 			// we dont want all child stats to fire a bunch of events for onInsert.
 			// in order to get meaningful results from onInsert, do our own calculation.
-			let tracker = this.trackers[ Object.keys(this.trackers).pop() ]; // get a sample
+			let tracker = this.trackers[ Object.keys(this.trackers).shift() ]; // get a sample
 			for ( let i=0; i < tracker.inserts.length; i++ ) {
 				if ( tracker.inserts[i] !== null ) {
 					let result = {};

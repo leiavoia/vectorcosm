@@ -430,6 +430,12 @@ let onSimNewSubscription = PubSub.subscribe('sim.new', (msg, sim) => {
 		data: sim.settings
 	} );
 });
+let onRecordsPushSubscription = PubSub.subscribe('records.push', (msg,data) => {
+	globalThis.postMessage( {
+		functionName: 'records.push',
+		data: data
+	} );
+});
 		
 // set up the main simulation
 let vc = new Vectorcosm;

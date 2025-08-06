@@ -56,7 +56,7 @@ export default class Simulation {
 			fruiting_speed: 1.0,
 			onExtinction: 'random',
 			speciation_rate: 0,
-			tally_freq: 10 // how often to flush the tally and record stats
+			tally_freq: 5 // how often to flush the tally and record stats
 		};
 		if ( settings ) {
 			this.settings = Object.assign(this.settings, settings);
@@ -94,6 +94,10 @@ export default class Simulation {
 			] }),
 			tally: {}, // accumulator for point-in-time stats which get recorded periodically
 			last_tally: 0, // tracks to time next tally flush
+		};
+		// send record updates to the frontend if anyone cares
+		this.stats.records.onInsert = ( data, layer ) => {
+			PubSub.publishSync('records.push', {data, layer} );
 		};
 		this.complete = false;
 	}

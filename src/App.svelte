@@ -3,6 +3,7 @@
 	import FocusObjectDetails from './ui/FocusObjectDetails.svelte';
 	import TankStatsPanel from './ui/TankStatsPanel.svelte';
 	import PerfStatsPanel from './ui/PerfStatsPanel.svelte';
+	import RecordsPanel from './ui/RecordsPanel.svelte';
 	import SimStatsPanel from './ui/SimStatsPanel.svelte';
 	import SimulatorControlsPanel from './ui/SimulatorControlsPanel.svelte';
 	import SimulationLauncherPanel from './ui/SimulationLauncherPanel.svelte';
@@ -36,6 +37,23 @@
 		'drawtime',
 		'simtime',
 		'waittime',
+	] });
+
+	// tank records tracking - mirrors what the simulation is also tracking on the backend
+	let recordsTracker = new CompoundStatTracker( { numLayers: 4, base: 10, recordsPerLayer: 30, stats:[
+		'boids',
+		'foods',
+		'plants',
+		'boid_mass',
+		'food_mass',
+		'species',
+		'avg_age',
+		'births',
+		'deaths',
+		'food_eaten',
+		'energy_used',
+		'bites',
+		'kills',
 	] });
 	
 	// tank object tracking
@@ -386,6 +404,12 @@
 		}
 		if ( simStatsPanel ) {
 			simStatsPanel.onRoundComplete();
+		}
+	} );
+	
+	api.RegisterResponseCallback( 'records.push', msg => {
+		if ( msg.layer == 0 ) {
+			recordsTracker.Insert( msg.data );
 		}
 	} );
 	
@@ -975,8 +999,9 @@
 			<SimStatsPanel bind:this={simStatsPanel} stats={simStats} chartdata={simChartData}></SimStatsPanel>
 			<TankStatsPanel stats={tankStats} open={false}></TankStatsPanel>
 		{:else if panel_mode==='tank_stats'}
-			<TankStatsPanel stats={tankStats}></TankStatsPanel>
-			<SimStatsPanel bind:this={simStatsPanel} stats={simStats} chartdata={simChartData}></SimStatsPanel>
+			<TankStatsPanel stats={tankStats} open={true}></TankStatsPanel>
+			<RecordsPanel records={recordsTracker} open={true}></RecordsPanel>
+			<SimStatsPanel bind:this={simStatsPanel} stats={simStats} chartdata={simChartData} open={false}></SimStatsPanel>
 			<PerfStatsPanel tracker={performanceTracker} open={false}></PerfStatsPanel>
 		{:else if panel_mode==='settings'}
 			<CameraSettingsPanel camera={camera}></CameraSettingsPanel>
