@@ -9,6 +9,11 @@ import Mark from '../classes/class.Mark.js'
 import * as utils from '../util/utils.js'
 import {Circle, Polygon, Result} from 'collisions';
 
+			
+// MAGIC NUMBER - tuning number for matter->energy conversion rate
+const MAGIC_ENERGY_MULTIPLIER = 10;
+			
+// things we prefer neataptic not do			
 neataptic.methods.mutation.MOD_ACTIVATION.mutateOutput = false;
 neataptic.methods.mutation.SWAP_NODES.mutateOutput = false;
 
@@ -237,9 +242,6 @@ export class Boid {
 			
 			// make sure our numbers are right
 			this.metab.stomach_total = this.metab.stomach.reduce( (a,c) => a + (c>0?c:0), 0 );
-			
-			// MAGIC NUMBER - tuning number for matter->energy conversion rate
-			const energy_multiplier = 10;
 				
 			// count the number of non-zero food channels
 			const nonZeroFoods = this.metab.stomach.reduce( (a,c) => a + (c>0?1:0), 0 );
@@ -260,7 +262,7 @@ export class Boid {
 					let morsel = Math.min( v, channelDigestAmount );
 					this.metab.stomach[i] -= morsel; // can go negative
 					this.metab.stomach_total -= morsel;
-					let energy_gain = morsel * this.traits.nutrition[i] * energy_multiplier;
+					let energy_gain = morsel * this.traits.nutrition[i] * MAGIC_ENERGY_MULTIPLIER;
 					this.metab.energy += energy_gain;
 					this.metab.bowel[ this.traits.poop_map[i] ] += morsel;
 					this.metab.bowel_total += morsel;
@@ -796,6 +798,24 @@ export class Boid {
 	}
 	Kill( cause='unknown' ) {
 		this.dead = true;
+		// if this is a natural tank setting, make food from carcass
+		if ( !globalThis.vc.simulation.settings?.ignore_lifecycle ) {
+			// BALANCE NOTE: in order to prevent runaway free energy cycles,
+			// we need to undo the magic energy multiplier that was applied
+			// when we ate food. 
+			let value = (this.mass / MAGIC_ENERGY_MULTIPLIER);
+			// starving organisms have less meat on the bones
+			value = ( 0.5 * value ) + ( 0.5 * value * ( this.metab.energy / this.metab.max_energy ) );
+			const f = new Food( this.x, this.y, { 
+				value: value,
+				lifespan: utils.RandomInt(10,60),
+				buoy_start: ( -2 + this.traits.poop_buoy + ( 1 - (2 * Math.random()) ) ),
+				buoy_end: ( -16 + (this.traits.poop_buoy-2) + ( 1 - (2 * Math.random()) ) ),
+				nutrients: this.traits.nutrition, // arbitrary. reuse interesting data we already have.
+				complexity: this.traits.poop_complexity // prevent canabolism
+				} );
+			globalThis.vc.tank.foods.push(f);	
+		}
 		// autopsy
 		if ( cause ) {
 			this.stats.death.cause = cause
@@ -1108,7 +1128,6 @@ export class Boid {
 			}
 			this.traits.boxfit.push([ 0, cost, `motors.${m.name}`]);
 		}
-			
 			
 		// reproductive motors
 		const repro_type_roll = this.dna.shapedInt( this.dna.genesFor('repro_type_roll num',3,true), 0, 1);
