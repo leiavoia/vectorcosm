@@ -879,6 +879,9 @@ SECTION NAV > UL > LI > BUTTON {
 	width: 100%;
 }
 
+/* never hide the cursor when i'm working */
+SECTION:hover { cursor: default !important; }
+
 OUTPUT {
 	color: var(--pico-primary);
 	font-weight: bold;
