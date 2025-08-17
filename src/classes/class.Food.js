@@ -2,11 +2,17 @@ import Two from "two.js";
 import * as utils from '../util/utils.js'
 import {Circle, Polygon, Result} from 'collisions';
 import Rock from '../classes/class.Rock.js'
+import PhysicsObject from '../classes/class.PhysicsObject.js'
 // import DNAPlant from '../classes/class.Plant.js'
 import { DNAPlant } from '../classes/class.Plant.js'
 
-export default class Food {
+const friction = 0.92; // physics friction when sliding
+const bounce = 0.08; // physics bounce when colliding with rocks and walls
+
+export default class Food extends PhysicsObject {
+
 	constructor(x=0,y=0,params) {
+		super();
 		this.oid = ++globalThis.vc.next_object_id;
 		// first param can be JSON to rehydrate entire object from save
 		if ( x && typeof x === 'object' ) {
@@ -15,8 +21,8 @@ export default class Food {
 		// defaults
 		this.x = x;
 		this.y = y;
-		this.vx = Math.random() * 10 - 5;
-		this.vy = Math.random() * 100 - 50;
+		this.vel_x = Math.random() * 10 - 5;
+		this.vel_y = Math.random() * 100 - 50;
 		this.value = 300;
 		this.age = 0;
 		this.lifespan = 60 + Math.random() * 120;
@@ -133,27 +139,25 @@ export default class Food {
 				return;
 			}
 		}
+		
+		// mass can change as things get eaten
+		this.mass = this.value;
+
 		// buoyancy
 		this.buoy = this.buoy_start;// + ( this.buoy_end - this.buoy_start ) * Math.max(1, this.age / this.lifespan) ; 
-		this.vy += -this.buoy;
-		// move
-		this.x += this.vx * delta;
-		this.y += this.vy * delta;
-		// drag slows us down
-		if ( !this.frictionless ) { 
-			let drag = ( 
-				globalThis.vc.tank.viscosity +
-				( Math.min(Math.abs(this.vx) + Math.abs(this.vy),200) / 200 ) +
-				( Math.min(this.r,200) / 200 )
-			) / 3;
-			drag *= Math.pow( delta, 0.12 ); // magic tuning number
-			drag = 1 - drag;
-			this.vx *= drag;
-			this.vy *= drag;
+		this.ApplyForce(0, -this.buoy * this.mass); // buoyancy force scales with mass
+		
+		// drag force, otherwise we just go faster and faster
+		if ( !this.frictionless ) {
+			this.AddDrag( this.r, globalThis.vc.tank.viscosity );
 		}
+		
+		// integrate all forces and move
+		this.UpdatePosition(delta);
+				
 		// stay in tank
-		this.x = utils.clamp( this.x, 0, globalThis.vc.tank.width );
-		this.y = utils.clamp( this.y, 0, globalThis.vc.tank.height );
+ 		this.Constrain(bounce);
+		
 		// update the object in space
 		this.r = Math.sqrt( 2 * this.value / Math.PI );
 		this.collision.radius = this.r;
@@ -175,17 +179,18 @@ export default class Food {
 			let gotcha = circle.collides(polygon, result);
 			// response
 			if ( gotcha ) {
+				// retract from collision object
 				this.x -= result.overlap * result.overlap_x;
 				this.y -= result.overlap * result.overlap_y;
-				this.vx = utils.Clamp( -this.vx + utils.RandomFloat(-this.vx*0.5,this.vx*0.5), -300, 300 );
-				this.vy = utils.Clamp( -this.vy + utils.RandomFloat(-this.vy*0.5,this.vy*0.5), -300, 300 );
+				// slide along walls with slight bounce	
+				this.SlideAndBounce( result.overlap_x, result.overlap_y, friction, bounce );
 			}
 			touching_rock = touching_rock || gotcha;
 		}
-		// if an object pushed us out of bounds and we gets stuck outside tank, remove
+		// if an object pushed us out of bounds and gets stuck outside tank, remove
 		if ( touching_rock ) {
-			if ( this.x < 0 || this.x > globalThis.vc.tank.width ) { this.Kill(); return; };
-			if ( this.y < 0 || this.y > globalThis.vc.tank.height ) { this.Kill(); return; };
+			if ( this.x < -0.01 || this.x > globalThis.vc.tank.width + 0.01 ) { this.Kill(); return; };
+			if ( this.y < -0.01 || this.y > globalThis.vc.tank.height + 0.01 ) { this.Kill(); return; };
 		}
 		// plant a seed
 		if ( touching_rock && this.seed && this.age > 5 && Math.random() > 0.9999 && 

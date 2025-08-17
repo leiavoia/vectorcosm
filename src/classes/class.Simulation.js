@@ -181,8 +181,10 @@ export default class Simulation {
 				if ( !b.frictionless ) { 
 					const cell = this.tank.datagrid.CellAt(b.x,b.y);
 					if ( cell ) { 
-						b.vx -= cell.current_x * this.settings.current * max_current * delta;
-						b.vy -= cell.current_y * this.settings.current * max_current * delta;
+						b.ApplyForce(
+							-cell.current_x * this.settings.current * max_current,
+							-cell.current_y * this.settings.current * max_current
+						);
 					}
 				}
 			}
@@ -205,7 +207,7 @@ export default class Simulation {
 			const tide_duration = 3;
 			const wave_reps = 5;
 			if ( (tide_freq/2 + this.stats.round_time) % tide_freq < tide_duration * wave_reps ) {
-				const tidal_force = this.tank.height * Math.random() + this.tank.height * Math.random() + this.tank.height * Math.random();
+				const tidal_force = 30 * Math.min( this.tank.height, 2300 ) * ( Math.random() * Math.random() );
 				const t = (tide_freq/2 + this.stats.round_time) % tide_freq;
 				const scale = Math.sin( (t * Math.PI) / (tide_duration * wave_reps) );
 				for ( let b of this.tank.boids ) {
@@ -224,8 +226,10 @@ export default class Simulation {
 						let wave = ( t * Math.PI * 2 ) / ( tide_duration );
 						wave *= x_off;
 						wave = Math.sin(wave);
-						b.vy -= wave * scale * tidal_force * delta;
-						b.vx -= wave * scale * tidal_force * delta * 0.2;
+						b.ApplyForce(
+							-wave * scale * tidal_force * 0.2,
+							-wave * scale * tidal_force
+						);
 					}
 				}
 			}		
@@ -731,10 +735,10 @@ export class FoodChaseSimulation extends Simulation {
 		if ( !food_friction  ) {
 			const margin = this.settings?.food_bounce_margin ?? 250;
 			for ( let f of this.tank.foods ) {
-				if ( f.x < margin ) { f.vx = -f.vx; }
-				if ( f.y < margin ) { f.vy = -f.vy; }
-				if ( f.x > this.tank.width-margin ) { f.vx = -f.vx; }
-				if ( f.y > this.tank.height-margin ) { f.vy = -f.vy; }
+				if ( f.x < margin ) { f.vel_x = -f.vel_x; }
+				if ( f.y < margin ) { f.vel_y = -f.vel_y; }
+				if ( f.x > this.tank.width-margin ) { f.vel_x = -f.vel_x; }
+				if ( f.y > this.tank.height-margin ) { f.vel_y = -f.vel_y; }
 				f.frictionless = !food_friction;
 			}
 		}
@@ -945,8 +949,8 @@ export class TurningSimulation extends Simulation {
 			let dx = r * Math.cos(angle); 
 			let dy = r * Math.sin(angle);
 			let food = new Food( this.tank.width*0.5 + dx, this.tank.height*0.5 + dy );
-			food.vx = 0;
-			food.vy = 0;
+			food.vel_x = 0;
+			food.vel_y = 0;
 			food.edibility = 1; // universal edibility
 			food.value = 1000;
 			food.permafood = true;
@@ -1115,8 +1119,8 @@ export class AvoidEdgesSimulation extends Simulation {
 			let food_spacing = 250;
 			for ( let x = (edge_size + tunnel_width/2); x < w - (edge_size + tunnel_width/2); x += food_spacing ) {
 				let food = new Food( x, (edge_size + tunnel_width/2) );
-				food.vx = 0;
-				food.vy = 0;
+				food.vel_x = 0;
+				food.vel_y = 0;
 				food.goal = food_num++;
 				food.edibility = 1; // universal edibility
 				food.permafood = true;
@@ -1124,8 +1128,8 @@ export class AvoidEdgesSimulation extends Simulation {
 			}
 			for ( let y = (edge_size + tunnel_width); y < h*0.5; y += food_spacing ) {
 				let food = new Food( w - (edge_size + tunnel_width/2), y );
-				food.vx = 0;
-				food.vy = 0;
+				food.vel_x = 0;
+				food.vel_y = 0;
 				food.goal = food_num++;
 				food.edibility = 1; // universal edibility
 				food.permafood = true;
@@ -1133,8 +1137,8 @@ export class AvoidEdgesSimulation extends Simulation {
 			}
 			for ( let x = w - (edge_size + tunnel_width/2); x > (edge_size + tunnel_width/2) ; x -= food_spacing ) {
 				let food = new Food( x, (edge_size + tunnel_width/2) + (rock_height + tunnel_width) );
-				food.vx = 0;
-				food.vy = 0;
+				food.vel_x = 0;
+				food.vel_y = 0;
 				food.goal = food_num++;
 				food.edibility = 1; // universal edibility
 				food.permafood = true;
@@ -1142,8 +1146,8 @@ export class AvoidEdgesSimulation extends Simulation {
 			}
 			for ( let y = h*0.5; y < h - (edge_size + tunnel_width); y += food_spacing ) {
 				let food = new Food( (edge_size + tunnel_width/2), y );
-				food.vx = 0;
-				food.vy = 0;
+				food.vel_x = 0;
+				food.vel_y = 0;
 				food.goal = food_num++;
 				food.edibility = 1; // universal edibility
 				food.permafood = true;
@@ -1151,8 +1155,8 @@ export class AvoidEdgesSimulation extends Simulation {
 			}
 			for ( let x = (edge_size + tunnel_width/2); x < w - (edge_size + tunnel_width/2); x += food_spacing ) {
 				let food = new Food( x, (edge_size + tunnel_width/2) + 2 * (rock_height + tunnel_width) );
-				food.vx = 0;
-				food.vy = 0;
+				food.vel_x = 0;
+				food.vel_y = 0;
 				food.goal = food_num++;
 				food.edibility = 1; // universal edibility
 				food.permafood = true;
@@ -1207,8 +1211,8 @@ export class AvoidEdgesSimulation extends Simulation {
 				this.tank.width,
 				this.tank.height/2 + last_shift
 			);
-			food.vx = 0;
-			food.vy = 0;
+			food.vel_x = 0;
+			food.vel_y = 0;
 			food.edibility = 1; // universal edibility
 			this.tank.foods.push(food);
 		}
@@ -1233,8 +1237,8 @@ export class AvoidEdgesSimulation extends Simulation {
 				this.tank.width,
 				this.tank.height/2
 			);
-			food.vx = 0;
-			food.vy = 0;
+			food.vel_x = 0;
+			food.vel_y = 0;
 			food.edibility = 1; // universal edibility
 			food.permafood = true;
 			this.tank.foods.push(food);
