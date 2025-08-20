@@ -585,12 +585,13 @@ export default class Sensor {
     }
 
     senseInertia() {
-        let val = (this.owner.inertia + Boid.maxspeed) / (2 * Boid.maxspeed);
+		const speed = Math.sqrt( this.owner.vel_x * this.owner.vel_x + this.owner.vel_y * this.owner.vel_y );
+        let val = (speed + Boid.maxspeed) / (2 * Boid.maxspeed);
         return [val];
     }
 
     senseSpin() {
-        let val = (this.owner.angmo + Boid.maxrot) / (2 * Boid.maxrot);
+        let val = (this.owner.ang_vel + Boid.maxrot) / (2 * Boid.maxrot);
         return [val];
     }
 

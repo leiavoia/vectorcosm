@@ -167,27 +167,23 @@ export default class Simulation {
 	}
 	
 	UpdateTankEnvironment(delta) {
-		// circular current
+		// current
 		if ( this.settings?.current ) {
-			const max_current = 5000; 
-			for ( let b of this.tank.boids ) {
-				const cell = this.tank.datagrid.CellAt(b.x,b.y);
-				if ( cell ) { 
-					b.momentum_x -= cell.current_x * this.settings.current * max_current * delta;
-					b.momentum_y -= cell.current_y * this.settings.current * max_current * delta;
-				}
-			}
-			for ( let b of this.tank.foods ) {
-				if ( !b.frictionless ) { 
-					const cell = this.tank.datagrid.CellAt(b.x,b.y);
-					if ( cell ) { 
-						b.ApplyForce(
-							-cell.current_x * this.settings.current * max_current,
-							-cell.current_y * this.settings.current * max_current
-						);
-					}
-				}
-			}
+			const max_current = 2000; 
+			const current = this.settings.current * max_current;
+			const pushObject = o => {	 
+				if ( o.frictionless ) { return; }
+				const cell = this.tank.datagrid.CellAt(o.x,o.y);
+				if ( !cell ) { return; }
+				// we multiply by the mass to fake a wave action and get all objects moving roughly the same.
+				// actual physics of waves is beyond this simulation.
+				o.ApplyForce(
+					-cell.current_x * current * o.mass,
+					-cell.current_y * current * o.mass
+				);
+			};
+			this.tank.boids.forEach(pushObject);
+			this.tank.foods.forEach(pushObject);
 		}
 		// invasive species
 		if ( this.settings?.invasives ) {
@@ -206,32 +202,23 @@ export default class Simulation {
 			const tide_freq = this.settings.tide;
 			const tide_duration = 3;
 			const wave_reps = 5;
+			const tuning_number = 2.5;
 			if ( (tide_freq/2 + this.stats.round_time) % tide_freq < tide_duration * wave_reps ) {
-				const tidal_force = 30 * Math.min( this.tank.height, 2300 ) * ( Math.random() * Math.random() );
+				const tidal_force = tuning_number * Math.min( this.tank.height, 2300 ) * ( Math.random() * Math.random() );
 				const t = (tide_freq/2 + this.stats.round_time) % tide_freq;
 				const scale = Math.sin( (t * Math.PI) / (tide_duration * wave_reps) );
-				for ( let b of this.tank.boids ) {
-					const y_off = b.y / this.tank.height;
-					const x_off = b.x / this.tank.width;
+				const pushObject = o => {
+					const x_off = o.x / this.tank.width;
 					let wave = ( t * Math.PI * 2 ) / ( tide_duration );
-					wave *= x_off;
-					wave = Math.sin(wave);
-					b.momentum_y -= wave * scale * tidal_force * delta;
-					b.momentum_x -= wave * scale * tidal_force * delta * 0.2;
+					wave = Math.sin(wave * x_off);
+					// we multiply by the mass to fake a wave action and get all objects moving roughly the same.
+					// actual physics of waves is beyond this simulation.
+					const y_force = ( -wave * scale * tidal_force ) * Math.pow(o.mass,0.80);
+					const x_force = y_force * 0.2;
+					o.ApplyForce( x_force, y_force );
 				}
-				for ( let b of this.tank.foods ) {
-					if ( !b.frictionless ) { 
-						const y_off = b.y / this.tank.height;
-						const x_off = b.x / this.tank.width;
-						let wave = ( t * Math.PI * 2 ) / ( tide_duration );
-						wave *= x_off;
-						wave = Math.sin(wave);
-						b.ApplyForce(
-							-wave * scale * tidal_force * 0.2,
-							-wave * scale * tidal_force
-						);
-					}
-				}
+				this.tank.boids.forEach(pushObject);
+				this.tank.foods.forEach(pushObject);
 			}		
 		}	
 	}

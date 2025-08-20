@@ -99,8 +99,8 @@ export class DNAPlant extends Plant {
 					const f = new Food( this.x, this.y, { 
 						value: ( this.traits.fruit_size * ( 1 - (Math.random() * 0.1 ) ) ), 
 						lifespan: ( this.traits.fruit_lifespan * ( 1 - (Math.random() * 0.2 ) ) ),
-						buoy_start: this.traits.fruit_buoy_start + ( 1 - (2 * Math.random()) ),
-						buoy_end: this.traits.fruit_buoy_end + ( 1 - (2 * Math.random()) ),
+						buoy_start: this.traits.fruit_buoy_start + ( 100 - (200 * Math.random()) ),
+						buoy_end: this.traits.fruit_buoy_end + ( 100 - (200 * Math.random()) ),
 						nutrients: this.traits.fruit_nutrients,
 						complexity: this.traits.fruit_complexity,
 						vx: utils.RandomFloat(100,1000), // boing!
@@ -453,8 +453,8 @@ export class PendantLettuce extends Plant {
 					vx: utils.RandomFloat(0,25),
 					vy: utils.RandomFloat(0,25),
 					nutrients: [10,20,25,0,0,0,5,0],
-					buoy_start: (1 - ( 2 * Math.random() )),
-					buoy_end: (1 - ( 2 * Math.random() )),
+					buoy_start: (100 - ( 200 * Math.random() )),
+					buoy_end: (100 - ( 200 * Math.random() )),
 					complexity: 3
 					} );
 				globalThis.vc.tank.foods.push(f);
@@ -536,8 +536,8 @@ export class VectorGrass extends Plant {
 						complexity: 1,
 						vx: utils.RandomFloat(0,25),
 						vy: utils.RandomFloat(0,25),
-						buoy_start: (1 - ( 2 * Math.random() )),
-						buoy_end: (1 - ( 2 * Math.random() )),
+						buoy_start: (100 - ( 200 * Math.random() )),
+						buoy_end: (100 - ( 200 * Math.random() )),
 						} 
 						);
 					globalThis.vc.tank.foods.push(f);
@@ -624,8 +624,8 @@ export class WaveyVectorGrass extends Plant {
 						complexity: 2,
 						vx: utils.RandomFloat(0,25),
 						vy: utils.RandomFloat(0,25),
-						buoy_start: (1 - ( 2 * Math.random() )),
-						buoy_end: (1 - ( 2 * Math.random() )),
+						buoy_start: (100 - ( 200 * Math.random() )),
+						buoy_end: (100 - ( 200 * Math.random() )),
 						} 
 						);
 					globalThis.vc.tank.foods.push(f);

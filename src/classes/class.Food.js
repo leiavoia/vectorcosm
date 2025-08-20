@@ -131,6 +131,10 @@ export default class Food extends PhysicsObject {
 	Update(delta) {
 		if ( !delta ) { return; }
 		if ( delta > 1 ) { delta /= 1000; }
+		if ( this.value < 0.001 ) {
+			this.Kill();
+			return;
+		}
 		this.age += delta;
 		if ( this.age > this.lifespan && !this.permafood ) {
 			// chance to live a while longer
@@ -140,16 +144,18 @@ export default class Food extends PhysicsObject {
 			}
 		}
 		
-		// mass can change as things get eaten
+		// mass and radius can change as things get eaten
 		this.mass = this.value;
+		this.r = Math.sqrt( 2 * this.value / Math.PI );
 
 		// buoyancy
-		this.buoy = this.buoy_start;// + ( this.buoy_end - this.buoy_start ) * Math.max(1, this.age / this.lifespan) ; 
+		this.buoy = this.buoy_start + ( this.buoy_end - this.buoy_start ) * Math.max(1, this.age / this.lifespan) ; 
 		this.ApplyForce(0, -this.buoy * this.mass); // buoyancy force scales with mass
 		
-		// drag force, otherwise we just go faster and faster
+		// drag force, otherwise we just go faster and faster.
 		if ( !this.frictionless ) {
-			this.AddDrag( this.r, globalThis.vc.tank.viscosity );
+			// simplified drag function for round objects
+			this.AddDrag( this.r, globalThis.vc.tank.viscosity, 60 ); // arbitrary balance number
 		}
 		
 		// integrate all forces and move
@@ -159,7 +165,6 @@ export default class Food extends PhysicsObject {
  		this.Constrain(bounce);
 		
 		// update the object in space
-		this.r = Math.sqrt( 2 * this.value / Math.PI );
 		this.collision.radius = this.r;
 		// collision detection with obstacles
 		// things i might collide with:
@@ -229,7 +234,7 @@ export default class Food extends PhysicsObject {
 		if ( this.dead || !this.value ) { return 0; }
 		const eaten = Math.min( this.value, amount );
 		if ( !this.permafood && !this.phantomfood ) { this.value -= eaten; }
-		if ( this.value <= 0 ) { this.Kill(); }
+		if ( this.value <= 0.001 ) { this.Kill(); }
 		return eaten;
 	}
 	Kill() {
