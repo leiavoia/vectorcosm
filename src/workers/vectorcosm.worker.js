@@ -404,11 +404,13 @@ function_registry.set( 'addSavedBoidsToTank', async params => {
 
 // listen for critical internal events and report back via API
 let onSimCompleteSubscription = PubSub.subscribe('sim.complete', (msg, sim) => {
+	let stats = Object.assign({}, sim.stats);
+	delete(stats.records); // don't need records - those are sent separately
 	globalThis.postMessage( {
 		functionName: 'simComplete',
 		data: {
 			settings: sim.settings,
-			stats: sim.stats, // complete summary including chartdata
+			stats: stats,
 			in_queue: globalThis.vc.sim_queue.length
 		}
 	} );
