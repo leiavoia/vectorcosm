@@ -440,7 +440,7 @@ export class Boid extends PhysicsObject {
 		this.torque /= this.mass;
 		
 		// apply rotational drag
-		const rot_drag = -Boid.ang_drag_coef * this.ang_vel * this.tank.viscosity * this.body.length;
+		const rot_drag = -Boid.ang_drag_coef * this.ang_vel * globalThis.vc.simulation.settings.viscosity * this.body.length;
 		this.torque += rot_drag / this.mass;
 			
 		// calculate angular velocity
@@ -471,7 +471,7 @@ export class Boid extends PhysicsObject {
 			this.body.length, 
 			this.body.width, 
 			this.angle, 
-			globalThis.vc.tank.viscosity, 
+			globalThis.vc.simulation.settings.viscosity, 
 			Boid.forward_drag_coef, 
 			Boid.lateral_drag_coef 
 		);

@@ -18,6 +18,7 @@
 		rounds: (settings_raw?.rounds ?? 50),
 		fruiting_speed: (settings_raw?.fruiting_speed ?? 1.0),
 		current: (settings_raw?.current ?? 0),
+		viscosity: (settings_raw?.viscosity ?? 0),
 		segments: (settings_raw?.segments ?? 1),
 		sim_meta_params: {
 			num_boids: (settings_raw?.sim_meta_params?.num_boids ?? null),
@@ -142,6 +143,12 @@
 			<label for="current_rate_slider">Current:</label>
 			<input bind:value={settings.current} onchange={()=>onchange('current')} type="range" min="0" max="2" step="0.05" id="current_rate_slider" />
 			<output>{((settings?.current||0)*100).toFixed()}%</output>
+		</div>		
+		
+		<div class="slider_block">
+			<label for="viscosity_slider">Viscosity:</label>
+			<input bind:value={settings.viscosity} onchange={()=>onchange('viscosity')} type="range" min="0" max="1" step="0.01" />
+			<output>{((settings?.viscosity||0)*100).toFixed()}%</output>
 		</div>		
 		
 		<!-- these setting only apply to round-based training sims -->

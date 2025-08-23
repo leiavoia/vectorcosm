@@ -63,7 +63,6 @@ export default class Tank {
 		this.height = h;
 		this.turbulence = Math.random() * 0.7;
 		this.mutate_whirls_every = 200;
-		this.viscosity = 0.5;
 		this.boids = [];
 		this.foods = [];
 		this.obstacles = [];
@@ -84,7 +83,7 @@ export default class Tank {
 
 	Export( as_JSON=false ) {
 		let output = {};
-		let datakeys = ['width','height','whirls','viscosity','background_triangles',
+		let datakeys = ['width','height','whirls','background_triangles',
 			'bg_opacity', 'bg_visible', 'bg_theme', 'mutate_whirls_every', 'turbulence'];		
 		for ( let k of datakeys ) { output[k] = this[k]; }
 		if ( as_JSON ) { output = JSON.stringify(output); }

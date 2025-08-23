@@ -40,6 +40,7 @@ export default class Simulation {
 	constructor( tank, settings ) {
 		this.tank = tank || new Tank( tank.width, tank.height );
 		this.settings = {
+			viscosity: 0.5, // 0..1
 			max_mutation: 0.1, // 0..1
 			cullpct: 0.6, // 0..1
 			min_score: null,

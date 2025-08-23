@@ -155,7 +155,7 @@ export default class Food extends PhysicsObject {
 		// drag force, otherwise we just go faster and faster.
 		if ( !this.frictionless ) {
 			// simplified drag function for round objects
-			this.AddDrag( this.r, globalThis.vc.tank.viscosity, 60 ); // arbitrary balance number
+			this.AddDrag( this.r, globalThis.vc.simulation.settings.viscosity, 60 ); // arbitrary balance number
 		}
 		
 		// integrate all forces and move
