@@ -62,7 +62,7 @@ export class Boid extends PhysicsObject {
 		for ( const m of this.motors ) {
 			m.t = 0;
 			m.last_amount = 0;
-			m.this_stoke_time = 0;
+			m.this_stroke_time = 0;
 			m.strokepow = 0; 
 		}				
 		// simulation-specific settings
@@ -204,7 +204,7 @@ export class Boid extends PhysicsObject {
 					let s = json.motor_state[i];
 					m.t = s.t;
 					m.last_amount = s.last_amount;
-					m.this_stoke_time = s.this_stoke_time;
+					m.this_stroke_time = s.this_stroke_time;
 					m.strokepow = s.strokepow;					
 				}
 				delete json.motor_state;
@@ -594,19 +594,19 @@ export class Boid extends PhysicsObject {
 				// check for minimum activation
 				if ( m.min_act && Math.abs(amount) < m.min_act ) { 
 					m.last_amount = 0;
-					m.this_stoke_time = 0;
+					m.this_stroke_time = 0;
 					return 0; 
 				}
 				// age restricted
 				if ( m.hasOwnProperty('min_age') && this.age < m.min_age && !globalThis.vc.simulation.settings?.ignore_lifecycle ) { 
 					m.last_amount = 0;
-					m.this_stoke_time = 0;
+					m.this_stroke_time = 0;
 					return 0; 
 				}
 				// you must be this tall to enter
 				if ( m.hasOwnProperty('min_scale') && this.scale < m.min_scale ) { 
 					m.last_amount = 0;
-					m.this_stoke_time = 0;
+					m.this_stroke_time = 0;
 					return 0; 
 				}
 				// tank capacity sanity cap
@@ -614,7 +614,7 @@ export class Boid extends PhysicsObject {
 					( this.tank.boids.length >= (globalThis.vc?.simulation?.settings?.num_boids || 100)
 					|| globalThis.vc.simulation.settings?.ignore_lifecycle ) ) {
 					m.last_amount = 0;
-					m.this_stoke_time = 0;
+					m.this_stroke_time = 0;
 					return 0; 
 				}
 				// reproduction and other triggers must use the full amount, regardless of activation
@@ -638,7 +638,7 @@ export class Boid extends PhysicsObject {
 					} );
 					if ( !victim ) { 
 						m.last_amount = 0;
-						m.this_stoke_time = 0;
+						m.this_stroke_time = 0;
 						return 0; 
 					}
 					let attack_force = this.mass * m.attack * amount;
@@ -701,19 +701,19 @@ export class Boid extends PhysicsObject {
 				m.strokepow = amount; 
 				// use this if you want the stroke time to coordinate with the power
 				// i.e. a quick flick versus a hard push
-				// m.this_stoke_time = m.stroketime * amount;
+				// m.this_stroke_time = m.stroketime * amount;
 				// use this modified version to make sure stroke times are "kinda normalized"
 				// and can't get too low with very short power values
-				m.this_stoke_time = m.stroketime * ( Math.abs(amount) + ( (1-Math.abs(amount)) * 0.25 ) );
+				m.this_stroke_time = m.stroketime * ( Math.abs(amount) + ( (1-Math.abs(amount)) * 0.25 ) );
 				// use this if you want a constant stroke time,
 				// however this tends to look a bit robotic
-				// m.this_stoke_time = m.stroketime;
+				// m.this_stroke_time = m.stroketime;
 			}
 			else { 
 				amount = m.strokepow; 
 			}
 			// don't allow overtaxing
-			delta = Math.min( delta, m.this_stoke_time - m.t ); 
+			delta = Math.min( delta, m.this_stroke_time - m.t ); 
 			// cost of doing business
 			let cost = ( m.cost * Math.abs(m.strokepow) * delta * this.mass ) / 650;
 			this.metab.energy -= cost;
@@ -721,16 +721,16 @@ export class Boid extends PhysicsObject {
 			globalThis.vc.simulation.RecordStat('energy_used',cost);
 			
 			// increase stroke time
-			m.t = utils.clamp(m.t+delta, 0, m.this_stoke_time); 
+			m.t = utils.clamp(m.t+delta, 0, m.this_stroke_time); 
 			// stroke power function modifies the power withdrawn per frame
 			switch ( m.strokefunc ) {
-				case 'linear_down' : amount *= (m.this_stoke_time - m.t) / m.this_stoke_time; break;
-				case 'linear_up' : amount *= 1 - ((m.this_stoke_time - m.t) / m.this_stoke_time); break;
-				case 'bell' : amount *= 0.5 * Math.sin( (m.t/m.this_stoke_time) * Math.PI * 2 + Math.PI * 1.5 ) + 0.5; break;
-				case 'step_up' : amount = (m.t >= m.this_stoke_time*0.5) ? amount : 0 ; break;
-				case 'step_down' : amount = (m.t < m.this_stoke_time*0.5) ? amount : 0 ; break;
-				case 'burst' : amount = (m.t >= m.this_stoke_time*0.8) ? amount : 0 ; break;
-				case 'spring' : amount = (m.t < m.this_stoke_time*0.2) ? amount : 0 ; break;
+				case 'linear_down' : amount *= (m.this_stroke_time - m.t) / m.this_stroke_time; break;
+				case 'linear_up' : amount *= 1 - ((m.this_stroke_time - m.t) / m.this_stroke_time); break;
+				case 'bell' : amount *= 0.5 * Math.sin( (m.t/m.this_stroke_time) * Math.PI * 2 + Math.PI * 1.5 ) + 0.5; break;
+				case 'step_up' : amount = (m.t >= m.this_stroke_time*0.5) ? amount : 0 ; break;
+				case 'step_down' : amount = (m.t < m.this_stroke_time*0.5) ? amount : 0 ; break;
+				case 'burst' : amount = (m.t >= m.this_stroke_time*0.8) ? amount : 0 ; break;
+				case 'spring' : amount = (m.t < m.this_stroke_time*0.2) ? amount : 0 ; break;
 				// default: ;; // the default is constant time output
 			}
 			// record how much power was activated this stroke - mostly for UI and animation
@@ -754,7 +754,7 @@ export class Boid extends PhysicsObject {
 					}) );
 				}
 			}
-			if ( m.hasOwnProperty('mitosis') && m.t >= m.this_stoke_time ) {
+			if ( m.hasOwnProperty('mitosis') && m.t >= m.this_stroke_time ) {
 				const mutation_rate = utils.Clamp( globalThis.vc?.simulation?.settings?.max_mutation, 0, 1 );
 				const speciation_rate = utils.Clamp( globalThis.vc?.simulation?.settings?.speciation_rate || 0, 0, 1 );
 				for ( let n=0; n < m.mitosis; n++ ) { 
@@ -777,7 +777,7 @@ export class Boid extends PhysicsObject {
 				this.ScaleBoidByMass();
 				globalThis.vc.simulation.RecordStat('births',m.mitosis);
 			}
-			else if ( m.hasOwnProperty('bud') && m.t >= m.this_stoke_time ) {
+			else if ( m.hasOwnProperty('bud') && m.t >= m.this_stroke_time ) {
 				const mutation_rate = utils.Clamp( globalThis.vc?.simulation?.settings?.max_mutation, 0, 1 );
 				const speciation_rate = utils.Clamp( globalThis.vc?.simulation?.settings?.speciation_rate || 0, 0, 1 );
 				let offspring = this.Copy(true, mutation_rate, mutation_rate, speciation_rate); // reset state and mutate organism
@@ -792,9 +792,9 @@ export class Boid extends PhysicsObject {
 				globalThis.vc.simulation.RecordStat('births',1);
 			}
 			// reset stroke when complete
-			if ( m.t >= m.this_stoke_time ) { 
+			if ( m.t >= m.this_stroke_time ) { 
 				m.t = 0; 
-				m.this_stoke_time = 0;
+				m.this_stroke_time = 0;
 			} 
 		}
 	}
@@ -1849,7 +1849,7 @@ export class Boid extends PhysicsObject {
 		b.motor_state = this.motors.map( m => ({
 			t: m.t,
 			last_amount: m.last_amount,
-			this_stoke_time: m.this_stoke_time,
+			this_stroke_time: m.this_stroke_time,
 			strokepow: m.strokepow,
 		}));
 		// trim insignificant digits to save space

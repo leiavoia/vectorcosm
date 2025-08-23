@@ -328,7 +328,7 @@
 			<div class="krell">
 				{#each boid.motors as m}
 					<div class="box" >
-						<div style="background-color:#e37f1f; height:{((m.this_stoke_time ? m.last_amount : 0)||0)*100}%;"></div>
+						<div style="background-color:#e37f1f; height:{((m.this_stroke_time ? m.last_amount : 0)||0)*100}%;"></div>
 					</div>
 				{/each}
 			</div>
@@ -337,7 +337,7 @@
 		<div style="margin:0; line-height:1.1em;">
 			{#each boid.motors as m}
 				<div style="line-height:1.1em;">			
-					<progress style="width:50%; margin-bottom:0.05rem; margin-right:0.25em;" value={(m.this_stoke_time ? m.last_amount : 0)||0}></progress>
+					<progress style="width:50%; margin-bottom:0.05rem; margin-right:0.25em;" value={(m.this_stroke_time ? m.last_amount : 0)||0}></progress>
 					<span style="margin-right:0.35em;">{m.name}</span>
 					{#if m.linear}
 						<span style="margin-right:0.35em; color:cyan;">{Math.abs((m.linear*100).toFixed())}</span>

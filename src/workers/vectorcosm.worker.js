@@ -59,9 +59,9 @@ function_registry.set( 'update', params => {
 			return_obj.anim = {
 				motor_fx: o.motors.map( m => {
 					// effect based on stroke power
-					const effect1 = ( m.this_stoke_time && m.last_amount ) ? (m.this_stoke_time ? m.last_amount : 0) : 0;
+					const effect1 = ( m.this_stroke_time && m.last_amount ) ? (m.this_stroke_time ? m.last_amount : 0) : 0;
 					// effect based on stroke time (smoother but less accurate)
-					const effect2 = m.this_stoke_time ? (Math.sin(((m.t||0)/m.this_stoke_time) * Math.PI)) : 0;
+					const effect2 = m.this_stroke_time ? (Math.sin(((m.t||0)/m.this_stroke_time) * Math.PI)) : 0;
 					// blended result
 					return (effect1 + effect2) / 2;
 				} ),
@@ -490,7 +490,7 @@ function DescribeBoid( o, inc_sensor_geo=false,  inc_brain=false ) {
 		angular: m.angular,
 		wheel: m.wheel,
 		stroketime: m.stroketime,
-		this_stoke_time: (m.this_stoke_time||0),
+		this_stroke_time: (m.this_stroke_time||0),
 		strokepow: (m.strokepow||0),
 		cost: m.cost,
 		last_amount: Math.abs(m.last_amount||0)

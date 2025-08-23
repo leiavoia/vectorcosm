@@ -553,7 +553,7 @@ export default class Sensor {
     }
 
     senseProprio() {
-    	return this.owner.motors.map( m => m.this_stoke_time ? m.last_amount : 0 );
+    	return this.owner.motors.map( m => m.this_stroke_time ? m.last_amount : 0 );
     }
 
     senseFood() {
