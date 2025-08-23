@@ -27,9 +27,9 @@ export class Boid extends PhysicsObject {
 	// physics tuning constants
 	static maxspeed = 2800; 
 	static maxrot = 20;
-	static max_boid_linear_impulse = 4000000;
+	static max_boid_linear_impulse = 3000000;
 	static min_boid_linear_impulse = 24000;
-	static max_boid_angular_impulse = 120000;
+	static max_boid_angular_impulse = 100000;
 	static min_boid_angular_impulse = 5000;
 	static max_poop_buoy = 50;
 	static min_poop_buoy = -500;
@@ -723,14 +723,17 @@ export class Boid extends PhysicsObject {
 			// increase stroke time
 			m.t = utils.clamp(m.t+delta, 0, m.this_stroke_time); 
 			// stroke power function modifies the power withdrawn per frame
+			// In addition to the curve shape, we also modify the power by a constant
+			// to make sure the total power output of the entire stroke is the same
+			// across all stroke types. Assume "constant" stroke has total power of 1.
 			switch ( m.strokefunc ) {
-				case 'linear_down' : amount *= (m.this_stroke_time - m.t) / m.this_stroke_time; break;
-				case 'linear_up' : amount *= 1 - ((m.this_stroke_time - m.t) / m.this_stroke_time); break;
-				case 'bell' : amount *= 0.5 * Math.sin( (m.t/m.this_stroke_time) * Math.PI * 2 + Math.PI * 1.5 ) + 0.5; break;
-				case 'step_up' : amount = (m.t >= m.this_stroke_time*0.5) ? amount : 0 ; break;
-				case 'step_down' : amount = (m.t < m.this_stroke_time*0.5) ? amount : 0 ; break;
-				case 'burst' : amount = (m.t >= m.this_stroke_time*0.8) ? amount : 0 ; break;
-				case 'spring' : amount = (m.t < m.this_stroke_time*0.2) ? amount : 0 ; break;
+				case 'linear_down':	amount *= 2 * ( (m.this_stroke_time - m.t) / m.this_stroke_time); break;
+				case 'linear_up':	amount *= 2 * ( 1 - ((m.this_stroke_time - m.t) / m.this_stroke_time)); break;
+				case 'bell':		amount *= 2 * (0.5 * Math.sin( (m.t/m.this_stroke_time) * Math.PI * 2 + Math.PI * 1.5 ) + 0.5); break;
+				case 'step_up':		amount = (m.t >= m.this_stroke_time*0.5)	? (amount * 2.0) : 0 ; break;
+				case 'step_down':	amount = (m.t < m.this_stroke_time*0.5)		? (amount * 2.0) : 0 ; break;
+				case 'burst':		amount = (m.t >= m.this_stroke_time*0.8)	? (amount * 5.0) : 0 ; break;
+				case 'spring':		amount = (m.t < m.this_stroke_time*0.2)		? (amount * 5.0) : 0 ; break;
 				// default: ;; // the default is constant time output
 			}
 			// record how much power was activated this stroke - mostly for UI and animation
@@ -1074,18 +1077,7 @@ export class Boid extends PhysicsObject {
 				if ( wheel || linear > 0 ) has_forward = true;
 			}
 			if ( angular ) { motor.angular = angular; has_angular = true; }
-			
-			// burst and spring motors move towards the high end of the spectrum to deliver punch
-			if ( strokefunc == 'burst' || strokefunc == 'spring' ) {
-				if ( motor.linear ) { motor.linear += ( max_linear_motor - motor.linear ) * 0.6; }
-				if ( motor.angular ) { motor.angular += ( max_angular_motor - motor.angular ) * 0.6; }
-			}
-			// constant motors deliver more power overall, so need less punch
-			if ( strokefunc == 'constant' ) {
-				if ( motor.linear ) { motor.linear *= 0.6; }
-				if ( motor.angular ) { motor.angular *= 0.6; }
-			}
-			
+						
 			// cost of motor: baseline scales with body mass. random element to represent unique adaptation.
 			const motorCostGene = this.dna.genesFor(`motor cost ${n}`,2,1);
 			// motor.cost = (Math.abs(motor.linear||0) / 1800) + (Math.abs(motor.angular||0) / 100);
