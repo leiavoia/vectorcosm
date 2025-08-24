@@ -427,20 +427,18 @@
 				<span style="width:32%; display:inline-block;" title="Damage from malnutrition">
 					def_dmg:&nbsp;<output>{(boid.stats.food.deficit_dmg||0).toFixed()}</output>
 				</span>
-				<span style="width:32%; display:inline-block;" title="Energy burned from base metabolic rate">
+				<!-- <span style="width:32%; display:inline-block;" title="Energy burned from base metabolic rate">
 					metab:&nbsp;<output>{(boid.stats.metab.base||0).toFixed()}</output>
 				</span>
 				<span style="width:32%; display:inline-block;" title="Energy burned by motors">
 					motor:&nbsp;<output>{(boid.stats.metab.motors||0).toFixed()}</output>
-				</span>
+				</span> -->
 				<!-- uncomment for motor metabolism debugging -->
-				<!--
 				{#each Object.keys(boid.stats.metab) as k}
 					<span style="width:32%; display:inline-block;">
-						{k}:&nbsp;<output>{boid.stats.metab[k].toFixed()}</output>
+						{k=='base'?'metab':k}:&nbsp;<output>{boid.stats.metab[k].toFixed()}</output>
 					</span>
 				{/each}
-				-->
 			</p>
 			<br/>
 		</div>

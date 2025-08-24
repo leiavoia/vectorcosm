@@ -37,8 +37,8 @@ export class Boid extends PhysicsObject {
 	static forward_drag_coef = 0.18; // cost of going straight
 	static lateral_drag_coef = 3.4; // cost of drifting
 	static wall_slide_friction = 0.97; // object collision friction
-	static linear_motor_cost_adjust = 1 / 700; // base rate per mass unit per second
-	static angular_motor_cost_adjust = 1 / 900; // base rate per mass unit per second
+	static linear_motor_cost_adjust = 1 / 900; // base rate per mass unit per second
+	static angular_motor_cost_adjust = 1 / 1200; // base rate per mass unit per second
 	static min_motor_cost_adjust = 0.1; // discount for going slow
 	static max_motor_cost_adjust = 3.0; // tax for going fast
 	static motor_cost_exponent = 1.5; // punishment curve
@@ -584,267 +584,277 @@ export class Boid extends PhysicsObject {
 		// sometimes neataptic can output nan and infinities. 
 		if ( Number.isNaN(amount) || !Number.isFinite(amount) ) { return 0; }
 		let m = this.motors[i];
-		if ( m ) {
-			// start a timer if there isnt one
-			if ( !m.hasOwnProperty('t') ) { m.t = 0; }
-			// shift amount to halfway point for wheel motors (0..1 becomes -1..1)
-			if ( m.wheel ) { amount = (amount * 2) - 1; } 
-			// sanity check
-			amount = utils.clamp(amount,-1,1);
-			// new stroke
-			if ( m.t==0 ) { 
-				// check for minimum activation
-				if ( m.min_act && Math.abs(amount) < m.min_act ) { 
-					m.last_amount = 0;
-					m.this_stroke_time = 0;
-					return 0; 
-				}
-				// age restricted
-				if ( m.hasOwnProperty('min_age') && this.age < m.min_age && !globalThis.vc.simulation.settings?.ignore_lifecycle ) { 
-					m.last_amount = 0;
-					m.this_stroke_time = 0;
-					return 0; 
-				}
-				// you must be this tall to enter
-				if ( m.hasOwnProperty('min_scale') && this.scale < m.min_scale ) { 
-					m.last_amount = 0;
-					m.this_stroke_time = 0;
-					return 0; 
-				}
-				// tank capacity sanity cap
-				if ( ( m.hasOwnProperty('bud') || m.hasOwnProperty('mitosis') ) && 
-					( this.tank.boids.length >= (globalThis.vc?.simulation?.settings?.num_boids || 100)
-					|| globalThis.vc.simulation.settings?.ignore_lifecycle ) ) {
-					m.last_amount = 0;
-					m.this_stroke_time = 0;
-					return 0; 
-				}
-				// reproduction and other triggers must use the full amount, regardless of activation
-				if ( m.hasOwnProperty('use_max') ) {
-					amount = 1; 
-				}
-				// attack executes only on the first frame and only if there is a victim
-				if ( m.hasOwnProperty('attack') && !globalThis.vc.simulation.settings?.no_combat ) {
-					// find boids in the local area
-					let victim = this.tank.grid.GetObjectsByBox( 
-						this.x - this.collision.radius, 
-						this.y - this.collision.radius,
-						this.x + this.collision.radius,
-						this.y + this.collision.radius,
-						o => o instanceof Boid && o.genus != this.genus && o != this )
-					.find( b => {
-						let dx = b.x - this.x;
-						let dy = b.y - this.y;
-						let d = Math.sqrt( dx * dx + dy * dy );
-						return d < this.collision.radius + b.collision.radius;
-					} );
-					if ( !victim ) { 
-						m.last_amount = 0;
-						m.this_stroke_time = 0;
-						return 0; 
-					}
-					let attack_force = this.mass * m.attack * amount;
-					// let was = victim.metab.energy;
-					victim.metab.energy -= attack_force;
-					// console.log(`attacking @ ${attack_force.toFixed()} : ${was.toFixed()} -> ${victim.metab.energy.toFixed()}`);
-					this.stats.combat.attacks++;
-					this.stats.combat.dmg_dealt += attack_force;
-					victim.stats.combat.attacks_received++;
-					victim.stats.combat.dmg_received += attack_force;
-					if ( victim.metab.energy <= 0 && !globalThis.vc.simulation.settings?.ignore_lifecycle ) {
-						victim.Kill('attack');
-						this.stats.combat.kills++;
-						globalThis.vc.simulation.RecordStat('kills',1);
-						// prizes!
-						const f = new Food( victim.x, victim.y, { 
-							value: victim.mass * 0.25, // reduce value to avoid virtuous cycles  
-							lifespan: ( victim.mass * 0.05),
-							buoy_start: 5,
-							buoy_end: -20,
-							nutrients: victim.traits.nutrition.map( x => x > 0 ? x : 0 ),
-							complexity: Math.max( victim.traits.nutrition.filter( x => x > 0 ).length, 6 )
-							} );		
-						globalThis.vc.tank.foods.push(f);											
-					}
-			
-					// draw indicator circle
-					// let mark = null;
-					// let marksize = Math.min( 80, Math.sqrt(attack_force) );
-					// if ( victim.dead ) {
-					// 	mark = globalThis.two.makeGroup();
-					// 	mark.add( globalThis.two.makeLine( -marksize, -marksize, marksize, marksize ) );
-					// 	mark.add( globalThis.two.makeLine( -marksize, marksize, marksize, -marksize ) );
-					// 	mark.position.x = victim.x;
-					// 	mark.position.y = victim.y;
-					// }
-					// else {
-					// 	mark = globalThis.two.makeCircle( victim.x, victim.y, marksize );
-					// }
-					// mark.stroke = 'red';
-					// mark.fill = 'transparent';
-					// mark.linewidth = 6;
-					// // mark.dashes = [30, 6, 6, 6];
-					// globalThis.vc.AddShapeToRenderLayer(mark,1);
-					// // make it go away after 2s - 
-					// if ( globalThis.vc.animate_boids ) {
-					// 	new TWEEN.Tween(mark)
-					// 		.to( { opacity:0, scale:2 }, 2000 )
-					// 		.easing(TWEEN.Easing.Quadratic.Out)
-					// 		// switch to absolute tracking after chase completed
-					// 		.onComplete( obj => obj.remove() )
-					// 		.start();
-					// }
-					// else {
-					// 	setTimeout( _ => mark.remove(), 2000 );
-					// }
-				}				
-				// if we decided to activate a new stroke, record the power it was
-				// activated with instead of using a varying stroke each frame.
-				m.strokepow = amount; 
-				// use this modified version to make sure stroke times are "kinda normalized"
-				// and can't get too low with very short power values
-				if ( m?.stroke_time_strategy == 'blend' ) {
-					m.this_stroke_time = m.stroketime * ( Math.abs(amount) + ( (1-Math.abs(amount)) * 0.25 ) );
-				}
-				// use this if you want the stroke time to coordinate with the power
-				// i.e. a quick flick versus a hard push
-				else {
-					m.this_stroke_time = m.stroketime * amount;
-				}
+		if ( !m ) { return 0; }
+		
+		// start a timer if there isnt one
+		if ( !m.hasOwnProperty('t') ) { m.t = 0; }
+		
+		// shift amount to halfway point for wheel motors (0..1 becomes -1..1)
+		if ( m.wheel ) { amount = (amount * 2) - 1; } 
+		
+		// sanity check
+		amount = utils.clamp(amount,-1,1);
+		
+		// new stroke
+		if ( m.t==0 ) { 
+			// check for minimum activation
+			if ( m.min_act && Math.abs(amount) < m.min_act ) { 
+				m.last_amount = 0;
+				m.this_stroke_time = 0;
+				return 0; 
 			}
-			else { 
-				amount = m.strokepow; 
+			// age restricted
+			if ( m.hasOwnProperty('min_age') && this.age < m.min_age && !globalThis.vc.simulation.settings?.ignore_lifecycle ) { 
+				m.last_amount = 0;
+				m.this_stroke_time = 0;
+				return 0; 
 			}
-			// don't allow overtaxing
-			delta = Math.min( delta, m.this_stroke_time - m.t ); 
-			// base cost of doing business
-			let cost = m.cost * delta * this.mass;
-			// movement motors have a variable cost to promote efficiency
-			if ( m.linear || m.angular ) {
-				cost *= Boid.min_motor_cost_adjust 
-					+ (Boid.max_motor_cost_adjust - Boid.min_motor_cost_adjust) 
-					* Math.pow(Math.abs(m.strokepow),Boid.motor_cost_exponent); // could be optimized if you want simple linear interpolation
+			// you must be this tall to enter
+			if ( m.hasOwnProperty('min_scale') && this.scale < m.min_scale ) { 
+				m.last_amount = 0;
+				m.this_stroke_time = 0;
+				return 0; 
 			}
-			// all other motors use the activation amount as the cost indicator
+			// tank capacity sanity cap
+			if ( ( m.hasOwnProperty('bud') || m.hasOwnProperty('mitosis') ) && 
+				( this.tank.boids.length >= (globalThis.vc?.simulation?.settings?.num_boids || 100)
+				|| globalThis.vc.simulation.settings?.ignore_lifecycle ) ) {
+				m.last_amount = 0;
+				m.this_stroke_time = 0;
+				return 0; 
+			}
+			// reproduction and other triggers must use the full amount, regardless of activation
+			if ( m.hasOwnProperty('use_max') ) {
+				amount = 1; 
+			}
+			// attack executes only on the first frame and only if there is a victim
+			if ( m.hasOwnProperty('attack') && !globalThis.vc.simulation.settings?.no_combat ) {
+				// find boids in the local area
+				let victim = this.tank.grid.GetObjectsByBox( 
+					this.x - this.collision.radius, 
+					this.y - this.collision.radius,
+					this.x + this.collision.radius,
+					this.y + this.collision.radius,
+					o => o instanceof Boid && o.genus != this.genus && o != this )
+				.find( b => {
+					let dx = b.x - this.x;
+					let dy = b.y - this.y;
+					let d = Math.sqrt( dx * dx + dy * dy );
+					return d < this.collision.radius + b.collision.radius;
+				} );
+				if ( !victim ) { 
+					m.last_amount = 0;
+					m.this_stroke_time = 0;
+					return 0; 
+				}
+				let attack_force = this.mass * m.attack * amount;
+				// let was = victim.metab.energy;
+				victim.metab.energy -= attack_force;
+				// console.log(`attacking @ ${attack_force.toFixed()} : ${was.toFixed()} -> ${victim.metab.energy.toFixed()}`);
+				this.stats.combat.attacks++;
+				this.stats.combat.dmg_dealt += attack_force;
+				victim.stats.combat.attacks_received++;
+				victim.stats.combat.dmg_received += attack_force;
+				if ( victim.metab.energy <= 0 && !globalThis.vc.simulation.settings?.ignore_lifecycle ) {
+					victim.Kill('attack');
+					this.stats.combat.kills++;
+					globalThis.vc.simulation.RecordStat('kills',1);
+					// prizes!
+					const f = new Food( victim.x, victim.y, { 
+						value: victim.mass * 0.25, // reduce value to avoid virtuous cycles  
+						lifespan: ( victim.mass * 0.05),
+						buoy_start: 5,
+						buoy_end: -20,
+						nutrients: victim.traits.nutrition.map( x => x > 0 ? x : 0 ),
+						complexity: Math.max( victim.traits.nutrition.filter( x => x > 0 ).length, 6 )
+						} );		
+					globalThis.vc.tank.foods.push(f);											
+				}
+		
+				// draw indicator circle
+				// let mark = null;
+				// let marksize = Math.min( 80, Math.sqrt(attack_force) );
+				// if ( victim.dead ) {
+				// 	mark = globalThis.two.makeGroup();
+				// 	mark.add( globalThis.two.makeLine( -marksize, -marksize, marksize, marksize ) );
+				// 	mark.add( globalThis.two.makeLine( -marksize, marksize, marksize, -marksize ) );
+				// 	mark.position.x = victim.x;
+				// 	mark.position.y = victim.y;
+				// }
+				// else {
+				// 	mark = globalThis.two.makeCircle( victim.x, victim.y, marksize );
+				// }
+				// mark.stroke = 'red';
+				// mark.fill = 'transparent';
+				// mark.linewidth = 6;
+				// // mark.dashes = [30, 6, 6, 6];
+				// globalThis.vc.AddShapeToRenderLayer(mark,1);
+				// // make it go away after 2s - 
+				// if ( globalThis.vc.animate_boids ) {
+				// 	new TWEEN.Tween(mark)
+				// 		.to( { opacity:0, scale:2 }, 2000 )
+				// 		.easing(TWEEN.Easing.Quadratic.Out)
+				// 		// switch to absolute tracking after chase completed
+				// 		.onComplete( obj => obj.remove() )
+				// 		.start();
+				// }
+				// else {
+				// 	setTimeout( _ => mark.remove(), 2000 );
+				// }
+			}				
+			// if we decided to activate a new stroke, record the power it was
+			// activated with instead of using a varying stroke each frame.
+			m.strokepow = amount; 
+			// use this modified version to make sure stroke times are "kinda normalized"
+			// and can't get too low with very short power values
+			if ( m?.stroke_time_strategy == 'blend' ) {
+				m.this_stroke_time = m.stroketime * ( Math.abs(amount) + ( (1-Math.abs(amount)) * 0.25 ) );
+			}
+			// use this if you want the stroke time to coordinate with the power
+			// i.e. a quick flick versus a hard push
 			else {
-				cost *= Math.abs(m.strokepow);
+				m.this_stroke_time = m.stroketime * Math.abs(amount);
 			}
-			this.metab.energy -= cost;
-			this.stats.metab.motors += cost;
-			this.stats.metab[m.name] = (this.stats.metab[m.name] || 0) + cost;
-			globalThis.vc.simulation.RecordStat('energy_used',cost);
-			// increase stroke time
-			m.t = utils.clamp(m.t+delta, 0, m.this_stroke_time); 
-			// stroke power function modifies the power withdrawn per frame
-			// In addition to the curve shape, we also modify the power by a constant
-			// to make sure the total power output of the entire stroke is the same
-			// across all stroke types. Assume "constant" stroke has total power of 1.
-			let amount_adjust = 1.0; // adjustment to account for power curve shape
-			let amount_now = amount; // fraction of power at current point in time
-			switch ( m.strokefunc ) {
-				case 'linear_down':	{
-					amount_adjust = 2;
-					amount_now = amount * ( (m.this_stroke_time - m.t) / m.this_stroke_time); 
-					break;
-				}
-				case 'linear_up':	{
-					amount_adjust = 2;
-					amount_now = amount * ( 1 - ((m.this_stroke_time - m.t) / m.this_stroke_time)); 
-					break;
-				}
-				case 'bell':		{
-					amount_adjust = 2;
-					amount_now = amount * (0.5 * Math.sin( (m.t/m.this_stroke_time) * Math.PI * 2 + Math.PI * 1.5 ) + 0.5); 
-					break;
-				}
-				case 'step_up':		{
-					amount_adjust = 2;
-					amount_now = (m.t >= m.this_stroke_time*0.5) ? amount : 0 ; 
-					break;
-				}
-				case 'step_down':	{
-					amount_adjust = 2;
-					amount_now = (m.t < m.this_stroke_time*0.5)	? amount : 0 ; 
-					break;
-				}
-				case 'burst':		{
-					amount_adjust = 5;
-					amount_now = (m.t >= m.this_stroke_time*0.8) ? amount : 0 ; 
-					break;
-				}
-				case 'spring':		{
-					amount_adjust = 5;
-					amount_now = (m.t < m.this_stroke_time*0.2)	?  amount : 0 ; 
-					break;
-				}
-				// default: ;; // the default is constant time output
+		}
+		else { 
+			amount = m.strokepow; 
+		}
+		
+		// don't allow overtaxing - remainder of stroke may be less than incoming time delta
+		delta = Math.min( delta, m.this_stroke_time - m.t ); 
+		
+		// base cost of doing business
+		let cost = m.cost * delta * this.mass;
+		// movement motors have a variable cost to promote efficiency
+		if ( m.linear || m.angular ) {
+			cost *= Boid.min_motor_cost_adjust 
+				+ (Boid.max_motor_cost_adjust - Boid.min_motor_cost_adjust) 
+				* Math.pow(Math.abs(m.strokepow),Boid.motor_cost_exponent); // could be optimized if you want simple linear interpolation
+		}
+		// all other motors use the activation amount as the cost indicator
+		else { cost *= Math.abs(m.strokepow); }
+		this.metab.energy -= cost;
+		this.stats.metab.motors += cost;
+		this.stats.metab[m.name] = (this.stats.metab[m.name] || 0) + cost;
+		globalThis.vc.simulation.RecordStat('energy_used',cost);
+		
+		// increase stroke time
+		m.t = utils.clamp(m.t+delta, 0, m.this_stroke_time); 
+		
+		// stroke power function modifies the power withdrawn per frame
+		// In addition to the curve shape, we also modify the power by a constant
+		// to make sure the total power output of the entire stroke is the same
+		// across all stroke types. Assume "constant" stroke has total power of 1.
+		let amount_adjust = 1.0; // adjustment to account for power curve shape
+		let amount_now = amount; // fraction of power at current point in time
+		switch ( m.strokefunc ) {
+			case 'linear_down':	{
+				amount_adjust = 2;
+				amount_now = amount * ( (m.this_stroke_time - m.t) / m.this_stroke_time); 
+				break;
 			}
-			// record how much power was activated this stroke - mostly for UI and animation
-			m.last_amount = Math.abs( amount_now );
-			// final output calculation
-			amount = amount_now * amount_adjust;
-			// adjust for body size - larger organisms provide more power
-			amount *= Math.pow( this.mass / 800, 0.75 );
-			if ( m.hasOwnProperty('linear') ) {
-				this.linear_impulse += m.linear * amount * Boid.max_boid_linear_impulse;
+			case 'linear_up':	{
+				amount_adjust = 2;
+				amount_now = amount * ( 1 - ((m.this_stroke_time - m.t) / m.this_stroke_time)); 
+				break;
 			}
-			if ( m.hasOwnProperty('angular') ) {
-				this.torque += m.angular * amount * Boid.max_boid_angular_impulse; // apply mass later
+			case 'bell':		{
+				amount_adjust = 2;
+				amount_now = amount * (0.5 * Math.sin( (m.t/m.this_stroke_time) * Math.PI * 2 + Math.PI * 1.5 ) + 0.5); 
+				break;
 			}
-			else if ( m.hasOwnProperty('sense') && m.t <= delta ) { // first frame
-				if ( !globalThis.vc?.simulation?.settings?.no_marks ) {
-					this.tank.marks.push( new Mark({
-						x: this.x,
-						y: this.y,
-						r: (m.r || 100) * m.strokepow,
-						sense: m.sense,
-						lifespan: ( m.lifespan || ( Math.random() * 10 ) )
-					}) );
-				}
+			case 'step_up':		{
+				amount_adjust = 2;
+				amount_now = (m.t >= m.this_stroke_time*0.5) ? amount : 0 ; 
+				break;
 			}
-			if ( m.hasOwnProperty('mitosis') && m.t >= m.this_stroke_time ) {
-				const mutation_rate = utils.Clamp( globalThis.vc?.simulation?.settings?.max_mutation, 0, 1 );
-				const speciation_rate = utils.Clamp( globalThis.vc?.simulation?.settings?.speciation_rate || 0, 0, 1 );
-				for ( let n=0; n < m.mitosis; n++ ) { 
-					let offspring = this.Copy(true, mutation_rate, mutation_rate, speciation_rate); // reset state and mutate organism
-					offspring.age = 0; // simulation can assign a random age on Copy
-					offspring.x = this.x;
-					offspring.y = this.y;
-					offspring.angle = utils.RandomFloat(0, Math.PI*2);
-					offspring.mass = this.mass / ( m.mitosis + 1 );
-					offspring.ScaleBoidByMass();
-					// the parent decides how much energy to invest into babies. 
-					// If they are given max energy, they immediately start to grow 
-					// which doesnt make a lot of sense. If they don't have enough
-					// energy, they don't stand a chance of surviving.
-					offspring.metab.energy = this.traits.offspring_investment * offspring.metab.max_energy;
-					this.tank.boids.push(offspring);
-				}
-				// babies aren't free. we just lost a lot of mass.
-				this.mass /= ( m.mitosis + 1 );
-				this.ScaleBoidByMass();
-				globalThis.vc.simulation.RecordStat('births',m.mitosis);
+			case 'step_down':	{
+				amount_adjust = 2;
+				amount_now = (m.t < m.this_stroke_time*0.5)	? amount : 0 ; 
+				break;
 			}
-			else if ( m.hasOwnProperty('bud') && m.t >= m.this_stroke_time ) {
-				const mutation_rate = utils.Clamp( globalThis.vc?.simulation?.settings?.max_mutation, 0, 1 );
-				const speciation_rate = utils.Clamp( globalThis.vc?.simulation?.settings?.speciation_rate || 0, 0, 1 );
+			case 'burst':		{
+				amount_adjust = 5;
+				amount_now = (m.t >= m.this_stroke_time*0.8) ? amount : 0 ; 
+				break;
+			}
+			case 'spring':		{
+				amount_adjust = 5;
+				amount_now = (m.t < m.this_stroke_time*0.2)	?  amount : 0 ; 
+				break;
+			}
+			// the default is constant time output
+		}
+		
+		// record how much power was activated this stroke - mostly for UI and animation
+		m.last_amount = Math.abs( amount_now );
+		
+		// final output calculation
+		amount = amount_now * amount_adjust;
+		
+		// adjust for body size - larger organisms provide more power
+		amount *= Math.pow( this.mass / 800, 0.75 );
+		
+		// apply forces and effects
+		if ( m.hasOwnProperty('linear') ) {
+			this.linear_impulse += m.linear * amount * Boid.max_boid_linear_impulse;
+		}
+		if ( m.hasOwnProperty('angular') ) {
+			this.torque += m.angular * amount * Boid.max_boid_angular_impulse; // apply mass later
+		}
+		else if ( m.hasOwnProperty('sense') && m.t <= delta ) { // first frame
+			if ( !globalThis.vc?.simulation?.settings?.no_marks ) {
+				this.tank.marks.push( new Mark({
+					x: this.x,
+					y: this.y,
+					r: (m.r || 100) * m.strokepow,
+					sense: m.sense,
+					lifespan: ( m.lifespan || ( Math.random() * 10 ) )
+				}) );
+			}
+		}
+		if ( m.hasOwnProperty('mitosis') && m.t >= m.this_stroke_time ) {
+			const mutation_rate = utils.Clamp( globalThis.vc?.simulation?.settings?.max_mutation, 0, 1 );
+			const speciation_rate = utils.Clamp( globalThis.vc?.simulation?.settings?.speciation_rate || 0, 0, 1 );
+			for ( let n=0; n < m.mitosis; n++ ) { 
 				let offspring = this.Copy(true, mutation_rate, mutation_rate, speciation_rate); // reset state and mutate organism
 				offspring.age = 0; // simulation can assign a random age on Copy
 				offspring.x = this.x;
 				offspring.y = this.y;
 				offspring.angle = utils.RandomFloat(0, Math.PI*2);
-				offspring.mass = this.mass * this.traits.offspring_investment * 0.5; 
+				offspring.mass = this.mass / ( m.mitosis + 1 );
 				offspring.ScaleBoidByMass();
-				offspring.metab.energy = offspring.metab.max_energy;
+				// the parent decides how much energy to invest into babies. 
+				// If they are given max energy, they immediately start to grow 
+				// which doesnt make a lot of sense. If they don't have enough
+				// energy, they don't stand a chance of surviving.
+				offspring.metab.energy = this.traits.offspring_investment * offspring.metab.max_energy;
 				this.tank.boids.push(offspring);
-				globalThis.vc.simulation.RecordStat('births',1);
 			}
-			// reset stroke when complete
-			if ( m.t >= m.this_stroke_time ) { 
-				m.t = 0; 
-				m.this_stroke_time = 0;
-			} 
+			// babies aren't free. we just lost a lot of mass.
+			this.mass /= ( m.mitosis + 1 );
+			this.ScaleBoidByMass();
+			globalThis.vc.simulation.RecordStat('births',m.mitosis);
 		}
+		else if ( m.hasOwnProperty('bud') && m.t >= m.this_stroke_time ) {
+			const mutation_rate = utils.Clamp( globalThis.vc?.simulation?.settings?.max_mutation, 0, 1 );
+			const speciation_rate = utils.Clamp( globalThis.vc?.simulation?.settings?.speciation_rate || 0, 0, 1 );
+			let offspring = this.Copy(true, mutation_rate, mutation_rate, speciation_rate); // reset state and mutate organism
+			offspring.age = 0; // simulation can assign a random age on Copy
+			offspring.x = this.x;
+			offspring.y = this.y;
+			offspring.angle = utils.RandomFloat(0, Math.PI*2);
+			offspring.mass = this.mass * this.traits.offspring_investment * 0.5; 
+			offspring.ScaleBoidByMass();
+			offspring.metab.energy = offspring.metab.max_energy;
+			this.tank.boids.push(offspring);
+			globalThis.vc.simulation.RecordStat('births',1);
+		}
+		// reset stroke when complete
+		if ( m.t >= m.this_stroke_time ) { 
+			m.t = 0; 
+			m.this_stroke_time = 0;
+		} 
 	}
 	ScaleBoidByMass() {
 		this.scale = this.mass / this.body.mass; // square scale
@@ -1127,9 +1137,11 @@ export class Boid extends PhysicsObject {
 			}
 			if ( angular ) { motor.angular = angular; has_angular = true; }
 						
-			// cost of motor is per mass per second
-			motor.cost = 1 * (motor.linear ? Boid.linear_motor_cost_adjust : 1) * (motor.angular ? Boid.angular_motor_cost_adjust : 1);
-			motor.cost /= stroketime;
+			// cost of motor is per mass, per second
+			motor.cost = 0;
+			if ( motor.linear ) { motor.cost += Boid.linear_motor_cost_adjust; }
+			if ( motor.angular ) { motor.cost += Boid.angular_motor_cost_adjust; }
+			motor.cost /= stroketime; // normalize per-second
 			
 			// animation
 			motor.anim = {
