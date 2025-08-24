@@ -16,7 +16,7 @@ export default class Camera {
 		this.xmax = 0;
 		this.ymax = 0;
 		this.min_zoom = 0.1;
-		this.max_zoom = 2.4;
+		this.max_zoom = 2.9;
 		this.window_width = 640;
 		this.window_height = 480;
 		this.tank_width = 100;
@@ -58,10 +58,10 @@ export default class Camera {
 		// create the focus ring if it doesnt already exist
 		if ( !this.focus_geo ) {
 			this.focus_geo = globalThis.two.makeGroup();
-			let circle = globalThis.two.makeCircle( 0, 0, 120 );
+			let circle = globalThis.two.makeCircle( 0, 0, 90 );
 			circle.fill = 'transparent';
 			circle.stroke = '#9D9';
-			circle.linewidth = 6;
+			circle.linewidth = 5;
 			this.focus_geo.add(circle);
 			// uncomment this if you want a little indicator triangle
 			// let triangle = globalThis.two.makePath([
