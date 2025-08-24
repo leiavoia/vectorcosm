@@ -180,13 +180,19 @@ export default class PhysicsObject {
 		const v_lateral = this.vel_x * -forward_y + this.vel_y * forward_x;
 
 		// Drag force scales with area and velocity squared
-		const areaLong = length * width * 0.5; // effective area for forward
-		const areaLat = length;                // effective side area for lateral drag
+		const areaLong = length * width; // effective area for forward
+		const areaLat = length; // effective side area for lateral drag
 
-		// Apply drag (tunable coefficients)
-		const forceLong = -dragLong * areaLong * v_forward * Math.abs(v_forward) * viscosity;
-		const forceLat  = -dragLat  * areaLat  * v_lateral * Math.abs(v_lateral) * viscosity;
+		// calculate drag forces
+		let forceLong = -dragLong * areaLong * v_forward * Math.abs(v_forward) * viscosity;
+		let forceLat  = -dragLat  * areaLat  * v_lateral * Math.abs(v_lateral) * viscosity;
 
+		// sanity clamp to prevent runaway values
+		const maxDragForceLong = this.mass * 25000;
+		const maxDragForceLat = this.mass * 25000;
+		forceLong = Math.max(-maxDragForceLong, Math.min(forceLong, maxDragForceLong));
+		forceLat  = Math.max(-maxDragForceLat, Math.min(forceLat, maxDragForceLat));
+	
 		// Convert forces back to x/y
 		const fx = forceLong * forward_x + forceLat * -forward_y;
 		const fy = forceLong * forward_y + forceLat * forward_x;

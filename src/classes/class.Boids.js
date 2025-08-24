@@ -464,11 +464,10 @@ export class Boid extends PhysicsObject {
 		// apply forward impulse
 		const sinAngle = Math.sin(this.angle);
 		const cosAngle = Math.cos(this.angle);		
-		const impulse_x = this.linear_impulse * cosAngle;
-		const impulse_y = this.linear_impulse * sinAngle;
-		if ( impulse_x > 20000000 || impulse_x < -20000000 ) { debugger; }
-		if ( impulse_y > 20000000 || impulse_y < -20000000 ) { debugger; }
-		if ( isNaN(impulse_y) || isNaN(impulse_x) ) { debugger; }
+		let impulse_x = this.linear_impulse * cosAngle;
+		let impulse_y = this.linear_impulse * sinAngle;
+		if ( impulse_x > 20000000 || impulse_x < -20000000 || isNaN(impulse_x) ) { impulse_x=0; }
+		if ( impulse_y > 20000000 || impulse_y < -20000000 || isNaN(impulse_y) ) { impulse_y=0; }
 		this.ApplyForce(impulse_x, impulse_y);
 		
 		// drag force, otherwise we just go faster and faster.
@@ -485,10 +484,6 @@ export class Boid extends PhysicsObject {
 		
 		// translate position based on all forces
 		this.UpdatePosition(delta);
-		
-		if ( !isFinite(this.ang_vel) ) { debugger; }
-		if ( !isFinite(this.vel_x) ) { debugger; }
-		if ( !isFinite(this.vel_y) ) { debugger; }
 		
 		// stay inside tank			
 		this.x = utils.clamp( this.x, 0 + this.collision.radius, this.tank.width - this.collision.radius );
