@@ -173,7 +173,7 @@ export default class Simulation {
 			const max_current = 2000; 
 			const current = this.settings.current * max_current;
 			const pushObject = o => {	 
-				if ( o.frictionless ) { return; }
+				if ( o?.frictionless ) { return; }
 				const cell = this.tank.datagrid.CellAt(o.x,o.y);
 				if ( !cell ) { return; }
 				// we multiply by the mass to fake a wave action and get all objects moving roughly the same.
@@ -209,6 +209,7 @@ export default class Simulation {
 				const t = (tide_freq/2 + this.stats.round_time) % tide_freq;
 				const scale = Math.sin( (t * Math.PI) / (tide_duration * wave_reps) );
 				const pushObject = o => {
+					if ( o?.frictionless ) { return; }
 					const x_off = o.x / this.tank.width;
 					let wave = ( t * Math.PI * 2 ) / ( tide_duration );
 					wave = Math.sin(wave * x_off);

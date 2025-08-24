@@ -149,11 +149,13 @@ export default class Food extends PhysicsObject {
 		this.r = Math.sqrt( 2 * this.value / Math.PI );
 
 		// buoyancy
-		this.buoy = this.buoy_start + ( this.buoy_end - this.buoy_start ) * Math.max(1, this.age / this.lifespan) ; 
-		this.ApplyForce(0, -this.buoy * this.mass); // buoyancy force scales with mass
+		if ( !this?.frictionless ) { 
+			this.buoy = this.buoy_start + ( this.buoy_end - this.buoy_start ) * Math.max(1, this.age / this.lifespan) ; 
+			this.ApplyForce(0, -this.buoy * this.mass); // buoyancy force scales with mass
+		}
 		
 		// drag force, otherwise we just go faster and faster.
-		if ( !this.frictionless ) {
+		if ( !this?.frictionless ) {
 			// simplified drag function for round objects
 			this.AddDrag( this.r, globalThis.vc.simulation.settings.viscosity, 60 ); // arbitrary balance number
 		}
@@ -187,8 +189,15 @@ export default class Food extends PhysicsObject {
 				// retract from collision object
 				this.x -= result.overlap * result.overlap_x;
 				this.y -= result.overlap * result.overlap_y;
-				// slide along walls with slight bounce	
-				this.SlideAndBounce( result.overlap_x, result.overlap_y, friction, bounce );
+				// just bounce hardcoded foods used in training
+				if ( this.frictionless ) {
+					this.vel_x = -this.vel_x;
+					this.vel_y = -this.vel_y;
+				}
+				// slide along walls with slight bounce
+				else {
+					this.SlideAndBounce( result.overlap_x, result.overlap_y, friction, bounce );
+				}
 			}
 			touching_rock = touching_rock || gotcha;
 		}

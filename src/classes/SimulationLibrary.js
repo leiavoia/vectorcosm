@@ -440,7 +440,7 @@ export default {
 		num_foods: 1,
 		food_speed: 0,
 		food_bounce_margin: 200,
-		food_friction: false,
+		food_friction: true,
 		food_value:1000,
 		poop:true,
 		ignore_other_boids:false,
