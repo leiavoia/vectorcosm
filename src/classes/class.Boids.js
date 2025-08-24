@@ -629,78 +629,13 @@ export class Boid extends PhysicsObject {
 			}
 			// attack executes only on the first frame and only if there is a victim
 			if ( m.hasOwnProperty('attack') && !globalThis.vc.simulation.settings?.no_combat ) {
-				// find boids in the local area
-				let victim = this.tank.grid.GetObjectsByBox( 
-					this.x - this.collision.radius, 
-					this.y - this.collision.radius,
-					this.x + this.collision.radius,
-					this.y + this.collision.radius,
-					o => o instanceof Boid && o.genus != this.genus && o != this )
-				.find( b => {
-					let dx = b.x - this.x;
-					let dy = b.y - this.y;
-					let d = Math.sqrt( dx * dx + dy * dy );
-					return d < this.collision.radius + b.collision.radius;
-				} );
-				if ( !victim ) { 
+				const power = this.mass * m.attack * amount;
+				const gotcha = this.AttemptAttack(power);
+				if ( !gotcha ) { 
 					m.last_amount = 0;
 					m.this_stroke_time = 0;
 					return 0; 
 				}
-				let attack_force = this.mass * m.attack * amount;
-				// let was = victim.metab.energy;
-				victim.metab.energy -= attack_force;
-				// console.log(`attacking @ ${attack_force.toFixed()} : ${was.toFixed()} -> ${victim.metab.energy.toFixed()}`);
-				this.stats.combat.attacks++;
-				this.stats.combat.dmg_dealt += attack_force;
-				victim.stats.combat.attacks_received++;
-				victim.stats.combat.dmg_received += attack_force;
-				if ( victim.metab.energy <= 0 && !globalThis.vc.simulation.settings?.ignore_lifecycle ) {
-					victim.Kill('attack');
-					this.stats.combat.kills++;
-					globalThis.vc.simulation.RecordStat('kills',1);
-					// prizes!
-					const f = new Food( victim.x, victim.y, { 
-						value: victim.mass * 0.25, // reduce value to avoid virtuous cycles  
-						lifespan: ( victim.mass * 0.05),
-						buoy_start: 5,
-						buoy_end: -20,
-						nutrients: victim.traits.nutrition.map( x => x > 0 ? x : 0 ),
-						complexity: Math.max( victim.traits.nutrition.filter( x => x > 0 ).length, 6 )
-						} );		
-					globalThis.vc.tank.foods.push(f);											
-				}
-		
-				// draw indicator circle
-				// let mark = null;
-				// let marksize = Math.min( 80, Math.sqrt(attack_force) );
-				// if ( victim.dead ) {
-				// 	mark = globalThis.two.makeGroup();
-				// 	mark.add( globalThis.two.makeLine( -marksize, -marksize, marksize, marksize ) );
-				// 	mark.add( globalThis.two.makeLine( -marksize, marksize, marksize, -marksize ) );
-				// 	mark.position.x = victim.x;
-				// 	mark.position.y = victim.y;
-				// }
-				// else {
-				// 	mark = globalThis.two.makeCircle( victim.x, victim.y, marksize );
-				// }
-				// mark.stroke = 'red';
-				// mark.fill = 'transparent';
-				// mark.linewidth = 6;
-				// // mark.dashes = [30, 6, 6, 6];
-				// globalThis.vc.AddShapeToRenderLayer(mark,1);
-				// // make it go away after 2s - 
-				// if ( globalThis.vc.animate_boids ) {
-				// 	new TWEEN.Tween(mark)
-				// 		.to( { opacity:0, scale:2 }, 2000 )
-				// 		.easing(TWEEN.Easing.Quadratic.Out)
-				// 		// switch to absolute tracking after chase completed
-				// 		.onComplete( obj => obj.remove() )
-				// 		.start();
-				// }
-				// else {
-				// 	setTimeout( _ => mark.remove(), 2000 );
-				// }
 			}				
 			// if we decided to activate a new stroke, record the power it was
 			// activated with instead of using a varying stroke each frame.
@@ -803,52 +738,15 @@ export class Boid extends PhysicsObject {
 			this.torque += m.angular * amount * Boid.max_boid_angular_impulse; // apply mass later
 		}
 		else if ( m.hasOwnProperty('sense') && m.t <= delta ) { // first frame
-			if ( !globalThis.vc?.simulation?.settings?.no_marks ) {
-				this.tank.marks.push( new Mark({
-					x: this.x,
-					y: this.y,
-					r: (m.r || 100) * m.strokepow,
-					sense: m.sense,
-					lifespan: ( m.lifespan || ( Math.random() * 10 ) )
-				}) );
-			}
+			const radius = (m.r || 100) * m.strokepow;
+			const lifespan = ( m.lifespan || ( Math.random() * 10 ) );
+			this.CreateMark( m.sense, radius, lifespan );
 		}
 		if ( m.hasOwnProperty('mitosis') && m.t >= m.this_stroke_time ) {
-			const mutation_rate = utils.Clamp( globalThis.vc?.simulation?.settings?.max_mutation, 0, 1 );
-			const speciation_rate = utils.Clamp( globalThis.vc?.simulation?.settings?.speciation_rate || 0, 0, 1 );
-			for ( let n=0; n < m.mitosis; n++ ) { 
-				let offspring = this.Copy(true, mutation_rate, mutation_rate, speciation_rate); // reset state and mutate organism
-				offspring.age = 0; // simulation can assign a random age on Copy
-				offspring.x = this.x;
-				offspring.y = this.y;
-				offspring.angle = utils.RandomFloat(0, Math.PI*2);
-				offspring.mass = this.mass / ( m.mitosis + 1 );
-				offspring.ScaleBoidByMass();
-				// the parent decides how much energy to invest into babies. 
-				// If they are given max energy, they immediately start to grow 
-				// which doesnt make a lot of sense. If they don't have enough
-				// energy, they don't stand a chance of surviving.
-				offspring.metab.energy = this.traits.offspring_investment * offspring.metab.max_energy;
-				this.tank.boids.push(offspring);
-			}
-			// babies aren't free. we just lost a lot of mass.
-			this.mass /= ( m.mitosis + 1 );
-			this.ScaleBoidByMass();
-			globalThis.vc.simulation.RecordStat('births',m.mitosis);
+			this.Mitosis( m.mitosis );
 		}
 		else if ( m.hasOwnProperty('bud') && m.t >= m.this_stroke_time ) {
-			const mutation_rate = utils.Clamp( globalThis.vc?.simulation?.settings?.max_mutation, 0, 1 );
-			const speciation_rate = utils.Clamp( globalThis.vc?.simulation?.settings?.speciation_rate || 0, 0, 1 );
-			let offspring = this.Copy(true, mutation_rate, mutation_rate, speciation_rate); // reset state and mutate organism
-			offspring.age = 0; // simulation can assign a random age on Copy
-			offspring.x = this.x;
-			offspring.y = this.y;
-			offspring.angle = utils.RandomFloat(0, Math.PI*2);
-			offspring.mass = this.mass * this.traits.offspring_investment * 0.5; 
-			offspring.ScaleBoidByMass();
-			offspring.metab.energy = offspring.metab.max_energy;
-			this.tank.boids.push(offspring);
-			globalThis.vc.simulation.RecordStat('births',1);
+			this.Bud();
 		}
 		// reset stroke when complete
 		if ( m.t >= m.this_stroke_time ) { 
@@ -856,6 +754,131 @@ export class Boid extends PhysicsObject {
 			m.this_stroke_time = 0;
 		} 
 	}
+	
+	// true on success, false on whiff
+	AttemptAttack( attack_force /* this.mass * m.attack * amount */ ) {
+		// find boids in the local area
+		let victim = this.tank.grid.GetObjectsByBox( 
+			this.x - this.collision.radius, 
+			this.y - this.collision.radius,
+			this.x + this.collision.radius,
+			this.y + this.collision.radius,
+			o => o instanceof Boid && o.genus != this.genus && o != this )
+		.find( b => {
+			let dx = b.x - this.x;
+			let dy = b.y - this.y;
+			let d = Math.sqrt( dx * dx + dy * dy );
+			return d < this.collision.radius + b.collision.radius;
+		} );
+		if ( !victim ) { return false; }
+		// let was = victim.metab.energy;
+		victim.metab.energy -= attack_force;
+		// console.log(`attacking @ ${attack_force.toFixed()} : ${was.toFixed()} -> ${victim.metab.energy.toFixed()}`);
+		this.stats.combat.attacks++;
+		this.stats.combat.dmg_dealt += attack_force;
+		victim.stats.combat.attacks_received++;
+		victim.stats.combat.dmg_received += attack_force;
+		if ( victim.metab.energy <= 0 && !globalThis.vc.simulation.settings?.ignore_lifecycle ) {
+			victim.Kill('attack');
+			this.stats.combat.kills++;
+			globalThis.vc.simulation.RecordStat('kills',1);
+			// prizes!
+			const f = new Food( victim.x, victim.y, { 
+				value: victim.mass * 0.25, // reduce value to avoid virtuous cycles  
+				lifespan: ( victim.mass * 0.05),
+				buoy_start: 5,
+				buoy_end: -20,
+				nutrients: victim.traits.nutrition.map( x => x > 0 ? x : 0 ),
+				complexity: Math.max( victim.traits.nutrition.filter( x => x > 0 ).length, 6 )
+				} );		
+			globalThis.vc.tank.foods.push(f);											
+		}
+
+		// draw indicator circle
+		// let mark = null;
+		// let marksize = Math.min( 80, Math.sqrt(attack_force) );
+		// if ( victim.dead ) {
+		// 	mark = globalThis.two.makeGroup();
+		// 	mark.add( globalThis.two.makeLine( -marksize, -marksize, marksize, marksize ) );
+		// 	mark.add( globalThis.two.makeLine( -marksize, marksize, marksize, -marksize ) );
+		// 	mark.position.x = victim.x;
+		// 	mark.position.y = victim.y;
+		// }
+		// else {
+		// 	mark = globalThis.two.makeCircle( victim.x, victim.y, marksize );
+		// }
+		// mark.stroke = 'red';
+		// mark.fill = 'transparent';
+		// mark.linewidth = 6;
+		// // mark.dashes = [30, 6, 6, 6];
+		// globalThis.vc.AddShapeToRenderLayer(mark,1);
+		// // make it go away after 2s - 
+		// if ( globalThis.vc.animate_boids ) {
+		// 	new TWEEN.Tween(mark)
+		// 		.to( { opacity:0, scale:2 }, 2000 )
+		// 		.easing(TWEEN.Easing.Quadratic.Out)
+		// 		// switch to absolute tracking after chase completed
+		// 		.onComplete( obj => obj.remove() )
+		// 		.start();
+		// }
+		// else {
+		// 	setTimeout( _ => mark.remove(), 2000 );
+		// }
+		
+		return true;
+	}
+	
+	CreateMark( sense, radius, lifespan ) {
+		if ( !globalThis.vc?.simulation?.settings?.no_marks ) {
+			this.tank.marks.push( new Mark({
+				x: this.x,
+				y: this.y,
+				r: radius,
+				sense: sense,
+				lifespan: lifespan
+			}) );
+		}	
+	}
+	
+	Mitosis( num_offspring ) {
+		const mutation_rate = utils.Clamp( globalThis.vc?.simulation?.settings?.max_mutation, 0, 1 );
+		const speciation_rate = utils.Clamp( globalThis.vc?.simulation?.settings?.speciation_rate || 0, 0, 1 );
+		for ( let n=0; n < num_offspring; n++ ) { 
+			let offspring = this.Copy(true, mutation_rate, mutation_rate, speciation_rate); // reset state and mutate organism
+			offspring.age = 0; // simulation can assign a random age on Copy
+			offspring.x = this.x;
+			offspring.y = this.y;
+			offspring.angle = utils.RandomFloat(0, Math.PI*2);
+			offspring.mass = this.mass / ( num_offspring + 1 );
+			offspring.ScaleBoidByMass();
+			// the parent decides how much energy to invest into babies. 
+			// If they are given max energy, they immediately start to grow 
+			// which doesnt make a lot of sense. If they don't have enough
+			// energy, they don't stand a chance of surviving.
+			offspring.metab.energy = this.traits.offspring_investment * offspring.metab.max_energy;
+			this.tank.boids.push(offspring);
+		}
+		// babies aren't free. we just lost a lot of mass.
+		this.mass /= ( num_offspring + 1 );
+		this.ScaleBoidByMass();
+		globalThis.vc.simulation.RecordStat('births',num_offspring);	
+	}
+	
+	Bud() {
+		const mutation_rate = utils.Clamp( globalThis.vc?.simulation?.settings?.max_mutation, 0, 1 );
+		const speciation_rate = utils.Clamp( globalThis.vc?.simulation?.settings?.speciation_rate || 0, 0, 1 );
+		let offspring = this.Copy(true, mutation_rate, mutation_rate, speciation_rate); // reset state and mutate organism
+		offspring.age = 0; // simulation can assign a random age on Copy
+		offspring.x = this.x;
+		offspring.y = this.y;
+		offspring.angle = utils.RandomFloat(0, Math.PI*2);
+		offspring.mass = this.mass * this.traits.offspring_investment * 0.5; 
+		offspring.ScaleBoidByMass();
+		offspring.metab.energy = offspring.metab.max_energy;
+		this.tank.boids.push(offspring);
+		globalThis.vc.simulation.RecordStat('births',1);	
+	}
+	
 	ScaleBoidByMass() {
 		this.scale = this.mass / this.body.mass; // square scale
 		this.length = Math.sqrt(this.scale) * this.body.length;
