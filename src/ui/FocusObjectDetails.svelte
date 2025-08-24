@@ -433,6 +433,14 @@
 				<span style="width:32%; display:inline-block;" title="Energy burned by motors">
 					motor:&nbsp;<output>{(boid.stats.metab.motors||0).toFixed()}</output>
 				</span>
+				<!-- uncomment for motor metabolism debugging -->
+				<!--
+				{#each Object.keys(boid.stats.metab) as k}
+					<span style="width:32%; display:inline-block;">
+						{k}:&nbsp;<output>{boid.stats.metab[k].toFixed()}</output>
+					</span>
+				{/each}
+				-->
 			</p>
 			<br/>
 		</div>

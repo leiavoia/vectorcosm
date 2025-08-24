@@ -25,18 +25,23 @@ export function BoidFactory( type, x, y, tank ) {
 export class Boid extends PhysicsObject {
 
 	// physics tuning constants
-	static maxspeed = 2800; 
-	static maxrot = 20;
-	static max_boid_linear_impulse = 3000000;
-	static min_boid_linear_impulse = 24000;
-	static max_boid_angular_impulse = 100000;
-	static min_boid_angular_impulse = 5000;
-	static max_poop_buoy = 50;
-	static min_poop_buoy = -500;
-	static ang_drag_coef = 350;
-	static forward_drag_coef = 0.18;
-	static lateral_drag_coef = 3.4;
-	static wall_slide_friction = 0.97;
+	static maxspeed = 2800; // sanity caps 
+	static maxrot = 20; // sanity caps
+	static max_boid_linear_impulse = 3000000; // impulses multiplied by boid's motor power (0..1) 
+	static min_boid_linear_impulse = 24000; // impulses multiplied by boid's motor power (0..1) 
+	static max_boid_angular_impulse = 90000; // impulses multiplied by boid's motor power (0..1) 
+	static min_boid_angular_impulse = 5000; // impulses multiplied by boid's motor power (0..1) 
+	static max_poop_buoy = 50; // some poop floats
+	static min_poop_buoy = -500; // most poop sinks
+	static ang_drag_coef = 350; // drag on rotation
+	static forward_drag_coef = 0.18; // cost of going forward
+	static lateral_drag_coef = 3.4; // cost of rotating
+	static wall_slide_friction = 0.97; // object collision friction
+	static linear_motor_cost_adjust = 1 / 700; // base rate per mass unit per second
+	static angular_motor_cost_adjust = 1 / 900; // base rate per mass unit per second
+	static min_motor_cost_adjust = 0.1; // discount for going slow
+	static max_motor_cost_adjust = 3.0; // tax for going fast
+	static motor_cost_exponent = 1.5; // punishment curve
 	
 	Reset() {
 		this.x = 0;
@@ -174,7 +179,7 @@ export class Boid extends PhysicsObject {
 		this.collision = {
 			shape: 'circle',
 			fixed: false,
-			radius: 15, // TODO: update
+			radius: 15, // update later
 			qid: 0
 		};
 		
@@ -714,30 +719,72 @@ export class Boid extends PhysicsObject {
 			}
 			// don't allow overtaxing
 			delta = Math.min( delta, m.this_stroke_time - m.t ); 
-			// cost of doing business
-			let cost = ( m.cost * Math.abs(m.strokepow) * delta * this.mass ) / 650;
+			// base cost of doing business
+			let cost = m.cost * delta * this.mass;
+			// movement motors have a variable cost to promote efficiency
+			if ( m.linear || m.angular ) {
+				cost *= Boid.min_motor_cost_adjust 
+					+ (Boid.max_motor_cost_adjust - Boid.min_motor_cost_adjust) 
+					* Math.pow(Math.abs(m.strokepow),Boid.motor_cost_exponent); // could be optimized if you want simple linear interpolation
+			}
+			// all other motors use the activation amount as the cost indicator
+			else {
+				cost *= Math.abs(m.strokepow);
+			}
 			this.metab.energy -= cost;
 			this.stats.metab.motors += cost;
+			this.stats.metab[m.name] = (this.stats.metab[m.name] || 0) + cost;
 			globalThis.vc.simulation.RecordStat('energy_used',cost);
-			
 			// increase stroke time
 			m.t = utils.clamp(m.t+delta, 0, m.this_stroke_time); 
 			// stroke power function modifies the power withdrawn per frame
 			// In addition to the curve shape, we also modify the power by a constant
 			// to make sure the total power output of the entire stroke is the same
 			// across all stroke types. Assume "constant" stroke has total power of 1.
+			let amount_adjust = 1.0; // adjustment to account for power curve shape
+			let amount_now = amount; // fraction of power at current point in time
 			switch ( m.strokefunc ) {
-				case 'linear_down':	amount *= 2 * ( (m.this_stroke_time - m.t) / m.this_stroke_time); break;
-				case 'linear_up':	amount *= 2 * ( 1 - ((m.this_stroke_time - m.t) / m.this_stroke_time)); break;
-				case 'bell':		amount *= 2 * (0.5 * Math.sin( (m.t/m.this_stroke_time) * Math.PI * 2 + Math.PI * 1.5 ) + 0.5); break;
-				case 'step_up':		amount = (m.t >= m.this_stroke_time*0.5)	? (amount * 2.0) : 0 ; break;
-				case 'step_down':	amount = (m.t < m.this_stroke_time*0.5)		? (amount * 2.0) : 0 ; break;
-				case 'burst':		amount = (m.t >= m.this_stroke_time*0.8)	? (amount * 5.0) : 0 ; break;
-				case 'spring':		amount = (m.t < m.this_stroke_time*0.2)		? (amount * 5.0) : 0 ; break;
+				case 'linear_down':	{
+					amount_adjust = 2;
+					amount_now = amount * ( (m.this_stroke_time - m.t) / m.this_stroke_time); 
+					break;
+				}
+				case 'linear_up':	{
+					amount_adjust = 2;
+					amount_now = amount * ( 1 - ((m.this_stroke_time - m.t) / m.this_stroke_time)); 
+					break;
+				}
+				case 'bell':		{
+					amount_adjust = 2;
+					amount_now = amount * (0.5 * Math.sin( (m.t/m.this_stroke_time) * Math.PI * 2 + Math.PI * 1.5 ) + 0.5); 
+					break;
+				}
+				case 'step_up':		{
+					amount_adjust = 2;
+					amount_now = (m.t >= m.this_stroke_time*0.5) ? amount : 0 ; 
+					break;
+				}
+				case 'step_down':	{
+					amount_adjust = 2;
+					amount_now = (m.t < m.this_stroke_time*0.5)	? amount : 0 ; 
+					break;
+				}
+				case 'burst':		{
+					amount_adjust = 5;
+					amount_now = (m.t >= m.this_stroke_time*0.8) ? amount : 0 ; 
+					break;
+				}
+				case 'spring':		{
+					amount_adjust = 5;
+					amount_now = (m.t < m.this_stroke_time*0.2)	?  amount : 0 ; 
+					break;
+				}
 				// default: ;; // the default is constant time output
 			}
 			// record how much power was activated this stroke - mostly for UI and animation
-			m.last_amount = Math.abs( amount );
+			m.last_amount = Math.abs( amount_now );
+			// final output calculation
+			amount = amount_now * amount_adjust;
 			// adjust for body size - larger organisms provide more power
 			amount *= Math.pow( this.mass / 800, 0.75 );
 			if ( m.hasOwnProperty('linear') ) {
@@ -864,7 +911,7 @@ export class Boid extends PhysicsObject {
 		this.stats.death.energy_remaining_pct = Math.floor( ( this.stats.death.energy_remaining / this.metab.max_energy ) * 100 );
 		this.stats.death.age_remaining = Math.floor( this.lifespan - this.age );
 		this.stats.death.age_remaining_pct = Math.floor( ( 1 - (this.age / this.lifespan) ) * 100 );
-		// console.log(this.stats.death);
+		// console.log(this.stats);
 		globalThis.vc.simulation.RecordStat('deaths',1);
 		globalThis.vc.simulation.RecordStat('death_from_'+this.stats.death.cause,1);
 	}
@@ -1078,12 +1125,9 @@ export class Boid extends PhysicsObject {
 			}
 			if ( angular ) { motor.angular = angular; has_angular = true; }
 						
-			// cost of motor: baseline scales with body mass. random element to represent unique adaptation.
-			const motorCostGene = this.dna.genesFor(`motor cost ${n}`,2,1);
-			// motor.cost = (Math.abs(motor.linear||0) / 1800) + (Math.abs(motor.angular||0) / 100);
-			// motor.cost += ( motor.cost * this.dna.shapedNumber(motorCostGene,0,1) ) - (motor.cost * 0.5);
-			// NOTE: we want to get away from unique costs and move towards exponential costs on power use.
-			motor.cost = 1;
+			// cost of motor is per mass per second
+			motor.cost = 1 * (motor.linear ? Boid.linear_motor_cost_adjust : 1) * (motor.angular ? Boid.angular_motor_cost_adjust : 1);
+			motor.cost /= stroketime;
 			
 			// animation
 			motor.anim = {
@@ -1161,17 +1205,16 @@ export class Boid extends PhysicsObject {
 		if ( repro_type_roll < 0.5 ) {
 			const mitosis_num = this.dna.shapedInt( this.dna.genesFor('mitosis num',2,true), 1,5,1,3);
 			const stroketime = this.dna.shapedInt( this.dna.genesFor('mitosis stroketime',2,true), 
-				mitosis_num*this.lifespan*0.02, 
-				mitosis_num*this.lifespan*0.10,
-				mitosis_num*this.lifespan*0.05,
+				mitosis_num * this.lifespan * 0.02, 
+				mitosis_num * this.lifespan * 0.10,
+				mitosis_num * this.lifespan * 0.05,
 				2);
-			const offspring_portion =  (1/(mitosis_num+2)) * mitosis_num;
+			const offspring_tax =  (1/(mitosis_num+2)) * mitosis_num; // 1/3, 2/4, 3/5, 4/6, 5/7
+			// Cost is per stroke per unit of mass. The motor activation function will normalize it by mass per second.
 			// Cost of mitosis depends on how much energy the parent wants to invest in the offspring.
 			// Higher investment gives offspring a higher starting energy level.
-			// Cost is measured as energy per second per mass, sort of. 
-			// [!]arbitrary. motor functions factor in mass already
-			const mitosis_min_cost = ( 200 * offspring_portion ) / stroketime;
-			const mitosis_max_cost = ( 800 * offspring_portion ) / stroketime;
+			const mitosis_min_cost = (1/1000) * offspring_tax * stroketime; // cost per per mass second times length of gestation
+			const mitosis_max_cost = (1/500) * offspring_tax * stroketime; // cost per per mass second times length of gestation
 			const mitosis_cost = mitosis_min_cost + ( mitosis_max_cost - mitosis_min_cost ) * this.traits.offspring_investment;
 			this.motors.push({
 				mitosis: mitosis_num, // number of new organisms
@@ -1186,13 +1229,14 @@ export class Boid extends PhysicsObject {
 				skip_sensor_check:true
 			});
 			// TODO: cost of reproduction depends on variety of factors
-			this.traits.boxfit.push([ 0, mitosis_num * 1.2, `motors.mitosis`]);
+			this.traits.boxfit.push([ 0, 2 * mitosis_num * this.traits.offspring_investment, `motors.mitosis`]);
 		}
 		// budding
 		else {
-			const stroketime = this.lifespan * 0.5 * this.traits.offspring_investment;
-			const min_cost = 200 / stroketime;
-			const max_cost = 800 / stroketime;
+			const max_stroketime = this.lifespan * 0.5;
+			const stroketime = max_stroketime * this.traits.offspring_investment;
+			const min_cost = (1/1000) * ( 1 + stroketime / max_stroketime );
+			const max_cost = (1/500) * ( 1 + stroketime / max_stroketime );
 			const cost = min_cost + ( max_cost - min_cost ) * this.traits.offspring_investment;
 			const min_act = this.dna.shapedNumber( this.dna.genesFor('bud min act',2), 0.05, 0.9, 0.2, 5);
 			this.motors.push({
@@ -1215,11 +1259,13 @@ export class Boid extends PhysicsObject {
 		const canAttack = this.dna.shapedNumber( this.dna.genesFor(`attack motor chance`,1,1) );
 		if ( canAttack > 0.5 ) {
 			const attackValue = this.dna.shapedNumber( this.dna.genesFor(`attack motor value`,1,1), 0.2, 2.0, 2, 3 ); 
-			let stroketime = 5;
+			const max_stroketime = 10;
+			let stroketime = max_stroketime * ( attackValue / 2 );
+			const cost = ( Math.sqrt(1 + (max_stroketime - stroketime)) * (1/250) ) / stroketime; // discount for infrequent violence
 			this.motors.push({
 				attack: attackValue,
 				min_act: this.dna.shapedNumber( this.dna.genesFor('attack motor min act',2), 0.25, 0.9, 0.5, 3),
-				cost: (0.2 * 200), // per second per mass / 800. long story. will fix later
+				cost: cost,
 				stroketime: stroketime, 
 				strokefunc: 'linear_down', 
 				name: `attack${attackValue.toFixed(1)}`,
@@ -1245,13 +1291,14 @@ export class Boid extends PhysicsObject {
 			const time = this.dna.shapedNumber( this.dna.genesFor(`scent1 time`,2,1), 5, 30, 10, 3 );
 			const lifespan = this.dna.shapedNumber( this.dna.genesFor(`scent1 lifespan`,2,1), 5, 20, 10, 3 );
 			const act = this.dna.shapedNumber( this.dna.genesFor(`scent1 act`,2,1), 0.5, 1.0, 0.6, 3 );
+			const cost = (1/500) / time;
 			sense[i1] += strength;
 			sense[i2] += strength * 0.5;
 			sense[i3] += strength * 0.25;
 			this.motors.push({
 				sense,
 				min_act: act,
-				cost: strength, // ??? don't know yet
+				cost: cost,
 				stroketime: time, 
 				strokefunc: 'linear_down', 
 				name: `scent-${i1}${i2}${i3}`,
@@ -1260,8 +1307,8 @@ export class Boid extends PhysicsObject {
 				r: radius,
 				skip_sensor_check:true
 			});		
-			const cost = strength * radius * 0.001;
-			this.traits.boxfit.push([ cost * 0.2, cost, `motors.scent1`]);
+			const boxcost = strength * radius * 0.001;
+			this.traits.boxfit.push([ boxcost * 0.2, boxcost, `motors.scent1`]);
 		}
 		
 		const hasScent2 = this.dna.shapedNumber( 0x08000000 | this.dna.genesFor(`hasScent2`,1,1) );
@@ -1274,11 +1321,12 @@ export class Boid extends PhysicsObject {
 			const time = this.dna.shapedNumber( this.dna.genesFor(`scent2 time`,2,1), 5, 30, 10, 3 );
 			const lifespan = this.dna.shapedNumber( this.dna.genesFor(`scent2 lifespan`,2,1), 2, 12, 5, 3 );
 			const act = this.dna.shapedNumber( this.dna.genesFor(`scent2 act`,2,1), 0.68, 1.0, 0.78, 3 );
+			const cost = (1/550) / time;
 			sense[i] = strength;
 			this.motors.push({
 				sense,
 				min_act: act,
-				cost: strength, // ??? don't know yet
+				cost: cost,
 				stroketime: time, 
 				strokefunc: 'linear_down', 
 				name: `scent-${i}`,
@@ -1287,8 +1335,8 @@ export class Boid extends PhysicsObject {
 				r: radius,
 				skip_sensor_check:true
 			});		
-			const cost = strength * radius * 0.001;
-			this.traits.boxfit.push([ cost * 0.2, cost, `motors.scent2`]);
+			const boxcost = strength * radius * 0.001;
+			this.traits.boxfit.push([ boxcost * 0.2, boxcost, `motors.scent2`]);
 		}
 		
 		const hasCall1 = this.dna.shapedNumber( 0x08000000 | this.dna.genesFor(`hasCall1`,1,1) );
@@ -1301,11 +1349,12 @@ export class Boid extends PhysicsObject {
 			const time = this.dna.shapedNumber( this.dna.genesFor(`call1 time`,2,1), 5, 12, 7, 3 );
 			const lifespan = this.dna.shapedNumber( this.dna.genesFor(`call1 lifespan`,2,1), 2, 5, 2, 3 );
 			const act = this.dna.shapedNumber( this.dna.genesFor(`call1 act`,2,1), 0.55, 1.0, 0.68, 3 );
+			const cost = (1/450) / time;
 			sense[i] = strength;
 			this.motors.push({
 				sense,
 				min_act: act,
-				cost: strength, // ??? don't know yet
+				cost: cost,
 				stroketime: time, 
 				strokefunc: 'linear_down', 
 				name: `call-${i}`,
@@ -1314,8 +1363,8 @@ export class Boid extends PhysicsObject {
 				r: radius,
 				skip_sensor_check:true
 			});		
-			const cost = strength * radius * 0.001;
-			this.traits.boxfit.push([ cost * 0.2, cost, `motors.call1`]);
+			const boxcost = strength * radius * 0.001;
+			this.traits.boxfit.push([ boxcost * 0.2, boxcost, `motors.call1`]);
 		}
 		
 		const hasSignal1 = this.dna.shapedNumber( 0x08000000 | this.dna.genesFor(`hasSignal1`,1,1) );
@@ -1332,13 +1381,14 @@ export class Boid extends PhysicsObject {
 			const time = this.dna.shapedNumber( this.dna.genesFor(`signal1 time`,2,1), 3, 10, 5, 3 );
 			const lifespan = this.dna.shapedNumber( this.dna.genesFor(`signal1 lifespan`,2,1), 2, 5, 2, 3 );
 			const act = this.dna.shapedNumber( this.dna.genesFor(`signal1 act`,2,1), 0.6, 0.9, 0.7, 3 );
+			const cost = (1/300) / time;
 			sense[i1] += strength;
 			sense[i2] += strength;
 			sense[i3] += strength;
 			this.motors.push({
 				sense,
 				min_act: act,
-				cost: strength, // ??? don't know yet
+				cost: cost,
 				stroketime: time, 
 				strokefunc: 'linear_down', 
 				name: `signal-${i1}${i2}${i3}`,
@@ -1347,8 +1397,8 @@ export class Boid extends PhysicsObject {
 				r: radius,
 				skip_sensor_check:true
 			});		
-			const cost = strength * radius * 0.0005;
-			this.traits.boxfit.push([ cost * 0.2, cost, `motors.signal1`]);
+			const boxcost = strength * radius * 0.0005;
+			this.traits.boxfit.push([ boxcost * 0.2, boxcost, `motors.signal1`]);
 		}
 		
 		// // connect motor animations to specific points
