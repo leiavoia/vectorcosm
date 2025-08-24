@@ -156,6 +156,8 @@ export class Boid extends PhysicsObject {
 			bite_speed: 1,					// time in seconds for bite to reset
 			boxfit: [],						// [ [ metabolism points, size points, label ] ]
 			offspring_investment: 0.5,		// the degree of energy banking a parent puts into offspring
+			motor_power_strat: 'blended' 	// how a motor converts activation signal to final output amount. One of:
+											// 'blended', 'linear', 'raw'
 		};
 		this.metab = {
 			digest_rate: 1,					// current amount of food digested per second
@@ -704,15 +706,16 @@ export class Boid extends PhysicsObject {
 				// if we decided to activate a new stroke, record the power it was
 				// activated with instead of using a varying stroke each frame.
 				m.strokepow = amount; 
-				// use this if you want the stroke time to coordinate with the power
-				// i.e. a quick flick versus a hard push
-				// m.this_stroke_time = m.stroketime * amount;
 				// use this modified version to make sure stroke times are "kinda normalized"
 				// and can't get too low with very short power values
-				m.this_stroke_time = m.stroketime * ( Math.abs(amount) + ( (1-Math.abs(amount)) * 0.25 ) );
-				// use this if you want a constant stroke time,
-				// however this tends to look a bit robotic
-				// m.this_stroke_time = m.stroketime;
+				if ( m?.stroke_time_strategy == 'blend' ) {
+					m.this_stroke_time = m.stroketime * ( Math.abs(amount) + ( (1-Math.abs(amount)) * 0.25 ) );
+				}
+				// use this if you want the stroke time to coordinate with the power
+				// i.e. a quick flick versus a hard push
+				else {
+					m.this_stroke_time = m.stroketime * amount;
+				}
 			}
 			else { 
 				amount = m.strokepow; 
@@ -1070,9 +1073,6 @@ export class Boid extends PhysicsObject {
 		for ( let n=1; n <= motor_slots.length; n++ ) {
 			if ( !motor_slots[n-1] ) { continue; } // a blank for your thoughts
 			
-			const strokeFuncGene = this.dna.genesFor(`motor stroke function ${n}`,2,-1);
-			let strokefunc = this.dna.shapedNumber(strokeFuncGene, 0, 1);
-			
 			const wheelChanceGene = this.dna.genesFor(`motor wheel chance ${n}`,1,true);
 			let wheel = this.dna.shapedNumber(wheelChanceGene, 0, 1) > 0.75 ? true : false;
 			
@@ -1085,6 +1085,9 @@ export class Boid extends PhysicsObject {
 			const minActGene = this.dna.genesFor(`motor min_act chance ${n}`,2,1);
 			let min_act = this.dna.shapedNumber(minActGene,0,0.7,0.05,4);
 			if ( wheel ) { min_act *= 0.5; }
+			
+			const strokeFuncGene = this.dna.genesFor(`motor stroke function ${n}`,2,-1);
+			let strokefunc = this.dna.shapedNumber(strokeFuncGene, 0, 1);
 			if ( strokefunc < 0.4 ) { strokefunc = 'linear_down'; }
 			else if ( strokefunc < 0.5 ) { strokefunc = 'linear_up'; }
 			else if ( strokefunc < 0.65 ) { strokefunc = 'bell'; }
@@ -1093,6 +1096,7 @@ export class Boid extends PhysicsObject {
 			else if ( strokefunc < 0.78 ) { strokefunc = 'burst'; }
 			else if ( strokefunc < 0.84 ) { strokefunc = 'spring'; }
 			else { strokefunc = 'constant'; }
+			
 			let motor = { min_act, stroketime, t:0, strokefunc, wheel, min_age };
 			
 			const linearGene = this.dna.genesFor(`motor linear ${n}`, 2, 1);
@@ -1108,6 +1112,9 @@ export class Boid extends PhysicsObject {
 			
 			const angularFlipGene = this.dna.genesFor(`motor angular flip ${n}`, 1, true);
 			if ( this.dna.shapedNumber(angularFlipGene,0,1) > 0.65 ) { angular = -angular; }
+			
+			const blendedStrokeGene = this.dna.genesFor(`blendedStrokeGene ${n}`, 1, true);
+			if ( this.dna.shapedNumber(blendedStrokeGene,0,1) > 0.4 ) { motor.stroke_time_strategy = 'blend'; }
 			
 			// all organisms must have ability to move forward and turn. 
 			// If there is only one motor on the organism, make it a combo linear+angular.
@@ -1151,11 +1158,13 @@ export class Boid extends PhysicsObject {
 					name = name.replace(/[↑↓]/g,'↕'); 
 					name = name.replace(/[↶↷]/g,'↔'); 
 				}
+				// direction
 				name = name.replace(/↑↶/,'↰'); 
 				name = name.replace(/↑↷/,'↱'); 
 				name = name.replace(/↓↶/,'↲'); 
 				name = name.replace(/↓↷/,'↳'); 
 				name = name.replace(/↕↔/,'✣'); 
+				// power curve
 				if ( m.strokefunc == 'constant' ) { name += ' ▻'; }
 				else if ( m.strokefunc == 'linear_down' ) { name += ' ◺'; }
 				else if ( m.strokefunc == 'linear_up' ) { name += ' ◿'; }
@@ -1164,6 +1173,8 @@ export class Boid extends PhysicsObject {
 				else if ( m.strokefunc == 'step_up' ) { name += ' ◰'; }
 				else if ( m.strokefunc == 'burst' ) { name += ' ∟'; }
 				else if ( m.strokefunc == 'spring' ) { name += ' ⯾'; }
+				// timing
+				if ( m?.stroke_time_strategy == 'blend' ) { name += ' ≈'; }
 				return name;
 			}
 
