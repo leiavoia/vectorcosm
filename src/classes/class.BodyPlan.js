@@ -13,13 +13,13 @@ export default class BodyPlan {
 		this.fill = 'transparent'; // "#AEA";
 		this.dashes = [];
 		this.curved = false;
-		this.length = length || dna.shapedInt( dna.genesFor('body length',3,2), 8,120,25,3);
-		this.width = width || dna.shapedInt( dna.genesFor('body width',3,2), 8,70,17,3);
+		this.length = length || dna.shapedInt( dna.genesFor('body length',2,1), 8,120,25,3);
+		this.width = width || dna.shapedInt( dna.genesFor('body width',2,1), 8,70,17,3);
 		this.mass = this.length * this.width;
-		this.max_length = this.length * dna.shapedNumber( dna.genesFor('max_length',2,true), 1,1.5,1.1,1.4);
-		this.max_width = this.width * dna.shapedNumber( dna.genesFor('body max_width',2,true), 1,1.5,1.1,1.4);
+		this.max_length = this.length * dna.shapedNumber( dna.genesFor('max_length',2,1), 1,1.5,1.1,1.4);
+		this.max_width = this.width * dna.shapedNumber( dna.genesFor('body max_width',2,1), 1,1.5,1.1,1.4);
 		this.min_length = this.length * dna.shapedNumber( dna.genesFor('body min_length',2,true), 0.6,1,0.9,1.4);
-		this.min_width = this.width * dna.shapedNumber( dna.genesFor('body min_width',2,true), 0.6,1,0.9,1.4);
+		this.min_width = this.width * dna.shapedNumber( dna.genesFor('body min_width',2,1), 0.6,1,0.9,1.4);
 		this.curved = dna.shapedNumber( dna.genesFor('body curved',2,true), 0, 1, 0.5, 1.5 ) > 0.7; // once a pointy, always a pointy
 		if ( dna.shapedNumber( dna.genesFor('has dashes',2,1), 0,1,0.4,1.3) > 0.92 ) {
 			this.dashes = [];
