@@ -29,13 +29,13 @@ export class Boid extends PhysicsObject {
 	static maxrot = 20; // sanity caps
 	static max_boid_linear_impulse = 3000000; // impulses multiplied by boid's motor power (0..1) 
 	static min_boid_linear_impulse = 24000; // impulses multiplied by boid's motor power (0..1) 
-	static max_boid_angular_impulse = 90000; // impulses multiplied by boid's motor power (0..1) 
+	static max_boid_angular_impulse = 80000; // impulses multiplied by boid's motor power (0..1) 
 	static min_boid_angular_impulse = 5000; // impulses multiplied by boid's motor power (0..1) 
 	static max_poop_buoy = 50; // some poop floats
 	static min_poop_buoy = -500; // most poop sinks
-	static ang_drag_coef = 350; // drag on rotation
-	static forward_drag_coef = 0.18; // cost of going forward
-	static lateral_drag_coef = 3.4; // cost of rotating
+	static ang_drag_coef = 400; // drag on rotation
+	static forward_drag_coef = 0.18; // cost of going straight
+	static lateral_drag_coef = 3.4; // cost of drifting
 	static wall_slide_friction = 0.97; // object collision friction
 	static linear_motor_cost_adjust = 1 / 700; // base rate per mass unit per second
 	static angular_motor_cost_adjust = 1 / 900; // base rate per mass unit per second
