@@ -138,6 +138,7 @@ export class Boid extends PhysicsObject {
 		this.scale = 1; // current mass over body plan mature mass
 		this.length = 1; 
 		this.width = 1; 
+		this.effective_length = 1;
 		// [!]TEMPORARY - new stuff goes in the "traits" or other sub-objects to separate from old stuff
 		this.traits = {
 			nutrition: new Array(8).fill(0.5),// array of nutritional benefit of primary nutrients. 0..1: edible, >1: required, <0: toxic
@@ -156,8 +157,9 @@ export class Boid extends PhysicsObject {
 			bite_speed: 1,					// time in seconds for bite to reset
 			boxfit: [],						// [ [ metabolism points, size points, label ] ]
 			offspring_investment: 0.5,		// the degree of energy banking a parent puts into offspring
-			motor_power_strat: 'blended' 	// how a motor converts activation signal to final output amount. One of:
-											// 'blended', 'linear', 'raw'
+			effective_length_term: 1,		// `p` term for effective length formula, -2..2
+			motor_power_strat: 'blended', 	// how a motor converts activation signal to final output amount. One of:
+											// 'blended', 'raw' (default)
 		};
 		this.metab = {
 			digest_rate: 1,					// current amount of food digested per second
@@ -728,7 +730,8 @@ export class Boid extends PhysicsObject {
 		amount = amount_now * amount_adjust;
 		
 		// adjust for body size - larger organisms provide more power
-		amount *= Math.pow( this.mass / 800, 0.75 );
+		// REMOVED: We like this idea, but this is not the right way to do it.
+		// amount *= Math.pow( this.mass / 800, 0.75 );
 		
 		// apply forces and effects
 		if ( m.hasOwnProperty('linear') ) {
@@ -882,7 +885,22 @@ export class Boid extends PhysicsObject {
 	ScaleBoidByMass() {
 		this.scale = this.mass / this.body.mass; // square scale
 		this.length = Math.sqrt(this.scale) * this.body.length;
-		this.width = Math.sqrt(this.scale) * this.body.width;	
+		this.width = Math.sqrt(this.scale) * this.body.width;
+		// calculate "effective length" - there are many ways to do this:
+		// The obvious method would be to simply average L x W.
+		// However we toss a new term in here with an Lp function to give some
+		// interesting genetic flavor to this.
+		//	p<0 → harmonic-like (favors stubby bodies)
+		//	p=1 → arithmetic (favors long bodies)
+		//	p=2 → RMS (favors long bodies)
+		//	p→0 → geometric (neutral)		
+		this.effective_length = Math.pow(
+			0.5 * (
+				Math.pow(this.length, this.traits.effective_length_term) +
+				Math.pow(this.width, this.traits.effective_length_term)
+			), 
+			1 / this.traits.effective_length_term
+			);
 		this.metab.stomach_size = this.traits.base_stomach_size * this.mass;
 		this.metab.bowel_size = this.traits.base_bowel_size * this.mass;
 		this.metab.metabolic_rate = this.traits.base_metabolic_rate * this.mass;
@@ -896,13 +914,24 @@ export class Boid extends PhysicsObject {
 			this.metab.stomach_total = this.metab.stomach_size; 
 			// TODO: explosive diarrhea	
 		}
-		// drawing changes are expensive. limit to whole numbers.
-		let new_scale = this.length / this.body.length; // linear scale
-		// if ( new_scale.toFixed(2) != this.body.geo.scale.toFixed(2) ) {
-			// this.body.geo.scale = new_scale; 
-			this.collision.radius = Math.max(this.length, this.width) / 2;
-		// }
+		this.collision.radius = Math.max(this.length, this.width) / 2;
 	}
+
+	// keeping this here for possible interesting expansions on calculating effective length for use with motor force
+	// function effLen(L, W, mode="lp", p=2, perimeterScale=0.5) {
+	// switch (mode) {
+	// 	case "geo":   return Math.sqrt(L*W);
+	// 	case "ari":   return 0.5*(L+W);
+	// 	case "har":   return (2*L*W)/(L+W);
+	// 	case "rms":   return Math.sqrt(0.5*(L*L + W*W));
+	// 	case "perim": return perimeterScale*(L+W); // tweak perimeterScale ~ 0.5
+	// 	case "min":   return Math.min(L, W);
+	// 	case "max":   return Math.max(L, W);
+	// 	case "lp":    return Math.pow(0.5*(Math.pow(L,p)+Math.pow(W,p)), 1/p); // p∈(-∞,∞)
+	// 	default:      return Math.sqrt(L*W);
+	// }
+	// }	
+	
 	Kill( cause='unknown' ) {
 		this.dead = true;
 		// if this is a natural tank setting, make food from carcass
@@ -1854,6 +1883,8 @@ export class Boid extends PhysicsObject {
 		this.sense[9] =  Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 7',2,1), -0.25, 1, 0.3, 2 ) );
 		this.sense[10] = Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 8',2,1), -0.25, 1, 0.1, 2 ) );
 		this.sense[11] = Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 9',2,1), -0.25, 1, 0.05, 2 ) );
+
+		this.traits.effective_length_term = this.dna.shapedNumber( this.dna.genesFor('effective_length_term',1,true), -2, 2, 1, 2);
 
 		// fill out our form	
 		this.ScaleBoidByMass();
