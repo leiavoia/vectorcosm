@@ -27,10 +27,10 @@ export class Boid extends PhysicsObject {
 	// physics tuning constants
 	static maxspeed = 2800; // sanity caps 
 	static maxrot = 20; // sanity caps
-	static max_boid_linear_impulse = 3000000; // impulses multiplied by boid's motor power (0..1) 
-	static min_boid_linear_impulse = 24000; // impulses multiplied by boid's motor power (0..1) 
-	static max_boid_angular_impulse = 80000; // impulses multiplied by boid's motor power (0..1) 
-	static min_boid_angular_impulse = 5000; // impulses multiplied by boid's motor power (0..1) 
+	static max_boid_linear_impulse = 100000; // impulses multiplied by boid's motor power (0..1) 
+	static min_boid_linear_impulse = 2400; // impulses multiplied by boid's motor power (0..1) 
+	static max_boid_angular_impulse = 2500; // impulses multiplied by boid's motor power (0..1) 
+	static min_boid_angular_impulse = 150; // impulses multiplied by boid's motor power (0..1) 
 	static max_poop_buoy = 50; // some poop floats
 	static min_poop_buoy = -500; // most poop sinks
 	static ang_drag_coef = 400; // drag on rotation
@@ -445,7 +445,10 @@ export class Boid extends PhysicsObject {
 		
 		// MOVEMENT ----------------------------\/---------------------------------------
 		
-		// normalize rotation by mass
+		// torque scales with effective body length (2D version of muscle cross-section)
+		this.torque *= this.effective_length;
+		
+		// normalize rotational force by mass
 		this.torque /= this.mass;
 		
 		// apply rotational drag
@@ -463,7 +466,8 @@ export class Boid extends PhysicsObject {
 		// apply angular velocity / adjust pointing angle
 		this.angle = utils.mod( this.angle + (delta * this.ang_vel), 2*Math.PI );
 		
-		// apply forward impulse
+		// apply forward impulse - force scales with effective body length (2D version of muscle cross-section)
+		this.linear_impulse *= this.effective_length;
 		const sinAngle = Math.sin(this.angle);
 		const cosAngle = Math.cos(this.angle);		
 		let impulse_x = this.linear_impulse * cosAngle;
@@ -1868,7 +1872,7 @@ export class Boid extends PhysicsObject {
 		const size_ratio = size_ratio_l / size_ratio_w;
 		const new_length = Math.sqrt( size_cost * size_ratio );
 		const new_width = Math.sqrt( size_cost / size_ratio );
-		
+
 		// now create the body shape
 		this.body = new BodyPlan( this.dna, new_length, new_width );
 		this.sense[0] = this.body.sensor_colors[0];
@@ -1884,6 +1888,7 @@ export class Boid extends PhysicsObject {
 		this.sense[10] = Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 8',2,1), -0.25, 1, 0.1, 2 ) );
 		this.sense[11] = Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 9',2,1), -0.25, 1, 0.05, 2 ) );
 
+		// effective length term influences how effective length is calculated in ScaleBoidByMass
 		this.traits.effective_length_term = this.dna.shapedNumber( this.dna.genesFor('effective_length_term',1,true), -2, 2, 1, 2);
 
 		// fill out our form	
