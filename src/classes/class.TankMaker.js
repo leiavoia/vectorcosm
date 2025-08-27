@@ -33,7 +33,11 @@ export default class TankMaker {
 			scale_x: utils.RandomFloat( 0.5, 5 ),
 			scale_y: utils.RandomFloat( 0.5, 5 ),
 			max_rotation: 0.2,
+			crazytown_chance: 0.3,
+			max_crazyness: 0.4,
 			skew_x: (Math.random() > 0.75 ? Math.random()*2 : 0),
+			max_rock_shrinkage: 0.72,
+			rock_shrinkage_chance: 0.34,
 			rock_color_schemes: [],
 			add_centerpiece_rocks: false,
 			add_substrate: false,
@@ -416,11 +420,26 @@ export default class TankMaker {
 		// calculate voronoi cells
 		const delaunay = Delaunator.from(pts);
 		
+		// get a rotation matrix we can apply later
 		let rotation = Math.random() * this.settings.max_rotation * 2 - this.settings.max_rotation;
-		const matrix = getCenteredRotationCoverMatrix(this.tank.width, this.tank.height, rotation);
+		let matrix = getCenteredRotationCoverMatrix(this.tank.width, this.tank.height, rotation);
 		
-		// also available:
-		// const matrix = CreateCoverMatrix(this.tank.width, this.tank.height, rotation, 0, 0, 1, 1);
+		// not for the faint of heart, but left here as an option
+		if ( this.settings.crazytown_chance ) {
+			// if its a number, interpret as a dice roll
+			if ( this.settings.crazytown_chance===true || Math.random() <= parseFloat(this.settings.crazytown_chance) ) {
+				const crazyness = Math.max( 0.05, Math.random() * this.settings.max_crazyness );
+				matrix = CreateCoverMatrix(
+					this.tank.width, 
+					this.tank.height, 
+					3 * Math.random() * crazyness, 
+					2 * Math.random() * crazyness, 
+					2 * Math.random() * crazyness, 
+					1 + Math.random() * 2 * crazyness, 
+					1 + Math.random() * 2 * crazyness
+				);
+			}
+		}
 
 		// create rocks from each voronoi cell according to mask
 		let cells =[];
@@ -482,6 +501,34 @@ export default class TankMaker {
 			vertices = trimPolygon( vertices, w, 0, w, h ); // down
 			vertices = trimPolygon( vertices, 0, 0, w, 0 ); // right
 			if ( !vertices.length ) { return false; }
+			
+			// rock shrinkage / fracturing
+			if ( this.settings.max_rock_shrinkage ) {
+				if ( Math.random() <= this.settings.rock_shrinkage_chance ) {
+					// compute the center of the polygon
+					let center_x = 0;
+					let center_y = 0;
+					for ( let v of vertices ) {
+						center_x += v[0];
+						center_y += v[1];
+					}
+					center_x /= vertices.length;
+					center_y /= vertices.length;
+					// move each vertex towards the center by a random amount up to the max shrinkage
+					const shrinkage = Math.random() * this.settings.max_rock_shrinkage;
+					vertices = vertices.map( v => {
+						const dx = v[0] - center_x;
+						const dy = v[1] - center_y;
+						const dist = Math.sqrt( dx*dx + dy*dy );
+						const angle = Math.atan2( dy, dx );
+						const shrink = dist * Math.max( 0.15, shrinkage );
+						return [
+							v[0] - Math.cos(angle) * shrink,
+							v[1] - Math.sin(angle) * shrink
+						]
+					});
+				}
+			}
 			
 			cells.push(vertices);
 		});
