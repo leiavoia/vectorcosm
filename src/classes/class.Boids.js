@@ -1135,7 +1135,7 @@ export class Boid extends PhysicsObject {
 			let wheel = this.dna.shapedNumber(wheelChanceGene, 0, 1) > 0.75 ? true : false;
 			
 			const stroketimeGene = this.dna.genesFor(`motor stroke time ${n}`,2,1);
-			const stroketime = this.dna.shapedNumber(stroketimeGene,0.1, 3.5, 0.5, 4); 
+			let stroketime = this.dna.shapedNumber(stroketimeGene,0.1, 3.5, 0.5, 4); 
 			
 			const min_ageGene = this.dna.genesFor(`motor min_age ${n}`,2,1);
 			const min_age = this.larval_age * this.dna.shapedNumber(min_ageGene, 0.2, 1.0, 0.7, 3 ); 
@@ -1154,6 +1154,14 @@ export class Boid extends PhysicsObject {
 			else if ( strokefunc < 0.78 ) { strokefunc = 'burst'; }
 			else if ( strokefunc < 0.84 ) { strokefunc = 'spring'; }
 			else { strokefunc = 'constant'; }
+			
+			// to prevent crazy acceleration, we need to say that spring-type motors have a longer stroke to reset
+			if ( strokefunc == 'step_down' || strokefunc == 'step_up' ) {
+				stroketime = Math.max( stroketime * 1.5, 0.4 );
+			}
+			if ( strokefunc == 'burst' || strokefunc == 'spring' ) {
+				stroketime = Math.max( stroketime * 2, 0.6 );
+			}
 			
 			let motor = { min_act, stroketime, t:0, strokefunc, wheel, min_age };
 			
