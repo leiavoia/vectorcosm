@@ -340,10 +340,10 @@
 					<progress style="width:50%; margin-bottom:0.05rem; margin-right:0.25em;" value={(m.this_stroke_time ? m.last_amount : 0)||0}></progress>
 					<span style="margin-right:0.35em;">{m.name}</span>
 					{#if m.linear}
-						<span style="margin-right:0.35em; color:cyan;">{Math.abs((m.linear*100).toFixed())}</span>
+						<span style="margin-right:0.35em; color:cyan;">{Math.abs((m.stroketime*m.linear*100).toFixed())}</span>
 					{/if}
 					{#if m.angular}
-						<span style="margin-right:0.35em; color:pink;">{Math.abs((m.angular*100).toFixed())}</span>
+						<span style="margin-right:0.35em; color:pink;">{Math.abs((m.stroketime*m.angular*100).toFixed())}</span>
 					{/if}
 					<span style="color:#DDD; font-style:italic;">{m.stroketime.toFixed(1)}s</span>
 				</div>
