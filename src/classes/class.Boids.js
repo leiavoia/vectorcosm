@@ -1017,8 +1017,8 @@ export class Boid extends PhysicsObject {
 		this.maturity_age = this.dna.shapedInt( this.dna.genesFor('maturity age',2,1), 0.1 * this.lifespan, 0.9 * this.lifespan, 0.25 * this.lifespan, 2.5 );
 		this.larval_age = Math.min( this.maturity_age, this.dna.shapedInt( this.dna.genesFor('larval_age',2,1), 2, 25, 5, 4 ) );
 		
-		// nutrition and metabolism
-		// TODO: more complex organisms should have more complex diets
+		// nutrition and metabolism:
+		
 		// food mask - determines what complexity levels of food we can eat
 		this.traits.food_mask = 0;
 		for ( let i=0; i < 6; i++ ) {
@@ -1072,7 +1072,7 @@ export class Boid extends PhysicsObject {
 		{
 			// total all positive nutrition requirements
 			let cost = this.traits.nutrition.reduce( (a,c) => a + (c>0?c:0), 0 );
-			this.traits.boxfit.push([ cost * 1.5, cost, 'body.nutrition']);
+			this.traits.boxfit.push([ Math.pow(cost,1.5), cost, 'body.nutrition']);
 			
 			// more food sources costs more
 			cost = 0;
@@ -1081,7 +1081,7 @@ export class Boid extends PhysicsObject {
 					cost += 3 + i;
 				}
 			}
-			this.traits.boxfit.push([ cost*2.5, cost, 'body.diet']);
+			this.traits.boxfit.push([ 2*cost*cost, cost, 'body.diet']);
 			
 			// lower threshold to grow. lower is better.
 			cost = 1 - this.traits.growth_min_energy_pct;
