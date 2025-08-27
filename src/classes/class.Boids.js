@@ -801,8 +801,10 @@ export class Boid extends PhysicsObject {
 		this.stats.combat.dmg_dealt += attack_force;
 		victim.stats.combat.attacks_received++;
 		victim.stats.combat.dmg_received += attack_force;
+		let killed = false;
 		if ( victim.metab.energy <= 0 && !globalThis.vc.simulation.settings?.ignore_lifecycle ) {
 			victim.Kill('attack');
+			let killed = true;
 			this.stats.combat.kills++;
 			globalThis.vc.simulation.RecordStat('kills',1);
 			// prizes!
@@ -816,38 +818,17 @@ export class Boid extends PhysicsObject {
 				} );		
 			globalThis.vc.tank.foods.push(f);											
 		}
-
-		// draw indicator circle
-		// let mark = null;
-		// let marksize = Math.min( 80, Math.sqrt(attack_force) );
-		// if ( victim.dead ) {
-		// 	mark = globalThis.two.makeGroup();
-		// 	mark.add( globalThis.two.makeLine( -marksize, -marksize, marksize, marksize ) );
-		// 	mark.add( globalThis.two.makeLine( -marksize, marksize, marksize, -marksize ) );
-		// 	mark.position.x = victim.x;
-		// 	mark.position.y = victim.y;
-		// }
-		// else {
-		// 	mark = globalThis.two.makeCircle( victim.x, victim.y, marksize );
-		// }
-		// mark.stroke = 'red';
-		// mark.fill = 'transparent';
-		// mark.linewidth = 6;
-		// // mark.dashes = [30, 6, 6, 6];
-		// globalThis.vc.AddShapeToRenderLayer(mark,1);
-		// // make it go away after 2s - 
-		// if ( globalThis.vc.animate_boids ) {
-		// 	new TWEEN.Tween(mark)
-		// 		.to( { opacity:0, scale:2 }, 2000 )
-		// 		.easing(TWEEN.Easing.Quadratic.Out)
-		// 		// switch to absolute tracking after chase completed
-		// 		.onComplete( obj => obj.remove() )
-		// 		.start();
-		// }
-		// else {
-		// 	setTimeout( _ => mark.remove(), 2000 );
-		// }
 		
+		// audio mark
+		this.tank.marks.push( new Mark({
+			x: victim.x,
+			y: victim.y,
+			r: Math.sqrt( attack_force * 10 * (killed?2:1) ),
+			sense: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1], // TODO: room for variety
+			lifespan: 2 + 2 * (attack_force / 600),
+			type: 'attack'
+		}) );
+			
 		return true;
 	}
 	

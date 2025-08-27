@@ -8,6 +8,7 @@ export default class Mark {
 		this.age = 0;
 		this.lifespan = 10;
 		this.sense = new Array(16).fill(0);
+		this.type = 'generic';
 		this.dead = false;		
 		Object.assign( this, params );
 		this.collision = { radius: this.r, shape: 'circle' };
@@ -28,7 +29,7 @@ export default class Mark {
 	}
 	Export( as_JSON=false ) {
 		let output = {};
-		let datakeys = ['x','y','r','age','lifespan','sense'];		
+		let datakeys = ['x','y','r','age','lifespan','sense','type'];		
 		for ( let k of datakeys ) { 
 			if ( k in this ) {
 				output[k] = this[k]; 
@@ -80,8 +81,46 @@ export default class Mark {
 			opacity: 0.5,
 		};
 		
+		// Attack:
+		if ( this.type=='attack' ) {
+			// geo = { 
+			// 	type:'circle', 
+			// 	r: this.r,
+			// 	fill: 'transparent',
+			// 	stroke: '#D11',
+			// 	opacity: 0.5,
+			// 	linewidth: 10,
+			// };	
+			geo = { 
+				type:'group',
+				children: [
+					{
+						type: 'line',
+						x1:-this.r,
+						y1:-this.r,
+						x2: this.r,
+						y2: this.r,
+						fill: 'transparent',
+						linewidth: 10,
+						stroke: '#D11',
+						opacity: 0.8,
+					},
+					{
+						type: 'line',
+						x1:-this.r,
+						y1: this.r,
+						x2: this.r,
+						y2:-this.r,
+						fill: 'transparent',
+						linewidth: 10,
+						stroke: '#D11',
+						opacity: 0.8,
+					}
+				] 
+			};				
+		}
 		// Audio:
-		if ( this.strongest_sense >= 12) { 
+		else if ( this.strongest_sense >= 12) { 
 			geo.linewidth = 80;
 			geo.dashes = [8,48];
 		}
