@@ -32,6 +32,7 @@ export default class TankMaker {
 			voronoi_point_jitter: (Math.random() * 0.7), // geometric shapes break down over 0.5
 			scale_x: utils.RandomFloat( 0.5, 5 ),
 			scale_y: utils.RandomFloat( 0.5, 5 ),
+			max_rotation: 0.2,
 			skew_x: (Math.random() > 0.75 ? Math.random()*2 : 0),
 			rock_color_schemes: [],
 			add_centerpiece_rocks: false,
@@ -415,6 +416,12 @@ export default class TankMaker {
 		// calculate voronoi cells
 		const delaunay = Delaunator.from(pts);
 		
+		let rotation = Math.random() * this.settings.max_rotation * 2 - this.settings.max_rotation;
+		const matrix = getCenteredRotationCoverMatrix(this.tank.width, this.tank.height, rotation);
+		
+		// also available:
+		// const matrix = CreateCoverMatrix(this.tank.width, this.tank.height, rotation, 0, 0, 1, 1);
+
 		// create rocks from each voronoi cell according to mask
 		let cells =[];
 		forEachVoronoiCell(pts, delaunay, ( vertices, px, py ) => {
@@ -463,11 +470,9 @@ export default class TankMaker {
 			);
 			
 			// rescale vertices back to normal tank dimensions, undoing previous stretching
-			vertices = vertices.map( v => [ 
-				v[0]/this.settings.scale_x, 
-				v[1]/this.settings.scale_y
-			] );
-
+			vertices = vertices.map( v => 
+				ApplyMatrixToPoint(matrix, v[0]/this.settings.scale_x, v[1]/this.settings.scale_y ) 
+			);
 			
 			// keep rocks entirely within bounds
 			const w = this.tank.width;
@@ -506,4 +511,126 @@ export default class TankMaker {
 		})
 		
 	}
+}
+
+/**
+ * Multiplies two 2D transformation matrices (represented as [a, b, c, d, e, f]).
+ * @param {number[]} m1 The first matrix.
+ * @param {number[]} m2 The second matrix.
+ * @returns {number[]} The resulting matrix.
+ */
+function multiplyMatrices(m1, m2) {
+	const a1 = m1[ 0 ], b1 = m1[ 1 ], c1 = m1[ 2 ], d1 = m1[ 3 ], e1 = m1[ 4 ], f1 = m1[ 5 ];
+	const a2 = m2[ 0 ], b2 = m2[ 1 ], c2 = m2[ 2 ], d2 = m2[ 3 ], e2 = m2[ 4 ], f2 = m2[ 5 ];
+
+	return [
+		a1 * a2 + c1 * b2,
+		b1 * a2 + d1 * b2,
+		a1 * c2 + c1 * d2,
+		b1 * c2 + d1 * d2,
+		a1 * e2 + c1 * f2 + e1,
+		b1 * e2 + d1 * f2 + f1,
+	];
+}
+
+/**
+ * Transforms a point [x, y] by a matrix.
+ * @param {number[]} matrix The transformation matrix.
+ * @param {number} x The x-coordinate of the point.
+ * @param {number} y The y-coordinate of the point.
+ * @returns {number[]} The transformed point [x', y'].
+ */
+function ApplyMatrixToPoint(matrix, x, y) {
+	const a = matrix[ 0 ], b = matrix[ 1 ], c = matrix[ 2 ], d = matrix[ 3 ], e = matrix[ 4 ], f = matrix[ 5 ];
+	return [
+		a * x + c * y + e,
+		b * x + d * y + f,
+	];
+}
+
+/**
+ * Generates a transformation matrix for a canvas context that centers and covers
+ * the screen based on the provided transform parameters.
+ *
+ * @param {number} width The width of the canvas.
+ * @param {number} height The height of the canvas.
+ * @param {number} rotation The rotation angle in radians.
+ * @param {number} skewX The X-axis skew angle in radians.
+ * @param {number} skewY The Y-axis skew angle in radians.
+ * @param {number} scaleX The X-axis scale factor.
+ * @param {number} scaleY The Y-axis scale factor.
+ * @returns {number[]} An array of 6 numbers representing the final matrix.
+ */
+function CreateCoverMatrix(width, height, rotation, skewX, skewY, scaleX, scaleY) {
+	const centerX = width / 2;
+	const centerY = height / 2;
+	let matrix = [ 1, 0, 0, 1, 0, 0 ]; // Identity matrix
+
+	// 1. Translate to the center
+	const translationToCenter = [ 1, 0, 0, 1, centerX, centerY ];
+	matrix = multiplyMatrices(matrix, translationToCenter);
+
+	// 2. Apply scale, skew, and rotation sequentially
+	const skewMatrix = [ 1, Math.tan(skewY), Math.tan(skewX), 1, 0, 0 ];
+	matrix = multiplyMatrices(matrix, skewMatrix);
+
+	const scaleMatrix = [ scaleX, 0, 0, scaleY, 0, 0 ];
+	matrix = multiplyMatrices(matrix, scaleMatrix);
+
+	const cos = Math.cos(rotation);
+	const sin = Math.sin(rotation);
+	const rotationMatrix = [ cos, sin, -sin, cos, 0, 0 ];
+	matrix = multiplyMatrices(matrix, rotationMatrix);
+
+	// 3. Translate back from the center
+	const translationFromCenter = [ 1, 0, 0, 1, -centerX, -centerY ];
+	matrix = multiplyMatrices(matrix, translationFromCenter);
+
+	// 4. Get the matrix components to use in the cover scale calculation
+	const [ a, b, c, d ] = matrix;
+
+	// 5. Calculate the additional scale to ensure covering using the new technique
+	const transformedWidth = Math.abs(a * width) + Math.abs(c * height);
+	const transformedHeight = Math.abs(b * width) + Math.abs(d * height);
+	const coverScale = Math.max(width / transformedWidth, height / transformedHeight);
+
+	// 6. Apply the final covering scale from the center
+	const finalCoverScaleMatrix = [ coverScale, 0, 0, coverScale, 0, 0 ];
+
+	const coverTranslationMatrix = multiplyMatrices(
+		[ 1, 0, 0, 1, centerX, centerY ],
+		multiplyMatrices(finalCoverScaleMatrix, [ 1, 0, 0, 1, -centerX, -centerY ])
+	);
+
+	return multiplyMatrices(coverTranslationMatrix, matrix);
+}
+
+function getCenteredRotationCoverMatrix(width, height, rotation) {
+	const centerX = width / 2;
+	const centerY = height / 2;
+
+	// Calculate the rotation matrix
+	const cos = Math.cos(rotation);
+	const sin = Math.sin(rotation);
+	const rotationMatrix = [ cos, sin, -sin, cos, 0, 0 ];
+
+	// Calculate the dimensions of the rotated bounding box
+	const transformedWidth = Math.abs(cos * width) + Math.abs(sin * height);
+	const transformedHeight = Math.abs(sin * width) + Math.abs(cos * height);
+
+	// Calculate the required cover scale
+	const coverScale = Math.max(width / transformedWidth, height / transformedHeight);
+	const coverScaleMatrix = [ coverScale, 0, 0, coverScale, 0, 0 ];
+
+	// Combine the matrices in the correct order
+	// 1. Translate to center
+	// 2. Rotate
+	// 3. Scale to cover
+	// 4. Translate back
+	let finalMatrix = [ 1, 0, 0, 1, centerX, centerY ];
+	finalMatrix = multiplyMatrices(finalMatrix, rotationMatrix);
+	finalMatrix = multiplyMatrices(finalMatrix, coverScaleMatrix);
+	finalMatrix = multiplyMatrices(finalMatrix, [ 1, 0, 0, 1, -centerX, -centerY ]);
+
+	return finalMatrix;
 }
