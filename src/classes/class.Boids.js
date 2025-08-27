@@ -27,23 +27,24 @@ export class Boid extends PhysicsObject {
 	// physics tuning constants
 	static maxspeed = 2800; // sanity caps 
 	static maxrot = 20; // sanity caps
-	static max_boid_linear_impulse = 100000; // impulses multiplied by boid's motor power (0..1) 
-	static min_boid_linear_impulse = 2400; // impulses multiplied by boid's motor power (0..1) 
-	static max_boid_angular_impulse = 2500; // impulses multiplied by boid's motor power (0..1) 
-	static min_boid_angular_impulse = 150; // impulses multiplied by boid's motor power (0..1) 
+	static max_boid_linear_impulse = 120000; // impulses multiplied by boid's motor power (0..1) 
+	static min_boid_linear_impulse = 10000; // impulses multiplied by boid's motor power (0..1) 
+	static max_boid_angular_impulse = 1600; // impulses multiplied by boid's motor power (0..1) 
+	static min_boid_angular_impulse = 200; // impulses multiplied by boid's motor power (0..1) 
 	static max_poop_buoy = 50; // some poop floats
 	static min_poop_buoy = -500; // most poop sinks
 	static ang_drag_coef = 400; // drag on rotation
-	static forward_drag_coef = 0.18; // cost of going straight
-	static lateral_drag_coef = 3.4; // cost of drifting
+	static forward_drag_coef = 1.5; // cost of going straight
+	static lateral_drag_coef = 8.0; // cost of drifting
 	static wall_slide_friction = 0.97; // object collision friction
 	static linear_motor_cost_adjust = 1 / 900; // base rate per mass unit per second
 	static angular_motor_cost_adjust = 1 / 1200; // base rate per mass unit per second
 	static min_motor_cost_adjust = 0.1; // discount for going slow
 	static max_motor_cost_adjust = 3.0; // tax for going fast
 	static motor_cost_exponent = 1.5; // punishment curve
-	static metabolic_scaling_term = 0.75;
-	static metabolic_scaling_coef = 3.50;
+	static metabolic_scaling_term = 0.75; // controls metabolic scaling speed
+	static metabolic_scaling_coef = 3.50; // controls metabolic scaling curve shape
+	static physics_max_time_per_step = 1/60; // controls how many physics substeps to perform
 	
 	Reset() {
 		this.x = 0;
@@ -453,21 +454,6 @@ export class Boid extends PhysicsObject {
 		// normalize rotational force by mass
 		this.torque /= this.mass;
 		
-		// apply rotational drag
-		const rot_drag = -Boid.ang_drag_coef * this.ang_vel * globalThis.vc.simulation.settings.viscosity * this.body.length;
-		this.torque += rot_drag / this.mass;
-			
-		// calculate angular velocity
-		this.ang_vel += this.torque * delta;
-		
-		if ( !isFinite(this.ang_vel) || isNaN(this.ang_vel) ) { this.ang_vel = 0; }
-		
-		// limit rotation
-		this.ang_vel = utils.Clamp( this.ang_vel, -Boid.maxrot, Boid.maxrot );
-		
-		// apply angular velocity / adjust pointing angle
-		this.angle = utils.mod( this.angle + (delta * this.ang_vel), 2*Math.PI );
-		
 		// apply forward impulse - force scales with effective body length (2D version of muscle cross-section)
 		this.linear_impulse *= this.effective_length;
 		const sinAngle = Math.sin(this.angle);
@@ -478,26 +464,58 @@ export class Boid extends PhysicsObject {
 		if ( impulse_y > 20000000 || impulse_y < -20000000 || isNaN(impulse_y) ) { impulse_y=0; }
 		this.ApplyForce(impulse_x, impulse_y);
 		
-		// drag force, otherwise we just go faster and faster.
-		// note: we need to use hydrodynamic drag, not regular drag.
-		// Regular drag has unrealistic drifting you would not expect in aquatic environments.
-		this.ApplyHydrodynamicDrag( 
-			this.body.length, 
-			this.body.width, 
-			this.angle, 
-			globalThis.vc.simulation.settings.viscosity, 
-			Boid.forward_drag_coef, 
-			Boid.lateral_drag_coef 
-		);
-		
-		// translate position based on all forces
-		this.UpdatePosition(delta);
-		
-		// stay inside tank			
-		this.x = utils.clamp( this.x, 0 + this.collision.radius, this.tank.width - this.collision.radius );
-		this.y = utils.clamp( this.y, 0 + this.collision.radius, this.tank.height - this.collision.radius );
- 		
-		// this.Constrain(bounce);
+		// in order to avoid jittering problems caused by drag forces and high velocities,
+		// we need to break the physics into smaller time slices.
+		// we generally want 2 or sometimes 3 steps per frame to cover all cases.
+		const torque_was = this.torque;
+		const accel_x_was = this.accel_x;
+		const accel_y_was = this.accel_y;
+		const steps = 1 + Math.ceil( delta / Boid.physics_max_time_per_step );
+		const subdelta = delta / steps;
+		for ( let i=0; i < steps; i++ ) {
+			
+			// reset force values (UpdatePosition will clear them every time)
+			this.torque = torque_was;
+			this.accel_x = accel_x_was;
+			this.accel_y = accel_y_was;
+			
+			// apply rotational drag
+			const rot_drag = -Boid.ang_drag_coef * this.ang_vel * globalThis.vc.simulation.settings.viscosity * this.body.length;
+			this.torque += rot_drag / this.mass;
+				
+			// calculate angular velocity
+			this.ang_vel += this.torque * subdelta;
+			
+			if ( !isFinite(this.ang_vel) || isNaN(this.ang_vel) ) { this.ang_vel = 0; }
+			
+			// limit rotation
+			this.ang_vel = utils.Clamp( this.ang_vel, -Boid.maxrot, Boid.maxrot );
+			
+			// apply angular velocity / adjust pointing angle
+			this.angle = utils.mod( this.angle + (subdelta * this.ang_vel), 2*Math.PI );
+			
+			// drag force, otherwise we just go faster and faster.
+			// note: we need to use hydrodynamic drag, not regular drag.
+			// Regular drag has unrealistic drifting you would not expect in aquatic environments.
+			this.ApplyHydrodynamicDrag( 
+				this.body.length, 
+				this.body.width, 
+				this.angle, 
+				globalThis.vc.simulation.settings.viscosity,
+				Boid.forward_drag_coef,
+				Boid.lateral_drag_coef
+			);
+
+			// translate position based on all forces
+			this.UpdatePosition(subdelta);
+			
+			// stay inside tank			
+			this.x = utils.clamp( this.x, 0 + this.collision.radius, this.tank.width - this.collision.radius );
+			this.y = utils.clamp( this.y, 0 + this.collision.radius, this.tank.height - this.collision.radius );
+			
+			// this.Constrain(bounce);
+		}
+
 		
 		// collision detection with obstacles
 		// things i might collide with:
@@ -740,7 +758,7 @@ export class Boid extends PhysicsObject {
 			this.linear_impulse += m.linear * amount * Boid.max_boid_linear_impulse;
 		}
 		if ( m.hasOwnProperty('angular') ) {
-			this.torque += m.angular * amount * Boid.max_boid_angular_impulse; // apply mass later
+			this.torque += m.angular * amount * Boid.max_boid_angular_impulse;
 		}
 		else if ( m.hasOwnProperty('sense') && m.t <= delta ) { // first frame
 			const radius = (m.r || 100) * m.strokepow;

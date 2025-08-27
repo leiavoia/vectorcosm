@@ -171,33 +171,38 @@ export default class PhysicsObject {
 		// so longer boats will “slide” less when turning, matching real hydrodynamics.
 		// You can further tune the effect by adjusting the dragLat coefficient.
 
-		// Forward direction unit vector
+		// Forward and lateral direction unit vectors
 		const forward_x = Math.cos(heading);
 		const forward_y = Math.sin(heading);
+		const lateral_x = -forward_y;
+		const lateral_y =  forward_x;
 
-		// Project velocity onto forward and lateral directions
+		// Project velocity
 		const v_forward = this.vel_x * forward_x + this.vel_y * forward_y;
-		const v_lateral = this.vel_x * -forward_y + this.vel_y * forward_x;
+		const v_lateral = this.vel_x * lateral_x + this.vel_y * lateral_y;
 
-		// Drag force scales with area and velocity squared
-		const areaLong = length * width; // effective area for forward
-		const areaLat = length; // effective side area for lateral drag
+		// Effective "areas" (just scalers in this 2D sim)
+		const areaLong = length * width;
+		const areaLat  = length;
 
-		// calculate drag forces
-		let forceLong = -dragLong * areaLong * v_forward * Math.abs(v_forward) * viscosity;
-		let forceLat  = -dragLat  * areaLat  * v_lateral * Math.abs(v_lateral) * viscosity;
+		const C_long = (this.mass * dragLong / PhysicsObject.MAX_SPEED) * areaLong * viscosity;
+		const C_lat  = (this.mass * dragLat / PhysicsObject.MAX_SPEED) * areaLat  * viscosity;
 
-		// sanity clamp to prevent runaway values
-		const maxDragForceLong = this.mass * 25000;
-		const maxDragForceLat = this.mass * 25000;
-		forceLong = Math.max(-maxDragForceLong, Math.min(forceLong, maxDragForceLong));
-		forceLat  = Math.max(-maxDragForceLat, Math.min(forceLat, maxDragForceLat));
-	
-		// Convert forces back to x/y
-		const fx = forceLong * forward_x + forceLat * -forward_y;
-		const fy = forceLong * forward_y + forceLat * forward_x;
-		
-		// Apply to acceleration
+		// Forces (quadratic, opposing velocity)
+		let forceLong = -C_long * v_forward * Math.abs(v_forward);
+		let forceLat  = -C_lat  * v_lateral * Math.abs(v_lateral);
+
+		// Clamp to max physically reasonable drag
+		const maxForceLong = this.mass * PhysicsObject.MAX_SPEED * PhysicsObject.MAX_SPEED;
+		const maxForceLat  = this.mass * PhysicsObject.MAX_SPEED * PhysicsObject.MAX_SPEED;
+
+		forceLong = Math.max(-maxForceLong, Math.min(forceLong, maxForceLong));
+		forceLat  = Math.max(-maxForceLat,  Math.min(forceLat,  maxForceLat));
+
+		// Convert to world space
+		const fx = forceLong * forward_x + forceLat * lateral_x;
+		const fy = forceLong * forward_y + forceLat * lateral_y;
+
 		this.ApplyForce(fx, fy);
 	}
 
