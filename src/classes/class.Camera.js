@@ -17,6 +17,7 @@ export default class Camera {
 		this.ymax = 0;
 		this.min_zoom = 0.1;
 		this.max_zoom = 2.9;
+		this.zoom_step_factor = 1.2; // for keypress and mouse wheel zooming
 		this.window_width = 640;
 		this.window_height = 480;
 		this.tank_width = 100;
@@ -252,8 +253,9 @@ export default class Camera {
 	}
 		
 	ZoomAt( screen_x, screen_y, zoom_in /* true for in, false for out */ ) {
-		let newscale = this.z * ((1 + this.z/3)/1);
-		if ( zoom_in ) { newscale = this.z * (1/(1 + this.z/3)); }
+		const newscale = zoom_in 
+			? (this.scale * (1/this.zoom_step_factor))
+			: (this.scale * this.zoom_step_factor);
 		// record mouse click in world space
 		const [prev_x, prev_y] = this.ScreenToWorldCoord( screen_x, screen_y );
 		// zoom into center of screen

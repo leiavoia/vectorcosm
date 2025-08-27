@@ -459,20 +459,28 @@
 			if ( gameloop.playing ) { gameloop.Start(); }
 		},
 		'_': _ => {
-			const diff = Math.abs( camera.scale - (camera.scale * (1/(1 + camera.z))) );
-			camera.MoveCamera( 0, 0, -diff );
+			// zoom out
+			const newScale = camera.scale * (1/camera.zoom_step_factor);
+			const diff = newScale - camera.scale;
+			camera.MoveCamera(0, 0, diff);
 		},
 		'-': _ => {
-			const diff = Math.abs( camera.scale - (camera.scale * (1/(1 + camera.z))) );
-			camera.MoveCamera( 0, 0, -diff );
+			// zoom out
+			const newScale = camera.scale * (1/camera.zoom_step_factor);
+			const diff = newScale - camera.scale;
+			camera.MoveCamera(0, 0, diff);
 		},
 		'=': _ => {
-			const diff = Math.abs( camera.scale - (camera.scale * ((1 + camera.z)/1)) );
-			camera.MoveCamera( 0, 0, diff );
+			// zoom in
+			const newScale = camera.scale * camera.zoom_step_factor;
+			const diff = newScale - camera.scale;
+			camera.MoveCamera(0, 0, diff);
 		},
 		'+': _ => {
-			const diff = Math.abs( camera.scale - (camera.scale * ((1 + camera.z)/1)) );
-			camera.MoveCamera( 0, 0, diff );
+			// zoom in
+			const newScale = camera.scale * camera.zoom_step_factor;
+			const diff = newScale - camera.scale;
+			camera.MoveCamera(0, 0, diff);
 		},
 		';': _ => {
 			camera.ResetCameraZoom();
