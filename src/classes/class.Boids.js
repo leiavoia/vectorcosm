@@ -42,6 +42,8 @@ export class Boid extends PhysicsObject {
 	static min_motor_cost_adjust = 0.1; // discount for going slow
 	static max_motor_cost_adjust = 3.0; // tax for going fast
 	static motor_cost_exponent = 1.5; // punishment curve
+	static metabolic_scaling_term = 0.75;
+	static metabolic_scaling_coef = 3.50;
 	
 	Reset() {
 		this.x = 0;
@@ -665,7 +667,7 @@ export class Boid extends PhysicsObject {
 		delta = Math.min( delta, m.this_stroke_time - m.t ); 
 		
 		// base cost of doing business
-		let cost = m.cost * delta * this.mass;
+		let cost = m.cost * delta * Boid.metabolic_scaling_coef * Math.pow( this.mass, Boid.metabolic_scaling_term );
 		// movement motors have a variable cost to promote efficiency
 		if ( m.linear || m.angular ) {
 			cost *= Boid.min_motor_cost_adjust 
@@ -732,10 +734,6 @@ export class Boid extends PhysicsObject {
 		
 		// final output calculation
 		amount = amount_now * amount_adjust;
-		
-		// adjust for body size - larger organisms provide more power
-		// REMOVED: We like this idea, but this is not the right way to do it.
-		// amount *= Math.pow( this.mass / 800, 0.75 );
 		
 		// apply forces and effects
 		if ( m.hasOwnProperty('linear') ) {
@@ -907,7 +905,7 @@ export class Boid extends PhysicsObject {
 			);
 		this.metab.stomach_size = this.traits.base_stomach_size * this.mass;
 		this.metab.bowel_size = this.traits.base_bowel_size * this.mass;
-		this.metab.metabolic_rate = this.traits.base_metabolic_rate * this.mass;
+		this.metab.metabolic_rate = this.traits.base_metabolic_rate * Boid.metabolic_scaling_coef * Math.pow( this.mass, Boid.metabolic_scaling_term );
 		this.metab.digest_rate = this.traits.base_digest_rate * this.mass;
 		this.metab.bite_size = this.traits.base_bite_size * this.mass;
 		this.metab.max_energy = this.traits.base_energy_meter * this.mass;
@@ -1187,11 +1185,14 @@ export class Boid extends PhysicsObject {
 			}
 			
 			if ( linear ) { 
-				motor.linear = linear; 
+				motor.linear = linear / stroketime; // normalize per second
 				has_linear = true; 
 				if ( wheel || linear > 0 ) has_forward = true;
 			}
-			if ( angular ) { motor.angular = angular; has_angular = true; }
+			if ( angular ) { 
+				motor.angular = angular / stroketime; // normalize per second
+				has_angular = true; 
+			}
 						
 			// cost of motor is per mass, per second
 			motor.cost = 0;
