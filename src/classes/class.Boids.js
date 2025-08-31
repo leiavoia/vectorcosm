@@ -1062,7 +1062,7 @@ export class Boid extends PhysicsObject {
 					cost += 3 + i;
 				}
 			}
-			this.traits.boxfit.push([ 2*cost*cost, cost, 'body.diet']);
+			this.traits.boxfit.push([ cost*cost, cost, 'body.diet']);
 			
 			// lower threshold to grow. lower is better.
 			cost = 1 - this.traits.growth_min_energy_pct;
