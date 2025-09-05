@@ -16,7 +16,7 @@ export default class TankMaker {
 			individual_separate: (Math.random() > 0.5),
 			individual_max_complexity: 2,
 			voronoi_points: null,
-			voronoi_mask_strat: ['radial','zone','xzone','random','hole','burg','sine','depth','cave','trench'].pickRandom(),
+			voronoi_mask_strat: ['interference','radial','zone','xzone','random','hole','burg','sine','depth','cave','trench'].pickRandom(),
 			voronoi_sine_freq: utils.RandomFloat(0.5,20),
 			voronoi_sine_amplitude: utils.RandomFloat(0.05,0.4),
 			voronoi_sine_vshift: utils.RandomFloat(0.0,0.45),
@@ -408,6 +408,35 @@ export default class TankMaker {
 					if ( inside ) { return false; }
 				}
 				return true;
+			},
+			interference: ( px, py ) => {
+				if ( !this.wavemakers ) {
+					this.wavemakers = [];
+					let n = utils.RandomInt(3,7);
+					const tankw = xmax - xmin;
+					const tankh = ymax - ymin;
+					for ( let i=0; i<n; i++ ) {
+						let amp = 0.5 + Math.random() * 1.5;
+						const max_dim = Math.max(tankw,tankh);
+						let r = utils.RandomFloat( max_dim * 0.03, max_dim * 0.22 );
+						const func = Math.random() > 0.5 ? Math.sin : Math.cos;
+						this.wavemakers.push({
+							x: tankw * Math.random(),
+							y: tankh * Math.random(),
+							r,
+							amp,
+							func
+						});
+					}
+				}
+				let total = 0;
+				for ( let wavemaker of this.wavemakers ) {
+					const diff_x = wavemaker.x - px;
+					const diff_y = wavemaker.y - py;
+					const dist = Math.sqrt( diff_x * diff_x + diff_y * diff_y );
+					total += wavemaker.func(Math.PI * (dist/wavemaker.r)) * wavemaker.amp; 
+				}
+				return total > 0.78; // && Math.random() > this.settings.voronoi_mask_random_chance;
 			}
 		};
 		
