@@ -16,7 +16,7 @@ export default class TankMaker {
 			individual_separate: (Math.random() > 0.5),
 			individual_max_complexity: 2,
 			voronoi_points: null,
-			voronoi_mask_strat: ['interference','radial','zone','xzone','random','hole','burg','sine','depth','cave','trench'].pickRandom(),
+			voronoi_mask_strat: ['lines','interference','radial','zone','xzone','random','hole','burg','sine','depth','cave','trench'].pickRandom(),
 			voronoi_sine_freq: utils.RandomFloat(0.5,20),
 			voronoi_sine_amplitude: utils.RandomFloat(0.05,0.4),
 			voronoi_sine_vshift: utils.RandomFloat(0.0,0.45),
@@ -437,6 +437,38 @@ export default class TankMaker {
 					total += wavemaker.func(Math.PI * (dist/wavemaker.r)) * wavemaker.amp; 
 				}
 				return total > 0.78; // && Math.random() > this.settings.voronoi_mask_random_chance;
+			},
+			lines: ( px, py ) => {
+				const tankw = xmax - xmin;
+				const tankh = ymax - ymin;
+				const min_dist = Math.min(tankw, tankh) * 0.08;
+				if ( !this.line_points ) {
+					this.line_points = [];
+					let n = utils.RandomInt(3,7) * 2;
+					for ( let i=0; i<n; i++ ) {
+						this.line_points.push({
+							x: tankw * Math.random(),
+							y: tankh * Math.random()
+						});
+					}
+				}
+				for ( let i=0; i < this.line_points.length-1; i+=2 ) {
+					const p1 = this.line_points[i];
+					const p2 = this.line_points[i+1];
+					const dx = p2.x - p1.x;
+					const dy = p2.y - p1.y;
+					const lengthSq = dx * dx + dy * dy;
+					let t = 0;
+					if (lengthSq !== 0) {
+						t = ((px - p1.x) * dx + (py - p1.y) * dy) / lengthSq;
+						t = Math.max(0, Math.min(1, t));
+					}
+					const closestX = p1.x + t * dx;
+					const closestY = p1.y + t * dy;
+					const dist = Math.sqrt((px - closestX) ** 2 + (py - closestY) ** 2);
+					if ( dist < min_dist ) { return true; }
+				}
+				return false;
 			}
 		};
 		
