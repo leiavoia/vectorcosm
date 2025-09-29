@@ -250,6 +250,9 @@
 			Age <output>{boid.age.toFixed(0)} / {boid.lifespan.toFixed(0)}</output>
 			<progress value={boid.age / boid.lifespan}></progress> 
 			
+			Scale <output>{((boid.scale||0)*100).toFixed(1)}%</output>
+			<progress value={boid.scale||0}></progress> 
+							
 			Energy <output>{(boid.metab.energy||0).toFixed(0)} / {(boid.metab.max_energy||0).toFixed(0)}</output>
 			<progress value={(boid.metab.energy / boid.metab.max_energy )||0}></progress> 
 			

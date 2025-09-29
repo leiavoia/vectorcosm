@@ -355,8 +355,13 @@ export class Boid extends PhysicsObject {
 			
 			// if we have enough energy to grow, let's grow
 			if ( this.mass < this.body.mass && this.metab.energy / this.metab.max_energy > this.traits.growth_min_energy_pct ) {
-				// TODO: we may want a variable growth rate to make smaller/younger creatures grow faster
-				let lump = this.mass * this.traits.growth_rate * digestInterval;
+				// growth rate increases as we have more energy to spare for growth
+				const energy_pct = this.metab.energy / this.metab.max_energy;
+				const energy_ramp_pct = ( 1 - this.traits.growth_min_energy_pct ) 
+					* ( Math.max(energy_pct,this.traits.growth_min_energy_pct) - this.traits.growth_min_energy_pct );
+				// grow faster when young, power curve falloff with age
+				const age_ramp_pct = 1 - Math.pow( this.age / this.lifespan, 7 );
+				const lump = this.mass * this.traits.growth_rate * digestInterval * energy_ramp_pct * age_ramp_pct;
 				// BALANCE NOTE: 
 				// Its incredibly difficult to get any traction from random organisms
 				// when we stick to the laws of thermodynamics and try to create
@@ -1023,7 +1028,7 @@ export class Boid extends PhysicsObject {
 		this.traits.offspring_investment	= this.dna.shapedNumber( this.dna.genesFor('offspring_investment',2,1), 0.1, 1.0, 0.5, 2 );
 		this.traits.growth_min_energy_pct	= this.dna.shapedNumber( this.dna.genesFor('growth_min_energy_pct',2,1), 0.1, 0.9, 0.4, 1.8 );
 		this.traits.growth_cost				= this.dna.shapedNumber( this.dna.genesFor('growth_cost',2,1), 0.002, 0.05, 0.01, 2 );
-		this.traits.growth_rate				= this.dna.shapedNumber( this.dna.genesFor('growth_rate',2,1), 0.0005, 0.02, 0.01, 2 );
+		this.traits.growth_rate				= this.dna.shapedNumber( this.dna.genesFor('growth_rate',2,1), 0.01, 0.06, 0.03, 2 );
 		this.traits.base_stomach_size		= this.dna.shapedNumber( this.dna.genesFor('base_stomach_size',2,1), 0.5, 0.02, 0.1, 2 );
 		this.traits.base_bowel_size			= this.dna.shapedNumber( this.dna.genesFor('base_bowel_size',2,1), 0.01, 0.2, 0.07, 2 );
 		// this.traits.base_metabolic_rate		= this.dna.shapedNumber( this.dna.genesFor('base_metabolic_rate',2,1), 0.002, 0.008, 0.004, 1.4 );
