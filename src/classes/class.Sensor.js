@@ -63,8 +63,9 @@ export default class Sensor {
 		}
 		
 		// legacy vision sensor
-		else if ( Array.isArray(this.detect) ) {
-			let look_for = ['food_cos', 'food_sine', 'food_angle', 'food_dist', 'food_density'];
+		else if ( this.type === 'locater' ) {
+			// /!\ KLUNKY - specific order matters
+			let look_for = ['near_food_cos', 'near_food_sine', 'near_food_angle', 'near_food_dist', 'food_density'];
 			for ( let x of look_for ) {
 				if ( this.detect.contains(x) ) { this.labels.push(x); }
 			}
@@ -125,7 +126,7 @@ export default class Sensor {
 		}
 		
 		// if this is an old-style vision sensor, it return multiple values and is handled differently
-		else if ( Array.isArray(this.detect) ) {
+		else if (  this.type === 'locater' ) {
 			this.senseFunction = this.senseLegacyVision;
 		}
 		
@@ -247,6 +248,9 @@ export default class Sensor {
 		}
 		if ( this.detect.contains('food_density') ) {
 			outputs.push( density );
+		}
+		if ( outputs.length != this.detect.length ) {
+			console.warn('legacy vision sensor expected more outputs than it produced:', this, outputs);
 		}
 		return outputs;
 	}
