@@ -48,14 +48,14 @@ export default class Vectorcosm {
 			// SimulationFactory(this.tank, 'food_training_sim_hard'),
 			// SimulationFactory(this.tank, 'food_training_sim_forever'),
 			// SimulationFactory(this.tank, 'edge_training')
-			// SimulationFactory(this.tank, 'petri_dish')
+			SimulationFactory(this.tank, 'petri_dish')
 			// SimulationFactory(this.tank, 'treasure_hunt_easy'),
 			// SimulationFactory(this.tank, 'treasure_hunt_hard'),
 			// SimulationFactory(this.tank, 'treasure_hunt_perpetual'),
 			// SimulationFactory(this.tank, 'obstacle_course'),
 			// SimulationFactory(this.tank, 'race_track'),
 			// SimulationFactory(this.tank, 'natural_tank'),
-			SimulationFactory(this.tank, 'peaceful_tank'),
+			// SimulationFactory(this.tank, 'peaceful_tank'),
 		];
 		
 		// subscribe to critical events

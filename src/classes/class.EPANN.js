@@ -396,7 +396,7 @@ export default class EPANN {
 		}
 	}
 
-	Export(as_object = false) {
+	Export(asJSON=true) {
 		const obj = {
 			num_inputs: this.num_inputs,
 			num_outputs: this.num_outputs,
@@ -409,7 +409,7 @@ export default class EPANN {
 				c: n.conns.map((v, i) => (i % 2) ? parseFloat(v.toFixed(6)) : v) // truncate precision for smaller json
 			})),
 		};
-		return as_object ? obj : JSON.stringify(obj);
+		return asJSON ? JSON.stringify(obj) : obj;
 	}
 
 	Import(json) {

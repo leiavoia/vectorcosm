@@ -467,7 +467,7 @@ function DescribeBoid( o, inc_sensor_geo=false,  inc_brain=false ) {
 	}
 		
 	// brain outputs - depends on brain type
-	if ( o.brain.type==='snn' ) {
+	if ( o.brain.type==='snn' || o.brain.type==='rnn' || o.brain.type==='epann' ) {
 		data.brain_outputs = o.brain.outputs.map( (v,i) => ({
 			name: (o.motors[i]?.name || 'UNKNOWN'),
 			val: v
@@ -528,6 +528,62 @@ function DescribeBoid( o, inc_sensor_geo=false,  inc_brain=false ) {
 			};
 		}) );
 	}
+	if ( o.brain.type === 'rnn' ) {
+		data.brain = [];
+		for ( let i = 0; i < o.brain.network.nodes.length; i++ ) {
+			data.brain.push( ...o.brain.network.nodes[i].map( v => {
+				v = utils.clamp(v,-1,1);
+				let hexval = utils.DecToHex( Math.round(Math.abs(v) * 255) );
+				let color = ( v >= 0 ? ('#00' + hexval + '00') : ('#' + hexval + '0000') );
+				if ( v === 1 ) { color = '#FFFFFF'; }
+				const is_input = i==0;
+				return { 
+					type: (is_input ? 'input' : 'node' ), 
+					value: v,
+					symbol: (is_input ? 'I' : 'N' ),
+					color: color,
+				};
+			}) );
+		}
+		// separate outputs
+		data.brain.push( ...o.brain.network.nodes[ o.brain.network.nodes.length-1 ].map( v => {
+			let r = utils.DecToHex( Math.round(Math.abs(v) * 230) );
+			let g = utils.DecToHex( Math.round(Math.abs(v) * 120) );
+			let b = utils.DecToHex( Math.round(Math.abs(v) * 30) );
+			let color = '#' + r + g + b;
+			return { 
+				type: 'output', 
+				value: v,
+				symbol: 'O',
+				color: color 
+			};
+		}) );
+	}
+	if ( o.brain.type === 'epann' ) {
+		data.brain = [];
+		for ( let i = 0; i < o.brain.network.nodes.length; i++ ) {
+			const first_output = o.brain.network.nodes.length - o.brain.network.num_outputs;
+			const is_input = i < o.brain.network.num_inputs;
+			const is_output = i >= first_output;
+			let n = o.brain.network.nodes[i];
+			let v = utils.clamp(n.value,-1,1);
+			let hexval = utils.DecToHex( Math.round(Math.abs(v) * 255) );
+			let color = ( v >= 0 ? ('#00' + hexval + '00') : ('#' + hexval + '0000') );
+			if ( v === 1 ) { color = '#FFFFFF'; }
+			if ( is_output ) {
+				let r = utils.DecToHex( Math.round(Math.abs(v) * 230) );
+				let g = utils.DecToHex( Math.round(Math.abs(v) * 120) );
+				let b = utils.DecToHex( Math.round(Math.abs(v) * 30) );
+				color = '#' + r + g + b;
+			}
+			data.brain.push( { 
+				type: (is_input ? 'input' : ( is_output ? 'output' : 'hidden') ), 
+				value: v,
+				symbol: (is_input ? 'I' : ( is_output ? 'O' : n.squash_type.charAt(0).toUpperCase() ) ), 
+				color: color,
+			} );
+		}
+	}
 	else {
 		data.brain = o.brain.network.nodes.map( n => {
 			let value = utils.clamp(n.activation,-1,1);
@@ -561,7 +617,7 @@ function DescribeBoid( o, inc_sensor_geo=false,  inc_brain=false ) {
 	}
 	if ( inc_brain ) {	
 		// include data for brain graph 
-		if ( o.brain.type === 'snn' ) {
+		if ( o.brain.type === 'snn' || o.brain.type === 'rnn' || o.brain.type === 'epann' ) {
 			data.brain_struct = o.brain.network.Export(false); // POD
 		}
 		else {

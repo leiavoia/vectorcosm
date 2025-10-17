@@ -240,6 +240,7 @@ export class Boid extends PhysicsObject {
 			this.sensor_labels = new_labels;
 		}	
 	}
+
 	Update( delta ) {
 	
 		if ( !delta ) { return; }
@@ -1773,7 +1774,14 @@ export class Boid extends PhysicsObject {
 		
 		// Note: copied from Brain.MakeBrain - we need to know brain type to influence sensors
 		const brain_type_roll = this.dna.shapedNumber( this.dna.genesFor('brain network type',3), 0, 1, 0.5, 2 );
-		const brain_type = ( brain_type_roll < 0.25 || brain_type_roll > 0.75 ) ? 'snn' : 'perceptron';
+		let brain_type = 'perceptron';
+		if ( brain_type_roll < 0.25 || brain_type_roll > 0.75 ) {
+			brain_type = 'snn';
+		}
+		else if ( brain_type_roll > 0.5 ) {
+			brain_type = 'epann';
+		}
+				
 		let pulse_chance_0 = 0.0;
 		let pulse_chance_1 = 0.3;
 		let pulse_chance_2 = 0.2;
@@ -1868,6 +1876,15 @@ export class Boid extends PhysicsObject {
 			this.traits.boxfit.push([ node_cost * 0.1, node_cost * 0.2, `brain.perceptron_nodes`]);
 			const conn_cost = this.brain.network.connections.length;
 			this.traits.boxfit.push([ conn_cost * 0.05, conn_cost * 0.025, `brain.perceptron_conns`]);
+		}
+		else if ( this.brain.type === 'epann' ) {
+			let node_cost = this.brain.network.nodes.length;
+			// middle nodes cost more
+			let num_middles = this.brain.network.nodes.length - ( this.brain.network.num_inputs + this.brain.network.num_outputs);
+			node_cost += num_middles * 4;
+			this.traits.boxfit.push([ node_cost * 0.1, node_cost * 0.2, `brain.epann_nodes`]);
+			const conn_cost = this.brain.network.nodes.reduce( (a,c) => a + (c.conns.length / 2), 0 );
+			this.traits.boxfit.push([ conn_cost * 0.05, conn_cost * 0.025, `brain.epan_conns`]);
 		}
 		
 		// tally the boxfit costs

@@ -1,6 +1,7 @@
 import neataptic from "neataptic";
 const { architect, Network } = neataptic;
 import SpikingNeuralNetwork from './class.SpikingNeuralNetwork.js';
+import EPANN from './class.EPANN.js';
 import * as utils from '../util/utils.js';
 
 export default class Brain {
@@ -28,7 +29,7 @@ export default class Brain {
 	//	json
 	constructor( params ) {
 		// setup
-		this.type = 'snn';
+		this.type = 'epann';
 		this.network = null;
 		this.outputs = [];
 		this.input_map = {};
@@ -46,6 +47,11 @@ export default class Brain {
 				let snn = new SpikingNeuralNetwork();
 				snn.Import(this.network);
 				this.network = snn;
+			}
+			else if ( pod.type === 'epann' ) {			
+				let net = new EPANN({max_logs:0});
+				net.Import(this.network);
+				this.network = net;
 			}
 			else {
 				this.network = neataptic.Network.fromJSON(this.network); // poorly named function processes POD, not JSON
@@ -96,6 +102,15 @@ export default class Brain {
 				}
 			}
 		}
+		// // RNN
+		// else if ( this.type==='rnn' ) {
+		// 	// TODO: add actual timer
+		// 	this.outputs = this.network.activate( inputs, 1/60 );
+		// }
+		// EPANN
+		else if ( this.type==='epann' ) {
+			this.outputs = this.network.Activate( inputs );
+		}
 		// Neataptic
 		else {
 			this.outputs = this.network.activate( inputs );
@@ -107,7 +122,7 @@ export default class Brain {
 	}
 	
 	toJSON() {
-		let network = this.type==='snn' 
+		let network = ( this.type==='snn' || this.type==='rnn' || this.type==='epann' )
 			? this.network.Export(false) // as object
 			: this.network.toJSON(); // misnomor, its not actually JSON, its POD object
 		return JSON.stringify({
@@ -131,7 +146,13 @@ export default class Brain {
 		// NOTE: gene codes are copied in Boid sensor creation to avoid chicken/egg issues.
 		// SNNs require special pulse "sensors", but we need to know sensor layout before making brains.
 		const network_type_roll = boid.dna.shapedNumber( boid.dna.genesFor('brain network type',3), 0, 1, 0.5, 2 );
-		this.type = ( network_type_roll < 0.25 || network_type_roll > 0.75 ) ? 'snn' : 'perceptron';
+		this.type = 'perceptron';
+		if ( network_type_roll < 0.25 || network_type_roll > 0.75 ) {
+			this.type = 'snn';
+		}
+		else if ( network_type_roll > 0.5 ) {
+			this.type = 'epann';
+		}
 		
 		if ( this.type==='snn' ) {
 			// how many nodes to start with
@@ -145,6 +166,30 @@ export default class Brain {
 			// commit
 			let snn = new SpikingNeuralNetwork( nodes, inputs, outputs );
 			return snn;
+		}
+		
+		// else if ( this.type==='rnn' ) {
+		// 	// middles should be a smidge larger than inputs
+		// 	const middles = Math.round( inputs + Math.random() * inputs );
+		// 	const layers = [ inputs ];
+		// 	layers.push( middles );
+		// 	// small chance to create a second hidden layer
+		// 	if ( Math.random() < 0.05 ) {
+		// 		const middles2 = Math.round( (outputs + middles) / 2 );
+		// 		layers.push( middles2 );
+		// 	}
+		// 	layers.push( outputs );
+		// 	// create the RNN
+		// 	return new RecurrentNeuralNetwork(layers);
+		// }
+		
+		else if ( this.type==='epann' ) {
+			// start with a small number of middles and more direct-to-output connections
+			const middles = Math.round( Math.random() * inputs / 4 );
+			const connectivity = utils.RandomFloat( 0.3, 0.9 );
+			const net = new EPANN({max_logs:0});
+			net.Lobotomize(inputs, middles, outputs, connectivity );
+			return net;
 		}
 		
 		else {
@@ -272,7 +317,7 @@ export default class Brain {
 	}
 		
 	Mutate( iterations=1 ) {
-		if ( this.type==='snn' ) {
+		if ( this.type==='snn' || this.type==='rnn' || this.type==='epann' ) {
 			this.network.Mutate(iterations);
 		}
 		else {
@@ -290,7 +335,6 @@ export default class Brain {
 	
 	// rewire the brain as needed to rectify current input map with boid's current sensor labels.
 	Remap( boid ) {
-	
 		// 0) Find map entries we no longer have
 		const unused_map_entries = Object.keys(this.input_map).filter( x => !boid.sensor_labels.includes(x) );
 		
@@ -345,6 +389,14 @@ export default class Brain {
 					this.network.outputs.pop();
 				}
 			}				
+		}
+		
+		else if ( this.type==='rnn' ) { 
+			// TODO 
+		}
+		
+		else if ( this.type==='epann' ) { 
+			// TODO 
 		}
 		
 		// neataptic 
@@ -435,7 +487,7 @@ export default class Brain {
 	}
 	Reset() {
 		this.last_update = 0;
-		if ( this.type==='snn' ) { 
+		if ( this.type==='snn' || this.type==='rnn' ) { 
 			this.network.Reset();
 		}
 	}
