@@ -198,16 +198,15 @@ export default {
 		num_boids: 100,
 		num_foods: 1,
 		timeout: 1.6,
-		max_mutation: 0.5,
-		brain_mutation_rate: 0.25,
+		max_mutation: 0.3,
 		angle_spread: 0.7, // radians
-		cullpct: 0.5,
+		cullpct: 0.3,
 		distance: 500,
 		volume:5000000,
 		distance_variance: 0.4,
 		min_avg_score:90,
 		min_avg_score_rounds: 7,
-		rounds:200,
+		rounds:100,
 		poop:false,
 		ignore_other_boids:true,
 		on_bite_ignore:true,
@@ -223,7 +222,6 @@ export default {
 		num_foods: 2,
 		timeout: 5,
 		max_mutation: 0.2,
-		brain_mutation_rate: 0.25,
 		angle_spread: 1.0, // radians
 		cullpct: 0.3,
 		distance: 500,
@@ -248,7 +246,6 @@ export default {
 		timeout: 16,
 		num_rocks:1,
 		max_mutation: 0.2,
-		brain_mutation_rate: 0.25,
 		angle_spread: 1, // radians
 		cullpct: 0.3,
 		distance: 450,
@@ -273,7 +270,6 @@ export default {
 		num_rocks: 5,
 		timeout: 20,
 		max_mutation: 0.2,
-		brain_mutation_rate: 0.25,
 		angle_spread: 1, // radians
 		cullpct: 0.3,
 		distance: 450,
