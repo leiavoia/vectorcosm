@@ -564,7 +564,7 @@ export class Boid extends PhysicsObject {
 		// mouth is available to take a bite
 		if ( this.metab.bite_time === 0 ) {
 			// already full. stop eating
-			if ( this.metab.stomach_total / this.metab.stomach_size < 0.95 ) { 
+			if ( this.metab.stomach_total / this.metab.stomach_size < 0.95 || globalThis.vc.simulation.settings?.ignore_lifecycle ) { 
 				const grace = 4; // MAGIC NUMBER
 				const r = this.collision.radius + grace;
 				// get a list of collision candidates
@@ -606,12 +606,22 @@ export class Boid extends PhysicsObject {
 						}
 						this.ignore_list.add(food);
 					}
+					// reward signal for brain training.
+					this.Experience( 1.0 );
 					break; // one bite only!
 				}
 			}		
 		}
 	}
 
+	// provides reward and punishment signals for adaptive brains.
+	// suggested value of -1..1
+	Experience( value=1.0 ) {
+		if ( 'Learn' in this.brain.network ) {
+			this.brain.network.Learn(value);
+		}
+	}
+	
 	ActivateMotor( i, amount /* -1..1 */, delta ) {
 		// sometimes neataptic can output nan and infinities. 
 		if ( Number.isNaN(amount) || !Number.isFinite(amount) ) { return 0; }
@@ -824,6 +834,10 @@ export class Boid extends PhysicsObject {
 				} );		
 			globalThis.vc.tank.foods.push(f);											
 		}
+		// maybe next time you'll learn
+		else {
+			victim.Experience( -1 );
+		}
 		
 		// audio mark
 		this.tank.marks.push( new Mark({
@@ -834,6 +848,8 @@ export class Boid extends PhysicsObject {
 			lifespan: 2 + 2 * (attack_force / 600),
 			type: 'attack'
 		}) );
+		
+		this.Experience( 0.5 ); // reward for successful attack
 			
 		return true;
 	}

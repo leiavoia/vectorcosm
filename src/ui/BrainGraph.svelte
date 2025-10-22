@@ -249,6 +249,12 @@
 							// opacity indicates activation
 							let opacity = Math.abs( utils.clamp(activation,-1,1) ) * 0.5 + 0.2;
 							if ( line.opacity != opacity ) { line.opacity = opacity; }
+							// update connection weight in case it changed from adaptive learning
+							const hue = w >= 0 ? 120 : 0; // green/red
+							const stroke = `hsl(${hue}, 100%, 50%)`;
+							if ( line.stroke != stroke ) { line.stroke = line.stroke; }
+							const linewidth = Math.abs( utils.clamp(w,-1,1) ) * 6 + 1;
+							if ( line.linewidth != linewidth ) { line.linewidth = line.linewidth; }
 						}
 					}		
 				}

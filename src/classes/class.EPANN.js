@@ -6,7 +6,8 @@ const MAX_WEIGHT = 0.65;
 const ActivationFunctions = {
 	/* v.fast */ relu: x => x > 0 ? x : 0,
 	/* v.fast */ leaky_relu: x => x > 0 ? x : 0.01 * x,
-	/* v.fast */ hard_sigmoid: x => Math.max(0, Math.min(1, 0.2 * x + 0.5)),
+	/* v.fast */ hard_sigmoid: x => ( x < -2.5 ? 0 : ( x > 2.5 ? 1 : (0.2 * x + 0.5) ) ),
+	/* v.fast */ hard_tanh: x => ( x < -1 ? -1 : ( x > 1 ? 1 : x ) ),
 	/*   fast */ smart_relu: x => x > 6 ? 6 : (x < 0 ? x * 0.01 : x),
 	/*   fast */ softsign: x => x / (1 + Math.abs(x)),
 	/*   fast */ sqnl: x => { // square non-linear
@@ -24,7 +25,7 @@ const ActivationFunctions = {
 	/* v.fast */ clamp: x => Math.max(-1, Math.min(1, x)),
 	/* v.fast */ trinary: x => x >= 0.5 ? 1 : (x < -0.5 ? -1 : 0), // -1, 0, 1
 	/* v.fast */ step: x => x >= 0 ? 1 : 0,
-	/* v.fast */ polar: x => x >= 0 ? 1 : -1, // AKA "hard tanh"
+	/* v.fast */ polar: x => x >= 0 ? 1 : -1,
 	/*   slow */ selu: x => x > 0 ? 1.0507009873554805 * x : 1.0507009873554805 * (1.6732632423543772 * (Math.exp(x) - 1)),
 	/* v.slow */ gelu: x => 0.5 * x * (1 + Math.tanh(Math.sqrt(2 / Math.PI) * (x + 0.044715 * x * x * x))),
 	/* v.slow */ softplus: x => Math.log1p(Math.exp(x)),
@@ -60,6 +61,7 @@ export default class EPANN {
 		this.num_inputs = config.num_inputs ?? 0;
 		this.num_outputs = config.num_outputs ?? 0;
 		this.connectivity = config.connectivity ?? 0.5;
+		this.output_jitter = config.output_jitter ?? 0 ; //RandomNumber(0.02,0.1);
 		this.max_logs = config.max_logs || 0;
 		this.respect_layers = !!config.respect_layers;
 		// activation log, used for hebbian reinforcement learning
@@ -80,8 +82,8 @@ export default class EPANN {
 		for (let i = 0; i < total; i++) {
 			// note: input and output nodes have no plasticity or bias
 			const is_middle = i >= this.num_inputs && i < total - this.num_outputs;
-			const plasticity = RandomNumber(0, 1);
-			const bias = is_middle ? RandomNumber(0, MAX_BIAS) : 0;
+			const plasticity = 1; //RandomNumber(0, 1);
+			const bias = 0; //is_middle ? RandomNumber(0, MAX_BIAS) : 0;
 			const squash = is_middle ? RandomActivationFunction(true) : (i < total - this.num_outputs ? 'identity' : 'sigmoid');
 			this.addNode({plasticity, bias, squash});
 			// outputs always use sigmoid, inputs get nothing
@@ -134,6 +136,8 @@ export default class EPANN {
 				this.addConnection(index_from, to);
 			}
 		}
+		// normalize the weights
+		this.NormalizeWeights();
 	}
 
 	addNode(opts = {}, insert_index = -1) {
@@ -346,6 +350,10 @@ export default class EPANN {
 		// squash outputs using sigmoid for guaranteed 0..1 range.
 		for (let i = this.nodes.length - this.num_outputs; i < this.nodes.length; i++) {
 			const n = this.nodes[ i ];
+			// add random jitter to outputs to encourage exploration ("off-policy" learning)
+			const jitter = (Math.random() - 0.5) * this.output_jitter;
+			n.value += jitter;
+			// final sigmoid squash
 			n.value = ActivationFunctions.sigmoid(n.value);
 		}
 
@@ -394,41 +402,79 @@ export default class EPANN {
 	
 	// event_weight can be -1..1 to reward or punish.
 	// learning rate controls overall speed. Increase in situations with few events.
-	Learn(event_weight = 1.0, learning_rate = 0.1) {
+	Learn(event_weight = 1.0, learning_rate = 0.02) {
 
 		if (!this.max_logs || !this.log.length) {return;}
 
 		// foreach node - iterate backwards (oldest to newest)
 		for (let i = this.nodes.length - 1; i >= 0; i--) {
 			const n = this.nodes[ i ];
+			const plasticity = n.plasticity * learning_rate * event_weight;
 			// foreach connection
 			for (let c = 0; c < n.conns.length; c += 2) {
 				const dest = n.conns[ c ];
-				const plasticity = n.plasticity * learning_rate * event_weight;
-				const current_weight = n.conns[ c + 1 ];
 				// foreach log entry
 				for (let log of this.log) {
 					const pre_val = log[ i ];
 					const post_val = log[ dest ];
+					const current_weight = n.conns[ c + 1 ];
 					// TODO: you can further alter plasticity with modulating neurons or external hormones
-
 					// OJA'S RULE
 					// prevents infinite growth
 					// y=w⋅x (post synaptic values, we already have these in log)
 					// Δw = η(xy − y²w)
-					const delta = plasticity * (pre_val * post_val - post_val * post_val * current_weight);
-
+					const delta = plasticity * (pre_val * post_val - post_val * post_val * current_weight );
 					// learn
 					let new_val = n.conns[ c + 1 ] + delta;
-					new_val = Math.max(-1, Math.min(1, new_val)); // clamp
+					new_val = Math.max(-5, Math.min(5, new_val)); // clamp
 					n.conns[ c + 1 ] = new_val;
 				}
 			}
 		};
 
+		this.NormalizeWeights();
+		
 		this.log = [];
 	}
 
+	// NOTE: normalizing weights does not seem to help learning process, but kept here for further exploration
+	NormalizeWeights() {
+		// // sum all INCOMING connections per node. nodes don't track this individually,
+		// // so we need to build up a list here
+		// let incoming = new Array(this.nodes.length);
+		// for (let i = 0; i < this.nodes.length; i++) {
+		// 	incoming[i] = [];
+		// }
+		// // build up the lists
+		// for (let i = 0; i < this.nodes.length; i++) {
+		// 	const n = this.nodes[ i ];
+		// 	for (let c = 0; c < n.conns.length; c += 2) {
+		// 		incoming[ n.conns[c] ].push({
+		// 			from_node: i,
+		// 			weight: n.conns[c+1],
+		// 			conn_index: c
+		// 		});
+		// 	}
+		// }
+		// // sum and redistribute link juice
+		// for (let i = 0; i < incoming.length; i++) {
+		// 	let total = 0;
+		// 	let max = 0;
+		// 	for ( let row of incoming[i] ) {
+		// 		total += Math.abs(row.weight); // note sign
+		// 		max = Math.max( max, Math.abs(row.weight) ); // note sign
+		// 	}
+		// 	// rescale weights
+		// 	if ( total > 1 ) {
+		// 		const scale = 1 / total;
+		// 		for ( let row of incoming[i] ) {
+		// 			const n = this.nodes[ row.from_node ];
+		// 			n.conns[ row.conn_index + 1 ] *= scale;
+		// 		}
+		// 	}
+		// }
+	}
+	
 	Mutate(reps = 1) {
 		// measure connectivity
 		const num_middles = this.nodes.length - (this.num_inputs + this.num_outputs);
@@ -477,7 +523,7 @@ export default class EPANN {
 			// add a new middle node
 			if ( action == 'add_node'  ) {
 				const new_index = Math.floor(RandomNumber(this.num_inputs, this.nodes.length - this.num_outputs + 1));
-				this.addNode({plasticity: RandomNumber(0, 1), bias: RandomNumber(0, MAX_BIAS), squash: RandomActivationFunction(true)}, new_index);
+				this.addNode({plasticity: 1, bias: 0, squash: RandomActivationFunction(true)}, new_index);
 				// connect it to at least one forward node
 				let index_to = Math.floor(RandomNumber(new_index + 1, this.nodes.length));
 				this.addConnection(new_index, index_to);
@@ -596,6 +642,7 @@ export default class EPANN {
 				}
 			}
 		}
+		this.NormalizeWeights();
 	}
 
 	Export(asJSON=true) {

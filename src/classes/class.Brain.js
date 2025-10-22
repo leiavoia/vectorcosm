@@ -185,8 +185,8 @@ export default class Brain {
 		
 		else if ( this.type==='epann' ) {
 			// start with a small number of middles and more direct-to-output connections
-			const middles = Math.round( Math.random() * inputs / 4 );
-			const connectivity = utils.RandomFloat( 0.3, 0.9 );
+			const middles = Math.round( Math.random() * inputs / 2 ) + Math.ceil( inputs / 4 );
+			const connectivity = utils.RandomFloat( 0.3, 0.7 );
 			const net = new EPANN({max_logs:0});
 			net.Lobotomize(inputs, middles, outputs, connectivity );
 			return net;
