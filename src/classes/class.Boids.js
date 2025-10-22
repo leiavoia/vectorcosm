@@ -1,4 +1,3 @@
-import neataptic from "neataptic";
 import PhysicsObject from '../classes/class.PhysicsObject.js'
 import BodyPlan from '../classes/class.BodyPlan.js'
 import Sensor from '../classes/class.Sensor.js'
@@ -14,10 +13,6 @@ import {Circle, Polygon, Result} from 'collisions';
 // MAGIC NUMBER - tuning number for matter->energy conversion rate
 const MAGIC_ENERGY_MULTIPLIER = 10;
 			
-// things we prefer neataptic not do			
-neataptic.methods.mutation.MOD_ACTIVATION.mutateOutput = false;
-neataptic.methods.mutation.SWAP_NODES.mutateOutput = false;
-
 export function BoidFactory( type, x, y, tank ) {
 	return Boid.Random(x, y, tank);
 }
@@ -441,7 +436,7 @@ export class Boid extends PhysicsObject {
 			// movement / motor control 				
 			let brain_outputs = this.brain.Activate( this.sensor_outputs, globalThis.vc.simulation.stats.round_time );
 			for ( let i=0; i < brain_outputs.length; i++ ) {
-				let level = Math.tanh(brain_outputs[i]); // FIXME tanh?
+				let level = brain_outputs[i];
 				this.ActivateMotor( i, level, delta );
 			}
 		}
@@ -622,9 +617,7 @@ export class Boid extends PhysicsObject {
 		}
 	}
 	
-	ActivateMotor( i, amount /* -1..1 */, delta ) {
-		// sometimes neataptic can output nan and infinities. 
-		if ( Number.isNaN(amount) || !Number.isFinite(amount) ) { return 0; }
+	ActivateMotor( i, amount /* 0..1 */, delta ) {
 		let m = this.motors[i];
 		if ( !m ) { return 0; }
 		
@@ -1790,12 +1783,9 @@ export class Boid extends PhysicsObject {
 		
 		// Note: copied from Brain.MakeBrain - we need to know brain type to influence sensors
 		const brain_type_roll = this.dna.shapedNumber( this.dna.genesFor('brain network type',3), 0, 1, 0.5, 2 );
-		let brain_type = 'perceptron';
+		let brain_type = 'epann';
 		if ( brain_type_roll < 0.25 || brain_type_roll > 0.75 ) {
 			brain_type = 'snn';
-		}
-		else if ( brain_type_roll > 0.5 ) {
-			brain_type = 'epann';
 		}
 				
 		let pulse_chance_0 = 0.0;
@@ -1885,13 +1875,6 @@ export class Boid extends PhysicsObject {
 			this.traits.boxfit.push([ node_cost * 0.1, node_cost * 0.2, `brain.snn_nodes`]);
 			const conn_cost = this.brain.network.nodes.reduce( (a,c) => a + (c.conns.length / 2), 0 );
 			this.traits.boxfit.push([ conn_cost * 0.04, conn_cost * 0.02, `brain.snn_conns`]);
-		}
-		else if ( this.brain.type === 'perceptron' ) {
-			// middle nodes cost more
-			const node_cost = this.brain.network.nodes.reduce( (a,c) => a + ( (c.type=='input' || c.type=='output') ? 1 : 5 ) , 0 );
-			this.traits.boxfit.push([ node_cost * 0.1, node_cost * 0.2, `brain.perceptron_nodes`]);
-			const conn_cost = this.brain.network.connections.length;
-			this.traits.boxfit.push([ conn_cost * 0.05, conn_cost * 0.025, `brain.perceptron_conns`]);
 		}
 		else if ( this.brain.type === 'epann' ) {
 			let node_cost = this.brain.network.nodes.length;

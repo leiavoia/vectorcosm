@@ -348,21 +348,24 @@ export default class EPANN {
 		}
 
 		// squash outputs using sigmoid for guaranteed 0..1 range.
+		const outputs = [];
 		for (let i = this.nodes.length - this.num_outputs; i < this.nodes.length; i++) {
 			const n = this.nodes[ i ];
 			// add random jitter to outputs to encourage exploration ("off-policy" learning)
 			const jitter = (Math.random() - 0.5) * this.output_jitter;
 			n.value += jitter;
 			// final sigmoid squash
-			n.value = ActivationFunctions.sigmoid(n.value);
+			const was = n.value;
+			n.value = ActivationFunctions.sigmoid(was);
+			outputs.push(n.value);
+			if ( n.value < 0 || n.value > 1 || isNaN(n.value) || !isFinite(n.value) ) {
+				console.warn(`bad output from EPANN ${n.value}, was ${was}`);
+			}
 		}
-
-		// create an output array
-		const values = this.nodes.map(n => n.value);
-		const outputs = values.slice(this.nodes.length - (this.num_outputs + 1), this.nodes.length);
 
 		// push activation values to the history log
 		if (this.max_logs > 0) {
+			const values = this.nodes.map(n => n.value);
 			this.log.unshift(values);
 			if (this.log.length > this.max_logs) {
 				this.log.pop();

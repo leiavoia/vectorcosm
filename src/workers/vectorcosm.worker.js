@@ -473,12 +473,6 @@ function DescribeBoid( o, inc_sensor_geo=false,  inc_brain=false ) {
 			val: v
 		}));
 	}
-	else {
-		data.brain_outputs = o.brain.network.nodes
-			.filter(n => n.type=='output')
-			.map(n => ({val:n.activation.toFixed(2)}) );
-		data.brain_outputs.forEach( (n,i) => n.name = o.motors[i]?.name || 'UNKNOWN' );
-	}
 	
 	// motors
 	data.motors = o.motors.map( m => ({
@@ -584,25 +578,6 @@ function DescribeBoid( o, inc_sensor_geo=false,  inc_brain=false ) {
 			} );
 		}
 	}
-	else {
-		data.brain = o.brain.network.nodes.map( n => {
-			let value = utils.clamp(n.activation,-1,1);
-			let hexval = utils.DecToHex( Math.round(Math.abs(value) * 255) );
-			let color = ( n.activation >= 0 ? ('#00' + hexval + '00') : ('#' + hexval + '0000') );
-			if ( n.type=='output' ) {
-				let r = utils.DecToHex( Math.round(Math.abs(value) * 240) );
-				let g = utils.DecToHex( Math.round(Math.abs(value) * 130) );
-				let b = utils.DecToHex( Math.round(Math.abs(value) * 24) );
-				color = '#' + r + g + b;			
-			} 
-			return { 
-				type: n.type, 
-				value,
-				symbol: (n.type=='input' ? 'I' : ( n.type=='output' ? 'O' : n.squash.name.charAt(0) ) ),
-				color: color
-			};
-		});	
-	}
 		
 	if ( inc_sensor_geo ) {	
 		// include sensor visualization geometry
@@ -617,12 +592,7 @@ function DescribeBoid( o, inc_sensor_geo=false,  inc_brain=false ) {
 	}
 	if ( inc_brain ) {	
 		// include data for brain graph 
-		if ( o.brain.type === 'snn' || o.brain.type === 'rnn' || o.brain.type === 'epann' ) {
-			data.brain_struct = o.brain.network.Export(false); // POD
-		}
-		else {
-			data.brain_struct = o.brain.network.toJSON(); // POD
-		}
+		data.brain_struct = o.brain.network.Export(false); // POD
 	}
 				
 	return data;
