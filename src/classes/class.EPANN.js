@@ -90,38 +90,11 @@ export default class EPANN {
 		}
 
 		// random connections with forward-only rule
-		const first_middle = this.num_inputs;
 		const first_output = this.nodes.length - this.num_outputs;
 		for ( let src = 0; src < first_output; src++ ) {
-			// any forward node
-			let start = Math.max(first_middle, src + 1);
-			let end = total;
-			// by layer
-			if ( this.respect_layers ) {
-				// from input to middle
-				if (src < first_middle) {
-					start = first_middle;
-					end = first_output;
-				}
-				// from middle to output
-				else {
-					start = first_output;
-					end = total;
-				}
-			}
-			// make the connections
-			for ( let dest = start; dest < end; dest++ ) {
-				let roll = Math.random();
-				// discourage initial inter-middle connections to avoid narrow layering
-				if (src >= this.num_inputs && dest < first_output) {
-					roll = Math.pow(roll, 3);
-				}
-				if (roll >= (1 - connectivity)) {
-					const weight = RandomNumber(-MAX_WEIGHT, MAX_WEIGHT);
-					this.nodes[ src ].conns.push(dest, weight);
-				}
-			}
+			this.autoConnectNode(src);
 		}
+		
 		// give any orphans at least one connection from a random previous node
 		const orphans = this.ScanForOrphans();
 		if ( orphans && orphans.length ) {
@@ -130,7 +103,7 @@ export default class EPANN {
 				let most = Math.min( to, first_output );
 				if ( this.respect_layers ) {
 					least = (to < first_output) ? 0 : this.num_inputs;
-					most = (to < first_output) ? most : first_middle;
+					most = (to < first_output) ? most : this.num_inputs;
 				}
 				const index_from = Math.floor(RandomNumber(least,most));
 				this.addConnection(index_from, to);
@@ -143,6 +116,7 @@ export default class EPANN {
 	addNode(opts = {}, insert_index = -1) {
 		// speed note: including strings with the function data is ~5% slower than just having numbers
 		// we like the variety of having functions per-node, but its faster to do them all the same 
+		if ( opts === null ) { opts = {}; }
 		let squash_type = (typeof opts.squash === 'string') ? opts.squash : this.activation_type;
 		let squash = ActivationFunctions[ squash_type ];
 		if (typeof squash !== 'function') {
@@ -317,6 +291,40 @@ export default class EPANN {
 		return false;
 	}
 
+	autoConnectNode( index ) {
+		// random connections with forward-only rule
+		const first_middle = this.num_inputs;
+		const first_output = this.nodes.length - this.num_outputs;
+		// any forward node
+		let start = Math.max(first_middle, index + 1);
+		let end = this.nodes.length;
+		// by layer
+		if ( this.respect_layers ) {
+			// from input to middle
+			if (index < first_middle) {
+				start = first_middle;
+				end = first_output;
+			}
+			// from middle to output
+			else {
+				start = first_output;
+				end = this.nodes.length;
+			}
+		}
+		// make the connections
+		for ( let dest = start; dest < end; dest++ ) {
+			let roll = Math.random();
+			// discourage initial inter-middle connections to avoid narrow layering
+			if (index >= this.num_inputs && dest < first_output) {
+				roll = Math.pow(roll, 3);
+			}
+			if (roll >= (1 - this.connectivity)) {
+				const weight = RandomNumber(-MAX_WEIGHT, MAX_WEIGHT);
+				this.nodes[ index ].conns.push(dest, weight);
+			}
+		}
+	}
+	
 	Activate(inputs = []) {
 
 		// set inputs

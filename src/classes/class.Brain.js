@@ -222,96 +222,65 @@ export default class Brain {
 			}				
 		}
 		
-		else if ( this.type==='rnn' ) { 
-			// TODO 
-		}
-		
 		else if ( this.type==='epann' ) { 
-			// TODO 
-		}
 		
-		// neataptic 
-		else {
+			// 5) make new inputs for unmapped sensors that we could not reassign to an existing input node
+			if ( unmapped_sensors.length ) {
+				while ( unmapped_sensors.length ) {
+					const next_index = Object.keys(this.input_map).length;
+					const label  = unmapped_sensors.shift();
+					this.input_map[label] = next_index;
+					this.network.addNode(null,next_index);
+					this.network.autoConnectNode(next_index);
+				}
+			}
 			
-			// // 5) make new inputs for unmapped sensors that we could not reassign to an existing input node
-			// if ( unmapped_sensors.length ) {
-			// 	while ( unmapped_sensors.length ) {
-			// 		const next_index = Object.keys(this.input_map).length;
-			// 		const label  = unmapped_sensors.shift();
-			// 		const newnode = new neataptic.Node('input');
-			// 		this.network.nodes.splice(next_index, 0, newnode);
-			// 		// pick a random number of random connections
-			// 		const available = this.network.nodes.filter( n => n.type != 'input' ).shuffle();
-			// 		const num = utils.RandomInt(1,Math.min(5,available.length));
-			// 		for ( let i=0; i<num; i++ ) {
-			// 			const nextnode = available.pop();
-			// 			newnode.connect(nextnode); 
-			// 			if ( !available.length ) { break; }
-			// 		}
-			// 		this.input_map[label] = next_index;
-			// 	}
-			// }
-			// // 6) remove network input nodes that could not be filled
-			// const killme = [];
-			// if ( unused_indexes.length ) {
-			// 	unused_indexes.sort();
-			// 	while ( unused_indexes.length ) {
-			// 		const index = unused_indexes.pop();
-			// 		const node = this.network.nodes[index];
-			// 		killme.push(node);
-			// 	}
-			// }
-			// // 7) physically reorder the input nodes to align with the expected sensor outputs
-			// const new_order = [];
-			// for ( let i=0; i < boid.sensor_labels.length; i++ ) {
-			// 	const node = this.network.nodes[ this.input_map[ boid.sensor_labels[i] ] ];
-			// 	if ( node.type !== 'input' ) {
-			// 		console.warn('node ' + i + ' was not an input', node);
-			// 	}
-			// 	new_order.push( node );
-			// }
-			// for ( let node of killme ) { this.network.remove(node); } // final removal
-			// this.network.nodes.splice( 0, new_order.length, ...new_order );
-			// // 7.1) recreate the input map
-			// this.input_map = {};
-			// for ( let i=0; i < boid.sensor_labels.length; i++ ) {
-			// 	const label = boid.sensor_labels[i];
-			// 	if ( label in this.input_map ) { console.warn(`Non-unique sensor label ${label} will cause brain damage.`); }
-			// 	this.input_map[label] = i;
-			// }		
-			// // 8) remap the output nodes if physical abilities of boid have changed
-			// let output_nodes = this.network.nodes.filter( n => n.type === 'output' );
-			// let num_output_nodes = output_nodes.length;
-			// // 8.1) add new output nodes
-			// if ( boid.motors.length > num_output_nodes ) {
-			// 	while ( boid.motors.length > num_output_nodes ) {
-			// 		const available = this.network.nodes.filter( n => n.type !== 'output' ).shuffle();
-			// 		const newnode = new neataptic.Node('output');
-			// 		this.network.nodes.push(newnode);
-			// 		// pick a random number of random connections
-			// 		const num = utils.RandomInt(1,Math.min(5,available.length));
-			// 		for ( let i=0; i<num; i++ ) {
-			// 			const nextnode = available.pop();
-			// 			newnode.connect(nextnode); 
-			// 			if ( !available.length ) { break; }
-			// 		}
-			// 		num_output_nodes++;
-			// 	}
-			// }
-			// // 8.1) remove unused output nodes
-			// else if ( boid.motors.length < num_output_nodes ) {
-			// 	const diff = num_output_nodes - boid.motors.length;
-			// 	for ( let i=0; i<diff; i++ ) { 
-			// 		let node = output_nodes.pop(); 
-			// 		this.network.remove(node);
-			// 	}
-			// }					
+			// 6) existing input nodes that could not be filled should be removed
+			if ( unused_indexes.length ) {
+				// delete in order from the back
+				unused_indexes.sort(); 
+				while ( unused_indexes.length ) {
+					const index = unused_indexes.pop();
+					this.network.removeNode(index);
+				}
+			}
 			
-			// // internal bookkeeping - might be an oversight with neataptic library
-			// const x_num_input_nodes = this.network.nodes.filter( n => n.type === 'input' ).length;
-			// const x_num_output_nodes = this.network.nodes.filter( n => n.type === 'output' ).length;
-			// this.network.input = x_num_input_nodes;
-			// this.network.output = x_num_output_nodes;
+			// 7) physically reorder the input nodes to align with the expected sensor outputs
+			const new_order = []; // old_index => new_index
+			for ( let i=0; i < boid.sensor_labels.length; i++ ) {
+				const label = boid.sensor_labels[i];
+				const index = this.input_map[label];
+				const node = this.network.nodes[index];
+				new_order.push( node );
+			}
+			this.network.nodes.splice( 0, new_order.length, ...new_order ); // dont need to change connections, just order
+			
+			// 7.1) recreate the input map
+			this.input_map = {};
+			for ( let i=0; i < boid.sensor_labels.length; i++ ) {
+				const label = boid.sensor_labels[i];
+				if ( label in this.input_map ) { 
+					console.warn(`Non-unique sensor label ${label} will cause brain damage.`); 
+				}
+				this.input_map[label] = i;
+			}		
+			
+			// 8) add new output nodes if physical abilities of boid have changed
+			if ( boid.motors.length > this.network.num_outputs ) {
+				while ( boid.motors.length > this.network.num_outputs ) {
+					this.network.addNode();
+					this.network.autoConnectNode(this.network.nodes.length-1);
+				}
+			}
+			
+			// 8.1) remove unused output nodes
+			else if ( boid.motors.length < this.network.num_outputs ) {
+				const diff = this.network.num_outputs - boid.motors.length;
+				for ( let i=0; i<diff; i++ ) { 
+					this.network.removeNode(this.network.nodes.length-1);
+				}
+			}					
+			
 		}
 		
 		return this;
