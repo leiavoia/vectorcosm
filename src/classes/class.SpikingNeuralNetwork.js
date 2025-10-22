@@ -75,7 +75,7 @@ export const OutputStrategies = {
 		// modulate the total based on spike timing target value
 		const target = o.max_age * this.mod * 0.5; // mod can range from 0..2
 		const max_deviation = o.max_age * 0.25;
-		const deviation = Math.min( max_deviation, Math.abs(target - avg) );
+		const deviation = Math.min( 0, Math.min( max_deviation, Math.abs(target - avg) ) );
 		const pct_deviation = deviation / max_deviation;
 		o.output = 1 - pct_deviation;
 	},
@@ -87,9 +87,7 @@ export const OutputStrategies = {
 		OutputUpdateFuncs.train( o, current_tick, nodes );
 		o.output -= (1/30) / o.mod; // decay
 		if ( o.output < 0 ) { o.output = 0; }
-		for ( let tick of o.train ) {
-			o.output += o.mod;
-		}
+		o.output += o.mod * o.train.length;
 		o.train.length=0; // treat like a temporary queue
 		o.output = Math.min( o.output, 1 );
 	},
@@ -100,7 +98,8 @@ export const OutputStrategies = {
 			const dist = current_tick - tick;
 			sum += dist / o.max_age;
 		}
-		o.output = Math.tanh( ( ( sum / o.nodes.length ) / ( o.max_age * 0.04 ) ) * o.mod );
+		const v = ( ( sum / o.nodes.length ) / ( o.max_age * 0.04 ) ) * o.mod;
+		o.output = 1 / ( 1 + Math.exp(-v) ); // sigmoid;
 	},
 };
 
@@ -579,6 +578,7 @@ export default class SpikingNeuralNetwork {
 			max_age: o.a,
 			mod: o.m,
 			train: [],
+			output: 0,
 		}));
 		this.conn_strat = from.conn_strat;
 		this.inputs = from.inputs;
@@ -596,6 +596,7 @@ export default class SpikingNeuralNetwork {
 		}
 		for ( let n of this.outputs ) { 
 			n.train.length = 0;
+			n.output = 0;
 		}	
 	}
 }
