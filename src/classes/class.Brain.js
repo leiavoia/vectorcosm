@@ -30,7 +30,7 @@ export default class Brain {
 				this.network = snn;
 			}
 			else if ( pod.type === 'epann' ) {			
-				let net = new EPANN({max_logs:0});
+				let net = new EPANN();
 				net.Import(this.network);
 				this.network = net;
 			}
@@ -134,26 +134,19 @@ export default class Brain {
 			return snn;
 		}
 		
-		// else if ( this.type==='rnn' ) {
-		// 	// middles should be a smidge larger than inputs
-		// 	const middles = Math.round( inputs + Math.random() * inputs );
-		// 	const layers = [ inputs ];
-		// 	layers.push( middles );
-		// 	// small chance to create a second hidden layer
-		// 	if ( Math.random() < 0.05 ) {
-		// 		const middles2 = Math.round( (outputs + middles) / 2 );
-		// 		layers.push( middles2 );
-		// 	}
-		// 	layers.push( outputs );
-		// 	// create the RNN
-		// 	return new RecurrentNeuralNetwork(layers);
-		// }
-		
 		else if ( this.type==='epann' ) {
+			const respect_layers = Math.random() > 0.5;
 			// start with a small number of middles and more direct-to-output connections
-			const middles = Math.round( Math.random() * inputs / 2 ) + Math.ceil( inputs / 4 );
+			let middles = Math.round( Math.random() * inputs / 2 ) + Math.ceil( inputs / 4 );
+			// we want some cases with extremely simple linear systems to start with
+			if ( !respect_layers && Math.random() > 0.65  ) {
+				middles = 0;
+			}
 			const connectivity = utils.RandomFloat( 0.3, 0.7 );
-			const net = new EPANN({max_logs:0});
+			const net = new EPANN({
+				max_logs:0, 
+				respect_layers
+			});
 			net.Lobotomize(inputs, middles, outputs, connectivity );
 			return net;
 		}

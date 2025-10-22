@@ -54,16 +54,24 @@ function GetActivationFunctionKey(func) {
 }
 
 export default class EPANN {
+
+	/*
+		OPTIONS:
+		activation_type: (ActivationFunction name) - use if you want all nodes to use the same function.
+		connectivity: (float 0..1) how well connected network should try to aim for.
+		output_jitter: (float 0..1) used for off-policy training scenarios.
+		max_logs: (int) number of actions to store in the replay buffer.
+		respect_layers: (bool) use distinct layers or just like, you know, whatever.
+	*/
 	constructor(config = {}) {
 		this.nodes = []; // list of data structures, index order is important
-		this.activation_type = config.activation || 'softsign';
-		this.activation_func = ActivationFunctions[ this.activation_type ];
-		this.num_inputs = config.num_inputs ?? 0;
-		this.num_outputs = config.num_outputs ?? 0;
-		this.connectivity = config.connectivity ?? 0.5;
-		this.output_jitter = config.output_jitter ?? 0 ; //RandomNumber(0.02,0.1);
-		this.max_logs = config.max_logs || 0;
-		this.respect_layers = !!config.respect_layers;
+		this.activation_type = config?.activation_type || null;
+		this.num_inputs = config?.num_inputs ?? 0;
+		this.num_outputs = config?.num_outputs ?? 0;
+		this.connectivity = config?.connectivity ?? 0.5;
+		this.output_jitter = config?.output_jitter ?? 0 ; //RandomNumber(0.02,0.1);
+		this.max_logs = config?.max_logs || 0;
+		this.respect_layers = !!config?.respect_layers;
 		// activation log, used for hebbian reinforcement learning
 		if (this.max_logs) {this.log = [];}
 	}
@@ -84,7 +92,9 @@ export default class EPANN {
 			const is_middle = i >= this.num_inputs && i < total - this.num_outputs;
 			const plasticity = 1; //RandomNumber(0, 1);
 			const bias = 0; //is_middle ? RandomNumber(0, MAX_BIAS) : 0;
-			const squash = is_middle ? RandomActivationFunction(true) : (i < total - this.num_outputs ? 'identity' : 'sigmoid');
+			const squash = is_middle 
+				? (this.activation_type ?? RandomActivationFunction(true) ) 
+				: (i < total - this.num_outputs ? 'identity' : 'sigmoid');
 			this.addNode({plasticity, bias, squash});
 			// outputs always use sigmoid, inputs get nothing
 		}
@@ -118,11 +128,10 @@ export default class EPANN {
 		// we like the variety of having functions per-node, but its faster to do them all the same 
 		if ( opts === null ) { opts = {}; }
 		let squash_type = (typeof opts.squash === 'string') ? opts.squash : this.activation_type;
-		let squash = ActivationFunctions[ squash_type ];
-		if (typeof squash !== 'function') {
-			squash_type = this.activation_type;
-			squash = ActivationFunctions.tanh;
+		if ( !(squash_type in ActivationFunctions) ) {
+			squash_type = 'tanh';
 		}
+		let squash = ActivationFunctions[ squash_type ];
 		const node = {
 			value: 0,
 			bias: (typeof opts.bias === 'number') ? opts.bias : 0,
@@ -256,7 +265,6 @@ export default class EPANN {
 		}
 		// add new connection
 		conns.push(index_to, weight);
-		// console.log('added con');
 		return true;
 	}
 
@@ -284,7 +292,6 @@ export default class EPANN {
 					if ( orphaned ) { return false; }
 				}
 				conns.splice(i, 2); // remove connection
-				// console.log('removed con');
 				return true;
 			}
 		}
@@ -346,11 +353,7 @@ export default class EPANN {
 				const weight = n.conns[ c + 1 ];
 				this.nodes[ dest ].value += n.value * weight;
 			}
-			// squash values while we're looping - there will be no further additions
-			if (i >= this.num_inputs) {
-				// it would be faster to just use a standard activation for the entire network
-				// n.value = this.activation_func(n.value);
-				// but its more fun to have them per node
+			if ( i >= this.num_inputs ) {
 				n.value = n.squash(n.value);
 			}
 		}
@@ -366,9 +369,6 @@ export default class EPANN {
 			const was = n.value;
 			n.value = ActivationFunctions.sigmoid(was);
 			outputs.push(n.value);
-			if ( n.value < 0 || n.value > 1 || isNaN(n.value) || !isFinite(n.value) ) {
-				console.warn(`bad output from EPANN ${n.value}, was ${was}`);
-			}
 		}
 
 		// push activation values to the history log
@@ -502,7 +502,6 @@ export default class EPANN {
 		// measure middle node ratio
 		let node_ratio = num_middles / ( this.num_inputs / 2 );
 		
-		// console.log(node_ratio);
 		// calculate the odds
 		const chances = {
 			// add_node: 3 / node_ratio, // rubber banding
@@ -534,7 +533,8 @@ export default class EPANN {
 			// add a new middle node
 			if ( action == 'add_node'  ) {
 				const new_index = Math.floor(RandomNumber(this.num_inputs, this.nodes.length - this.num_outputs + 1));
-				this.addNode({plasticity: 1, bias: 0, squash: RandomActivationFunction(true)}, new_index);
+				const squash = this.activation_type ?? RandomActivationFunction(true);
+				this.addNode({plasticity: 1, bias: 0, squash}, new_index);
 				// connect it to at least one forward node
 				let index_to = Math.floor(RandomNumber(new_index + 1, this.nodes.length));
 				this.addConnection(new_index, index_to);
@@ -628,7 +628,7 @@ export default class EPANN {
 				// choose any random node
 				const index = Math.floor(RandomNumber(this.num_inputs, this.nodes.length - this.num_outputs));
 				const n = this.nodes[ index ];
-				const new_func = RandomActivationFunction(true);
+				const new_func = this.activation_type ?? RandomActivationFunction(true);
 				n.squash_type = new_func;
 				n.squash = ActivationFunctions[ new_func ];
 			}
@@ -679,8 +679,7 @@ export default class EPANN {
 		this.num_outputs = data.num_outputs;
 		this.max_logs = data.max_logs || 0;
 		this.respect_layers = !!data.respect_layers;
-		this.activation_type = data.activation || 'relu';
-		this.activation_func = ActivationFunctions[ this.activation_type ];
+		this.activation_type = data?.activation_type;
 		this.nodes = data.nodes.map(n => ({
 			value: 0,
 			bias: n.b,
