@@ -3,6 +3,7 @@
 const max_node_connections = 7;
 const max_output_connections = 7;
 const longjump_chance = 0.15;
+const MAX_OUTPUT_JITTER = 0.1;
 
 // default method of wiring nodes
 export const ConnectionStrategy = {
@@ -11,97 +12,6 @@ export const ConnectionStrategy = {
 	cellular: 2,
 	layered: 3,
 }
-
-// internal helper functions
-const OutputUpdateFuncs = {
-	train: function( o, current_tick, nodelist ) {
-		// clear old events from the spike train
-		const oldest = current_tick - o.max_age;
-		while ( o.train.length && o.train[0] < oldest ) {
-			o.train.shift();
-		}
-		// record new events from this frame
-		for ( let i of o.nodes ) {
-			const n = nodelist[i];
-			if ( n.fired === current_tick ) {
-				o.train.push( current_tick );
-			}
-		}					
-	},
-	pulse: function( o, current_tick, nodelist ) {
-		// if the spike train is unitialized or too short, pad with current tick
-		if ( o.train.length > o.nodes.length * 2 ) {
-			o.train.length = o.nodes.length * 2;
-		}
-		while ( o.train.length < o.nodes.length * 2 ) {
-			// o.train.push(0);
-			o.train.push(current_tick);
-		}
-		if ( o.train.length % 2 ) { debugger; }
-		// record new events from this frame
-		// pulse trains are strucured as [current_tick, prev_tick] for each node that is sampled.
-		// i.e. [C,P,C,P,P,C,P,...]
-		for ( let i=0; i < o.nodes.length; i++ ) {
-			const node_index = o.nodes[i];
-			const node = nodelist[node_index];
-			if ( node.fired === current_tick ) {
-				// move current to previous
-				const c = i*2;
-				const p = i*2+1;
-				o.train[p] = o.train[c];
-				// set new current
-				o.train[c] = current_tick;
-			}
-		}		
-	},
-};
-				
-// various functions used by output adapters
-export const OutputStrategies = {
-	pulse: function( o, current_tick, nodes ) {
-		OutputUpdateFuncs.pulse( o, current_tick, nodes );
-		let total = 0;
-		// foreach pair in the train, calc diffs
-		for ( let i=0; i < o.train.length-1; i+=2 ) {
-			const c = o.train[i];
-			const p = o.train[i+1];
-			const prev_diff = c - p;
-			const curr_diff = current_tick - c; // may be zero if node just fired. thats ok
-			const diff = Math.max( prev_diff, curr_diff );
-			// const diff = prev_diff < curr_diff ? prev_diff : curr_diff;
-			total += Math.min( diff, o.max_age );
-		}
-		const avg = total / (o.nodes.length); 
-		// modulate the total based on spike timing target value
-		const target = o.max_age * this.mod * 0.5; // mod can range from 0..2
-		const max_deviation = o.max_age * 0.25;
-		const deviation = Math.min( 0, Math.min( max_deviation, Math.abs(target - avg) ) );
-		const pct_deviation = deviation / max_deviation;
-		o.output = 1 - pct_deviation;
-	},
-	rate: function( o, current_tick, nodes ) {
-		OutputUpdateFuncs.pulse( o, current_tick, nodes );
-		o.output = Math.min( 1, o.train.length / o.max_age );
-	},
-	pressure: function( o, current_tick, nodes ) {
-		OutputUpdateFuncs.train( o, current_tick, nodes );
-		o.output -= (1/30) / o.mod; // decay
-		if ( o.output < 0 ) { o.output = 0; }
-		o.output += o.mod * o.train.length;
-		o.train.length=0; // treat like a temporary queue
-		o.output = Math.min( o.output, 1 );
-	},
-	triangle_linear: function( o, current_tick, nodes ) {
-		OutputUpdateFuncs.train( o, current_tick, nodes );
-		let sum = 0;
-		for ( let tick of o.train ) {
-			const dist = current_tick - tick;
-			sum += dist / o.max_age;
-		}
-		const v = ( ( sum / o.nodes.length ) / ( o.max_age * 0.04 ) ) * o.mod;
-		o.output = 1 / ( 1 + Math.exp(-v) ); // sigmoid;
-	},
-};
 
 export default class SpikingNeuralNetwork {
 	constructor( num_nodes=0, num_inputs=0, num_outputs=0, conn_strat=-1 ) {
@@ -138,21 +48,15 @@ export default class SpikingNeuralNetwork {
 		}
 	}
 	CreateRandomOutputNode() {
-		let output_strats = Object.keys(OutputStrategies);
 		let nodes = [];
 		const num_conns = Math.ceil( Math.random() * max_output_connections );
 		for ( let n=0; n<num_conns; n++ ) {
 			nodes.push( Math.floor(Math.random()*this.nodes.length) );
 		}
-		let strat_name = output_strats[ Math.floor( Math.random() * output_strats.length ) ];
 		this.outputs.push( {
 			nodes,
-			train: [], 
 			output: 0, 
-			strat_name: strat_name,
-			strat: OutputStrategies[strat_name],
-			max_age: 10 + Math.ceil( Math.random() * ( strat_name=='pulse' ? 10 : 30 ) ),
-			mod: ( Math.random() + Math.random() )
+			max_age: 8,
 		} );	
 	}
 	CreateRandomConnections( node_index, num_conns=0 ) {
@@ -268,7 +172,6 @@ export default class SpikingNeuralNetwork {
 			}
 		}
 		this.events_now.length=0; // purge queue in one shot instead of shifting each item
-		this.RecordOutputs();
 	}
 	ReceiveSignal( index, v ) {
 		let n = this.nodes[index];
@@ -290,23 +193,34 @@ export default class SpikingNeuralNetwork {
 	}
 	CalculateOutputs() {
 		for ( let o of this.outputs ) {
-			o.strat(o,this.tick,this.nodes);
-		}
-	}
-	RecordOutputs() {
-		for ( let o of this.outputs ) {
-			// clear old events from the spike train
-			const oldest = this.tick - o.max_age;
-			while ( o.train.length && o.train[0] < oldest ) {
-				o.train.shift();
-			}
-			// record new events from this frame
+			// check all monitored nodes for recent spikes
+			const values = [];
 			for ( let i of o.nodes ) {
 				const n = this.nodes[i];
-				if ( n.fired === this.tick ) {
-					o.train.push( this.tick );
-				}
+				const delta = n.fired >= 0 ? Math.min( this.tick - n.fired, o.max_age ) : o.max_age;
+				const value = 1 - ( delta / o.max_age );
+				values.push(value);
 			}
+			// Root Mean Square (RMS) average - produces more reactive and immediate outputs
+			let total = 0;
+			for ( let v of values ) {
+				total += v * v;
+			}
+			o.output = Math.sqrt( total / values.length );
+			
+			// stochastic jitter to keep you on your toes
+			const roll = -1 + Math.random() + Math.random();
+			const jitter = roll * MAX_OUTPUT_JITTER;
+			o.output = Math.max( 0, Math.min( 1, o.output + jitter ) );
+			
+			// normal average - produces smoother continuity but less responsive
+			// let total = 0;
+			// for ( let v of values ) {
+			// 	total += v;
+			// }
+			// o.output = total / values.length;
+			
+			// possibly factor in raw voltage in addition to spikes for more nuance.
 		}
 	}
 	Mutate( reps=1 ) {
@@ -323,11 +237,8 @@ export default class SpikingNeuralNetwork {
 			conn_remove: 50,
 			conn_reassign: 60,
 			conn_reverse: 30,
-			output_strat: 30,
 			output_conn_add: 200,
 			output_conn_remove: 200,
-			output_train_length: 180,
-			output_mod: 150,
 		};
 		let keys = Object.keys(options);
 		const total = Object.values(options).reduce( (a,c) => a+c, 0 );
@@ -494,13 +405,6 @@ export default class SpikingNeuralNetwork {
 							this.nodes[removed[0]].conns.push( removed[1] );
 							break;
 						}
-						case 'output_strat': {
-							const output_index = Math.floor( Math.random() * this.outputs.length );
-							let output_strats = Object.keys(OutputStrategies);
-							let strat_name = 'pulse';//output_strats[ Math.floor( Math.random() * output_strats.length ) ];
-							this.outputs[output_index].strat = OutputStrategies[strat_name];
-							break;
-						}
 						case 'output_conn_add': {
 							const output_index = Math.floor( Math.random() * this.outputs.length );
 							const node_index = Math.floor( Math.random() * this.nodes.length );
@@ -512,16 +416,6 @@ export default class SpikingNeuralNetwork {
 							if ( this.outputs[index].nodes.length <= 1 ) { break; }
 							const place = Math.floor( Math.random() * this.outputs[index].nodes.length );
 							this.outputs[index].nodes.splice( place, 1 );
-							break;
-						}
-						case 'output_train_length': {
-							const index = Math.floor( Math.random() * this.outputs.length );
-							this.outputs[index].max_age = Math.ceil( Math.random() * 40 );
-							break;
-						}
-						case 'output_mod': {
-							const index = Math.floor( Math.random() * this.outputs.length );
-							this.outputs[index].mod = 0.2 + Math.random() * 1.8;
 							break;
 						}
 					}
@@ -548,9 +442,7 @@ export default class SpikingNeuralNetwork {
 			outputs: this.outputs.map( o => {
 				let output = {
 					n: o.nodes.slice(),
-					s: o.strat_name,
 					a: o.max_age,
-					m: +o.mod.toFixed(3)
 				};
 				if ( inc_state ) { output.o = o.output; }
 				return output;
@@ -573,11 +465,7 @@ export default class SpikingNeuralNetwork {
 		}));
 		this.outputs = from.outputs.map( o => ({
 			nodes: o.n,
-			strat_name: o.s,
-			strat: OutputStrategies[o.s],
 			max_age: o.a,
-			mod: o.m,
-			train: [],
 			output: 0,
 		}));
 		this.conn_strat = from.conn_strat;
@@ -595,7 +483,6 @@ export default class SpikingNeuralNetwork {
 			n.fired = -2;
 		}
 		for ( let n of this.outputs ) { 
-			n.train.length = 0;
 			n.output = 0;
 		}	
 	}

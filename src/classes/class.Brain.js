@@ -53,14 +53,14 @@ export default class Brain {
 	Activate( inputs, timestamp ) {
 		// SSN
 		if ( this.type==='snn' ) {
-			const tick_interval = 1/60;
+			const tick_interval = 1/120;
 			// start the clock
 			if ( !this.last_update || this.last_update > timestamp ) { // indicates first tick
 				this.last_update = timestamp - tick_interval; // one free tick
 			} 
 			// don't allow overly long deltas
-			else if ( timestamp - this.last_update > 0.5 ) {
-				this.last_update = timestamp - 0.5;
+			else if ( timestamp - this.last_update > 0.25 ) {
+				this.last_update = timestamp - 0.25;
 			}
 			// don't allow artificial ticks on short time intervals.
 			// if elapsed time hasn't arrived, do nothing. wait for the next round.
