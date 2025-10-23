@@ -71,18 +71,30 @@
 			let center_x = context.width / 2;
 			let center_y = context.height / 2;
 			let max_r = Math.min( context.width, context.height ) / 2.25;
-			let node_r = 30 * Math.exp(brain.nodes.length * -0.005);
+			let node_r = 18;
+			let cell_angle = (Math.PI * 2) /  brain.nodes.length;
+			
 			// precalc positions of all nodes
-			let positions = [];
-			for ( let i=0 ; i < brain.nodes.length; i++ ) {
-				const length = (max_r * 0.30) + (max_r * 0.70) * ( (Math.E * i) % 1 );
-				const a = Math.PI * 2 * ( i / brain.nodes.length );
-				const offsetX = Math.cos(a) * length;
-				const offsetY = Math.sin(a) * length;
-				let x = center_x + offsetX;
-				let y = center_y + offsetY;
-				positions.push([x,y]);
+			if ( !( 'my_a' in brain.nodes[0] ) ) {
+				// ring shape
+				for ( let i=0; i < brain.nodes.length; i++ ) {
+					let node = brain.nodes[i];
+					node.my_a = cell_angle * i;
+					node.my_a1 = cell_angle * i - ( 0.5 * cell_angle );
+					node.my_a2 = cell_angle * i + ( 0.5 * cell_angle );
+					node.my_x  = center_x + Math.cos(node.my_a)  * ( max_r - node_r );
+					node.my_y  = center_y + Math.sin(node.my_a)  * ( max_r - node_r );
+					node.my_x1 = center_x + Math.cos(node.my_a1) * ( max_r + node_r );
+					node.my_y1 = center_y + Math.sin(node.my_a1) * ( max_r + node_r );
+					node.my_x2 = center_x + Math.cos(node.my_a2) * ( max_r + node_r );
+					node.my_y2 = center_y + Math.sin(node.my_a2) * ( max_r + node_r );
+					node.my_x3 = center_x + Math.cos(node.my_a2) * ( max_r - node_r );
+					node.my_y3 = center_y + Math.sin(node.my_a2) * ( max_r - node_r );
+					node.my_x4 = center_x + Math.cos(node.my_a1) * ( max_r - node_r );
+					node.my_y4 = center_y + Math.sin(node.my_a1) * ( max_r - node_r );
+				}
 			}
+			
 			// draw connections - connections do not fluctuate, so we can draw once and be done
 			if ( draw_conns ) {
 				if ( !conns_geo ) { 
@@ -90,27 +102,69 @@
 					geo.add(conns_geo);
 					// draw connections as lines
 					for ( let i=0; i < brain.nodes.length; i++ ) {
-						let n = brain.nodes[i];
-						for ( let c=0; c < n.c.length; c+=2 ) {
-							const geo = two.makeLine( 
-								positions[i][0], 
-								positions[i][1],
-								positions[n.c[c]][0], 
-								positions[n.c[c]][1]
-							);
-							// stroke
-							const weight = n.c[c+1];
-							const color = Math.trunc( 127 + Math.min(127,(-weight * 128)) ).toString(16).padStart(2,'0');
-							if ( weight < 0 ) { geo.stroke = '#FF0000' + color; }
-							else { geo.stroke = '#00FF00' + color; }
-							geo.linewidth = 1;
-							geo.fill = 'transparent';
-							geo.dashes = [40,5,25,5,10,5,2,5];
-							conns_geo.add(geo);
+						let node = brain.nodes[i];
+						for ( let c=0; c < node.c.length; c+=2 ) {
+							let w = node.c[c+1];
+							let index_to = node.c[c];
+							let from = node;
+							let to = brain.nodes[index_to];
+							// make an arcing path using the start, finish, and offset center point
+							let mid_x = (from.my_x + to.my_x) / 2;
+							let mid_y = (from.my_y + to.my_y) / 2;
+							mid_x = (mid_x * 8 + center_x * 2) / 10;
+							mid_y = (mid_y * 8 + center_y * 2) / 10;
+							// if the midpoint is too close to the center of the screen push it out radially
+							const dist_to_center = Math.sqrt( (mid_x - center_x)**2 + (mid_y - center_y)**2 );
+							const push = 0.35;
+							if ( dist_to_center < max_r * push ) {
+								const angle_to_center = Math.atan2( mid_y - center_y, mid_x - center_x );
+								mid_x = center_x + Math.cos(angle_to_center) * max_r * push;
+								mid_y = center_y + Math.sin(angle_to_center) * max_r * push;
+							}
+							// create the curved line
+							let line = context.makePath([
+								new Two.Anchor( from.my_x, from.my_y ),
+								new Two.Anchor( mid_x, mid_y ),
+								new Two.Anchor( to.my_x, to.my_y ),
+							]);
+							line.curved = true;
+							line.closed = false;
+							// color indicates weight sign
+							const hue = w >= 0 ? 120 : 0; // green/red
+							line.stroke = `hsl(${hue}, 100%, 50%)`;
+							// width indicates connection weight
+							line.linewidth = Math.abs( utils.clamp(w,-1,1) ) * 2 + 1;
+							line.fill = 'transparent';
+							line.opacity = Math.abs(w) * 0.4 + 0.1;
+							conns_geo.add(line);
 						}
 					}
 				}
-			}				
+				// update connection colors according to the activation of the from-node
+				else {
+					let conn_index = 0;
+					for ( let i=0; i < brain.nodes.length; i++ ) {
+						let node = brain.nodes[i];
+						for ( let j=0; j < node.c.length; j+=2 ) { // note paired data: index, weight, index, weight, ...	
+							let c = node.c[j];
+							let w = node.c[j+1];
+							let activation = boid?.brain[i]?.value ?? node?.v ?? 0; // magic
+							activation = utils.Clamp(activation,-1,1);
+							let line = conns_geo.children[conn_index++]; // get the next line in the group
+							// opacity indicates activation
+							let opacity = Math.abs( utils.clamp(activation,-1,1) ) * 0.4 + 0.1;
+							if ( line.opacity != opacity ) { line.opacity = opacity; }
+							// update connection weight in case it changed from adaptive learning
+							const hue = w >= 0 ? 120 : 0; // green/red
+							const stroke = `hsl(${hue}, 100%, 50%)`;
+							if ( line.stroke != stroke ) { line.stroke = line.stroke; }
+							const linewidth = Math.abs( utils.clamp(w,-1,1) ) * 6 + 1;
+							if ( line.linewidth != linewidth ) { line.linewidth = line.linewidth; }
+						}
+					}		
+				}				
+			}		
+						
 			// draw output nodes
 			if ( draw_nodes ) {
 				// create the nodes
@@ -123,16 +177,16 @@
 					// only create new geometry on the first run
 					if ( i >= neuron_geos.length ) { 
 						let is_input = brain.inputs.contains(i);
-						let rect = null;
-						if ( is_input ) {
-							rect = context.makePolygon(positions[i][0], positions[i][1], node_r, 3);
-						}
-						else {
-							rect = context.makeCircle(positions[i][0], positions[i][1], node_r);
-						}
+						let anchors = [
+							new Two.Anchor( node.my_x1, node.my_y1 ),
+							new Two.Anchor( node.my_x2, node.my_y2 ),
+							new Two.Anchor( node.my_x3, node.my_y3 ),
+							new Two.Anchor( node.my_x4, node.my_y4 )
+						];
+						let rect = globalThis.two.makePath(anchors);
 						rect.fill = '#000';
-						rect.linewidth = 1;
-						rect.stroke = '#AAAAAA';
+						rect.linewidth = 0;
+						rect.stroke = '#AAAAAA88';
 						nodes_geo.add(rect);
 						neuron_geos.push(rect);
 					}
@@ -143,23 +197,17 @@
 						let rect = neuron_geos[i];
 						// fill
 						if ( boid?.brain[i]?.fired ) {
-							rect.fill = '#000000';
+							rect.fill = '#FFFFFF';
+							rect.opacity = 1.0;
 						}
 						else if ( v < 0 ) {
 							rect.fill = '#' + Math.trunc(Math.min(255,(-v * 256))).toString(16).padStart(2,'0') + '0000';
+							rect.opacity = Math.abs(v);
 						}
 						else {
 							rect.fill = '#00' + Math.trunc(Math.min(255,(v * 256))).toString(16).padStart(2,'0') + '00';
-						}
-						// stroke (firing signal)						
-						if ( boid?.brain[i]?.fired ) {
-							rect.stroke = '#AEA';
-							rect.linewidth = 4;
-						}
-						else {
-							rect.stroke = '#AAAAAA';
-							rect.linewidth = 1;
-						}						
+							rect.opacity = Math.abs(v);
+						}					
 					}
 				}
 			}			
@@ -180,18 +228,6 @@
 					node.my_x = x + Math.cos(node.my_a) * r;
 					node.my_y = y + Math.sin(node.my_a) * r;
 				}
-				// alternative spiral shape
-				// node_r = 30 * Math.exp(brain.nodes.length * -0.005);
-				// for ( let i=0 ; i < brain.nodes.length; i++ ) {
-				// 	const length = (r * 0.30) + (r * 0.70) * ( (Math.E * i) % 1 );
-				// 	const a = Math.PI * 2 * ( i / brain.nodes.length );
-				// 	const offsetX = Math.cos(a) * length;
-				// 	const offsetY = Math.sin(a) * length;
-				// 	const node = brain.nodes[i];
-				// 	node.my_a = a;
-				// 	node.my_x = x + offsetX;
-				// 	node.my_y = y + offsetY;
-				// }
 			}
 			// draw connections - connections do not fluctuate, so we can draw once and be done
 			if ( draw_conns ) {
