@@ -4,6 +4,7 @@ const max_node_connections = 7;
 const max_output_connections = 7;
 const longjump_chance = 0.15;
 const MAX_OUTPUT_JITTER = 0.05;
+const STOCHASTIC_INPUTS = false;
 
 // default method of wiring nodes
 export const ConnectionStrategy = {
@@ -161,8 +162,24 @@ export default class SpikingNeuralNetwork {
 		this.events_next = temp;
 		// add inputs
 		let max = Math.min( this.inputs.length, inputs.length );
-		for ( let i=0; i < max; i++ ) {
-			this.ReceiveSignal( this.inputs[i], inputs[i] );
+		// for stochastic inputs, random chance to fire node manually
+		if ( STOCHASTIC_INPUTS ) {
+			for ( let i=0; i < max; i++ ) {
+				const index = this.inputs[i];
+				const node = this.nodes[index];
+				const gotcha = Math.random() < inputs[i] / node.threshold;
+				if ( gotcha ) {
+					node.v = 0;
+					node.fired = this.tick;
+					this.events_next.push(index); 
+				}
+			}
+		}
+		// otherwise treat as a signal
+		else {
+			for ( let i=0; i < max; i++ ) {
+				this.ReceiveSignal( this.inputs[i], inputs[i] );
+			}
 		}
 		// process all signal events
 		for ( let i=0; i < this.events_now.length; i++ ) {
