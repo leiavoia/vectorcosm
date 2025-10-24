@@ -3,7 +3,7 @@
 const max_node_connections = 7;
 const max_output_connections = 7;
 const longjump_chance = 0.15;
-const MAX_OUTPUT_JITTER = 0.1;
+const MAX_OUTPUT_JITTER = 0.05;
 
 // default method of wiring nodes
 export const ConnectionStrategy = {
@@ -56,7 +56,7 @@ export default class SpikingNeuralNetwork {
 		this.outputs.push( {
 			nodes,
 			output: 0, 
-			max_age: 8,
+			max_age: 5
 		} );	
 	}
 	CreateRandomConnections( node_index, num_conns=0 ) {
@@ -193,6 +193,7 @@ export default class SpikingNeuralNetwork {
 	}
 	CalculateOutputs() {
 		for ( let o of this.outputs ) {
+			
 			// check all monitored nodes for recent spikes
 			const values = [];
 			for ( let i of o.nodes ) {
@@ -201,26 +202,23 @@ export default class SpikingNeuralNetwork {
 				const value = 1 - ( delta / o.max_age );
 				values.push(value);
 			}
+			
 			// Root Mean Square (RMS) average - produces more reactive and immediate outputs
-			let total = 0;
-			for ( let v of values ) {
-				total += v * v;
-			}
-			o.output = Math.sqrt( total / values.length );
+			let total = values.reduce( (a,c) => a + c*c );
+			let new_val = Math.sqrt( total / values.length );
 			
 			// stochastic jitter to keep you on your toes
 			const roll = -1 + Math.random() + Math.random();
 			const jitter = roll * MAX_OUTPUT_JITTER;
-			o.output = Math.max( 0, Math.min( 1, o.output + jitter ) );
+			new_val = Math.max( 0, Math.min( 1, new_val + jitter ) );
 			
-			// normal average - produces smoother continuity but less responsive
-			// let total = 0;
-			// for ( let v of values ) {
-			// 	total += v;
-			// }
-			// o.output = total / values.length;
+			// blend with previous output value for a smoother moving average
+			const echo = o.output;
+			const echo_weight = 0.5; // 0..1
+			o.output = new_val * (1-echo_weight) + echo * echo_weight;
 			
 			// possibly factor in raw voltage in addition to spikes for more nuance.
+			
 		}
 	}
 	Mutate( reps=1 ) {
@@ -466,7 +464,7 @@ export default class SpikingNeuralNetwork {
 		this.outputs = from.outputs.map( o => ({
 			nodes: o.n,
 			max_age: o.a,
-			output: 0,
+			output: 0
 		}));
 		this.conn_strat = from.conn_strat;
 		this.inputs = from.inputs;
