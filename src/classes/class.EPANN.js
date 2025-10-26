@@ -1,4 +1,6 @@
 
+import * as utils from '../util/utils.js'
+
 const MAX_BIAS = 0.25;
 const MAX_WEIGHT = 0.65;
 
@@ -59,6 +61,7 @@ export default class EPANN {
 		OPTIONS:
 		activation_type: (ActivationFunction name) - use if you want all nodes to use the same function.
 		connectivity: (float 0..1) how well connected network should try to aim for.
+		abstraction: (float 0..1) relative number of middle nodes to keep.
 		output_jitter: (float 0..1) used for off-policy training scenarios.
 		max_logs: (int) number of actions to store in the replay buffer.
 		respect_layers: (bool) use distinct layers or just like, you know, whatever.
@@ -69,6 +72,7 @@ export default class EPANN {
 		this.num_inputs = config?.num_inputs ?? 0;
 		this.num_outputs = config?.num_outputs ?? 0;
 		this.connectivity = config?.connectivity ?? 0.5;
+		this.abstraction = config?.abstraction ?? RandomNumber(0,1);
 		this.output_jitter = config?.output_jitter ?? 0 ; //RandomNumber(0.02,0.1);
 		this.max_logs = config?.max_logs || 0;
 		this.respect_layers = !!config?.respect_layers;
@@ -179,7 +183,8 @@ export default class EPANN {
 		if (was_input) {this.num_inputs--;}
 		else if (was_output) {this.num_outputs--;}
 		// hang on to the old connections
-		const old_conns = this.nodes[ index ].conns;
+		const outgoing_conns = this.nodes[ index ].conns; // deleted node's own outgoing connections
+		const from_conns = []; // prior nodes that link to the deleted node
 		// remove the node
 		this.nodes.splice(index, 1);
 		// update all connections with affected indexes
@@ -187,60 +192,79 @@ export default class EPANN {
 			const conns = this.nodes[ i ].conns;
 			for (let j = conns.length - 2; j >= 0; j -= 2) {
 				const dest = conns[ j ];
-				// decrement the index if it comes after the removed node
+				// stack shift: decrement the index if it comes after the removed node
 				if (dest > index) {
 					conns[ j ]--;
 				}
-				// remove entire connection for matching indexes
+				// remove connection to the removed node. redistribute later
 				else if (dest == index) {
-					// removing incoming connections can leave the from_node with no outgoing connections.
-					// now is a good time to reassign them instead of leaving them hanging.
-					if ( donate_connections ) {
-						// choose a random node from the same layer
-						if ( this.respect_layers ) {
-							let least = 0;
-							let most = this.nodes.length;
-							if (was_input) {
-								least = this.num_inputs;
-								most = this.nodes.length - this.num_outputs;
-							}
-							else if (was_output) {
-								least = 0;
-								most = this.num_inputs;
-							}
-							// do avoid duplicate connections, we can't just reassign the node index.
-							// we have to remove/add the entire connection.
-							const new_dest = Math.floor(RandomNumber(least, most));
-							const weight = conns[ j + 1 ];
-							this.addConnection(i, new_dest, weight);
-						}
-						// pass existing connections from the origin node to the forward node, possibly skipping a layer:
-						// O--->X--->O becomes O------>O
-						else {
-							// remove old connections as we go to avoid double-donations
-							for (let c = old_conns.length-1; c >= 0; c -= 2) {
-								const forward_dest = old_conns[ c ]-1; // account for stack shift
-								const weight = old_conns[ c + 1 ];
-								// only forward connections
-								if ( forward_dest > index ) {
-									const gotcha = this.addConnection(i, forward_dest, weight);
-									if ( gotcha ) { old_conns.splice(c, 2); }
-								}
-							}
-						}
-					}
+					from_conns.push( i, conns[j+1] );
 					conns.splice(j, 2);
 				}
 			}
 		}
-		// donate the old connections to random other nodes to avoid orphaning the target nodes
-		if ( donate_connections && old_conns.length && index > 0 ) { 
-			for (let c = 0; c < old_conns.length; c += 2) {
-				const dest = old_conns[ c ]-1; // account for node we are removing
-				const weight = old_conns[ c + 1 ];
-				this.addConnection(index-1, dest, weight);
+		
+		// move connections to/from deleted node
+		if ( donate_connections && from_conns.length + outgoing_conns.length ) {
+		
+			// shift all indexes down to account for the deleted node
+			for ( let j=0; j < outgoing_conns.length; j+=2 ) {
+				outgoing_conns[j] = outgoing_conns[j] - 1;
 			}
+				
+			// decide if we are donating all connections to a neighbor or using the passthru method
+			let neighbor = -1;
+			
+			// look for a random node from the same layer as the deleted node
+			const num_middles = this.nodes.length - ( this.num_inputs + this.num_outputs );
+			if ( this.respect_layers && ( num_middles > 1 || !was_middle ) ) {
+				// define the range we want to select the new custodian from
+				let least = this.num_inputs; // default middle layer
+				let most = this.nodes.length - this.num_outputs;
+				if ( was_output ) {
+					least = this.nodes.length - this.num_outputs;
+					most = this.nodes.length;
+				}
+				else if ( was_input ) {
+					least = 0;
+					most = this.num_inputs;
+				}
+				neighbor = Math.floor(RandomNumber(least, most));
+			}
+			
+			// if a neighbor is found, move all connections
+			if ( neighbor > -1 ) {
+				// incoming
+				for ( let j=0; j < from_conns.length; j+=2 ) {
+					this.addConnection( from_conns[j], neighbor, from_conns[j+1] );
+				}
+				// outgoing
+				for ( let j=0; j < outgoing_conns.length; j+=2 ) {
+					this.addConnection( neighbor, outgoing_conns[j], outgoing_conns[j+1] );
+				}
+			}
+						
+			// if no neighbor is found, use the passthru method and do some random match-making			
+			// O--->X--->O becomes O------>O
+			else {
+				// incoming -> outgoing
+				if ( outgoing_conns.length ) {
+					for ( let j=0; j < from_conns.length; j+=2 ) {
+						const to = Math.round( Math.floor( Math.random() * ( outgoing_conns.length / 2 ) ) * 2 );
+						this.addConnection( from_conns[j], outgoing_conns[to], from_conns[j+1] );
+					}
+				}
+				// outgoing <- incoming
+				if ( from_conns.length) {
+					for ( let j=0; j < outgoing_conns.length; j+=2 ) {
+						const from = Math.round( Math.floor( Math.random() * ( from_conns.length / 2 ) )  * 2 );
+						this.addConnection( from_conns[from], outgoing_conns[j], from_conns[from+1] );
+					}
+				}
+			}
+		
 		}
+		
 		// geometry changed
 		if (this.max_logs) {this.log = [];}
 	}
@@ -253,6 +277,7 @@ export default class EPANN {
 			index_from = tmp;
 			}
 		if (index_from < 0 || index_from > this.nodes.length-2) return false;
+		if (index_to == index_from) return false;
 		if (index_to < 1 || index_to > this.nodes.length-1) return false;
 		if (!weight) { weight = RandomNumber(-MAX_WEIGHT, MAX_WEIGHT); }
 		const conns = this.nodes[ index_from ].conns;
@@ -260,7 +285,7 @@ export default class EPANN {
 		for (let i = 0; i < conns.length; i += 2) {
 			if (conns[ i ] === index_to) {
 				conns[ i + 1 ] = weight; // update weight
-				return true;
+				return false;
 			}
 		}
 		// add new connection
@@ -489,7 +514,7 @@ export default class EPANN {
 	Mutate(reps = 1) {
 		// measure connectivity
 		const num_middles = this.nodes.length - (this.num_inputs + this.num_outputs);
-		let upper_bound = num_middles * this.num_inputs + num_middles * this.num_outputs;
+		let upper_bound = num_middles ? (num_middles * this.num_inputs + num_middles * this.num_outputs) : (this.num_inputs * this.num_outputs);
 		let lower_bound = this.nodes.length;
 		let spread = upper_bound - lower_bound;
 		let desired_connections = lower_bound + this.connectivity * spread;
@@ -497,41 +522,56 @@ export default class EPANN {
 		for (let n of this.nodes) {
 			current_connections += n.conns.length / 2;
 		}
-		let conn_ratio = current_connections / desired_connections;
+		let conn_ratio = desired_connections ? ( current_connections / desired_connections ) : 1;
+		conn_ratio = utils.Clamp(conn_ratio, 0.5, 1.5);
 		
 		// measure middle node ratio
-		let node_ratio = num_middles / ( this.num_inputs / 2 );
-		
+		const desired_nodes = (this?.abstraction||0) * 1.2 * this.num_inputs;
+		let node_ratio = desired_nodes ? ( num_middles / desired_nodes ) : 1;
+		node_ratio = utils.Clamp(node_ratio, 0.5, 1.5);
+
 		// calculate the odds
-		const chances = {
-			// add_node: 3 / node_ratio, // rubber banding
-			// remove_node: 3 * node_ratio, // rubber banding
-			add_connection: 10 / conn_ratio, // rubber banding
-			remove_connection: 10 * conn_ratio, // rubber banding
-			change_bias: 8,
-			change_plasticity: 8,
-			change_activation: 3,
-			change_weight: 100,
-		};
-		
-		// normalize chances
-		let total_chance = 0;
-		for (let key in chances) { total_chance += chances[ key ]; }
-		for (let key in chances) { chances[ key ] /= total_chance; }
+		const chances = [
+			['add_node', 4 / node_ratio], // rubber banding
+			['remove_node', 4 * node_ratio], // rubber banding
+			['add_connection', 8 / conn_ratio], // rubber banding
+			['remove_connection', 8 * conn_ratio], // rubber banding
+			['move_connection', 14],
+			['change_bias', 8],
+			['change_plasticity', 8],
+			['change_activation', 3],
+			['change_weight', 100],
+			['change_connectivity', 2],
+			['change_abstraction', 2],
+			['flip_layer_respect', 1],
+		];
+		const picker = new utils.RandomPicker(chances);
 		
 		// foreach mutation
 		for (let r = 0; r < reps; r++) {
-			let roll = Math.random();
-			let action = 'change_weight';
-			for ( let key in chances ) {
-				roll -= chances[ key ];
-				if ( roll <= 0 ) { 
-					action = key;
-					break;
+			let action = picker.Pick();
+			// change a connection weight
+			if ( action == 'change_weight'  ) {
+				const index_from = Math.floor(Math.random() * this.nodes.length);
+				const n = this.nodes[ index_from ];
+				if (n.conns.length > 0) {
+					const c = Math.floor(Math.random() * (n.conns.length / 2)) * 2;
+					let weight = n.conns[ c + 1 ];
+					// chance for complete randomization
+					if (Math.random() < 0.1) {
+						weight = RandomNumber(-MAX_WEIGHT, MAX_WEIGHT);
+					}
+					// otherwise just a small nudge
+					else {
+						weight += RandomNumber(-0.1, 0.1);
+					}
+					// TODO: respect plasticity?
+					weight = Math.max(-1, Math.min(1, weight)); // clamp
+					n.conns[ c + 1 ] = weight;
 				}
-			}
+			}			
 			// add a new middle node
-			if ( action == 'add_node'  ) {
+			else if ( action == 'add_node'  ) {
 				const new_index = Math.floor(RandomNumber(this.num_inputs, this.nodes.length - this.num_outputs + 1));
 				const squash = this.activation_type ?? RandomActivationFunction(true);
 				this.addNode({plasticity: 1, bias: 0, squash}, new_index);
@@ -579,6 +619,43 @@ export default class EPANN {
 				const roll = ( 1 - ( Math.sqrt( Math.random() * 100 ) / 10 ) ) * distance;
 				const index_to = Math.floor( roll + first_target );
 				this.addConnection(index_from, index_to);
+			}
+			// move connection - basically adding a connection with optional cloning
+			else if ( action == 'move_connection' ) {
+				const index_from = Math.floor(Math.random() * (this.nodes.length - this.num_outputs));
+				// determine target range
+				let first_target = index_from + 1;
+				let last_target = this.nodes.length;
+				// strict layer to layer connections
+				if ( this.respect_layers ) {
+					// from input to middle
+					if (index_from < this.num_inputs) {
+						first_target = this.num_inputs;
+						last_target = this.nodes.length - this.num_outputs;
+					}
+					// from middle to output
+					else {
+						first_target = this.nodes.length - this.num_outputs;
+						last_target = this.nodes.length;
+					}
+				}
+				// any forward connection
+				else {
+					// bias the target node towards the end to favor output connections
+					first_target = Math.max(index_from + 1, this.num_inputs);
+					last_target = this.nodes.length;
+				}
+				const distance = last_target - first_target;
+				const roll = ( 1 - ( Math.sqrt( Math.random() * 100 ) / 10 ) ) * distance;
+				const index_to = Math.floor( roll + first_target );
+				// choose a donor connection
+				const conns = this.nodes[ index_from ].conns;
+				const c = Math.floor(Math.random() * (conns.length / 2)) * 2;
+				const donor_weight = conns[c+1];
+				// attempt reconnection
+				const result = this.addConnection(index_from, index_to, donor_weight);
+				// remove old connection 
+				if ( result ) { conns.splice(c,2); }
 			}
 			// remove a connection
 			else if ( action == 'remove_connection' ) {
@@ -632,26 +709,35 @@ export default class EPANN {
 				n.squash_type = new_func;
 				n.squash = ActivationFunctions[ new_func ];
 			}
-			// change a connection weight
-			else {
-				const index_from = Math.floor(Math.random() * this.nodes.length);
-				const n = this.nodes[ index_from ];
-				if (n.conns.length > 0) {
-					const c = Math.floor(Math.random() * (n.conns.length / 2)) * 2;
-					let weight = n.conns[ c + 1 ];
-					// chance for complete randomization
-					if (Math.random() < 0.1) {
-						weight = RandomNumber(-MAX_WEIGHT, MAX_WEIGHT);
-					}
-					// otherwise just a small nudge
-					else {
-						weight += RandomNumber(-0.1, 0.1);
-					}
-					// TODO: respect plasticity?
-					weight = Math.max(-1, Math.min(1, weight)); // clamp
-					n.conns[ c + 1 ] = weight;
+			
+			else if ( action == 'change_abstraction' ) {
+				// chance for complete randomization
+				if (Math.random() < 0.1) {
+					this.abstraction = RandomNumber(0.3, 0.7);
 				}
+				// otherwise just a small nudge
+				else {
+					this.abstraction += RandomNumber(-0.05, 0.05);
+					this.abstraction = Math.min( 1, Math.max( 0, this.abstraction ) );
+				}			
 			}
+			
+			else if ( action == 'change_connectivity' ) {
+				// chance for complete randomization
+				if (Math.random() < 0.1) {
+					this.connectivity = RandomNumber(0.3, 0.7);
+				}
+				// otherwise just a small nudge
+				else {
+					this.connectivity += RandomNumber(-0.05, 0.05);
+					this.connectivity = Math.min( 1, Math.max( 0, this.connectivity ) );
+				}			
+			}
+			
+			else if ( action == 'flip_layer_respect' ) {
+				this.respect_layers = !this.respect_layers;
+			}
+
 		}
 		this.NormalizeWeights();
 	}
@@ -663,6 +749,8 @@ export default class EPANN {
 			max_logs: this.max_logs,
 			activation_type: this.activation_type,
 			respect_layers: this.respect_layers,
+			connectivity: this.connectivity,
+			abstraction: this.abstraction,
 			nodes: this.nodes.map(n => ({
 				b: n.bias,
 				p: n.plasticity,
@@ -680,6 +768,8 @@ export default class EPANN {
 		this.max_logs = data.max_logs || 0;
 		this.respect_layers = !!data.respect_layers;
 		this.activation_type = data?.activation_type;
+		this.connectivity = data?.connectivity || 0.5;
+		this.abstraction = data?.abstraction || 0.5;
 		this.nodes = data.nodes.map(n => ({
 			value: 0,
 			bias: n.b,
