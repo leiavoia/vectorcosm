@@ -612,9 +612,9 @@ export class Boid extends PhysicsObject {
 	// provides reward and punishment signals for adaptive brains.
 	// suggested value of -1..1
 	Experience( value=1.0 ) {
-		if ( 'Learn' in this.brain.network ) {
-			this.brain.network.Learn(value);
-		}
+		// if ( 'Learn' in this.brain.network ) {
+		// 	this.brain.network.Learn(value);
+		// }
 	}
 	
 	ActivateMotor( i, amount /* 0..1 */, delta ) {
