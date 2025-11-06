@@ -156,9 +156,10 @@ export default class Brain {
 		this.network.Mutate(iterations);
 		return this;
 	}
-	
+	// Dot bears a copyright-flirting resemblance to Spike from Vectrex
 	// rewire the brain as needed to rectify current input map with boid's current sensor labels.
 	Remap( boid ) {
+	
 		// 0) Find map entries we no longer have
 		const unused_map_entries = Object.keys(this.input_map).filter( x => !boid.sensor_labels.includes(x) );
 		
@@ -203,7 +204,8 @@ export default class Brain {
 			// 8) remap the output nodes if physical abilities of boid have changed
 			// 8.1) add new output nodes
 			if ( boid.motors.length > this.network.outputs.length ) {
-				while ( boid.motors.length > this.network.outputs.length ) {
+				const diff = Math.max( 0, boid.motors.length - this.network.outputs.length );
+				for ( let n=0; n < diff; n++ ) {
 					this.network.CreateRandomOutputNode();
 				}
 			}
@@ -260,8 +262,9 @@ export default class Brain {
 			
 			// 8) add new output nodes if physical abilities of boid have changed
 			if ( boid.motors.length > this.network.num_outputs ) {
-				while ( boid.motors.length > this.network.num_outputs ) {
-					this.network.addNode();
+				const diff = Math.max( 0, boid.motors.length - this.network.num_outputs );
+				for ( let n=0; n < diff; n++ ) {
+					this.network.addNode(null,this.network.nodes.length);
 					this.network.autoConnectNode(this.network.nodes.length-1);
 				}
 			}
