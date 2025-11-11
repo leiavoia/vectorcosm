@@ -48,7 +48,6 @@ export default class Simulation {
 			num_foods: 1,
 			num_plants: 0,
 			num_rocks: 0,
-			add_decor: false,
 			timeout: 30, // in seconds
 			// 	rounds: 5,
 			// 	min_avg_score: 10,	
@@ -430,13 +429,7 @@ export default class Simulation {
 				this.tank.SeparateRocks(margin);
 			}
 		}
-		// substrate and placed stones
-		if ( this.settings?.add_decor ) {
-			// we can also take a random chance to add decor
-			if ( this.settings.add_decor === true || Math.random() <= parseFloat( this.settings.add_decor ) ) {
-				this.tank.MakePrettyDecor();
-			}
-		}
+
 		// redefine safe spawn points now that landscape has changed
 		this.tank.FindSafeZones();
 		
@@ -542,18 +535,14 @@ export class NaturalTankSimulation extends Simulation {
 		this.Reset();
 	}
 	Reset() {
-		// make default decor
+		// make default rock obstacles
 		if ( this.settings?.random_terrain ) {
 			const tm = new TankMaker( this.tank, {} );
 			tm.Make();
 		}
 		// randomize rocks
-		else if ( this.settings?.num_rocks ) {
-			this.SetNumRocks(this.settings?.num_rocks);
-		}
-		// substrate and placed stones
-		if ( this.settings?.add_decor ) { 
-			this.tank.MakePrettyDecor();
+		else {
+			this.SetNumRocks(this.settings?.num_rocks || 0);
 		}
 		// plants
 		if ( this.settings?.num_plants ) { 
@@ -641,13 +630,7 @@ export class FoodChaseSimulation extends Simulation {
 			this.tank.foods.push(food);
 		}
 		// randomize rocks
-		if ( this.settings?.num_rocks ) {
-			this.SetNumRocks(this.settings?.num_rocks);
-		}
-		// substrate and placed stones
-		else if ( this.settings?.add_decor ) { 
-			this.tank.MakePrettyDecor();
-		}
+		this.SetNumRocks(this.settings?.num_rocks || 0);
 		// plants
 		if ( this.settings?.num_plants ) { 
 			this.SetNumPlants(this.settings?.num_plants);
@@ -788,13 +771,7 @@ export class FinishingSimulation extends Simulation {
 			this.tank.foods.push(food);
 		}
 		// randomize rocks
-		if ( this.settings?.num_rocks ) {
-			this.SetNumRocks(this.settings?.num_rocks);
-		}
-		// substrate and placed stones
-		else if ( this.settings?.add_decor ) { 
-			this.tank.MakePrettyDecor();
-		}
+		this.SetNumRocks(this.settings?.num_rocks || 0);
 		// plants
 		if ( this.settings?.num_plants ) { 
 			this.SetNumPlants(this.settings?.num_plants);
@@ -862,9 +839,7 @@ export class CombatSimulation extends Simulation {
 	}
 	Reset() {
 		// randomize rocks
-		if ( this.settings?.num_rocks ) {
-			this.SetNumRocks(this.settings?.num_rocks);
-		}
+		this.SetNumRocks(this.settings?.num_rocks || 0);
 		// reset entire population
 		this.SetNumBoids( this.settings.num_boids ); // top up the population
 		let spawn_x = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.width; 
@@ -916,9 +891,7 @@ export class TurningSimulation extends Simulation {
 	}
 	Reset() {
 		// randomize rocks
-		if ( this.settings?.num_rocks ) {
-			this.SetNumRocks(this.settings?.num_rocks);
-		}	
+		this.SetNumRocks(this.settings?.num_rocks || 0);
 		// clean up any messes
 		this.tank.marks.forEach( x => x.Kill() );
 		// respawn food

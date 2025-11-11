@@ -39,8 +39,6 @@ export default class TankMaker {
 			max_rock_shrinkage: 0.72,
 			rock_shrinkage_chance: 0.34,
 			rock_color_schemes: [],
-			add_centerpiece_rocks: false,
-			add_substrate: false,
 			visualize: false
 		};
 		Object.assign( this.settings, settings );
@@ -74,16 +72,6 @@ export default class TankMaker {
 		// make sure we got something. fall back to something we know produces results
 		if ( this.tank.obstacles.length==0 ) {
 			this.MakeIndividualRocks();
-		}
-		
-		// substrate
-		if ( this.settings.add_substrate ) {
-			this.tank.MakePrettyDecor();
-		}
-		
-		// centerpiece rocks
-		if ( this.settings.add_centerpiece_rocks ) {
-			this.tank.MakePrettyDecor();
 		}
 		
 		// find safe spawning points for plants and boids

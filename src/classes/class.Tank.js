@@ -465,42 +465,6 @@ export default class Tank {
 		};
 	}
 	
-	MakePrettyDecor() {
-		const max_height = Math.min(this.height*0.05, 500);
-		// random rocks
-		const num_rocks = utils.RandomInt(1,5);
-		for ( let n=0; n < num_rocks; n++ ) {
-			const h = utils.RandomFloat( this.height * 0.25, this.height * 0.9 );
-			const w = utils.RandomFloat( this.width * 0.15, this.width * 0.5 );
-			const x = Math.random() * ( this.width * 1.5 - this.width * 0.75 );
-			const y = this.height - h*0.75;
-			this.obstacles.push(
-				new Rock( { 
-					x,
-					y,
-					w,
-					h,
-					force_corners: false,
-					complexity: utils.RandomInt(5,12),
-					new_points_respect_hull: false,
-				}),
-			);		
-		}
-		// substrate				
-		this.obstacles.push(
-			new Rock( { 
-				x: 0,
-				y: ( this.height - max_height ),
-				w: this.width,
-				h: max_height * 2.1,
-				force_corners: true,
-				complexity: 16,
-				color_scheme: 'Sandstone'
-			}),
-		);		
-		
-	}
-	
 	Update( delta ) {
 		this.mutate_cycle = ( this.mutate_cycle ?? 0 ) + delta;
 		if ( this.mutate_cycle > this.mutate_whirls_every ) { 
