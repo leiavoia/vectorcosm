@@ -226,6 +226,7 @@ export default class Simulation {
 	Update( delta ) {
 		if ( this.complete ) { return; }
 		if ( this.killme ) {
+			this.complete = true;
 			PubSub.publishSync('sim.complete', this);
 			return;
 		}
@@ -342,14 +343,16 @@ export default class Simulation {
 				}
 			}
 			
-		
-			this.Reset();
+			// let the mothership know we have stats now
 			PubSub.publishSync('sim.round', this);
+		
 			// check if entire simulation is over
 			let end_sim = false; // you can mark "killme" to terminate early 
+			// number of rounds completed
 			if ( this.settings.rounds && this.stats.round_num > this.settings.rounds ) {
 				end_sim = true;
 			}
+			// high average score; end early
 			else if ( this.settings?.min_avg_score && this.stats.round_avg_score > this.settings?.min_avg_score ) {
 				// check if there is a minimum number of rounds we need to sustain this average
 				if ( !this.settings?.min_avg_score_rounds ) { this.settings.min_avg_score_rounds = 0; }
@@ -358,9 +361,14 @@ export default class Simulation {
 					end_sim = true;
 				}
 			}
+			// stop here?
 			if ( end_sim ) {
 				this.complete = true;
 				PubSub.publishSync('sim.complete', this);
+			}
+			// another round!
+			else {
+				this.Reset();
 			}
 		}
 		PubSub.publishSync('sim.update', this);
@@ -681,6 +689,7 @@ export class FoodChaseSimulation extends Simulation {
 	}	
 	Update(delta) {
 		super.Update(delta);
+		if ( this.complete ) { return; }
 		const food_friction = typeof(this.settings?.food_friction) === 'boolean' ? this.settings.food_friction : false;
 		// keep the food coming
 		if ( this.settings.num_foods && globalThis.vc.tank.foods.length < this.settings.num_foods ) {
@@ -807,6 +816,7 @@ export class FinishingSimulation extends Simulation {
 	}	
 	Update(delta) {
 		super.Update(delta);
+		if ( this.complete ) { return; }
 		const food_friction = typeof(this.settings?.food_friction) === 'boolean' ? this.settings.food_friction : false;
 		// keep the food coming
 		if ( this.settings.num_foods && globalThis.vc.tank.foods.length < this.settings.num_foods ) {
@@ -1260,6 +1270,7 @@ export class AvoidEdgesSimulation extends Simulation {
 	}	
 	Update(delta) {
 		super.Update(delta);
+		if ( this.complete ) { return; }
 		// keep the food coming
 		for ( let f of globalThis.vc.tank.foods ) {
 			f.value = 1000; // artificially inflate the food instead of respawning new ones.
