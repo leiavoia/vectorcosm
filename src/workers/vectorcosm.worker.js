@@ -286,7 +286,6 @@ function_registry.set( 'randTank', params => {
 	globalThis.vc.tank = new Tank( w, h );
 	globalThis.vc.tank.boids = boids;
 	globalThis.vc.tank.boids.forEach( b => b.tank = globalThis.vc.tank );
-	globalThis.vc.simulation.tank = globalThis.vc.tank;
 	globalThis.vc.tank.MakeBackground();
 	const tm = new TankMaker( globalThis.vc.tank, {} );
 	tm.Make();
@@ -372,7 +371,7 @@ function_registry.set( 'pushSimQueue', params => {
 	if ( sims ) {
 		for ( let s of sims ) {
 			globalThis.vc.sim_queue.push( 
-				SimulationFactory( globalThis.vc.tank, s )
+				SimulationFactory(s)
 			);
 		}
 	}

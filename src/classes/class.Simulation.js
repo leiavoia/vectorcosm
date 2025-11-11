@@ -10,7 +10,7 @@ import { RandomPlant } from '../classes/class.Plant.js'
 import PubSub from 'pubsub-js'
 import {CompoundStatTracker} from '../classes/class.StatTracker.js'
 
-export function SimulationFactory( tank, name_or_settings ) {
+export function SimulationFactory( name_or_settings ) {
 	// random pick from the library
 	if ( name_or_settings == 'random' ) {
 		name_or_settings = Object.values( SimulationLibrary )
@@ -25,20 +25,19 @@ export function SimulationFactory( tank, name_or_settings ) {
 	let our_settings = structuredClone(name_or_settings);
 	let simtype = our_settings?.simtype || 'Simulation';
 	switch ( simtype ) {
-		case 'NaturalTankSimulation': return new NaturalTankSimulation( tank, our_settings );
-		case 'FoodChaseSimulation': return new FoodChaseSimulation( tank, our_settings );
-		case 'TurningSimulation': return new TurningSimulation( tank, our_settings );
-		case 'AvoidEdgesSimulation': return new AvoidEdgesSimulation( tank, our_settings );
-		case 'CombatSimulation': return new CombatSimulation( tank, our_settings );
-		case 'FinishingSimulation': return new FinishingSimulation( tank, our_settings );
-		default: return new Simulation( tank, our_settings );
+		case 'NaturalTankSimulation': return new NaturalTankSimulation( our_settings );
+		case 'FoodChaseSimulation': return new FoodChaseSimulation( our_settings );
+		case 'TurningSimulation': return new TurningSimulation( our_settings );
+		case 'AvoidEdgesSimulation': return new AvoidEdgesSimulation( our_settings );
+		case 'CombatSimulation': return new CombatSimulation( our_settings );
+		case 'FinishingSimulation': return new FinishingSimulation( our_settings );
+		default: return new Simulation( our_settings );
 	}
 }
 
 export default class Simulation {
 
-	constructor( tank, settings ) {
-		this.tank = tank || new Tank( tank.width, tank.height );
+	constructor( settings ) {
 		this.settings = {
 			viscosity: 0.5, // 0..1
 			max_mutation: 0.1, // 0..1
@@ -125,12 +124,12 @@ export default class Simulation {
 	// if you need accumulated stats (calories burned, kills, deaths, births, etc),
 	// then use RecordStat() throughout the code to record events when they happen.
 	CalculatePeriodicStats() {
-		this.RecordStat( 'boids', this.tank.boids.length );
-		this.RecordStat( 'foods', this.tank.foods.length );
-		this.RecordStat( 'plants', this.tank.plants.length );
-		this.RecordStat( 'boid_mass', this.tank.boids.reduce( (a,c) => a + c.mass, 0 ) );
-		this.RecordStat( 'food_mass', this.tank.foods.reduce( (a,c) => a + c.value, 0 ) );
-		this.RecordStat( 'avg_age', this.tank.boids.reduce( (a,c) => a + c.age, 0 ) );
+		this.RecordStat( 'boids', globalThis.vc.tank.boids.length );
+		this.RecordStat( 'foods', globalThis.vc.tank.foods.length );
+		this.RecordStat( 'plants', globalThis.vc.tank.plants.length );
+		this.RecordStat( 'boid_mass', globalThis.vc.tank.boids.reduce( (a,c) => a + c.mass, 0 ) );
+		this.RecordStat( 'food_mass', globalThis.vc.tank.foods.reduce( (a,c) => a + c.value, 0 ) );
+		this.RecordStat( 'avg_age', globalThis.vc.tank.boids.reduce( (a,c) => a + c.age, 0 ) );
 		let species = new Set();
 		for ( let b of globalThis.vc.tank.boids ) {
 			species.add(b.species);
@@ -141,12 +140,12 @@ export default class Simulation {
 	// inherit me	
 	Setup() {
 		// clean up any residual messes from the previous sim
-		this.tank.marks.forEach( x => x.Kill() );	
-		this.tank.marks.length = 0;		
-		this.tank.obstacles.forEach( x => x.Kill() );
-		this.tank.obstacles.length = 0;		
-		this.tank.foods.forEach( x => x.Kill() );
-		this.tank.foods.length = 0;		
+		globalThis.vc.tank.marks.forEach( x => x.Kill() );	
+		globalThis.vc.tank.marks.length = 0;		
+		globalThis.vc.tank.obstacles.forEach( x => x.Kill() );
+		globalThis.vc.tank.obstacles.length = 0;		
+		globalThis.vc.tank.foods.forEach( x => x.Kill() );
+		globalThis.vc.tank.foods.length = 0;		
 		// resize tank for the new sim	
 		if ( this.settings?.volume ) {
 			globalThis.vc.ResizeTankByVolume( this.settings.volume );
@@ -173,7 +172,7 @@ export default class Simulation {
 			const current = this.settings.current * max_current;
 			const pushObject = o => {	 
 				if ( o?.frictionless ) { return; }
-				const cell = this.tank.datagrid.CellAt(o.x,o.y);
+				const cell = globalThis.vc.tank.datagrid.CellAt(o.x,o.y);
 				if ( !cell ) { return; }
 				// we multiply by the mass to fake a wave action and get all objects moving roughly the same.
 				// actual physics of waves is beyond this simulation.
@@ -182,8 +181,8 @@ export default class Simulation {
 					-cell.current_y * current * o.mass
 				);
 			};
-			this.tank.boids.forEach(pushObject);
-			this.tank.foods.forEach(pushObject);
+			globalThis.vc.tank.boids.forEach(pushObject);
+			globalThis.vc.tank.foods.forEach(pushObject);
 		}
 		// invasive species
 		if ( this.settings?.invasives ) {
@@ -204,12 +203,12 @@ export default class Simulation {
 			const wave_reps = 5;
 			const tuning_number = 2.5;
 			if ( (tide_freq/2 + this.stats.round_time) % tide_freq < tide_duration * wave_reps ) {
-				const tidal_force = tuning_number * Math.min( this.tank.height, 2300 ) * ( Math.random() * Math.random() );
+				const tidal_force = tuning_number * Math.min( globalThis.vc.tank.height, 2300 ) * ( Math.random() * Math.random() );
 				const t = (tide_freq/2 + this.stats.round_time) % tide_freq;
 				const scale = Math.sin( (t * Math.PI) / (tide_duration * wave_reps) );
 				const pushObject = o => {
 					if ( o?.frictionless ) { return; }
-					const x_off = o.x / this.tank.width;
+					const x_off = o.x / globalThis.vc.tank.width;
 					let wave = ( t * Math.PI * 2 ) / ( tide_duration );
 					wave = Math.sin(wave * x_off);
 					// we multiply by the mass to fake a wave action and get all objects moving roughly the same.
@@ -218,8 +217,8 @@ export default class Simulation {
 					const x_force = y_force * 0.2;
 					o.ApplyForce( x_force, y_force );
 				}
-				this.tank.boids.forEach(pushObject);
-				this.tank.foods.forEach(pushObject);
+				globalThis.vc.tank.boids.forEach(pushObject);
+				globalThis.vc.tank.foods.forEach(pushObject);
 			}		
 		}	
 	}
@@ -231,7 +230,7 @@ export default class Simulation {
 			return;
 		}
 		// extinction check
-		if ( this.tank.boids.length === 0 ) {
+		if ( globalThis.vc.tank.boids.length === 0 ) {
 			if ( typeof(this.settings.onExtinction) === 'function' ) {
 				this.settings.onExtinction();
 			}
@@ -248,12 +247,12 @@ export default class Simulation {
 		this.FlushTally();
 		// score boids on performance
 		if ( this.settings.timeout ) { // endless sims (time=0) don't need to waste CPU cycles
-			for ( let b of this.tank.boids ) { this.ScoreBoidPerFrame(b); }
+			for ( let b of globalThis.vc.tank.boids ) { this.ScoreBoidPerFrame(b); }
 		}
 		// reset the round if we hit time
 		if ( this.settings.timeout && this.stats.round_time && this.stats.round_time >= this.settings.timeout ) { 
 			// final scoring
-			for ( let b of this.tank.boids ) { this.ScoreBoidPerRound(b); }
+			for ( let b of globalThis.vc.tank.boids ) { this.ScoreBoidPerRound(b); }
 			// record stats
 			this.stats.round_num++;
 			this.stats.round_time = 0;
@@ -261,11 +260,11 @@ export default class Simulation {
 			this.stats.round_avg_score = 0;
 			let avg = 0;
 			let best = 0;
-			for ( let b of this.tank.boids ) {
+			for ( let b of globalThis.vc.tank.boids ) {
 				avg += b.total_fitness_score || 0;
 				best = Math.max(b.total_fitness_score||0, best);
 			}
-			avg /= this.tank.boids.length || 1;
+			avg /= globalThis.vc.tank.boids.length || 1;
 			this.stats.round_avg_score = avg;
 			this.stats.round_best_score = best;
 			// if this is the first round, record the raw value instead of comparing
@@ -288,20 +287,20 @@ export default class Simulation {
 			let populations = [];
 			if ( segments > 1 ) {
 				for ( let i=0; i < segments; i++ ) {
-					if ( this.tank.boids.length ) {
+					if ( globalThis.vc.tank.boids.length ) {
 						populations.push(
-							this.tank.boids.splice(0,per_segment)
+							globalThis.vc.tank.boids.splice(0,per_segment)
 						);
 					}
 				}
 				// if there are any extra, they just die
-				if ( this.tank.boids.length ) {
-					populations[ populations.length-1 ].push( ...this.tank.boids.splice(0,this.tank.boids.length) );
+				if ( globalThis.vc.tank.boids.length ) {
+					populations[ populations.length-1 ].push( ...globalThis.vc.tank.boids.splice(0,globalThis.vc.tank.boids.length) );
 				}	
 			}
 			// shortcut for single segment simulations
 			else {
-				populations.push( this.tank.boids ); // alias
+				populations.push( globalThis.vc.tank.boids ); // alias
 			}
 				
 			// treat each population separately								
@@ -332,14 +331,14 @@ export default class Simulation {
 						let species = parent ? parent.species : this.settings?.species;
 						let b = parent 
 							? parent.Copy(true, dna_mutation_rate, brain_mutation_rate, speciation_rate) 
-							: BoidFactory( species, 0, 0, this.tank ) ;
+							: BoidFactory( species, 0, 0, globalThis.vc.tank ) ;
 						// if no survivors, it automatically has a randomly generated brain
 						population.push(b);
 					}			
 				}
 				// put the separate populations back into the tank
 				if ( segments > 1 ) {
-					this.tank.boids.push( ...population );
+					globalThis.vc.tank.boids.push( ...population );
 				}
 			}
 			
@@ -374,64 +373,64 @@ export default class Simulation {
 			let diff = this.settings.num_boids % this.settings.segments;
 			if ( diff ) { this.settings.num_boids -= diff; }
 		} 
-		let diff = this.settings.num_boids - this.tank.boids.length;
+		let diff = this.settings.num_boids - globalThis.vc.tank.boids.length;
 		if ( diff > 0 ) {
 			for ( let i=0; i < diff; i++ ) {
 				this.AddNewBoidToTank();
 			}			
 		}
 		else if ( diff < 0 ) {		
-			this.tank.boids.splice(0,-diff).forEach( x => x.Kill('overpopulated') );
+			globalThis.vc.tank.boids.splice(0,-diff).forEach( x => x.Kill('overpopulated') );
 		}
 	}
 	
 	AddNewBoidToTank() {
-		const b = BoidFactory(this.settings?.species, 0, 0, this.tank);
+		const b = BoidFactory(this.settings?.species, 0, 0, globalThis.vc.tank);
 		this.AddBoidToTank(b);
 	}
 	
 	AddBoidToTank(b) {
 		b.angle = Math.random() * Math.PI * 2;
-		b.x = (Math.random() * this.tank.width * 0.8) + this.tank.width * 0.1; // stay away from edges
-		b.y = (Math.random() * this.tank.height * 0.6) + this.tank.height * 0.1; // stay away from edges
-		if ( this.settings?.safe_spawn && this.tank.safe_pts?.length ) {
-			const p = this.tank.safe_pts.pickRandom();
+		b.x = (Math.random() * globalThis.vc.tank.width * 0.8) + globalThis.vc.tank.width * 0.1; // stay away from edges
+		b.y = (Math.random() * globalThis.vc.tank.height * 0.6) + globalThis.vc.tank.height * 0.1; // stay away from edges
+		if ( this.settings?.safe_spawn && globalThis.vc.tank.safe_pts?.length ) {
+			const p = globalThis.vc.tank.safe_pts.pickRandom();
 			b.x = p[0] + ( Math.random() * p[2]*1.4 - p[2]*0.7 ); 
 			b.y = p[1] + ( Math.random() * p[2]*1.4 - p[2]*0.7 ); 
 		}		
-		this.tank.boids.push(b);	
+		globalThis.vc.tank.boids.push(b);	
 	}
 	
 	SetNumRocks(x) {
 		this.settings.num_rocks = parseInt(x).clamp(0,200);
-		this.tank.obstacles.forEach( x => x.Kill() );
-		this.tank.obstacles.length = 0;	
+		globalThis.vc.tank.obstacles.forEach( x => x.Kill() );
+		globalThis.vc.tank.obstacles.length = 0;	
 		if ( this.settings?.num_rocks ) {
 			let margin = 150;
 			const xscale = utils.RandomFloat(0.2,1.2);
 			const yscale = 1.4-xscale; // utils.RandomFloat(0.2,1.5);
 			const blunt = Math.random() > 0.5;
-			const max_size = Math.min( this.tank.width*0.6, this.tank.height*0.6 );
+			const max_size = Math.min( globalThis.vc.tank.width*0.6, globalThis.vc.tank.height*0.6 );
 			const min_size = Math.max( max_size * 0.05, 150 );
 			for ( let i =0; i < this.settings.num_rocks; i++ ) {
 				let rock = new Rock( {
-					x: utils.RandomInt(margin,this.tank.width-margin)-200, 
-					y: utils.RandomInt(margin,this.tank.height-margin)-150, 
+					x: utils.RandomInt(margin,globalThis.vc.tank.width-margin)-200, 
+					y: utils.RandomInt(margin,globalThis.vc.tank.height-margin)-150, 
 					w: xscale * utils.MapToRange( utils.shapeNumber( Math.random(), 0, 1, 0.75, 1.5 ), 0, 1, min_size, max_size ), 
 					h: yscale * utils.MapToRange( utils.shapeNumber( Math.random(), 0, 1, 0.5, 1.5 ), 0, 1, min_size, max_size ), 
 					complexity: utils.RandomInt(0,2),
 					new_points_respect_hull: false,
 					blunt
 				})
-				this.tank.obstacles.push(rock);
+				globalThis.vc.tank.obstacles.push(rock);
 			}
 			if ( Math.random() > 0.5 ) {
-				this.tank.SeparateRocks(margin);
+				globalThis.vc.tank.SeparateRocks(margin);
 			}
 		}
 
 		// redefine safe spawn points now that landscape has changed
-		this.tank.FindSafeZones();
+		globalThis.vc.tank.FindSafeZones();
 		
 		// plants grow on rocks, so resetting rocks resets plants too
 		this.SetNumPlants(this.settings.num_plants || 0);
@@ -439,15 +438,15 @@ export default class Simulation {
 	
 	SetNumPlants(x) {
 		this.settings.num_plants = parseInt(x).clamp(0,200);
-		this.tank.plants.forEach( x => x.Kill() );
-		this.tank.plants.length = 0;
+		globalThis.vc.tank.plants.forEach( x => x.Kill() );
+		globalThis.vc.tank.plants.length = 0;
 		for ( let n=0; n < this.settings.num_plants; n++ ) {
-			const rock = this.tank.obstacles.pickRandom();
+			const rock = globalThis.vc.tank.obstacles.pickRandom();
 			if ( rock ) {
 				// with safe spawning
-				if ( this.tank.safe_pts?.length ) {
+				if ( globalThis.vc.tank.safe_pts?.length ) {
 					// create a ray from a random safe point to the random rock
-					const safe_pt = this.tank.safe_pts.pickRandom();
+					const safe_pt = globalThis.vc.tank.safe_pts.pickRandom();
 					// find the widest points of the rock to create an arc to shoot between
 					let least_angle = 10000;
 					let most_angle = -10000;
@@ -476,7 +475,7 @@ export default class Simulation {
 					let length = Math.abs(most_x) + Math.abs(most_y); // work down from here.
 					let target_x = 0;
 					let target_y = 0; 
-					let candidates = this.tank.grid.GetObjectsByBox( 
+					let candidates = globalThis.vc.tank.grid.GetObjectsByBox( 
 						Math.min( safe_pt[0], safe_pt[0] + most_x ),
 						Math.min( safe_pt[1], safe_pt[1] + most_y ),
 						Math.max( safe_pt[0], safe_pt[0] + most_x ),
@@ -512,14 +511,14 @@ export default class Simulation {
 					// now make the actual plant
 					const plant = RandomPlant( target_x, target_y );
 					if ( 'RandomizeAge' in plant ) { plant.RandomizeAge(); }
-					this.tank.plants.push(plant);
+					globalThis.vc.tank.plants.push(plant);
 				}
 				// no safe spawning
 				else {
 					const p = rock.pts.pickRandom(); 
 					const plant = RandomPlant( rock.x+p[0], rock.y+p[1] );
 					if ( 'RandomizeAge' in plant ) { plant.RandomizeAge(); }
-					this.tank.plants.push(plant);
+					globalThis.vc.tank.plants.push(plant);
 				}
 			}
 		}
@@ -537,7 +536,7 @@ export class NaturalTankSimulation extends Simulation {
 	Reset() {
 		// make default rock obstacles
 		if ( this.settings?.random_terrain ) {
-			const tm = new TankMaker( this.tank, {} );
+			const tm = new TankMaker( globalThis.vc.tank, {} );
 			tm.Make();
 		}
 		// randomize rocks
@@ -549,19 +548,19 @@ export class NaturalTankSimulation extends Simulation {
 			this.SetNumPlants(this.settings?.num_plants);
 		}
 		// clean up any messes
-		this.tank.marks.forEach( x => x.Kill() );		
-		this.tank.foods.forEach( x => x.Kill() );
-		this.tank.foods.length = 0;			
+		globalThis.vc.tank.marks.forEach( x => x.Kill() );		
+		globalThis.vc.tank.foods.forEach( x => x.Kill() );
+		globalThis.vc.tank.foods.length = 0;			
 		// reset existing population
-		let spawn_x = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.width; 
-		let spawn_y = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.height; 			
+		let spawn_x = (Math.random() > 0.5 ? 0.25 : 0.75) * globalThis.vc.tank.width; 
+		let spawn_y = (Math.random() > 0.5 ? 0.25 : 0.75) * globalThis.vc.tank.height; 			
 		let new_angle = Math.random() * Math.PI * 2;
-		for ( let b of this.tank.boids ) {
+		for ( let b of globalThis.vc.tank.boids ) {
 			if ( this.settings?.random_boid_pos ) {
-				spawn_x = Math.random() * this.tank.width; 
-				spawn_y = Math.random() * this.tank.height; 			
-				if ( this.settings?.safe_spawn && this.tank.safe_pts?.length ) {
-					const p = this.tank.safe_pts.pickRandom();
+				spawn_x = Math.random() * globalThis.vc.tank.width; 
+				spawn_y = Math.random() * globalThis.vc.tank.height; 			
+				if ( this.settings?.safe_spawn && globalThis.vc.tank.safe_pts?.length ) {
+					const p = globalThis.vc.tank.safe_pts.pickRandom();
 					spawn_x = p[0] + ( Math.random() * p[2]*1.4 - p[2]*0.7 ); 
 					spawn_y = p[1] + ( Math.random() * p[2]*1.4 - p[2]*0.7 ); 
 				}
@@ -580,25 +579,25 @@ export class FoodChaseSimulation extends Simulation {
 	Setup() {
 		super.Setup();
 		// starting population
-		let spawn_x = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.width; 
-		let spawn_y = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.height; 	
-		for ( let i=this.tank.boids.length; i < this.settings.num_boids; i++ ) {
-			const b = BoidFactory(this.settings?.species, spawn_x, spawn_y, this.tank );
-			this.tank.boids.push(b);
+		let spawn_x = (Math.random() > 0.5 ? 0.25 : 0.75) * globalThis.vc.tank.width; 
+		let spawn_y = (Math.random() > 0.5 ? 0.25 : 0.75) * globalThis.vc.tank.height; 	
+		for ( let i=globalThis.vc.tank.boids.length; i < this.settings.num_boids; i++ ) {
+			const b = BoidFactory(this.settings?.species, spawn_x, spawn_y, globalThis.vc.tank );
+			globalThis.vc.tank.boids.push(b);
 		}
 		this.Reset();
 	}
 	Reset() {
 		// clean up any messes
-		this.tank.marks.forEach( x => x.Kill() );		
+		globalThis.vc.tank.marks.forEach( x => x.Kill() );		
 		// reset entire population
-		let spawn_x = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.width; 
-		let spawn_y = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.height; 			
+		let spawn_x = (Math.random() > 0.5 ? 0.25 : 0.75) * globalThis.vc.tank.width; 
+		let spawn_y = (Math.random() > 0.5 ? 0.25 : 0.75) * globalThis.vc.tank.height; 			
 		let new_angle = Math.random() * Math.PI * 2;
-		for ( let b of this.tank.boids ) {
+		for ( let b of globalThis.vc.tank.boids ) {
 			if ( this.settings?.random_boid_pos ) {
-				spawn_x = Math.random() * this.tank.width; 
-				spawn_y = Math.random() * this.tank.height; 			
+				spawn_x = Math.random() * globalThis.vc.tank.width; 
+				spawn_y = Math.random() * globalThis.vc.tank.height; 			
 			}
 			b.Reset();
 			b.angle = ( this.settings?.random_boid_angle ? (Math.random() * Math.PI * 2) : new_angle ),
@@ -608,17 +607,17 @@ export class FoodChaseSimulation extends Simulation {
 			b.fitness_score = 0;
 		}
 		// respawn food
-		this.tank.foods.forEach( x => x.Kill() );
-		this.tank.foods.length = 0;
+		globalThis.vc.tank.foods.forEach( x => x.Kill() );
+		globalThis.vc.tank.foods.length = 0;
 		for ( let i=0; i < this.settings.num_foods; i++ ) {
 			if ( this.settings?.random_food_pos ) {
-				spawn_x = Math.random() * this.tank.width; 
-				spawn_y = Math.random() * this.tank.height; 			
+				spawn_x = Math.random() * globalThis.vc.tank.width; 
+				spawn_y = Math.random() * globalThis.vc.tank.height; 			
 			}
 			let food_speed = this.settings?.food_speed || 100;
 			let food = new Food( {
-				x: this.tank.width - spawn_x, 
-				y: this.tank.height - spawn_y,
+				x: globalThis.vc.tank.width - spawn_x, 
+				y: globalThis.vc.tank.height - spawn_y,
 				value: (this.settings?.food_value || 500),
 				vx: Math.random() * food_speed - (food_speed*0.5),
 				vy: Math.random() * food_speed - (food_speed*0.5),
@@ -627,7 +626,7 @@ export class FoodChaseSimulation extends Simulation {
 				phantomfood: this.settings?.phantomfood ?? false,
 				lifespan: this.settings?.food_lifespan ?? 1000,
 			} );
-			this.tank.foods.push(food);
+			globalThis.vc.tank.foods.push(food);
 		}
 		// randomize rocks
 		this.SetNumRocks(this.settings?.num_rocks || 0);
@@ -655,7 +654,7 @@ export class FoodChaseSimulation extends Simulation {
 		}
 		// eat food, get win!
 		b.fitness_score = 0;
-		for ( let food of this.tank.foods ) {
+		for ( let food of globalThis.vc.tank.foods ) {
 			if ( !food.IsEdibleBy(b) ) { continue; }
 		 	if ( b.ignore_list && b.ignore_list.has(food) ) { continue; }
 			const dx = Math.abs(food.x - b.x);
@@ -684,13 +683,13 @@ export class FoodChaseSimulation extends Simulation {
 		super.Update(delta);
 		const food_friction = typeof(this.settings?.food_friction) === 'boolean' ? this.settings.food_friction : false;
 		// keep the food coming
-		if ( this.settings.num_foods && this.tank.foods.length < this.settings.num_foods ) {
-			let diff = this.settings.num_foods - this.tank.foods.length;
+		if ( this.settings.num_foods && globalThis.vc.tank.foods.length < this.settings.num_foods ) {
+			let diff = this.settings.num_foods - globalThis.vc.tank.foods.length;
 			for ( let i=0; i < diff; i++ ) {
 				let food_speed = this.settings?.food_speed ?? 100;
 				let food = new Food( {
-					x: this.tank.width * Math.random(), 
-					y: this.tank.height * Math.random(),
+					x: globalThis.vc.tank.width * Math.random(), 
+					y: globalThis.vc.tank.height * Math.random(),
 					value: (this.settings?.food_value || 500),
 					vx: Math.random() * food_speed - (food_speed*0.5),
 					vy: Math.random() * food_speed - (food_speed*0.5),
@@ -700,17 +699,17 @@ export class FoodChaseSimulation extends Simulation {
 					phantomfood: this.settings?.phantomfood ?? false,
 					lifespan: this.settings?.food_lifespan ?? 1000,
 				} );				
-				this.tank.foods.push(food);
+				globalThis.vc.tank.foods.push(food);
 			}	
 		}
 		// enable food to bounce around the map to create a chase target	
 		if ( !food_friction  ) {
 			const margin = this.settings?.food_bounce_margin ?? 250;
-			for ( let f of this.tank.foods ) {
+			for ( let f of globalThis.vc.tank.foods ) {
 				if ( f.x < margin ) { f.vel_x = -f.vel_x; }
 				if ( f.y < margin ) { f.vel_y = -f.vel_y; }
-				if ( f.x > this.tank.width-margin ) { f.vel_x = -f.vel_x; }
-				if ( f.y > this.tank.height-margin ) { f.vel_y = -f.vel_y; }
+				if ( f.x > globalThis.vc.tank.width-margin ) { f.vel_x = -f.vel_x; }
+				if ( f.y > globalThis.vc.tank.height-margin ) { f.vel_y = -f.vel_y; }
 				f.frictionless = !food_friction;
 			}
 		}
@@ -721,25 +720,25 @@ export class FinishingSimulation extends Simulation {
 	Setup() {
 		super.Setup();
 		// starting population
-		let spawn_x = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.width; 
-		let spawn_y = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.height; 	
-		for ( let i=this.tank.boids.length; i < this.settings.num_boids; i++ ) {
-			const b = BoidFactory(this.settings?.species, spawn_x, spawn_y, this.tank );
-			this.tank.boids.push(b);
+		let spawn_x = (Math.random() > 0.5 ? 0.25 : 0.75) * globalThis.vc.tank.width; 
+		let spawn_y = (Math.random() > 0.5 ? 0.25 : 0.75) * globalThis.vc.tank.height; 	
+		for ( let i=globalThis.vc.tank.boids.length; i < this.settings.num_boids; i++ ) {
+			const b = BoidFactory(this.settings?.species, spawn_x, spawn_y, globalThis.vc.tank );
+			globalThis.vc.tank.boids.push(b);
 		}
 		this.Reset();
 	}
 	Reset() {
 		// clean up any messes
-		this.tank.marks.forEach( x => x.Kill() );		
+		globalThis.vc.tank.marks.forEach( x => x.Kill() );		
 		// reset entire population
-		let spawn_x = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.width; 
-		let spawn_y = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.height; 			
+		let spawn_x = (Math.random() > 0.5 ? 0.25 : 0.75) * globalThis.vc.tank.width; 
+		let spawn_y = (Math.random() > 0.5 ? 0.25 : 0.75) * globalThis.vc.tank.height; 			
 		let new_angle = Math.random() * Math.PI * 2;
-		for ( let b of this.tank.boids ) {
+		for ( let b of globalThis.vc.tank.boids ) {
 			if ( this.settings?.random_boid_pos ) {
-				spawn_x = Math.random() * this.tank.width; 
-				spawn_y = Math.random() * this.tank.height; 			
+				spawn_x = Math.random() * globalThis.vc.tank.width; 
+				spawn_y = Math.random() * globalThis.vc.tank.height; 			
 			}
 			b.Reset();
 			b.angle = ( this.settings?.random_boid_angle ? (Math.random() * Math.PI * 2) : new_angle ),
@@ -749,17 +748,17 @@ export class FinishingSimulation extends Simulation {
 			b.fitness_score = 0;
 		}
 		// respawn food
-		this.tank.foods.forEach( x => x.Kill() );
-		this.tank.foods.length = 0;
+		globalThis.vc.tank.foods.forEach( x => x.Kill() );
+		globalThis.vc.tank.foods.length = 0;
 		for ( let i=0; i < this.settings.num_foods; i++ ) {
 			if ( this.settings?.random_food_pos ) {
-				spawn_x = Math.random() * this.tank.width; 
-				spawn_y = Math.random() * this.tank.height; 			
+				spawn_x = Math.random() * globalThis.vc.tank.width; 
+				spawn_y = Math.random() * globalThis.vc.tank.height; 			
 			}
 			let food_speed = this.settings?.food_speed || 100;
 			let food = new Food( {
-				x: this.tank.width - spawn_x, 
-				y: this.tank.height - spawn_y,
+				x: globalThis.vc.tank.width - spawn_x, 
+				y: globalThis.vc.tank.height - spawn_y,
 				value: (this.settings?.food_value || 500),
 				vx: Math.random() * food_speed - (food_speed*0.5),
 				vy: Math.random() * food_speed - (food_speed*0.5),
@@ -768,7 +767,7 @@ export class FinishingSimulation extends Simulation {
 				phantomfood: this.settings?.phantomfood ?? false,
 				lifespan: this.settings?.food_lifespan ?? 1000,
 			} );
-			this.tank.foods.push(food);
+			globalThis.vc.tank.foods.push(food);
 		}
 		// randomize rocks
 		this.SetNumRocks(this.settings?.num_rocks || 0);
@@ -810,13 +809,13 @@ export class FinishingSimulation extends Simulation {
 		super.Update(delta);
 		const food_friction = typeof(this.settings?.food_friction) === 'boolean' ? this.settings.food_friction : false;
 		// keep the food coming
-		if ( this.settings.num_foods && this.tank.foods.length < this.settings.num_foods ) {
-			let diff = this.settings.num_foods - this.tank.foods.length;
+		if ( this.settings.num_foods && globalThis.vc.tank.foods.length < this.settings.num_foods ) {
+			let diff = this.settings.num_foods - globalThis.vc.tank.foods.length;
 			for ( let i=0; i < diff; i++ ) {
 				let food_speed = this.settings?.food_speed ?? 100;
 				let food = new Food( {
-					x: this.tank.width * Math.random(), 
-					y: this.tank.height * Math.random(),
+					x: globalThis.vc.tank.width * Math.random(), 
+					y: globalThis.vc.tank.height * Math.random(),
 					value: (this.settings?.food_value || 500),
 					vx: Math.random() * food_speed - (food_speed*0.5),
 					vy: Math.random() * food_speed - (food_speed*0.5),
@@ -826,7 +825,7 @@ export class FinishingSimulation extends Simulation {
 					phantomfood: this.settings?.phantomfood ?? false,
 					lifespan: this.settings?.food_lifespan ?? 1000,
 				} );				
-				this.tank.foods.push(food);
+				globalThis.vc.tank.foods.push(food);
 			}	
 		}
 	}	
@@ -842,13 +841,13 @@ export class CombatSimulation extends Simulation {
 		this.SetNumRocks(this.settings?.num_rocks || 0);
 		// reset entire population
 		this.SetNumBoids( this.settings.num_boids ); // top up the population
-		let spawn_x = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.width; 
-		let spawn_y = (Math.random() > 0.5 ? 0.25 : 0.75) * this.tank.height; 			
+		let spawn_x = (Math.random() > 0.5 ? 0.25 : 0.75) * globalThis.vc.tank.width; 
+		let spawn_y = (Math.random() > 0.5 ? 0.25 : 0.75) * globalThis.vc.tank.height; 			
 		let new_angle = Math.random() * Math.PI * 2;
-		for ( let b of this.tank.boids ) {
+		for ( let b of globalThis.vc.tank.boids ) {
 			if ( this.settings?.random_boid_pos ) {
-				spawn_x = Math.random() * this.tank.width; 
-				spawn_y = Math.random() * this.tank.height; 			
+				spawn_x = Math.random() * globalThis.vc.tank.width; 
+				spawn_y = Math.random() * globalThis.vc.tank.height; 			
 			}
 			b.Reset();
 			b.angle = ( this.settings?.random_boid_angle ? (Math.random() * Math.PI * 2) : new_angle ),
@@ -860,7 +859,7 @@ export class CombatSimulation extends Simulation {
 	}	
 	ScoreBoidPerRound(b) {
 		let per_segment = Math.floor( this.settings.num_boids / ( this.settings.segments || 1 ) );
-		let segment = Math.floor( this.tank.boids.indexOf(b) / per_segment );
+		let segment = Math.floor( globalThis.vc.tank.boids.indexOf(b) / per_segment );
 		let has_attack = b.motors.find( m => m.hasOwnProperty('attack') );
 		// defenders - even numbered segments
 		if ( segment % 2 === 0 ) {
@@ -893,10 +892,10 @@ export class TurningSimulation extends Simulation {
 		// randomize rocks
 		this.SetNumRocks(this.settings?.num_rocks || 0);
 		// clean up any messes
-		this.tank.marks.forEach( x => x.Kill() );
+		globalThis.vc.tank.marks.forEach( x => x.Kill() );
 		// respawn food
-		this.tank.foods.forEach( x => x.Kill() );
-		this.tank.foods.length = 0;
+		globalThis.vc.tank.foods.forEach( x => x.Kill() );
+		globalThis.vc.tank.foods.length = 0;
 		const num_foods = this.settings?.num_foods || 1;
 		let angle = Math.random() * Math.PI * 2;
 		for ( let i=1; i <= num_foods; i++ ) { 
@@ -910,39 +909,39 @@ export class TurningSimulation extends Simulation {
 			}
 			let dx = r * Math.cos(angle); 
 			let dy = r * Math.sin(angle);
-			let food = new Food( this.tank.width*0.5 + dx, this.tank.height*0.5 + dy );
+			let food = new Food( globalThis.vc.tank.width*0.5 + dx, globalThis.vc.tank.height*0.5 + dy );
 			food.vel_x = 0;
 			food.vel_y = 0;
 			food.edibility = 1; // universal edibility
 			food.value = 1000;
 			food.permafood = true;
-			this.tank.foods.push(food);
+			globalThis.vc.tank.foods.push(food);
 		}
 		// reset entire population
 		this.SetNumBoids( this.settings.num_boids ); // top up the population
-		let spawn_x = 0.5 * this.tank.width; 
-		let spawn_y = 0.5 * this.tank.height; 	
+		let spawn_x = 0.5 * globalThis.vc.tank.width; 
+		let spawn_y = 0.5 * globalThis.vc.tank.height; 	
 		let angle_spread = (this.settings?.angle_spread || 0 ) * utils.RandomFloat(0.25,1);
 		this.last_side = Math.random() < 0.5 ? -1 : 1; // alternate randomly between right and left
 		angle_spread = angle_spread * this.last_side;
 		angle += utils.mod( angle_spread, Math.PI * 2 );
-		for ( let b of this.tank.boids ) {
+		for ( let b of globalThis.vc.tank.boids ) {
 			b.Reset();
 			b.angle = angle;
 			b.x = spawn_x;
 			b.y = spawn_y;
-			b.total_fitness_score = this.min_distance_to_score * this.tank.foods.length; // golf!
+			b.total_fitness_score = this.min_distance_to_score * globalThis.vc.tank.foods.length; // golf!
 			b.fitness_score = 0;
-			b.food_scores = new Array( this.tank.foods.length ).fill(this.min_distance_to_score);
+			b.food_scores = new Array( globalThis.vc.tank.foods.length ).fill(this.min_distance_to_score);
 		}
 	}	
 	ScoreBoidPerFrame(b) {
 		// record minimum distance to food circle that is LESS than the scoring threshold
 		if ( !b.food_scores ) { 
-			b.food_scores = new Array( this.tank.foods.length ).fill(this.min_distance_to_score); 
+			b.food_scores = new Array( globalThis.vc.tank.foods.length ).fill(this.min_distance_to_score); 
 		}
-		for ( let i=0; i < this.tank.foods.length; i++ ) {
-			const food = this.tank.foods[i];
+		for ( let i=0; i < globalThis.vc.tank.foods.length; i++ ) {
+			const food = globalThis.vc.tank.foods[i];
 			const dx = Math.abs(food.x - b.x);
 			const dy = Math.abs(food.y - b.y);
 			const d = Math.sqrt(dx*dx + dy*dy);
@@ -951,7 +950,7 @@ export class TurningSimulation extends Simulation {
 	}	
 	ScoreBoidPerRound(b) { // golf!
 		let food_score = b.food_scores.reduce( (a,c) => a+c, 0 );
-		const base = this.min_distance_to_score * this.tank.foods.length;
+		const base = this.min_distance_to_score * globalThis.vc.tank.foods.length;
 		// we need to flip the score upside down so it look good on a graph
 		b.total_fitness_score = ( base - food_score ) / base * 100;
 	}	
@@ -966,44 +965,44 @@ export class AvoidEdgesSimulation extends Simulation {
 		// top up the population
 		this.SetNumBoids( this.settings.num_boids );
 		// reset entire population
-		let spawn_x = 0.05 * this.tank.width; 
-		let spawn_y = 0.5 * this.tank.height; 	
-		for ( let b of this.tank.boids ) {
+		let spawn_x = 0.05 * globalThis.vc.tank.width; 
+		let spawn_y = 0.5 * globalThis.vc.tank.height; 	
+		for ( let b of globalThis.vc.tank.boids ) {
 			let angle_spread = this.settings?.angle_spread || 0;
 			let angle = 0 + (Math.random()*angle_spread*2 - angle_spread);
 			b.Reset();
 			b.angle = angle;
 			b.x = spawn_x;
 			b.y = spawn_y;
-			b.total_fitness_score = this.tank.width; // golf!
+			b.total_fitness_score = globalThis.vc.tank.width; // golf!
 			b.fitness_score = 0;
 		}
 		
 		// clear food
-		this.tank.foods.forEach( x => x.Kill() );
-		this.tank.foods.length = 0;
+		globalThis.vc.tank.foods.forEach( x => x.Kill() );
+		globalThis.vc.tank.foods.length = 0;
 				
 		if ( this.settings.spiral) {
 			let max_size = this.settings?.max_segment_spread || 200;
 			let tunnel_width = max_size * Math.random() + 120;
-			let w = this.tank.width;
-			let h = this.tank.height;
+			let w = globalThis.vc.tank.width;
+			let h = globalThis.vc.tank.height;
 			let edge_size = 20;
 			
 			// put boids in the bottom left corner
 			let spawn_x = (edge_size + tunnel_width/2);
 			let spawn_y = (edge_size + tunnel_width/2); 
-			for ( let b of this.tank.boids ) {
+			for ( let b of globalThis.vc.tank.boids ) {
 				b.x = spawn_x;
 				b.y = spawn_y;
 			}
 			
 			// make a c-shape obstacle course
-			this.tank.obstacles.forEach( x => x.Kill() );
-			this.tank.obstacles.length = 0;
+			globalThis.vc.tank.obstacles.forEach( x => x.Kill() );
+			globalThis.vc.tank.obstacles.length = 0;
 			
 			// edge the map
-			this.tank.obstacles.push(
+			globalThis.vc.tank.obstacles.push(
 				new Rock( { 
 					x: 0,
 					y: 0,
@@ -1051,7 +1050,7 @@ export class AvoidEdgesSimulation extends Simulation {
 			);
 			// interior
 			let rock_height = ( h - ( 2*edge_size + 3*tunnel_width) ) / 2;
-			this.tank.obstacles.push(
+			globalThis.vc.tank.obstacles.push(
 				new Rock( { 
 					y: edge_size + tunnel_width,
 					x: 0,
@@ -1086,7 +1085,7 @@ export class AvoidEdgesSimulation extends Simulation {
 				food.goal = food_num++;
 				food.edibility = 1; // universal edibility
 				food.permafood = true;
-				this.tank.foods.push(food);
+				globalThis.vc.tank.foods.push(food);
 			}
 			for ( let y = (edge_size + tunnel_width); y < h*0.5; y += food_spacing ) {
 				let food = new Food( w - (edge_size + tunnel_width/2), y );
@@ -1095,7 +1094,7 @@ export class AvoidEdgesSimulation extends Simulation {
 				food.goal = food_num++;
 				food.edibility = 1; // universal edibility
 				food.permafood = true;
-				this.tank.foods.push(food);
+				globalThis.vc.tank.foods.push(food);
 			}
 			for ( let x = w - (edge_size + tunnel_width/2); x > (edge_size + tunnel_width/2) ; x -= food_spacing ) {
 				let food = new Food( x, (edge_size + tunnel_width/2) + (rock_height + tunnel_width) );
@@ -1104,7 +1103,7 @@ export class AvoidEdgesSimulation extends Simulation {
 				food.goal = food_num++;
 				food.edibility = 1; // universal edibility
 				food.permafood = true;
-				this.tank.foods.push(food);
+				globalThis.vc.tank.foods.push(food);
 			}
 			for ( let y = h*0.5; y < h - (edge_size + tunnel_width); y += food_spacing ) {
 				let food = new Food( (edge_size + tunnel_width/2), y );
@@ -1113,7 +1112,7 @@ export class AvoidEdgesSimulation extends Simulation {
 				food.goal = food_num++;
 				food.edibility = 1; // universal edibility
 				food.permafood = true;
-				this.tank.foods.push(food);
+				globalThis.vc.tank.foods.push(food);
 			}
 			for ( let x = (edge_size + tunnel_width/2); x < w - (edge_size + tunnel_width/2); x += food_spacing ) {
 				let food = new Food( x, (edge_size + tunnel_width/2) + 2 * (rock_height + tunnel_width) );
@@ -1122,19 +1121,19 @@ export class AvoidEdgesSimulation extends Simulation {
 				food.goal = food_num++;
 				food.edibility = 1; // universal edibility
 				food.permafood = true;
-				this.tank.foods.push(food);
+				globalThis.vc.tank.foods.push(food);
 			}
 		}
 		
 		else if ( this.settings.tunnel ) {
 			// randomize rocks
-			this.tank.obstacles.forEach( x => x.Kill() );
-			this.tank.obstacles.length = 0;
+			globalThis.vc.tank.obstacles.forEach( x => x.Kill() );
+			globalThis.vc.tank.obstacles.length = 0;
 			
 			let max_size = this.settings?.max_segment_spread || 200;
 			let min_size = this.settings?.min_segment_spread || 70;
 			let joints = this.settings?.joints || 7;
-			let jwidth = this.tank.width / joints;
+			let jwidth = globalThis.vc.tank.width / joints;
 			let last_shift = 0;
 			let size = Math.random() * max_size + min_size;
 			for ( let j=0; j < joints; j++ ) { 
@@ -1142,26 +1141,26 @@ export class AvoidEdgesSimulation extends Simulation {
 				let nudge = Math.random() > 0.5 ? (shift/6) : (-shift/6);
 				// shift is zero if first point
 				if ( j==0 ) { shift = 0; }
-				this.tank.obstacles.push(
+				globalThis.vc.tank.obstacles.push(
 					new Rock( { 
 						x: jwidth * j,
 						y: 0,
 						hull: [
 							[ 0, 0 ],
 							[ jwidth, 0 ],
-							[ jwidth, (this.tank.height/2 + shift + nudge)-size ],
-							[ 0, (this.tank.height/2 + last_shift + nudge)-size, ]
+							[ jwidth, (globalThis.vc.tank.height/2 + shift + nudge)-size ],
+							[ 0, (globalThis.vc.tank.height/2 + last_shift + nudge)-size, ]
 						],
 						complexity: 2
 					}),
 					new Rock( { 
 						x: jwidth * j,
-						y: this.tank.height / 2,
+						y: globalThis.vc.tank.height / 2,
 						hull: [
 							[ 0, last_shift+size + nudge ],
 							[ jwidth, shift+size + nudge ],
-							[ jwidth, this.tank.height/2 ],
-							[ 0, this.tank.height/2 ]
+							[ jwidth, globalThis.vc.tank.height/2 ],
+							[ 0, globalThis.vc.tank.height/2 ]
 						],
 						complexity: 2
 					})
@@ -1170,23 +1169,23 @@ export class AvoidEdgesSimulation extends Simulation {
 			}	
 			// food goes at the end of the tunnel
 			let food = new Food( 
-				this.tank.width,
-				this.tank.height/2 + last_shift
+				globalThis.vc.tank.width,
+				globalThis.vc.tank.height/2 + last_shift
 			);
 			food.vel_x = 0;
 			food.vel_y = 0;
 			food.edibility = 1; // universal edibility
-			this.tank.foods.push(food);
+			globalThis.vc.tank.foods.push(food);
 		}
 		else {
-			this.tank.obstacles.forEach( x => x.Kill() );
-			this.tank.obstacles.length = 0;
+			globalThis.vc.tank.obstacles.forEach( x => x.Kill() );
+			globalThis.vc.tank.obstacles.length = 0;
 			let num_rocks = this.settings?.num_rocks || 0;
 			for ( let j=0; j < num_rocks; j++ ) { 
-				this.tank.obstacles.push(
+				globalThis.vc.tank.obstacles.push(
 					new Rock( { 
-						x: (this.tank.width / 2) + (Math.random() * (this.tank.width / 4)),
-						y: (this.tank.height / 4) + (Math.random() * (this.tank.height / 4)),
+						x: (globalThis.vc.tank.width / 2) + (Math.random() * (globalThis.vc.tank.width / 4)),
+						y: (globalThis.vc.tank.height / 4) + (Math.random() * (globalThis.vc.tank.height / 4)),
 						w: (Math.random() * 200 + 50),
 						h: (Math.random() * 100 + 50),
 						force_corners: false,
@@ -1196,14 +1195,14 @@ export class AvoidEdgesSimulation extends Simulation {
 			}	
 			// food goes at the end of the tunnel
 			let food = new Food( 
-				this.tank.width,
-				this.tank.height/2
+				globalThis.vc.tank.width,
+				globalThis.vc.tank.height/2
 			);
 			food.vel_x = 0;
 			food.vel_y = 0;
 			food.edibility = 1; // universal edibility
 			food.permafood = true;
-			this.tank.foods.push(food);
+			globalThis.vc.tank.foods.push(food);
 		}
 	}	
 	ScoreBoidPerFrame(b) {
@@ -1212,7 +1211,7 @@ export class AvoidEdgesSimulation extends Simulation {
 		if ( this.settings.spiral ) {
 			// manually check to see if we are touching a marker
 			let my_radius = 100; // Math.max(b.length, b.width) * 0.5;
-			let candidates = this.tank.grid.GetObjectsByBox( 
+			let candidates = globalThis.vc.tank.grid.GetObjectsByBox( 
 				b.x - my_radius,
 				b.y - my_radius,
 				b.x + my_radius,
@@ -1234,7 +1233,7 @@ export class AvoidEdgesSimulation extends Simulation {
 		
 		// record minimum distance to food circle
 		else {
-			const food = this.tank.foods[0];
+			const food = globalThis.vc.tank.foods[0];
 			if ( food ) { 
 				const dx = Math.abs(food.x - b.x);
 				const dy = Math.abs(food.y - b.y);
@@ -1255,14 +1254,14 @@ export class AvoidEdgesSimulation extends Simulation {
 		}
 		else {
 			let food_proximity_bonus = this.settings?.food_proximity_bonus || 1;
-			b.total_fitness_score = food_proximity_bonus * (this.tank.width - (b.total_fitness_score || 0)); // golf!
+			b.total_fitness_score = food_proximity_bonus * (globalThis.vc.tank.width - (b.total_fitness_score || 0)); // golf!
 		}
 		b.total_fitness_score -= b?.punishment || 0;
 	}	
 	Update(delta) {
 		super.Update(delta);
 		// keep the food coming
-		for ( let f of this.tank.foods ) {
+		for ( let f of globalThis.vc.tank.foods ) {
 			f.value = 1000; // artificially inflate the food instead of respawning new ones.
 		}
 	}	

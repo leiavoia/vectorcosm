@@ -38,23 +38,23 @@ export default class Vectorcosm {
 		
 		// set up simulations so we have something to watch
 		this.sim_queue = [
-			// SimulationFactory(this.tank, 'turning_training_easy'),
-			// SimulationFactory(this.tank, 'turning_training_medium'),
-			// SimulationFactory(this.tank, 'turning_training_hard'),
-			// SimulationFactory(this.tank, 'turning_training_xhard'),
-			// SimulationFactory(this.tank, 'food_training_sim_easy'),
-			// SimulationFactory(this.tank, 'food_training_sim_medium'),
-			// SimulationFactory(this.tank, 'food_training_sim_hard'),
-			// SimulationFactory(this.tank, 'food_training_sim_forever'),
-			// SimulationFactory(this.tank, 'edge_training')
-			// SimulationFactory(this.tank, 'petri_dish')
-			// SimulationFactory(this.tank, 'treasure_hunt_easy'),
-			// SimulationFactory(this.tank, 'treasure_hunt_hard'),
-			// SimulationFactory(this.tank, 'treasure_hunt_perpetual'),
-			// SimulationFactory(this.tank, 'obstacle_course'),
-			// SimulationFactory(this.tank, 'race_track'),
-			SimulationFactory(this.tank, 'natural_tank'),
-			// SimulationFactory(this.tank, 'peaceful_tank'),
+			// SimulationFactory('turning_training_easy'),
+			// SimulationFactory('turning_training_medium'),
+			// SimulationFactory('turning_training_hard'),
+			// SimulationFactory('turning_training_xhard'),
+			// SimulationFactory('food_training_sim_easy'),
+			// SimulationFactory('food_training_sim_medium'),
+			// SimulationFactory('food_training_sim_hard'),
+			// SimulationFactory('food_training_sim_forever'),
+			// SimulationFactory('edge_training')
+			// SimulationFactory('petri_dish')
+			// SimulationFactory('treasure_hunt_easy'),
+			// SimulationFactory('treasure_hunt_hard'),
+			// SimulationFactory('treasure_hunt_perpetual'),
+			// SimulationFactory('obstacle_course'),
+			// SimulationFactory('race_track'),
+			SimulationFactory('natural_tank'),
+			// SimulationFactory('peaceful_tank'),
 		];
 		
 		// subscribe to critical events
@@ -89,19 +89,19 @@ export default class Vectorcosm {
 			this.SavePopulation( null, this.tank.boids.map(b=>b.oid), 'Trained Population' );
 		}
 		// temporarily remove boids from tank so they don't get sterilized
-		let boids = this.simulation ? this.simulation.tank.boids.splice(0,this.simulation.tank.boids.length) : [];
+		let boids = this.simulation ? this.tank.boids.splice(0,this.tank.boids.length) : [];
 		// start the next simulation; default to natural tank if queue is empty
 		this.simulation = this.sim_queue.shift();
 		if ( !this.simulation ) { 
-			this.simulation = SimulationFactory(this.tank, 'natural_tank');
+			this.simulation = SimulationFactory('natural_tank');
 		}
 		// meta params that carry over from sim to sim
 		if ( this.sim_meta_params.num_boids > 0 ) { this.simulation.settings.num_boids = this.sim_meta_params.num_boids; }
 		if ( this.sim_meta_params.segments > 1 ) { this.simulation.settings.segments = this.sim_meta_params.segments; }
 		if ( this.sim_meta_params.rounds > 0 ) { this.simulation.settings.rounds = this.sim_meta_params.rounds; }
 		// clean the tank and transplant boids back in
-		this.tank.Sterilize(); 
-		this.simulation.tank.boids = boids;
+		this.tank.Kill();
+		this.tank.boids = boids;
 		this.simulation.Setup(); 
 	}
 	
@@ -184,8 +184,8 @@ export default class Vectorcosm {
 	}		
 
 	SavePopulation( species=null, ids=null, to_db=false /* can also be a string label */ ) {
-		if ( this.simulation.tank.boids.length ) {
-			let list = this.simulation.tank.boids;
+		if ( this.tank.boids.length ) {
+			let list = this.tank.boids;
 			if ( species ) {
 				list = list.filter( x => x.species == species );
 			}
@@ -215,7 +215,7 @@ export default class Vectorcosm {
 		if (json) {
 			json = JSON.parse(json);
 			for ( let j of json ) {
-				let b = new Boid( 0, 0, this.simulation.tank, j );
+				let b = new Boid( 0, 0, this.tank, j );
 				b.ScaleBoidByMass();
 				this.simulation.AddBoidToTank(b); // handles safe spawn
 			}			
