@@ -19,7 +19,7 @@
 	}
 	
 	function SaveSpecies() {
-		api.SendMessage('exportBoids', { db:true, species: [boid.genus] });
+		api.SendMessage('exportBoids', { db:true, species: [boid.species] });
 	}
 	
 	function SaveTankPopulation() {
