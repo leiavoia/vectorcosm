@@ -623,11 +623,11 @@ export class Boid extends PhysicsObject {
 		// start a timer if there isnt one
 		if ( !m.hasOwnProperty('t') ) { m.t = 0; }
 		
+		// sanity check
+		amount = utils.clamp(amount,0,1);
+		
 		// shift amount to halfway point for wheel motors (0..1 becomes -1..1)
 		if ( m.wheel ) { amount = (amount * 2) - 1; } 
-		
-		// sanity check
-		amount = utils.clamp(amount,-1,1);
 		
 		// new stroke
 		if ( m.t==0 ) { 
