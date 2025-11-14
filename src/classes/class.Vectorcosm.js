@@ -261,7 +261,7 @@ export default class Vectorcosm {
 			settings = Object.assign( settings, scene.sim_settings );
 			// manually recalculate the volume to make sure UI stays in sync
 			settings.volume = this.tank.width * this.tank.height;
-			this.sim_queue.push( new NaturalTankSimulation(this.tank,settings));
+			this.sim_queue.push( new NaturalTankSimulation(settings) );
 			this.LoadNextSim();
 			this.tank.boids = scene.boids.map( o => {
 				let b = new Boid( 0, 0, this.tank, o );
