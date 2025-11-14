@@ -1990,7 +1990,7 @@ export class Boid extends PhysicsObject {
 		// POD we can just copy over
 		let datakeys = ['id','x','y','species','genus','age','stomach_contents', 'energy', 'mass', 'scale', 'length', 'width', 'generation','speciation', 'metab' ];		
 		for ( let k of datakeys ) { b[k] = this[k]; }
-		b.brain = this.brain.toJSON();
+		b.brain = this.brain.Export(false); // POD
 		b.dna = this.dna.str;
 		// save motor timings - not doing this can mess up sensative mitosis strategies
 		b.motor_state = this.motors.map( m => ({

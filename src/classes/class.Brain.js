@@ -92,18 +92,27 @@ export default class Brain {
 		return this.outputs;
 	}
 	
-	toJSON() {
+	Export(asJSON=true) {
 		let network = this.network.Export(false); // as object
-		return JSON.stringify({
+		const obj = {
 			type: this.type,
 			input_map: this.input_map,
 			network: network
-		});
+		};
+		return asJSON ? JSON.stringify(obj) : obj;
+	}
+	
+	static Import( json ) { /* JSON string or raw object */
+		const from = (typeof json === 'string') ? JSON.parse(json) : json;	
+		return new Brain({json:from});
+	}
+	
+	toJSON() {
+		return this.Export(true);
 	}
 	
 	static fromJSON(json) {
-		let brain = new Brain({json:json});
-		return brain;
+		return Brain.Import(json);
 	}
 	
 	MakeBrain( boid ) {
