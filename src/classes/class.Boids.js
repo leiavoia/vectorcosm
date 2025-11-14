@@ -563,9 +563,8 @@ export class Boid extends PhysicsObject {
 				const grace = 4; // MAGIC NUMBER
 				const r = this.collision.radius + grace;
 				// get a list of collision candidates
-				let foods = this.tank.foods; // runs faster on small sets
 				const test = o => { return o instanceof Food && o.IsEdibleBy(this) && !( this.ignore_list && this.ignore_list.has(o) ) };
-				foods = this.tank.grid.GetObjectsByBox( this.x - r, this.y - r, this.x + r, this.y + r, test );				
+				let foods = this.tank.grid.GetObjectsByBox( this.x - r, this.y - r, this.x + r, this.y + r, test );				
 				// check for collision + edibility
 				for ( let food of foods ) { 
 					const dx = Math.abs(food.x - this.x);

@@ -644,48 +644,44 @@ export class FoodChaseSimulation extends Simulation {
 		}
 	}	
 	ScoreBoidPerFrame(b) {
-		// calculate score for this frame	
-		b.fitness_score = 0;
-		// record travel distance or lack thereof
+		// calculate score for this frame
+		let frame_score = 0;
 		if ( !b.total_fitness_score ) { 
 			b.startx = b.x;
 			b.starty = b.y;
 			b.total_fitness_score = 0.01; // wink
 		}
+		// record travel distance or lack thereof
 		else if ( this.settings?.score_on_travel ) {
 			b.max_travel = b.max_travel || 0;
 			let travel = Math.abs(b.x - b.startx) + Math.abs(b.y - b.starty);
 			if ( travel >  b.max_travel ) {
-				b.total_fitness_score += (travel - b.max_travel) / 500;
+				frame_score += (travel - b.max_travel) / 500;
 				b.max_travel = travel;
 			}
 		}
-		// eat food, get win!
-		b.fitness_score = 0;
-		for ( let food of globalThis.vc.tank.foods ) {
-			if ( !food.IsEdibleBy(b) ) { continue; }
-		 	if ( b.ignore_list && b.ignore_list.has(food) ) { continue; }
-			const dx = Math.abs(food.x - b.x);
-			const dy = Math.abs(food.y - b.y);
-			const d = Math.sqrt(dx*dx + dy*dy);
-			let touching = b.collision.radius + food.collision.radius;
-			const margin = 150;
-			if ( this.settings?.score_on_proximity && d < touching + margin ) {
-				// small bonus for getting close
-				let score = ( margin - ( d - touching ) ) / margin ;
-				b.fitness_score += score * ( 20 / Math.max( b.body.width, b.body.length ) );  // bigger creatures get less score
-			}
-			// big points if touching
-			if ( d <= touching ) { 
-				b.fitness_score += 5 * ( 20 / Math.max( b.body.width, b.body.length ) );  // bigger creatures get less score
-			}
-						
-		}		
+		// points for getting close
+		if ( this.settings?.score_on_proximity ) {
+			for ( let food of globalThis.vc.tank.foods ) {
+				if ( !food.IsEdibleBy(b) ) { continue; }
+				if ( b.ignore_list && b.ignore_list.has(food) ) { continue; }
+				const dx = Math.abs(food.x - b.x);
+				const dy = Math.abs(food.y - b.y);
+				const d = Math.sqrt(dx*dx + dy*dy);
+				let touching = b.collision.radius + food.collision.radius;
+				const margin = 150;
+				if ( d < touching + margin ) {
+					// small bonus for getting close
+					let score = ( margin - ( d - touching ) ) / margin ;
+					frame_score += score * ( 20 / Math.max( b.width, b.length ) );  // bigger creatures get less score
+				}
+			}		
+		}
 		// total score		
-		b.total_fitness_score += b.fitness_score * this.stats.delta * 18; // extra padding just makes numbers look good
+		b.total_fitness_score += frame_score * this.stats.delta * 18; // extra padding just makes numbers look good
 	}	
 	ScoreBoidPerRound(b) {
-
+		b.total_fitness_score += b.stats.food.bites;
 	}	
 	Update(delta) {
 		super.Update(delta);
