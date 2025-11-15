@@ -52,7 +52,10 @@ export default class SpikingNeuralNetwork {
 		let nodes = [];
 		const num_conns = Math.ceil( Math.random() * max_output_connections );
 		for ( let n=0; n<num_conns; n++ ) {
-			nodes.push( Math.floor(Math.random()*this.nodes.length) );
+			// prefer not to target input nodes - for rate driven outputs, this feels like cheating
+			const index = Math.floor(Math.random()*this.nodes.length);
+			if ( this.inputs.includes(index) && n < num_conns-1 ) { continue; }
+			nodes.push( index );
 		}
 		this.outputs.push( {
 			nodes,
