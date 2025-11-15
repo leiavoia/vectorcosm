@@ -207,61 +207,6 @@ export default class Tank {
 		this.CreateDataGrid(w,h);
 	}
 	
-	DrawDebugBoundaryRectangle( on = true ) {
-		// if ( this.debug_geo ) {
-		// 	this.debug_geo.remove();
-		// 	delete this.debug_geo;
-		// }
-		// if ( !on ) { return; }
-		// this.debug_geo = globalThis.two.makeGroup();
-		// globalThis.vc.AddShapeToRenderLayer(this.debug_geo, +2);	
-		// // boundary rectangle
-		// const debug_rect = globalThis.two.makeRectangle(this.width/2, this.height/2, this.width, this.height );
-		// debug_rect.stroke = "orange";
-		// debug_rect.linewidth = '2';
-		// debug_rect.fill = 'transparent';		
-		// this.debug_geo.add( debug_rect );
-		// // current flow / vector field
-		// if ( this.datagrid?.cells?.length ) {
-		// 	const max_line_length = 0.75 * this.datagrid.cellsize;
-		// 	for ( let x=0; x < this.datagrid.cells_x; x++ ) {
-		// 		for ( let y=0; y < this.datagrid.cells_y; y++ ) {
-		// 			const center_x = x * this.datagrid.cellsize + (this.datagrid.cellsize * 0.5);
-		// 			const center_y = y * this.datagrid.cellsize + (this.datagrid.cellsize * 0.5);
-		// 			const cell = this.datagrid.CellAt(center_x,center_y);			
-		// 			if ( cell ) {
-		// 				// center post
-		// 				const rect_w = this.datagrid.cellsize / 20;
-		// 				const rect = globalThis.two.makeRectangle(center_x, center_y, rect_w, rect_w);
-		// 				rect.stroke = "lime";
-		// 				rect.linewidth = '2';
-		// 				rect.fill = 'transparent';
-		// 				rect.rotation = Math.PI / 4; // diamonds are kool
-		// 				this.debug_geo.add( rect );
-		// 				// magnitude line
-		// 				const target_x = center_x + -cell.current_x * max_line_length;
-		// 				const target_y = center_y + -cell.current_y * max_line_length;
-		// 				const line = globalThis.two.makeLine(center_x, center_y, target_x, target_y);
-		// 				line.stroke = "lime";
-		// 				line.linewidth = '2';
-		// 				line.fill = 'transparent';
-		// 				this.debug_geo.add( line );
-		// 			}
-		// 		}
-		// 	}
-		// }
-		// // whirls
-		// if ( this.whirls.length ) {
-		// 	for ( let w of this.whirls ) {
-		// 		const c = globalThis.two.makeCircle( w.x, w.y, w.locality*1000 );
-		// 		c.stroke = "orange";
-		// 		c.linewidth = w.strength * 10;
-		// 		c.fill = 'transparent';
-		// 		this.debug_geo.add( c );
-		// 	}
-		// }
-	}
-	
 	SetBGTheme( name, save=true ) {
 		// if no arguments, set to self or default
 		if ( !name ) {

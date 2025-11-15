@@ -424,6 +424,71 @@
 		PubSub.publish('boid-library-addition', null);
 	} );
 	
+	api.RegisterResponseCallback( 'getTankEnvironmentData', data => {
+		RenderTankEnvironmentData(data);
+	});
+		
+	let tankEnvGeo = null;
+	function RenderTankEnvironmentData( data ) {
+		if ( tankEnvGeo ) {
+			tankEnvGeo.remove();
+			tankEnvGeo = null;
+		}
+		tankEnvGeo = globalThis.two.makeGroup();
+		renderLayers['ui'].add(tankEnvGeo);
+		// current flow vector field
+		if ( data.grid?.cells?.length ) {
+			const max_line_length = 0.75 * data.grid.cellsize;
+			for ( let x=0; x < data.grid.cells_x; x++ ) {
+				for ( let y=0; y < data.grid.cells_y; y++ ) {
+					const center_x = x * data.grid.cellsize + (data.grid.cellsize * 0.5);
+					const center_y = y * data.grid.cellsize + (data.grid.cellsize * 0.5);
+					const cell_index = x + ( y * data.grid.cells_x );
+					const cell = data.grid.cells[cell_index];
+					if ( cell ) {
+						// center post
+						const rect_w = data.grid.cellsize / 20;
+						const rect = globalThis.two.makeRectangle(center_x, center_y, rect_w, rect_w);
+						rect.stroke = "lime";
+						rect.linewidth = '2';
+						rect.fill = 'transparent';
+						rect.rotation = Math.PI / 4; // diamonds are kool
+						tankEnvGeo.add( rect );
+						// magnitude line
+						const target_x = center_x + -cell.current_x * max_line_length;
+						const target_y = center_y + -cell.current_y * max_line_length;
+						const line = globalThis.two.makeLine(center_x, center_y, target_x, target_y);
+						line.stroke = "lime";
+						line.linewidth = '2';
+						line.fill = 'transparent';
+						tankEnvGeo.add( line );
+					}
+				}
+			}
+		}
+		// whirls
+		if ( data?.whirls?.length ) {
+			for ( let w of data.whirls ) {
+				const c = globalThis.two.makeCircle( w.x, w.y, w.locality*1000 );
+				c.stroke = "orange";
+				c.linewidth = w.strength * 10;
+				c.fill = 'transparent';
+				tankEnvGeo.add( c );
+			}
+		}
+	}
+	
+	function ToggleTankEnvironmentalData() {
+		if ( tankEnvGeo ) {
+			tankEnvGeo.remove();
+			tankEnvGeo = null;
+		}
+		else {
+			api.SendMessage('getTankEnvironmentData');
+		}
+	}
+	
+		
 	// gameloop starts when drawing context is fully mounted (see component)
 	function onDrawingReady() {
 		// create rendering layers before drawing objects start to arrive from simulation
@@ -543,6 +608,15 @@
 		},
 		'5': _ => {
 			setPanelMode('sim_launcher')
+		},
+		'6': _ => {
+			// reserved for future UI panels
+		},
+		'7': _ => {
+			// reserved for future UI panels
+		},
+		'8': _ => {
+			ToggleTankEnvironmentalData();
 		},
 		'Escape': _ => {
 			if ( camera.focus_obj_id > 0 ) { 

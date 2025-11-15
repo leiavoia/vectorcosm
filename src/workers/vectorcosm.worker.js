@@ -244,6 +244,15 @@ function_registry.set( 'pickObject', params => {
 });
 
 
+function_registry.set( 'getTankEnvironmentData', params => {
+	const grid = globalThis.vc.tank.datagrid;
+	const whirls = globalThis.vc.tank.whirls;
+	globalThis.postMessage( { functionName: 'getTankEnvironmentData', data: { 
+		grid,
+		whirls
+	} } );
+});
+
 function_registry.set( 'endSim', params => {
 	globalThis.vc.simulation.killme = true;
 	globalThis.postMessage( { functionName: 'endSim', data: null } );
