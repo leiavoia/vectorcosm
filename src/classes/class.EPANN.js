@@ -40,8 +40,8 @@ function RandomNumber(a = 0, b = 1) {return Math.random() * (b - a) + a;}
 // choose a random activation function
 function RandomActivationFunction(just_the_key = false) {
 	const keys = Object.keys(ActivationFunctions);
-	// const roll = 1 - ( Math.cbrt( Math.random() * 1000 ) / 10 ); // bias towards faster functions
-	const roll = Math.random(); // no bias
+	const roll = 1 - ( Math.cbrt( Math.random() * 1000 ) / 10 ); // bias towards nicer/faster functions
+	// const roll = Math.random(); // no bias
 	const index = Math.floor(roll * keys.length)
 	const key = keys[ index ];
 	return just_the_key ? key : ActivationFunctions[ key ];

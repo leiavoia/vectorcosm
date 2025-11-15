@@ -936,7 +936,7 @@ export class TurningSimulation extends Simulation {
 			b.angle = angle;
 			b.x = spawn_x;
 			b.y = spawn_y;
-			b.total_fitness_score = this.min_distance_to_score * globalThis.vc.tank.foods.length; // golf!
+			b.total_fitness_score = 0;
 			b.fitness_score = 0;
 			b.food_scores = new Array( globalThis.vc.tank.foods.length ).fill(this.min_distance_to_score);
 		}
