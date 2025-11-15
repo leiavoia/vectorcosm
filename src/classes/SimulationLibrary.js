@@ -200,7 +200,7 @@ export default {
 		timeout: 1.6,
 		max_mutation: 0.3,
 		angle_spread: 0.7, // radians
-		cullpct: 0.3,
+		cullpct: 0.12,
 		distance: 500,
 		volume:5000000,
 		distance_variance: 0.4,
@@ -223,7 +223,7 @@ export default {
 		timeout: 5,
 		max_mutation: 0.2,
 		angle_spread: 1.0, // radians
-		cullpct: 0.3,
+		cullpct: 0.18,
 		distance: 500,
 		volume:10000000,
 		distance_variance: 0.3,
@@ -247,7 +247,7 @@ export default {
 		num_rocks:1,
 		max_mutation: 0.2,
 		angle_spread: 1, // radians
-		cullpct: 0.3,
+		cullpct: 0.25,
 		distance: 450,
 		volume:26000000,
 		distance_variance: 0.2,
@@ -271,7 +271,7 @@ export default {
 		timeout: 20,
 		max_mutation: 0.2,
 		angle_spread: 1, // radians
-		cullpct: 0.3,
+		cullpct: 0.25,
 		distance: 450,
 		volume:26000000,
 		distance_variance: 0.2,
