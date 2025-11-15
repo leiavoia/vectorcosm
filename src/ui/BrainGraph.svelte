@@ -82,15 +82,19 @@
 					node.my_a = cell_angle * i;
 					node.my_a1 = cell_angle * i - ( 0.5 * cell_angle );
 					node.my_a2 = cell_angle * i + ( 0.5 * cell_angle );
-					node.my_x  = center_x + Math.cos(node.my_a)  * ( max_r - node_r );
+					node.my_cx  = center_x + Math.cos(node.my_a)  * ( max_r - node_r * 0.25 ); // inner dent
+					node.my_cy  = center_y + Math.sin(node.my_a)  * ( max_r - node_r * 0.25 );
+					node.my_ox  = center_x + Math.cos(node.my_a)  * ( max_r + node_r * 1.75 ); // outer dent
+					node.my_oy  = center_y + Math.sin(node.my_a)  * ( max_r + node_r * 1.75 );
+					node.my_x  = center_x + Math.cos(node.my_a)  * ( max_r - node_r ); // bottom center
 					node.my_y  = center_y + Math.sin(node.my_a)  * ( max_r - node_r );
-					node.my_x1 = center_x + Math.cos(node.my_a1) * ( max_r + node_r );
+					node.my_x1 = center_x + Math.cos(node.my_a1) * ( max_r + node_r ); // top left
 					node.my_y1 = center_y + Math.sin(node.my_a1) * ( max_r + node_r );
-					node.my_x2 = center_x + Math.cos(node.my_a2) * ( max_r + node_r );
+					node.my_x2 = center_x + Math.cos(node.my_a2) * ( max_r + node_r ); // top right
 					node.my_y2 = center_y + Math.sin(node.my_a2) * ( max_r + node_r );
-					node.my_x3 = center_x + Math.cos(node.my_a2) * ( max_r - node_r );
+					node.my_x3 = center_x + Math.cos(node.my_a2) * ( max_r - node_r ); // bottom right
 					node.my_y3 = center_y + Math.sin(node.my_a2) * ( max_r - node_r );
-					node.my_x4 = center_x + Math.cos(node.my_a1) * ( max_r - node_r );
+					node.my_x4 = center_x + Math.cos(node.my_a1) * ( max_r - node_r ); // bottom left
 					node.my_y4 = center_y + Math.sin(node.my_a1) * ( max_r - node_r );
 				}
 			}
@@ -165,24 +169,37 @@
 				}				
 			}		
 						
-			// draw output nodes
+			// draw nodes
 			if ( draw_nodes ) {
 				// create the nodes
 				if ( !nodes_geo ) { 
 					nodes_geo = context.makeGroup();
 					geo.add(nodes_geo);
 				}
-				for ( let i=0; i < brain.nodes.length; i++ ) {
-					let node = brain.nodes[i];
-					// only create new geometry on the first run
-					if ( i >= neuron_geos.length ) { 
+				// only create new geometry on the first run
+				if ( !neuron_geos.length ) {
+					for ( let i=0; i < brain.nodes.length; i++ ) {
+						let node = brain.nodes[i];
 						let is_input = brain.inputs.contains(i);
+						let is_output = false;
+						for ( let o of brain.outputs ) {
+							if ( o.n.contains(i) ) { // /!\ watch out for abbreviations
+								is_output = true;
+								break;
+							}
+						}
 						let anchors = [
-							new Two.Anchor( node.my_x1, node.my_y1 ),
-							new Two.Anchor( node.my_x2, node.my_y2 ),
-							new Two.Anchor( node.my_x3, node.my_y3 ),
-							new Two.Anchor( node.my_x4, node.my_y4 )
-						];
+							new Two.Anchor( node.my_x1, node.my_y1 ) // TL
+						]
+						if ( is_output ) {
+							anchors.push( new Two.Anchor( node.my_ox, node.my_oy ) ); // outdent
+						}
+						anchors.push( new Two.Anchor( node.my_x2, node.my_y2 ) ) // TR
+						anchors.push( new Two.Anchor( node.my_x3, node.my_y3 ) ) // BR
+						if ( is_input ) {
+							anchors.push( new Two.Anchor( node.my_cx, node.my_cy ) ); // center
+						}
+						anchors.push( new Two.Anchor( node.my_x4, node.my_y4 ) ) // BL
 						let rect = globalThis.two.makePath(anchors);
 						rect.fill = '#000';
 						rect.linewidth = 0;
@@ -190,8 +207,11 @@
 						nodes_geo.add(rect);
 						neuron_geos.push(rect);
 					}
-					// otherwise we can just update what we already have 
-					else {
+				}
+				// otherwise we can just update what we already have 
+				else {
+					for ( let i=0; i < brain.nodes.length; i++ ) {
+						let node = brain.nodes[i];
 						let v = boid?.brain[i]?.value ?? node?.v ?? 0; // magic
 						v = utils.Clamp(v,-1,1);
 						let rect = neuron_geos[i];
