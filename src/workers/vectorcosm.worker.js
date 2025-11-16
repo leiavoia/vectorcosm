@@ -247,9 +247,11 @@ function_registry.set( 'pickObject', params => {
 function_registry.set( 'getTankEnvironmentData', params => {
 	const grid = globalThis.vc.tank.datagrid;
 	const whirls = globalThis.vc.tank.whirls;
+	const request = params.data?.request || 'current';
 	globalThis.postMessage( { functionName: 'getTankEnvironmentData', data: { 
 		grid,
-		whirls
+		whirls,
+		request
 	} } );
 });
 

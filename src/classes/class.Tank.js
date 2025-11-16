@@ -162,7 +162,7 @@ export default class Tank {
 		// create vector field
 		for ( let x=0; x < this.datagrid.cells_x; x++ ) {
 			for ( let y=0; y < this.datagrid.cells_y; y++ ) {
-				const cell = this.datagrid.CellAt(x*this.datagrid.cellsize, y*this.datagrid.cellsize);
+				const cell = this.datagrid.CellFromXY(x,y);
 				if ( cell ) {
 					cell.current_x = 0;
 					cell.current_y = 0;
@@ -195,7 +195,154 @@ export default class Tank {
 			cell.current_x = Math.cos(angle) * ratio;
 			cell.current_y = Math.sin(angle) * ratio;
 		} );
+		// recalc light and temperature
+		this.RecalcEnvironment();
+	}
+	
+	// computes light and temperature based on rocks
+	RecalcEnvironment() {
+		// [!]HACKY - in order to get collision detection to work with recently added rocks, 
+		// we have to insert the rocks into the system temporarily here. Grid data
+		// will be automatically cleared and reset on the next frame anyway.
+		this.grid.Clear();
+		for ( let o of this.obstacles ) { this.grid.Add(o); }
+		const cellsize = this.datagrid.cellsize;
+		const murkiness = 0.00022; // could be a tank setting
+		const ambient_light = 1.0; // could be a tank setting
+		const occlusion_coef = 0.0035; // rocks above us block some amount of light - higher for harder shadows
+		const vertical_diffusion = 6; // divisor for light scattering
+		// keep track of the number of rocks immediately above us to simulate occlusion and scattering
+		const occlusions = new Array(this.datagrid.cells_x).fill(0);
+		// for each cell, find the number of rocks and set light and temperature
+		for ( let y=0; y < this.datagrid.cells_y; y++ ) { // by rows first
+			for ( let x=0; x < this.datagrid.cells_x; x++ ) {
+				const cell = this.datagrid.CellFromXY(x,y);
+				if ( cell ) {
+					const my_x = x * cellsize;
+					const my_y = y * cellsize;
+					let rocks = this.grid.GetObjectsByBox(
+						my_x + 5, // be careful not to overreach
+						my_y + 5, 
+						(my_x + cellsize) - 5, 
+						(my_y + cellsize) - 5
+					);
+					// check for actual collisions because datagrid and space grid are not same resolution
+					const result = new Result();
+					rocks = rocks.filter( rock => {
+						const square  = new Polygon(my_x, my_y, [
+							[0,0],
+							[cellsize,0],
+							[cellsize,cellsize],
+							[0,cellsize]
+						]);
+						const polygon = new Polygon(rock.x, rock.y, rock.collision.hull);
+						return square.collides(polygon, result);
+					});
+					// light falls off with absolute distance, not relative tank size
+					const depth = my_y - (cellsize * 0.5);
+					const local_murk = murkiness + occlusions[x] * occlusion_coef; // rocks block light
+					cell.light = this.CalculateLightIntensity( depth, ambient_light, local_murk );
+					// record the local occlusion for the next row, averaged with previous record
+					let local_occlusion = this.CalcOcclusion( my_x, my_x + cellsize, rocks );
+					// local_occlusion = Math.sqrt( local_occlusion * 10 ) / 10;
+					occlusions[x] = Math.max( local_occlusion, occlusions[x] / vertical_diffusion ); // shadows from above
+					// temperature also goes down with depth but rocks warm up local area
+					cell.heat = this.CalculateLightIntensity( depth, ambient_light, murkiness ); // light warms things up
+					cell.heat = ( cell.heat + 0.5 ) / 2; // mix towards even
+					cell.heat += local_occlusion * 0.25; // warm rocks increase temp
+					cell.heat = utils.Clamp( cell.heat, 0, 1 );
+				}
+			}
+		}
+		// diffuse temperatures
+		const reps = 3;
+		const mixing_strength = 2;
+		for ( let rep=0; rep < reps; rep++ ) {
+			const new_heat = []; // work on a buffer array to avoid self-referencing changes
+			for ( let y=0; y < this.datagrid.cells_y; y++ ) { // by rows first
+				for ( let x=0; x < this.datagrid.cells_x; x++ ) {
+					const cell = this.datagrid.CellFromXY(x,y);
+					if ( cell ) {
+						let contrib = 0;
+						let contributors = 0;			
+						// loop over all neighbors
+						const leftmost = x == 0 ? x : x - 1;	
+						const rightmost = x == (this.datagrid.cells_x-1) ? (this.datagrid.cells_x-1) : x+1;	
+						const topmost = y == 0 ? y : y - 1;	
+						const bottommost = y == (this.datagrid.cells_y-1) ? (this.datagrid.cells_y-1) : y+1;
+						for ( let ny=topmost; ny <= bottommost; ny++ ) {
+							for ( let nx=leftmost; nx <= rightmost; nx++ ) {
+								// no selfies
+								const neighbor = this.datagrid.CellFromXY(nx,ny);
+								if ( neighbor === cell ) { continue; }
+								// make contribution
+								contrib += neighbor.heat - cell.heat;
+								contributors++;
+							}
+						}
+						// average contributions
+						contrib = ( contrib / contributors ) / reps; // scale it down for finer integration
+						let new_val = cell.heat + contrib * mixing_strength;
+						new_val = utils.Clamp( new_val, 0, 1 );
+						new_heat.push(new_val);
+					}
+				}
+			}
+			// copy the new values into the existing grid
+			for ( let i=0; i < new_heat.length; i++ ) {
+				this.datagrid.cells[i].heat = new_heat[i];
+			}
+		}
+		// normalize temperatures - this isnt necessary but makes for a guaranteed varied landscape
+		let highest_temp = 0;
+		let lowest_temp = 1;
+		for ( let cell of this.datagrid.cells ) {
+			if ( cell.heat > highest_temp ) { highest_temp = cell.heat; }
+			if ( cell.heat < lowest_temp ) { lowest_temp = cell.heat; }
+		}
+		let spread = highest_temp - lowest_temp;
+		for ( let cell of this.datagrid.cells ) {
+			cell.heat = ( cell.heat - lowest_temp ) / spread;
+		}
+	}
+	
+	CalcOcclusion( x1, x2, rocks ) {
+		// transform each rock into a list of left and rightmost x-axis pairs [x1,x2]
+		const spans = rocks.map( r => [ r.x, r.x + r.collision.aabb.x2 ] );
+	
+		// Ensure spans are sorted and clipped to the range [x1, x2]
+		const clippedSpans = spans
+			// Clip spans to [x1, x2]
+			.map(([start, end]) => [Math.max(x1, start), Math.min(x2, end)]) 
+			// Remove invalid spans
+			.filter(([start, end]) => start < end); 
+
+		// Merge overlapping spans
+		const mergedSpans = [];
+		clippedSpans.sort((a, b) => a[0] - b[0]); // Sort spans by start
+		for (const [start, end] of clippedSpans) {
+			// Add new span
+			if (mergedSpans.length === 0 || mergedSpans[mergedSpans.length - 1][1] < start) {
+				mergedSpans.push([start, end]);
+			} 
+			// Merge overlapping spans
+			else {
+				mergedSpans[mergedSpans.length - 1][1] = Math.max(mergedSpans[mergedSpans.length - 1][1], end);
+			}
+		}
+
+		// Calculate total occluded length
+		const totalOccluded = mergedSpans.reduce((sum, [start, end]) => sum + (end - start), 0);
+
+		// Calculate total length of the space
+		const totalLength = x2 - x1;
+
+		// Calculate percentage of occlusion
+		return totalOccluded / totalLength;
+	}
 		
+	CalculateLightIntensity( depth, brightness=1.0, murkiness=0.0002 ) {
+		return brightness * Math.exp( -murkiness * depth );
 	}
 	
 	Resize(w,h) {

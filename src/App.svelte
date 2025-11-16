@@ -425,18 +425,29 @@
 	} );
 	
 	api.RegisterResponseCallback( 'getTankEnvironmentData', data => {
-		RenderTankEnvironmentData(data);
+		const request = data.request || 'current';
+		if ( request == 'current' ) {
+			RenderTankCurrent(data);
+		}
+		else if ( request == 'light' ) {
+			RenderTankLightMap(data);
+		}
+		else if ( request == 'heat' ) {
+			RenderTankHeatMap(data);
+		}
 	});
 		
 	let tankEnvGeo = null;
-	function RenderTankEnvironmentData( data ) {
+	let tankEnvOverlayMode = null;
+	
+	function RenderTankCurrent( data ) {
 		if ( tankEnvGeo ) {
 			tankEnvGeo.remove();
 			tankEnvGeo = null;
 		}
 		tankEnvGeo = globalThis.two.makeGroup();
 		renderLayers['ui'].add(tankEnvGeo);
-		// current flow vector field
+		// grid data
 		if ( data.grid?.cells?.length ) {
 			const max_line_length = 0.75 * data.grid.cellsize;
 			for ( let x=0; x < data.grid.cells_x; x++ ) {
@@ -445,24 +456,24 @@
 					const center_y = y * data.grid.cellsize + (data.grid.cellsize * 0.5);
 					const cell_index = x + ( y * data.grid.cells_x );
 					const cell = data.grid.cells[cell_index];
-					if ( cell ) {
-						// center post
-						const rect_w = data.grid.cellsize / 20;
-						const rect = globalThis.two.makeRectangle(center_x, center_y, rect_w, rect_w);
-						rect.stroke = "lime";
-						rect.linewidth = '2';
-						rect.fill = 'transparent';
-						rect.rotation = Math.PI / 4; // diamonds are kool
-						tankEnvGeo.add( rect );
-						// magnitude line
-						const target_x = center_x + -cell.current_x * max_line_length;
-						const target_y = center_y + -cell.current_y * max_line_length;
-						const line = globalThis.two.makeLine(center_x, center_y, target_x, target_y);
-						line.stroke = "lime";
-						line.linewidth = '2';
-						line.fill = 'transparent';
-						tankEnvGeo.add( line );
-					}
+						
+					// center post
+					const rect_w = data.grid.cellsize / 15;
+					const rect = globalThis.two.makeRectangle(center_x, center_y, rect_w, rect_w);
+					rect.linewidth = 0;
+					rect.rotation = Math.PI / 4; // diamonds are kool
+					rect.stroke = "transparent";
+					rect.fill = 'lime';
+					tankEnvGeo.add( rect );
+					
+					// magnitude line
+					const target_x = center_x + -cell.current_x * max_line_length;
+					const target_y = center_y + -cell.current_y * max_line_length;
+					const line = globalThis.two.makeLine(center_x, center_y, target_x, target_y);
+					line.stroke = "lime";
+					line.linewidth = '4';
+					line.fill = 'transparent';
+					tankEnvGeo.add( line );
 				}
 			}
 		}
@@ -478,17 +489,100 @@
 		}
 	}
 	
-	function ToggleTankEnvironmentalData() {
+	function RenderTankLightMap( data ) {
 		if ( tankEnvGeo ) {
 			tankEnvGeo.remove();
 			tankEnvGeo = null;
 		}
-		else {
-			api.SendMessage('getTankEnvironmentData');
+		tankEnvGeo = globalThis.two.makeGroup();
+		renderLayers['ui'].add(tankEnvGeo);
+		// grid data
+		if ( data.grid?.cells?.length ) {
+			const max_line_length = 0.75 * data.grid.cellsize;
+			for ( let x=0; x < data.grid.cells_x; x++ ) {
+				for ( let y=0; y < data.grid.cells_y; y++ ) {
+					const center_x = x * data.grid.cellsize + (data.grid.cellsize * 0.5);
+					const center_y = y * data.grid.cellsize + (data.grid.cellsize * 0.5);
+					const cell_index = x + ( y * data.grid.cells_x );
+					const cell = data.grid.cells[cell_index];
+									
+					// box
+					// const box_w = data.grid.cellsize;
+					// const box = globalThis.two.makeRectangle(center_x, center_y, box_w, box_w);
+					// box.stroke = "lime";
+					// box.linewidth = '2';
+					// box.fill = 'transparent';
+					// tankEnvGeo.add( box );
+					
+					// center post
+					const rect_w = data.grid.cellsize / 4;
+					const rect = globalThis.two.makeRectangle(center_x, center_y, rect_w, rect_w);
+					rect.linewidth = 2;
+					rect.rotation = Math.PI / 4; // diamonds are kool
+					rect.stroke = "#888";
+					rect.fill = `hsl(0, 0%, ${cell.light*100}%)`;
+					tankEnvGeo.add( rect );
+				}
+			}
 		}
 	}
 	
-		
+	function RenderTankHeatMap( data ) {
+		if ( tankEnvGeo ) {
+			tankEnvGeo.remove();
+			tankEnvGeo = null;
+		}
+		tankEnvGeo = globalThis.two.makeGroup();
+		renderLayers['ui'].add(tankEnvGeo);
+		// grid data
+		if ( data.grid?.cells?.length ) {
+			const max_line_length = 0.75 * data.grid.cellsize;
+			for ( let x=0; x < data.grid.cells_x; x++ ) {
+				for ( let y=0; y < data.grid.cells_y; y++ ) {
+					const center_x = x * data.grid.cellsize + (data.grid.cellsize * 0.5);
+					const center_y = y * data.grid.cellsize + (data.grid.cellsize * 0.5);
+					const cell_index = x + ( y * data.grid.cells_x );
+					const cell = data.grid.cells[cell_index];
+				
+					// heat (stroke) -> gradient: blue (0.0) -> white (0.5) -> red (1.0)
+					let hue, sat;
+					if (cell.heat <= 0.5) {
+						const t = cell.heat / 0.5; // 0..1 from blue -> white
+						hue = 240; // keep blue hue
+						sat = (1 - t) * 100; // 100% -> 0%
+					} 
+					else {
+						const t = (cell.heat - 0.5) / 0.5; // 0..1 from white -> red
+						hue = 0; // red hue
+						sat = t * 100; // 0% -> 100%
+					}
+					const heat_color = `hsl(${Math.round(hue)}, ${Math.round(sat)}%, 60%)`;
+
+					// center post
+					const rect_w = data.grid.cellsize / 4;
+					const rect = globalThis.two.makeRectangle(center_x, center_y, rect_w, rect_w);
+					rect.linewidth = 0;
+					rect.rotation = Math.PI / 4; // diamonds are kool
+					rect.stroke = "transparent";
+					rect.fill = heat_color;
+					tankEnvGeo.add( rect );
+
+				}
+			}
+		}
+	}
+	
+	function ToggleTankEnvironmentalData( request='current' ) {
+		if ( tankEnvGeo && tankEnvOverlayMode == request ) {
+			tankEnvGeo.remove();
+			tankEnvGeo = null;
+		}
+		else {
+			tankEnvOverlayMode = request;
+			api.SendMessage('getTankEnvironmentData', {request:request});
+		}
+	}
+			
 	// gameloop starts when drawing context is fully mounted (see component)
 	function onDrawingReady() {
 		// create rendering layers before drawing objects start to arrive from simulation
@@ -610,13 +704,13 @@
 			setPanelMode('sim_launcher')
 		},
 		'6': _ => {
-			// reserved for future UI panels
+			ToggleTankEnvironmentalData('current');
 		},
 		'7': _ => {
-			// reserved for future UI panels
+			ToggleTankEnvironmentalData('light');
 		},
 		'8': _ => {
-			ToggleTankEnvironmentalData();
+			ToggleTankEnvironmentalData('heat');
 		},
 		'Escape': _ => {
 			if ( camera.focus_obj_id > 0 ) { 

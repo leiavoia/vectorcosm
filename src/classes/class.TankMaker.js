@@ -81,6 +81,9 @@ export default class TankMaker {
 		if ( globalThis.vc.simulation ) {
 			globalThis.vc.simulation.SetNumPlants(globalThis.vc.simulation.settings.num_plants || 0);	
 		}
+		
+		// update light and temperature based on rocks
+		this.tank.RecalcEnvironment();
 	}
 	
 	PickRandomRockColor() {
