@@ -11,7 +11,8 @@ export default class DataGrid {
 				current_x: 0,
 				current_y: 0,
 				light: 0.5,
-				heat: 0.5
+				heat: 0.5,
+				matter: 0
 			});
 		}
 	}

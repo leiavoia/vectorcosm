@@ -416,6 +416,7 @@ export default {
 		no_combat:false,
 		invasives: 5,
 		invasives_freq: 500,
+		matter_diffusion: 777,
 		speciation_rate: 1/30,
 	},
 	peaceful_tank: {
@@ -441,6 +442,7 @@ export default {
 		no_combat:true,
 		invasives: 5,
 		invasives_freq: 500,
+		matter_diffusion: 777,
 		speciation_rate: 1/30,
 	},
 			

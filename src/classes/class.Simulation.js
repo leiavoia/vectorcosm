@@ -220,7 +220,17 @@ export default class Simulation {
 				globalThis.vc.tank.boids.forEach(pushObject);
 				globalThis.vc.tank.foods.forEach(pushObject);
 			}		
-		}	
+		}
+		// matter diffusion
+		if ( this.settings?.matter_diffusion ) {
+			const freq = this.settings?.matter_diffusion || 888;
+			const next = this.next_diffusion ?? freq;
+			const t = Math.floor( this.stats.round_time );
+			if ( t > next ) {
+				globalThis.vc.tank.DiffuseStat('matter', 1);
+				this.next_invasive = next + freq;
+			}
+		}
 	}
 	
 	Update( delta ) {

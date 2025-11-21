@@ -255,10 +255,35 @@ export default class Tank {
 			}
 		}
 		// diffuse temperatures
-		const reps = 3;
-		const mixing_strength = 2;
+		this.DiffuseStat('heat', 3, 2);
+		// normalize temperatures - this isnt necessary but makes for a guaranteed varied landscape
+		let highest_temp = 0;
+		let lowest_temp = 1;
+		for ( let cell of this.datagrid.cells ) {
+			if ( cell.heat > highest_temp ) { highest_temp = cell.heat; }
+			if ( cell.heat < lowest_temp ) { lowest_temp = cell.heat; }
+		}
+		let spread = highest_temp - lowest_temp;
+		for ( let cell of this.datagrid.cells ) {
+			cell.heat = ( cell.heat - lowest_temp ) / spread;
+		}
+		// add matter
+		let total_matter = 0;
+		for ( let cell of this.datagrid.cells ) {
+			cell.matter = Math.random();
+			total_matter += cell.matter;
+		}
+		// normalize matter
+		const target_matter = ( this.width * this.height ) / 50; // magic - you could make this a setting
+		const matter_div = total_matter / target_matter;
+		for ( let cell of this.datagrid.cells ) {
+			cell.matter = cell.matter / matter_div;
+		}
+	}
+	
+	DiffuseStat( stat, reps=1, mixing_strength=1 ) {
 		for ( let rep=0; rep < reps; rep++ ) {
-			const new_heat = []; // work on a buffer array to avoid self-referencing changes
+			const new_vals = []; // work on a buffer array to avoid self-referencing changes
 			for ( let y=0; y < this.datagrid.cells_y; y++ ) { // by rows first
 				for ( let x=0; x < this.datagrid.cells_x; x++ ) {
 					const cell = this.datagrid.CellFromXY(x,y);
@@ -276,34 +301,23 @@ export default class Tank {
 								const neighbor = this.datagrid.CellFromXY(nx,ny);
 								if ( neighbor === cell ) { continue; }
 								// make contribution
-								contrib += neighbor.heat - cell.heat;
+								contrib += neighbor[stat] - cell[stat];
 								contributors++;
 							}
 						}
 						// average contributions
 						contrib = ( contrib / contributors ) / reps; // scale it down for finer integration
-						let new_val = cell.heat + contrib * mixing_strength;
+						let new_val = cell[stat] + contrib * mixing_strength;
 						new_val = utils.Clamp( new_val, 0, 1 );
-						new_heat.push(new_val);
+						new_vals.push(new_val);
 					}
 				}
 			}
 			// copy the new values into the existing grid
-			for ( let i=0; i < new_heat.length; i++ ) {
-				this.datagrid.cells[i].heat = new_heat[i];
+			for ( let i=0; i < new_vals.length; i++ ) {
+				this.datagrid.cells[i][stat] = new_vals[i];
 			}
-		}
-		// normalize temperatures - this isnt necessary but makes for a guaranteed varied landscape
-		let highest_temp = 0;
-		let lowest_temp = 1;
-		for ( let cell of this.datagrid.cells ) {
-			if ( cell.heat > highest_temp ) { highest_temp = cell.heat; }
-			if ( cell.heat < lowest_temp ) { lowest_temp = cell.heat; }
-		}
-		let spread = highest_temp - lowest_temp;
-		for ( let cell of this.datagrid.cells ) {
-			cell.heat = ( cell.heat - lowest_temp ) / spread;
-		}
+		}	
 	}
 	
 	CalcOcclusion( x1, x2, rocks ) {
