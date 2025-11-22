@@ -21,6 +21,8 @@ export default class Vectorcosm {
 		this.boid_snn_every_frame = false;
 		this.min_time_delta = 1/30;
 		this.max_foods = 400;
+		this.plant_update_freq = 5;
+		this.plant_update_next = 0;
 		this.sim_meta_params = {
 			num_boids: null,
 			segments: null,
@@ -154,12 +156,16 @@ export default class Vectorcosm {
 		}
 		
 		// update plants
-		for ( let i = this.tank.plants.length-1; i >= 0; i-- ) {
-			const plant = this.tank.plants[i];
-			plant.Update(delta);
-			if ( plant.dead ) {
-				this.tank.plants.splice(i,1);
+		// plants don't do much frame to frame, so we can optimize by updating plants infrequently
+		if ( this.plant_update_next <= this.simulation.stats.round_time || !this.simulation.stats.round_time ) {
+			for ( let i = this.tank.plants.length-1; i >= 0; i-- ) {
+				const plant = this.tank.plants[i];
+				plant.Update(delta);
+				if ( plant.dead ) {
+					this.tank.plants.splice(i,1);
+				}
 			}
+			this.plant_update_next = this.simulation.stats.round_time + this.plant_update_freq;
 		}
 		
 		// update food
