@@ -228,7 +228,7 @@ export default class Simulation {
 			const t = Math.floor( this.stats.round_time );
 			if ( t > next ) {
 				globalThis.vc.tank.DiffuseStat('matter', 1);
-				this.next_invasive = next + freq;
+				this.next_diffusion = next + freq;
 			}
 		}
 	}
