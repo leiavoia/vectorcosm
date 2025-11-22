@@ -4,7 +4,7 @@ import DNA from '../classes/class.DNA.js'
 
 export default class Plant {
 	static PlantTypes = new Map;
-	constructor(x=0,y=0) {
+	constructor(params) {
 		this.oid = ++globalThis.vc.next_object_id;
 		this.type = 'Plant'; // avoids JS classname mangling
 		this.x = 0;
@@ -18,12 +18,8 @@ export default class Plant {
 		this.fruit_interval = 30; // sane defaults
 		this.next_fruit = 30; // sane defaults
 		// first param can be JSON to rehydrate entire object from save
-		if ( x && typeof x === 'object' ) {
-			Object.assign(this,x);
-		}
-		else {
-			this.x = x;
-			this.y = y;
+		if ( typeof params === 'object' ) {
+			Object.assign(this,params);
 		}
 	}
 	Kill() {
@@ -66,8 +62,8 @@ export default class Plant {
 }
 
 export class DNAPlant extends Plant {
-	constructor(x=0,y=0) {
-		super(x,y);
+	constructor(params) {
+		super(params);
 		this.type = 'DNAPlant'; // avoids JS classname mangling
 		this.dna = new DNA( this.dna ); // will either be number of chars, or full string if rehydrating
 		this.RehydrateFromDNA();
@@ -376,8 +372,8 @@ export class DNAPlant extends Plant {
 Plant.PlantTypes.DNAPlant = DNAPlant;
 
 export class PendantLettuce extends Plant {
-	constructor(x=0, y=0) {
-		super(x,y);
+	constructor(params) {
+		super(params);
 		this.type = 'PendantLettuce'; // avoids JS classname mangling
 		this.perma = true; // ignore lifecycle
 		this.age = 30; // dodges animation effects
@@ -466,8 +462,8 @@ export class PendantLettuce extends Plant {
 Plant.PlantTypes.PendantLettuce = PendantLettuce;
 
 export class VectorGrass extends Plant {
-	constructor(x=0, y=0) {
-		super(x,y);
+	constructor(params) {
+		super(params);
 		this.type = 'VectorGrass'; // avoids JS classname mangling
 		this.perma = true; // ignore lifecycle
 		this.age = 30; // dodges animation effects
@@ -550,8 +546,8 @@ export class VectorGrass extends Plant {
 Plant.PlantTypes.VectorGrass = VectorGrass;
 
 export class WaveyVectorGrass extends Plant {
-	constructor(x=0, y=0) {
-		super(x,y);
+	constructor(params) {
+		super(params);
 		this.type = 'WaveyVectorGrass'; // avoids JS classname mangling
 		this.perma = true; // ignore lifecycle
 		this.age = 30; // dodges animation effects
@@ -650,7 +646,7 @@ const motherplants = [];
 export function RandomPlant(x=0,y=0) {
 	const type = plantPicker.Pick();
 	// legacy hardcoded plants are like you know whatever
-	if ( Plant.PlantTypes.DNAPlant !== type ) { return new type(x,y); }
+	if ( Plant.PlantTypes.DNAPlant !== type ) { return new type({x,y}); }
 	// fun! if we choose DNAPlant, try to make variations on a theme instead of completely random ones
 	else {
 		let plant;
@@ -664,7 +660,7 @@ export function RandomPlant(x=0,y=0) {
 		}
 		// create a new plant from scratch
 		else {
-			plant = new type(x,y); 
+			plant = new type({x,y}); 
 		}
 		// cache the plant for reuse
 		if ( !motherplants.length || Math.random() > reuse ) { // note inverted comparison
