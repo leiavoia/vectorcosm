@@ -355,6 +355,13 @@ export default class Tank {
 		return totalOccluded / totalLength;
 	}
 		
+	AddMatterAt( x, y, m ) {
+		const cell = this.datagrid.CellAt(x,y);
+		if ( cell ) {
+			cell.matter += m;
+		}
+	}
+	 
 	CalculateLightIntensity( depth, brightness=1.0, murkiness=0.0002 ) {
 		return brightness * Math.exp( -murkiness * depth );
 	}

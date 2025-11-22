@@ -137,7 +137,8 @@ export default class Food extends PhysicsObject {
 		this.age += delta;
 		if ( this.age > this.lifespan && !this.permafood ) {
 			// chance to live a while longer
-			if ( Math.random() < 0.003 ) {		
+			if ( Math.random() < 0.003 ) {
+				globalThis.vc.tank.AddMatterAt( this.x, this.y, this.value ); // rot
 				this.Kill();
 				return;
 			}
@@ -233,6 +234,7 @@ export default class Food extends PhysicsObject {
 				plant.y = this.y;
 				plant.age = 0; // shim
 				globalThis.vc.tank.plants.push(plant);
+				globalThis.vc.tank.AddMatterAt( this.x, this.y, this.value ); // rot
 				this.Kill();
 			}
 		}

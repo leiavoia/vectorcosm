@@ -812,19 +812,9 @@ export class Boid extends PhysicsObject {
 		let killed = false;
 		if ( victim.metab.energy <= 0 && !globalThis.vc.simulation.settings?.ignore_lifecycle ) {
 			victim.Kill('attack');
-			let killed = true;
+			killed = true;
 			this.stats.combat.kills++;
-			globalThis.vc.simulation.RecordStat('kills',1);
-			// prizes!
-			const f = new Food( victim.x, victim.y, { 
-				value: victim.mass * 0.25, // reduce value to avoid virtuous cycles  
-				lifespan: ( victim.mass * 0.05),
-				buoy_start: 5,
-				buoy_end: -20,
-				nutrients: victim.traits.nutrition.map( x => x > 0 ? x : 0 ),
-				complexity: Math.max( victim.traits.nutrition.filter( x => x > 0 ).length, 6 )
-				} );		
-			globalThis.vc.tank.foods.push(f);											
+			globalThis.vc.simulation.RecordStat('kills',1);											
 		}
 		// maybe next time you'll learn
 		else {
