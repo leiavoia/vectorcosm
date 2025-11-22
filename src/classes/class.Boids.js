@@ -328,26 +328,8 @@ export class Boid extends PhysicsObject {
 			
 			// potty time?
 			if ( this.metab.bowel_total >= this.metab.bowel_size ) {
-				// TODO: if there's too much crap on the screen, consider just having 
-				// it absorb into the background aether instead of ignoring it.
-				if ( globalThis.vc.tank.foods.length < 300 && globalThis.vc.simulation.settings?.poop!==false ) {
-					const f = new Food( this.x, this.y, { 
-						value: this.metab.bowel_total * 0.5, // reduce value to avoid virtuous cycles  
-						lifespan: Math.min( 15, this.metab.bowel_total/3 ),
-						buoy_start: ( this.traits.poop_buoy + ( this.traits.poop_buoy 
-							- (this.traits.poop_buoy * 2 * Math.random()) ) ),
-						buoy_end: ( (this.traits.poop_buoy + this.traits.poop_buoy) 
-							+ ( this.traits.poop_buoy - (this.traits.poop_buoy * 2 * Math.random()) ) ),
-						nutrients: this.metab.bowel.map( v => v / this.metab.bowel_total ),
-						complexity: this.traits.poop_complexity,
-						seed: this.metab.seed_dna
-						} );
-					globalThis.vc.tank.foods.push(f);
-				}
-				this.metab.bowel_total = 0;
-				this.metab.bowel.fill(0);
-				this.metab.seed_dna = null;
-			}			
+				this.Poop();
+			}
 			
 			// if we have enough energy to grow, let's grow
 			if ( this.mass < this.body.mass && this.metab.energy / this.metab.max_energy > this.traits.growth_min_energy_pct ) {
@@ -608,6 +590,29 @@ export class Boid extends PhysicsObject {
 		}
 	}
 
+	Poop() {
+		if ( !this.metab.bowel_total ) { return; }
+		// TODO: if there's too much crap on the screen, consider just having 
+		// it absorb into the background aether instead of ignoring it.
+		if ( globalThis.vc.tank.foods.length < 300 && globalThis.vc.simulation.settings?.poop!==false ) {
+			const f = new Food( this.x, this.y, { 
+				value: this.metab.bowel_total,
+				lifespan: Math.min( 15, this.metab.bowel_total/3 ),
+				buoy_start: ( this.traits.poop_buoy + ( this.traits.poop_buoy 
+					- (this.traits.poop_buoy * 2 * Math.random()) ) ),
+				buoy_end: ( (this.traits.poop_buoy + this.traits.poop_buoy) 
+					+ ( this.traits.poop_buoy - (this.traits.poop_buoy * 2 * Math.random()) ) ),
+				nutrients: this.metab.bowel.map( v => v / this.metab.bowel_total ),
+				complexity: this.traits.poop_complexity,
+				seed: this.metab.seed_dna
+				} );
+			globalThis.vc.tank.foods.push(f);
+		}
+		this.metab.bowel_total = 0;
+		this.metab.bowel.fill(0);
+		this.metab.seed_dna = null;
+	}
+			
 	// provides reward and punishment signals for adaptive brains.
 	// suggested value of -1..1
 	Experience( value=1.0 ) {
@@ -941,12 +946,15 @@ export class Boid extends PhysicsObject {
 		this.dead = true;
 		// if this is a natural tank setting, make food from carcass
 		if ( !globalThis.vc.simulation.settings?.ignore_lifecycle ) {
+			// empty bowels
+			this.Poop();
 			// BALANCE NOTE: in order to prevent runaway free energy cycles,
 			// we need to undo the magic energy multiplier that was applied
 			// when we ate food. 
 			let value = (this.mass / MAGIC_ENERGY_MULTIPLIER);
-			// starving organisms have less meat on the bones
-			value = ( 0.5 * value ) + ( 0.5 * value * ( this.metab.energy / this.metab.max_energy ) );
+			value += this.metab.stomach_total; // include stomach contents
+			// starving organisms have less meat on the bones?
+			// value = ( 0.5 * value ) + ( 0.5 * value * ( this.metab.energy / this.metab.max_energy ) );
 			const f = new Food( this.x, this.y, { 
 				value: value,
 				lifespan: utils.RandomInt(10,60),
