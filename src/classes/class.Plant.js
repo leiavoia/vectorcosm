@@ -5,7 +5,9 @@ import DNA from '../classes/class.DNA.js'
 const PLANT_GROWTH_SPEED = 20; // internal tuning number, in seconds
 
 export default class Plant {
+	
 	static PlantTypes = new Map;
+	
 	constructor(params) {
 		// defaults
 		this.oid = ++globalThis.vc.next_object_id;
@@ -17,24 +19,31 @@ export default class Plant {
 		this.dead = false;
 		this.age = 0;
 		this.perma = false;
-		this.lifespan = 100000000;
-		this.fruit_interval = 30; // sane defaults
-		this.next_fruit = 30; // sane defaults
-		
 		this.mass = 1;
-		this.growth_speed = 0.5; // 0..1
-		this.growth_curve_exp = utils.RandomFloat( 0.005, 0.1 );
-		
-		this.growth_mass_request = 1;
-		this.fruit_mass_request = 1;
-		
 		this.life_credits = 100; // counts down from
 		this.fruit_credits = 0; // counts up from
 		this.health = 1;
-		
+		this.growth_mass_request = 1;
+		this.fruit_mass_request = 1;
 		if ( typeof params === 'object' ) {
 			Object.assign(this,params);
 		}
+		// basic genetic traits - individual plant types can add more
+		this.traits = {
+			lifespan: 10000000,
+			animation_method:'skew',
+			growth_speed: 0.5,
+			growth_curve_exp: utils.RandomFloat( 0.005, 0.1 ),
+			max_germ_density: 4,
+			germ_distance: 200,
+			fruit_num: 1,
+			fruit_size: 100,
+			fruit_lifespan: 6,
+			fruit_buoy_start: -10,
+			fruit_buoy_end: -10,
+			fruit_complexity: 2,
+			fruit_nutrients: [1,1,1,1,1,1,1,1],
+		};
 	}
 	
 	RequestResources( time_interval ) {
@@ -42,10 +51,10 @@ export default class Plant {
 			// adjustable slider for user interaction
 			( globalThis.vc.simulation.settings?.fruiting_speed || 1 )
 			// plant's native growth speed
-			* this.growth_speed
+			* this.traits.growth_speed
 			// time interval and internal tuning number
 			* ( time_interval / PLANT_GROWTH_SPEED );
-		this.growth_mass_request = Math.pow( Math.E, -this.growth_curve_exp * this.mass );
+		this.growth_mass_request = Math.pow( Math.E, -this.traits.growth_curve_exp * this.mass );
 		this.fruit_mass_request = 1 - this.growth_mass_request;
 		this.growth_mass_request *= this.mass * scale;
 		this.fruit_mass_request *= this.mass * scale;
@@ -72,7 +81,7 @@ export default class Plant {
 	
 	Update( delta ) {
 		this.age += delta;
-		if ( this.age >= this.lifespan ) {
+		if ( this.age >= this.traits.lifespan ) {
 			this.Kill();
 			return false;
 		}
@@ -80,15 +89,14 @@ export default class Plant {
 	
 	Export( as_JSON=false ) {
 		let output = { classname: this.type };
-		let datakeys = ['x','y','fruit_interval','age','lifespan',
-			'next_fruit','maturity_age','growth_overlap_mod','dna','generation'];		
+		let datakeys = ['x','y','fruit_credits','age','lifespan',
+			'mass','health','dna','generation'];		
 		for ( let k of datakeys ) { 
 			if ( this.hasOwnProperty(k) ) { 
 				output[k] = this[k];
 			} 
  		}
-		if ( as_JSON ) { output = JSON.stringify(output); }
-		return output;
+		return as_JSON ? JSON.stringify(output) : output;
 	}
 	
 	GeoData() {
@@ -102,29 +110,8 @@ export default class Plant {
 			rotation: Math.PI/4
 		};
 	}
-}
 
-export class DNAPlant extends Plant {
-	constructor(params) {
-		super(params);
-		this.type = 'DNAPlant'; // avoids JS classname mangling
-		this.dna = new DNA( this.dna ); // will either be number of chars, or full string if rehydrating
-		this.RehydrateFromDNA();
-		this.CreateBody();
-	}
-	Update(delta) {
-		super.Update(delta);
-		if ( this.dead ) { return; }
-		
-		// current plant class has hacks in to ignore death
-		if ( !this.perma && this.age >= this.lifespan ) {
-			// chance to live a while longer
-			if ( Math.random() < 0.002 ) {
-				this.Kill();
-				return false;
-			}
-		}
-		
+	MakeFruit() {
 		// make berries
 		let threshold = this.traits.fruit_num * this.traits.fruit_size;
 		if ( this.fruit_credits > threshold ) {
@@ -163,7 +150,33 @@ export class DNAPlant extends Plant {
 				}
 			}
 		}
+	}
+}
 
+export class DNAPlant extends Plant {
+	
+	constructor(params) {
+		super(params);
+		this.type = 'DNAPlant'; // avoids JS classname mangling
+		this.dna = new DNA( this.dna ); // will either be number of chars, or full string if rehydrating
+		this.RehydrateFromDNA();
+		this.CreateBody();
+	}
+	
+	Update(delta) {
+		super.Update(delta);
+		if ( this.dead ) { return; }
+		
+		// current plant class has hacks in to ignore death
+		if ( !this.perma && this.age >= this.traits.lifespan ) {
+			// chance to live a while longer
+			if ( Math.random() < 0.002 ) {
+				this.Kill();
+				return false;
+			}
+		}
+
+		this.MakeFruit();
 	}
 		
 	MakeGeneticColor( whatfor, colors ) {
@@ -214,7 +227,7 @@ export class DNAPlant extends Plant {
 	
 	// this mines the DNA for data
 	RehydrateFromDNA() {
-		this.traits = {};
+		
 		// create a color palette
 		this.traits.colors = [];
 		const num_colors = 5;
@@ -241,6 +254,8 @@ export class DNAPlant extends Plant {
 		}
 				
 		// determine the other traits
+		this.traits.growth_speed = this.dna.mix( this.dna.genesFor('growth_speed',2), 0.1, 1.0, 0.5, 2.0 );
+		this.traits.growth_curve_exp = this.dna.mix( this.dna.genesFor('growth_speed',2), 0.005, 0.1, 0.05, 0.5 );
 		const total_fruit_mass = Math.round( 0.5 * ( 
 			this.dna.shapedInt( this.dna.genesFor('total_fruit_mass_1',2), 10, 1000, 120, 3 ) +
 			this.dna.shapedInt( this.dna.genesFor('total_fruit_mass_2',1), 10, 1000, 120, 5 ) ) );
@@ -314,7 +329,7 @@ export class DNAPlant extends Plant {
 
 		// shimmed in to make it work. eventually move everything to "traits" data structure
 		this.maturity_age = this.traits.maturity_age;
-		this.lifespan = this.traits.lifespan;
+		this.traits.lifespan = this.traits.lifespan;
 		this.fruit_interval = this.traits.fruit_interval;
 	}	
 	GeoData() {
@@ -414,8 +429,8 @@ export class DNAPlant extends Plant {
 	SortByAngle(a,b) { Math.atan2(b[1],b[0]) - Math.atan2(a[1],a[0]); }
 	RandomizeAge() {
 		const rand = Math.random();
-		this.age = this.lifespan * rand;
-		this.mass = Math.log(rand*rand*rand) / -this.growth_curve_exp;
+		this.age = this.traits.lifespan * rand;
+		this.mass = Math.log(rand*rand*rand) / -this.traits.growth_curve_exp;
 		// give fruiting a head start so that new tanks dont immediately starve
 		let threshold = this?.traits?.fruit_num * this?.traits?.fruit_size;
 		if ( !threshold ) { threshold = 300; }
