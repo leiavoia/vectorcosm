@@ -584,8 +584,10 @@
 		renderLayers['ui'].add(tankEnvGeo);
 		// grid data
 		if ( data.grid?.cells?.length ) {
-			const maxlog = 14;
-			const maxval = Math.exp(maxlog); // about one million
+			// use logarithmic scaling - matter has no limit
+			const maxlog = 12;
+			const maxval = Math.exp(maxlog);
+			const logshift = 5; // the extreme low end is a bit boring
 			for ( let x=0; x < data.grid.cells_x; x++ ) {
 				for ( let y=0; y < data.grid.cells_y; y++ ) {
 					const center_x = x * data.grid.cellsize + (data.grid.cellsize * 0.5);
@@ -593,24 +595,26 @@
 					const cell_index = x + ( y * data.grid.cells_x );
 					const cell = data.grid.cells[cell_index];
 				
-					// the trouble with matter is that there is no limit.
-					// create a series of colors to correspond to logarithmic scale
-					// and enough colors to cover all reasonable values we might encounter
-					// 0 = red, 120 = green, 240 = blue, 360 = red again
 					const logval = Math.log( Math.min(cell.matter, maxval) );
-					const ratio = logval / maxlog;
-					const hue = ( ( 360 * (1-ratio) ) + 240 ) % 360;
-					const lightness = 0.5; // ratio * 0.6 + 0.2;
-					const color = `hsl(${Math.round(hue)}, 70%, ${lightness*100}%)`;
+					const ratio = Math.max( 0, logval - logshift ) / ( maxlog - logshift );
+					const color = `hsl(300, 50%, ${ratio*80}%)`;
 
 					// geometry
 					const rect_w = data.grid.cellsize / 4;
 					const rect = globalThis.two.makeRectangle(center_x, center_y, rect_w, rect_w);
-					rect.linewidth = 0;
+					rect.linewidth = 2;
 					rect.rotation = Math.PI / 4; // diamonds are kool
-					rect.stroke = "transparent";
+					rect.stroke = "#AAA";
 					rect.fill = color;
 					tankEnvGeo.add( rect );
+					
+					const txt = globalThis.two.makeText( cell.matter.toFixed(), center_x, center_y );
+					txt.linewidth = 0;
+					txt.stroke = "transparent";
+					txt.fill = '#FFF';
+					txt.size = 24;
+					tankEnvGeo.add( txt );
+					
 				}
 			}
 		}
