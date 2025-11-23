@@ -2,9 +2,12 @@ import * as utils from '../util/utils.js'
 import Food from '../classes/class.Food.js'
 import DNA from '../classes/class.DNA.js'
 
+const PLANT_GROWTH_SPEED = 20; // internal tuning number, in seconds
+
 export default class Plant {
 	static PlantTypes = new Map;
 	constructor(params) {
+		// defaults
 		this.oid = ++globalThis.vc.next_object_id;
 		this.type = 'Plant'; // avoids JS classname mangling
 		this.x = 0;
@@ -17,15 +20,56 @@ export default class Plant {
 		this.lifespan = 100000000;
 		this.fruit_interval = 30; // sane defaults
 		this.next_fruit = 30; // sane defaults
-		// first param can be JSON to rehydrate entire object from save
+		
+		this.mass = 1;
+		this.growth_speed = 0.5; // 0..1
+		this.growth_curve_exp = utils.RandomFloat( 0.005, 0.1 );
+		
+		this.growth_mass_request = 1;
+		this.fruit_mass_request = 1;
+		
+		this.life_credits = 100; // counts down from
+		this.fruit_credits = 0; // counts up from
+		this.health = 1;
+		
 		if ( typeof params === 'object' ) {
 			Object.assign(this,params);
 		}
 	}
+	
+	RequestResources( time_interval ) {
+		const scale = 
+			// adjustable slider for user interaction
+			( globalThis.vc.simulation.settings?.fruiting_speed || 1 )
+			// plant's native growth speed
+			* this.growth_speed
+			// time interval and internal tuning number
+			* ( time_interval / PLANT_GROWTH_SPEED );
+		this.growth_mass_request = Math.pow( Math.E, -this.growth_curve_exp * this.mass );
+		this.fruit_mass_request = 1 - this.growth_mass_request;
+		this.growth_mass_request *= this.mass * scale;
+		this.fruit_mass_request *= this.mass * scale;
+		const total = this.growth_mass_request + this.fruit_mass_request;
+		return total;
+	}
+	
+	GrantResources( matter ) {
+		if ( !matter ) { return; }
+		// how much did we originally request?
+		const total = this.growth_mass_request + this.fruit_mass_request;
+		const ratio = matter / total;
+		// growth
+		this.mass += this.growth_mass_request * ratio;
+		// fruit
+		this.fruit_credits += this.fruit_mass_request * ratio;
+		// actual fruiting occurs in the Update() function
+	}
+	
 	Kill() {
 		// this.geo.remove();
 		this.dead = true;
 	}	
+	
 	Update( delta ) {
 		this.age += delta;
 		if ( this.age >= this.lifespan ) {
@@ -33,6 +77,7 @@ export default class Plant {
 			return false;
 		}
 	}
+	
 	Export( as_JSON=false ) {
 		let output = { classname: this.type };
 		let datakeys = ['x','y','fruit_interval','age','lifespan',
@@ -45,9 +90,7 @@ export default class Plant {
 		if ( as_JSON ) { output = JSON.stringify(output); }
 		return output;
 	}
-	PlantIsInFrame() { true; }
-	Animate( delta ) {}		
-	CreateGeometricBody( points ) {}
+	
 	GeoData() {
 		return {
 			type:'rect',
@@ -83,39 +126,44 @@ export class DNAPlant extends Plant {
 		}
 		
 		// make berries
-		if ( this.age > this.traits.maturity_age && this.age > this.next_fruit ) {
-			let max_fudge = this.fruit_interval * 0.20;
-			let fudge = ( Math.random() * max_fudge ) - ( max_fudge / 2 );
-			this.next_fruit = this.age + fudge + ( this.fruit_interval / ( globalThis.vc?.simulation?.settings?.fruiting_speed || 1 ) );
-			if ( globalThis.vc.tank.foods.length < globalThis.vc.max_foods ) {
-				// pick a random vertex to spawn from
-				for ( let n=0; n < this.traits.fruit_num; n++ ) {
-					// let vertex = this.geo.children.pickRandom().vertices.pickRandom();
-					// const f = new Food( this.x + ( vertex.x * 0.35 ) , this.y + ( vertex.y * 0.35 ) , { 
-					const f = new Food( this.x, this.y, { 
-						value: ( this.traits.fruit_size * ( 1 - (Math.random() * 0.1 ) ) ), 
-						lifespan: ( this.traits.fruit_lifespan * ( 1 - (Math.random() * 0.2 ) ) ),
-						buoy_start: this.traits.fruit_buoy_start + ( 100 - (200 * Math.random()) ),
-						buoy_end: this.traits.fruit_buoy_end + ( 100 - (200 * Math.random()) ),
-						nutrients: this.traits.fruit_nutrients,
-						complexity: this.traits.fruit_complexity,
-						vx: utils.RandomFloat(100,1000), // boing!
-						vy: utils.RandomFloat(100,1000),
-						} );
-					// if there is room for more plants in the tank, make it a viable seed
-					if ( globalThis.vc.tank.plants.length < globalThis.vc.simulation.settings.num_plants ) {
-						let seed = new DNA(	this.dna.str );
-						seed.mutate( 2, false );
-						f.seed = seed.str;
-						f.max_germ_density = this.traits.max_germ_density;
-						f.germ_distance = this.traits.germ_distance;
+		let threshold = this.traits.fruit_num * this.traits.fruit_size;
+		if ( this.fruit_credits > threshold ) {
+			// chance of fruiting goes up the further past the threshold we are
+			const overage = ( this.fruit_credits - threshold ) / threshold;
+			const roll = Math.random();
+			if ( overage >= roll ) {
+				// reset fruiting cycle
+				this.fruit_credits = 0; 
+				// create the fruit
+				if ( globalThis.vc.tank.foods.length < globalThis.vc.max_foods ) {
+					const size = ( this.traits.fruit_size * ( 1 + overage ) );
+					for ( let n=0; n < this.traits.fruit_num; n++ ) {
+						// let vertex = this.geo.children.pickRandom().vertices.pickRandom();
+						// const f = new Food( this.x + ( vertex.x * 0.35 ) , this.y + ( vertex.y * 0.35 ) , { 
+						const f = new Food( this.x, this.y, { 
+							value: size, 
+							lifespan: ( this.traits.fruit_lifespan * ( 1 - (Math.random() * 0.2 ) ) ),
+							buoy_start: this.traits.fruit_buoy_start + ( 100 - (200 * Math.random()) ),
+							buoy_end: this.traits.fruit_buoy_end + ( 100 - (200 * Math.random()) ),
+							nutrients: this.traits.fruit_nutrients,
+							complexity: this.traits.fruit_complexity,
+							// vx: utils.RandomFloat(100,1000), // boing!
+							// vy: utils.RandomFloat(100,1000),
+							} );
+						// if there is room for more plants in the tank, make it a viable seed
+						if ( globalThis.vc.tank.plants.length < globalThis.vc.simulation.settings.num_plants ) {
+							let seed = new DNA(	this.dna.str );
+							seed.mutate( 2, false );
+							f.seed = seed.str;
+							f.max_germ_density = this.traits.max_germ_density;
+							f.germ_distance = this.traits.germ_distance;
+						}
+						globalThis.vc.tank.foods.push(f);
 					}
-					globalThis.vc.tank.foods.push(f);
 				}
 			}
 		}
-		
-		this.Animate(delta);	
+
 	}
 		
 	MakeGeneticColor( whatfor, colors ) {
@@ -365,8 +413,13 @@ export class DNAPlant extends Plant {
 	SortByX(a,b) { return b[0] - a[0]; }
 	SortByAngle(a,b) { Math.atan2(b[1],b[0]) - Math.atan2(a[1],a[0]); }
 	RandomizeAge() {
-		this.age = this.lifespan * Math.random();
-		this.next_fruit = Math.floor( this.age + this.fruit_interval * Math.random() );
+		const rand = Math.random();
+		this.age = this.lifespan * rand;
+		this.mass = Math.log(rand*rand*rand) / -this.growth_curve_exp;
+		// give fruiting a head start so that new tanks dont immediately starve
+		let threshold = this?.traits?.fruit_num * this?.traits?.fruit_size;
+		if ( !threshold ) { threshold = 300; }
+		this.fruit_credit = utils.RandomFloat( threshold * 0.6, threshold );
 	}	
 }
 Plant.PlantTypes.DNAPlant = DNAPlant;
@@ -456,7 +509,6 @@ export class PendantLettuce extends Plant {
 				globalThis.vc.tank.foods.push(f);
 			}
 		}
-		this.Animate(delta);
 	}
 } 
 Plant.PlantTypes.PendantLettuce = PendantLettuce;
@@ -540,7 +592,6 @@ export class VectorGrass extends Plant {
 				}
 			}
 		}
-		this.Animate(delta);		
 	}	
 } 
 Plant.PlantTypes.VectorGrass = VectorGrass;
@@ -628,15 +679,14 @@ export class WaveyVectorGrass extends Plant {
 				}
 			}
 		}
-		this.Animate(delta);				
-	}	
+	}
 } 
 Plant.PlantTypes.WaveyVectorGrass = WaveyVectorGrass;
 
 const plantPicker = new utils.RandomPicker( [
-	[ PendantLettuce, 	50 ],
-	[ VectorGrass, 		150 ],
-	[ WaveyVectorGrass, 50 ],
+	// [ PendantLettuce, 	50 ],
+	// [ VectorGrass, 		150 ],
+	// [ WaveyVectorGrass, 50 ],
 	[ DNAPlant, 250 ],
 ] );
 
