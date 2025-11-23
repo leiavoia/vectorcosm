@@ -173,7 +173,7 @@ export default class Simulation {
 			const pushObject = o => {	 
 				if ( o?.frictionless ) { return; }
 				const cell = globalThis.vc.tank.datagrid.CellAt(o.x,o.y);
-				if ( !cell ) { return; }
+				if ( cell === null ) { return; }
 				// we multiply by the mass to fake a wave action and get all objects moving roughly the same.
 				// actual physics of waves is beyond this simulation.
 				o.ApplyForce(
@@ -222,12 +222,13 @@ export default class Simulation {
 			}		
 		}
 		// matter diffusion
-		if ( this.settings?.matter_diffusion ) {
-			const freq = this.settings?.matter_diffusion || 888;
+		if ( this.settings?.matter_diffusion_freq ) {
+			const freq = this.settings?.matter_diffusion_freq || 300;
 			const next = this.next_diffusion ?? freq;
 			const t = Math.floor( this.stats.round_time );
 			if ( t > next ) {
-				globalThis.vc.tank.DiffuseStat('matter', 1);
+				const strength = this.settings?.matter_diffusion_strength || 0.25;
+				globalThis.vc.tank.DiffuseStat('matter', 1, strength );
 				this.next_diffusion = next + freq;
 			}
 		}

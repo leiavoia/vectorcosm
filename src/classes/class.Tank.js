@@ -147,25 +147,30 @@ export default class Tank {
 		}
 		
 		// update the actual data grid
-		this.CreateDataGrid(this.width,this.height);
+		this.UpdateCurrentVectors();
 	}
 		
 	CreateDataGrid(w,h) {
+		// make the grid
 		let gridcell_area = (w*h) / 400; // arbitrary number
 		let gridsize = Math.max( 300, Math.sqrt( gridcell_area ) );
 		this.datagrid = new DataGrid(w,h,gridsize);
-		const largest_dim = Math.max( w, h );
 		// create a few whirlpool points
 		if ( !this.whirls.length ) { // don't make new ones
 			this.MakeWhirlpools();
 		}
-		// create vector field
+		// update our stats
+		this.UpdateCurrentVectors();
+		this.RecalcEnvironment();
+	}
+	
+	UpdateCurrentVectors() {
+		const largest_dim = Math.max( this.width, this.height );
+		// update vector field
 		for ( let x=0; x < this.datagrid.cells_x; x++ ) {
 			for ( let y=0; y < this.datagrid.cells_y; y++ ) {
 				const cell = this.datagrid.CellFromXY(x,y);
 				if ( cell ) {
-					cell.current_x = 0;
-					cell.current_y = 0;
 					const cell_x = x * this.datagrid.cellsize + this.datagrid.cellsize * 0.5;
 					const cell_y = y * this.datagrid.cellsize + this.datagrid.cellsize * 0.5;
 					for ( let n=0; n < this.whirls.length; n++ ) {
@@ -195,8 +200,6 @@ export default class Tank {
 			cell.current_x = Math.cos(angle) * ratio;
 			cell.current_y = Math.sin(angle) * ratio;
 		} );
-		// recalc light and temperature
-		this.RecalcEnvironment();
 	}
 	
 	// computes light and temperature based on rocks
@@ -209,8 +212,8 @@ export default class Tank {
 		const cellsize = this.datagrid.cellsize;
 		const murkiness = 0.00022; // could be a tank setting
 		const ambient_light = 1.0; // could be a tank setting
-		const occlusion_coef = 0.0035; // rocks above us block some amount of light - higher for harder shadows
-		const vertical_diffusion = 6; // divisor for light scattering
+		const occlusion_coef = 0.0015; // rocks above us block some amount of light - higher for harder shadows
+		const vertical_diffusion = 7; // divisor for light scattering - larger numbers make light fall off faster
 		// keep track of the number of rocks immediately above us to simulate occlusion and scattering
 		const occlusions = new Array(this.datagrid.cells_x).fill(0);
 		// for each cell, find the number of rocks and set light and temperature
@@ -255,7 +258,7 @@ export default class Tank {
 			}
 		}
 		// diffuse temperatures
-		this.DiffuseStat('heat', 3, 2);
+		this.DiffuseStat('heat', 3, 0.25);
 		// normalize temperatures - this isnt necessary but makes for a guaranteed varied landscape
 		let highest_temp = 0;
 		let lowest_temp = 1;
@@ -279,37 +282,43 @@ export default class Tank {
 		for ( let cell of this.datagrid.cells ) {
 			cell.matter = cell.matter / matter_div;
 		}
+		this.DiffuseStat('matter', 1, 0.5);
 	}
 	
 	DiffuseStat( stat, reps=1, mixing_strength=1 ) {
+		if ( mixing_strength > 1 ) { mixing_strength = 1; }
+		else if ( mixing_strength <= 0 ) { mixing_strength = 0.01; }
 		for ( let rep=0; rep < reps; rep++ ) {
-			const new_vals = []; // work on a buffer array to avoid self-referencing changes
+			// work on a buffer array to avoid self-referencing changes
+			const new_vals = this.datagrid.cells.map( c => 0 ); 
 			for ( let y=0; y < this.datagrid.cells_y; y++ ) { // by rows first
 				for ( let x=0; x < this.datagrid.cells_x; x++ ) {
-					const cell = this.datagrid.CellFromXY(x,y);
-					if ( cell ) {
-						let contrib = 0;
-						let contributors = 0;			
+					const cell_index = this.datagrid.CellIndexFromXY( x, y );
+					if ( cell_index !== null ) {
+						const cell = this.datagrid.cells[cell_index];
+						const value = cell[stat];
+						const amount = value * mixing_strength;
+						const share = amount / 8;
+						const remain = value - amount;
+						new_vals[cell_index] += remain;
 						// loop over all neighbors
 						const leftmost = x == 0 ? x : x - 1;	
 						const rightmost = x == (this.datagrid.cells_x-1) ? (this.datagrid.cells_x-1) : x+1;	
 						const topmost = y == 0 ? y : y - 1;	
 						const bottommost = y == (this.datagrid.cells_y-1) ? (this.datagrid.cells_y-1) : y+1;
+						let num_contributors = 0;
 						for ( let ny=topmost; ny <= bottommost; ny++ ) {
 							for ( let nx=leftmost; nx <= rightmost; nx++ ) {
 								// no selfies
-								const neighbor = this.datagrid.CellFromXY(nx,ny);
-								if ( neighbor === cell ) { continue; }
-								// make contribution
-								contrib += neighbor[stat] - cell[stat];
-								contributors++;
+								const neighbor_index = this.datagrid.CellIndexFromXY(nx,ny);
+								if ( neighbor_index === cell_index ) { continue; }
+								num_contributors++;
+								// mix
+								new_vals[neighbor_index] += share;
 							}
 						}
-						// average contributions
-						contrib = ( contrib / contributors ) / reps; // scale it down for finer integration
-						let new_val = cell[stat] + contrib * mixing_strength;
-						new_val = utils.Clamp( new_val, 0, 1 );
-						new_vals.push(new_val);
+						// any non-shared value goes back to the origin
+						new_vals[cell_index] += share * ( 8 - num_contributors );
 					}
 				}
 			}
@@ -357,7 +366,7 @@ export default class Tank {
 		
 	AddMatterAt( x, y, m ) {
 		const cell = this.datagrid.CellAt(x,y);
-		if ( cell ) {
+		if ( cell !== null ) {
 			cell.matter += m;
 		}
 	}
