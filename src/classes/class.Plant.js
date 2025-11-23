@@ -112,7 +112,6 @@ export default class Plant {
 	}
 
 	MakeFruit() {
-		// make berries
 		let threshold = this.traits.fruit_num * this.traits.fruit_size;
 		if ( this.fruit_credits > threshold ) {
 			// chance of fruiting goes up the further past the threshold we are
@@ -445,15 +444,21 @@ export class PendantLettuce extends Plant {
 		this.type = 'PendantLettuce'; // avoids JS classname mangling
 		this.perma = true; // ignore lifecycle
 		this.age = 30; // dodges animation effects
-		if ( !this.fruit_interval ) { this.fruit_interval = utils.RandomInt(60,120); }
-		if ( !this.next_fruit ) { this.next_fruit = this.fruit_interval / ( globalThis.vc?.simulation?.settings?.fruiting_speed || 1 ); }
+		this.traits.animation_method ='skew';
+		this.traits.growth_speed = 0.4;
+		this.traits.growth_curve_exp = 0.002;
+		this.traits.fruit_num = 1;
+		this.traits.fruit_size = 120;
+		this.traits.fruit_lifespan = 80;
+		this.traits.fruit_complexity = 3;
+		this.traits.fruit_nutrients = [10,20,25,0,0,0,5,0];
 		this.CreateBody();
 	}
 	GeoData() {
 		return this.geo;
 	}	
 	CreateBody() {
-		this.geo = { type:'group', children: [], animation_method:'skew' };
+		this.geo = { type:'group', children: [], animation_method: this.traits.animation_method };
 		const n = utils.BiasedRandInt( 3, 16, 8, 0.8 );
 		const r = utils.BiasedRandInt( 50, 200, 100, 0.6);
 		const max_variance = r*0.3; 
@@ -505,25 +510,7 @@ export class PendantLettuce extends Plant {
 	Update(delta) {
 		super.Update(delta);
 		if ( this.dead ) { return; }
-		// make berries
-		if ( this.age > this.next_fruit ) {
-			let max_fudge = this.fruit_interval * 0.20;
-			let fudge = ( Math.random() * max_fudge ) - ( max_fudge / 2 );
-			this.next_fruit = this.age + fudge + this.fruit_interval / ( globalThis.vc?.simulation?.settings?.fruiting_speed || 1 );
-			if ( globalThis.vc.tank.foods.length < globalThis.vc.max_foods ) {
-				const f = new Food( this.x, this.y, { 
-					value: 120, 
-					lifespan: (80 + utils.RandomInt(0,20)),
-					vx: utils.RandomFloat(0,25),
-					vy: utils.RandomFloat(0,25),
-					nutrients: [10,20,25,0,0,0,5,0],
-					buoy_start: (100 - ( 200 * Math.random() )),
-					buoy_end: (100 - ( 200 * Math.random() )),
-					complexity: 3
-					} );
-				globalThis.vc.tank.foods.push(f);
-			}
-		}
+		this.MakeFruit();
 	}
 } 
 Plant.PlantTypes.PendantLettuce = PendantLettuce;
@@ -534,8 +521,16 @@ export class VectorGrass extends Plant {
 		this.type = 'VectorGrass'; // avoids JS classname mangling
 		this.perma = true; // ignore lifecycle
 		this.age = 30; // dodges animation effects
-		if ( !this.fruit_interval ) { this.fruit_interval = utils.RandomInt(20,30); }
-		if ( !this.next_fruit ) { this.next_fruit = this.fruit_interval / ( globalThis.vc?.simulation?.settings?.fruiting_speed || 1 ); }
+		this.traits.animation_method ='legacy_sway';
+		this.traits.growth_speed = 0.9;
+		this.traits.growth_curve_exp = 0.01;
+		this.traits.fruit_num = utils.RandomInt(1,5);
+		this.traits.fruit_size = utils.RandomInt(20,50);
+		this.traits.fruit_lifespan = 40 + utils.RandomInt(0,15);
+		this.traits.fruit_complexity = 1;
+		this.traits.fruit_nutrients = [0,0,5,20,15,0,0,0];
+		this.traits.fruit_buoy_start = 100 - ( 200 * Math.random() );
+		this.traits.fruit_buoy_end = 100 - ( 200 * Math.random() );
 		this.CreateBody();
 	}
 	GeoData() {
@@ -573,40 +568,14 @@ export class VectorGrass extends Plant {
 		this.geo = {
 			type:'group',
 			children: blades,
-			animation_method:'legacy_sway'
+			animation_method: this.traits.animation_method
 		};
 		return this.geo;
 	}
 	Update(delta) {
 		super.Update(delta);
 		if ( this.dead ) { return; }
-		// make berries
-		if ( this.age > this.next_fruit ) {
-			let max_fudge = this.fruit_interval * 0.20;
-			let fudge = ( Math.random() * max_fudge ) - ( max_fudge / 2 );
-			this.next_fruit = this.age + fudge + this.fruit_interval / ( globalThis.vc?.simulation?.settings?.fruiting_speed || 1 );
-			if ( globalThis.vc.tank.foods.length < globalThis.vc.max_foods ) {
-				// for ( const b of this.blades ) {
-				const num_fruits = utils.RandomInt(1,5);
-				for ( let i=0; i < num_fruits; i++ ) {
-					const f = new Food( 
-						this.x, 
-						this.y, 
-						{ 
-						value: utils.RandomInt(20,50), 
-						lifespan: (40 + utils.RandomInt(0,15)),
-						nutrients: [0,0,5,20,15,0,0,0],
-						complexity: 1,
-						vx: utils.RandomFloat(0,25),
-						vy: utils.RandomFloat(0,25),
-						buoy_start: (100 - ( 200 * Math.random() )),
-						buoy_end: (100 - ( 200 * Math.random() )),
-						} 
-						);
-					globalThis.vc.tank.foods.push(f);
-				}
-			}
-		}
+		this.MakeFruit();
 	}	
 } 
 Plant.PlantTypes.VectorGrass = VectorGrass;
@@ -617,8 +586,16 @@ export class WaveyVectorGrass extends Plant {
 		this.type = 'WaveyVectorGrass'; // avoids JS classname mangling
 		this.perma = true; // ignore lifecycle
 		this.age = 30; // dodges animation effects
-		if ( !this.fruit_interval ) { this.fruit_interval = utils.RandomInt(45,60); }
-		if ( !this.next_fruit ) { this.next_fruit = this.fruit_interval / ( globalThis.vc?.simulation?.settings?.fruiting_speed || 1 ); }
+		this.traits.animation_method ='sway';
+		this.traits.growth_speed = 0.7;
+		this.traits.growth_curve_exp = 0.008;
+		this.traits.fruit_num = utils.RandomInt(1,5);
+		this.traits.fruit_size = utils.RandomInt(40,80);
+		this.traits.fruit_lifespan = 40 + utils.RandomInt(0,15);
+		this.traits.fruit_complexity = 2;
+		this.traits.fruit_nutrients = [20,0,5,0,0,5,0,50];
+		this.traits.fruit_buoy_start = 100 - ( 200 * Math.random() );
+		this.traits.fruit_buoy_end = 100 - ( 200 * Math.random() );
 		this.CreateBody();
 	}
 	GeoData() {
@@ -660,48 +637,22 @@ export class WaveyVectorGrass extends Plant {
 		this.geo = {
 			type:'group',
 			children: blades,
-			animation_method:'sway'
+			animation_method: this.traits.animation_method
 		};
 		return this.geo;
 	}
 	Update(delta) {
 		super.Update(delta);
 		if ( this.dead ) { return; }
-		// make berries
-		if ( this.age > this.next_fruit ) {
-			let max_fudge = this.fruit_interval * 0.20;
-			let fudge = ( Math.random() * max_fudge ) - ( max_fudge / 2 );
-			this.next_fruit = this.age + fudge + this.fruit_interval / ( globalThis.vc?.simulation?.settings?.fruiting_speed || 1 );
-			if ( globalThis.vc.tank.foods.length < globalThis.vc.max_foods ) {
-				// for ( const b of this.blades ) {
-				const num_fruits = utils.RandomInt(1,5);
-				for ( let i=0; i < num_fruits; i++ ) {
-					const f = new Food( 
-						this.x, 
-						this.y, 
-						{ 
-						value: utils.RandomInt(40,80), 
-						lifespan: (40 + utils.RandomInt(0,15)),
-						nutrients: [20,0,5,0,0,5,0,50],
-						complexity: 2,
-						vx: utils.RandomFloat(0,25),
-						vy: utils.RandomFloat(0,25),
-						buoy_start: (100 - ( 200 * Math.random() )),
-						buoy_end: (100 - ( 200 * Math.random() )),
-						} 
-						);
-					globalThis.vc.tank.foods.push(f);
-				}
-			}
-		}
+		this.MakeFruit();
 	}
 } 
 Plant.PlantTypes.WaveyVectorGrass = WaveyVectorGrass;
 
 const plantPicker = new utils.RandomPicker( [
-	// [ PendantLettuce, 	50 ],
-	// [ VectorGrass, 		150 ],
-	// [ WaveyVectorGrass, 50 ],
+	[ PendantLettuce, 	50 ],
+	[ VectorGrass, 		150 ],
+	[ WaveyVectorGrass, 50 ],
 	[ DNAPlant, 250 ],
 ] );
 
