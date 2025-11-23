@@ -253,20 +253,20 @@ export class DNAPlant extends Plant {
 		}
 				
 		// determine the other traits
-		this.traits.growth_speed = this.dna.mix( this.dna.genesFor('growth_speed',2), 0.1, 1.0, 0.5, 2.0 );
-		this.traits.growth_curve_exp = this.dna.mix( this.dna.genesFor('growth_speed',2), 0.005, 0.1, 0.05, 0.5 );
+		this.traits.growth_speed = this.dna.mix( this.dna.genesFor('growth_speed',2), 0.1, 1.0);
+		this.traits.growth_curve_exp = this.dna.mix( this.dna.genesFor('growth_speed',2), 0.005, 0.1 );
 		const total_fruit_mass = Math.round( 0.5 * ( 
-			this.dna.shapedInt( this.dna.genesFor('total_fruit_mass_1',2), 10, 1000, 120, 3 ) +
-			this.dna.shapedInt( this.dna.genesFor('total_fruit_mass_2',1), 10, 1000, 120, 5 ) ) );
+			this.dna.shapedInt( this.dna.genesFor('total_fruit_mass_1',2), 5, 1000, 50, 6 ) +
+			this.dna.shapedInt( this.dna.genesFor('total_fruit_mass_2',2), 5, 200, 50, 2 )
+		) );
 		this.traits.fruit_num = this.dna.shapedInt( this.dna.genesFor('fruit_num',1), 1, 10, 1, 4 );
 		this.traits.fruit_size = Math.round( total_fruit_mass / this.traits.fruit_num );
-		this.traits.fruit_interval = this.dna.shapedInt( this.dna.genesFor('fruit_interval',2), 10, 120, 30, 6 );
-		this.traits.fruit_interval = Math.round( this.traits.fruit_interval * (total_fruit_mass / 100) ); // more fruit takes longer
 		this.traits.fruit_lifespan = this.dna.mix( this.dna.genesFor('fruit_lifespan',2), 20, 100 );
 		this.traits.fruit_lifespan = Math.round( this.traits.fruit_lifespan * (total_fruit_mass / 100) ); // more fruit lasts longer
 		this.traits.fruit_buoy_start = this.dna.mix( this.dna.genesFor('fruit_buoy_start',2), -100, 100 );
 		this.traits.fruit_buoy_end = this.dna.mix( this.dna.genesFor('fruit_buoy_end',2), -100, 100 );
-		this.traits.fruit_complexity = Math.ceil( this.dna.shapedInt( 0x08000000 | this.dna.genesFor('fruit_complexity',1,true), 0, 599, 150, 1.5 ) / 100 );
+		const fruit_complexity_gene = 0x08000000 | this.dna.genesFor('fruit_complexity',1,true);
+		this.traits.fruit_complexity = Math.ceil( this.dna.shapedInt( fruit_complexity_gene, 0, 599, 150, 1.5 ) / 100 );
 		this.traits.fruit_nutrients = [
 			Math.max( 0, this.dna.mix( this.dna.genesFor('fruit nutrient 1',2,1), -15, 10 ) ),
 			Math.max( 0, this.dna.mix( this.dna.genesFor('fruit nutrient 2',2,1), -15, 10 ) ),
@@ -278,12 +278,9 @@ export class DNAPlant extends Plant {
 			Math.max( 0, this.dna.mix( this.dna.genesFor('fruit nutrient 8',2,1), -15, 10 ) ),
 		];
 		this.traits.lifespan = this.dna.shapedInt( this.dna.genesFor('lifespan',3,1), 3000, 30000, 10000, 2.2 );
-		this.traits.maturity_age_pct = this.dna.shapedNumber( this.dna.genesFor('maturity_age_pct',2,1), 0, 1, 0.1, 2 );
-		this.traits.maturity_age = Math.trunc( this.traits.lifespan * this.traits.maturity_age_pct );
 		this.traits.max_germ_density = this.dna.shapedNumber( this.dna.genesFor('max_germ_density',2,1), 0, 10, 4, 2 );
 		this.traits.germ_distance = this.dna.shapedNumber( this.dna.genesFor('germ_distance',2,1), 10, 1000, 200, 2 );
 		this.traits.linewidth = this.dna.shapedInt( this.dna.genesFor('linewidth',2,1), 0, 10 );
-		this.traits.growth_overlap_mod = this.dna.shapedNumber( this.dna.genesFor('growth_overlap_mod',2,1) );
 		this.traits.radius = this.dna.shapedInt( this.dna.genesFor('radius',2,1), 100, 350 );
 		this.traits.num_points = this.dna.shapedInt( this.dna.genesFor('num_points',2,1), 5, 12 );
 		this.traits.curved = this.dna.shapedNumber( this.dna.genesFor('curved',2,1) ) > 0.75;
@@ -327,9 +324,7 @@ export class DNAPlant extends Plant {
 		}
 
 		// shimmed in to make it work. eventually move everything to "traits" data structure
-		this.maturity_age = this.traits.maturity_age;
 		this.traits.lifespan = this.traits.lifespan;
-		this.fruit_interval = this.traits.fruit_interval;
 	}	
 	GeoData() {
 		return this.geo;
@@ -433,7 +428,7 @@ export class DNAPlant extends Plant {
 		// give fruiting a head start so that new tanks dont immediately starve
 		let threshold = this?.traits?.fruit_num * this?.traits?.fruit_size;
 		if ( !threshold ) { threshold = 300; }
-		this.fruit_credit = utils.RandomFloat( threshold * 0.6, threshold );
+		this.fruit_credit = utils.RandomFloat( threshold * 0.96, threshold );
 	}	
 }
 Plant.PlantTypes.DNAPlant = DNAPlant;
