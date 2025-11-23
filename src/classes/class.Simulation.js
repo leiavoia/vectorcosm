@@ -219,7 +219,15 @@ export default class Simulation {
 				}
 				globalThis.vc.tank.boids.forEach(pushObject);
 				globalThis.vc.tank.foods.forEach(pushObject);
-			}		
+				// big shakeup of resources
+				if ( !this.waving && this.settings?.matter_diffusion_freq ) {
+					globalThis.vc.tank.DiffuseStat('matter', 2, 0.5 );
+				}
+				this.waving = true;
+			}
+			else {		
+				this.waving = false;
+			}
 		}
 		// matter diffusion
 		if ( this.settings?.matter_diffusion_freq ) {
