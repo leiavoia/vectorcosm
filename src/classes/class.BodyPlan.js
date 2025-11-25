@@ -47,12 +47,15 @@ export default class BodyPlan {
 		this.fill = colors[1]==='transparent' ? colors[1] : `${colors[1]}AA`;
 			
 		const MakeGradient = (label, req_color, transp='FF') => {
-			const stops = [ [0, req_color+transp], [1, req_color+transp] ];
+			req_color += transp;
+			const stops = [ [0, req_color], [1, req_color] ];
 			const num_stops = dna.shapedInt(dna.genesFor(`${label} gradient num_stops`), 0, 5, 1, 3);
 			for ( let n=0; n < num_stops; n++ ) {
 				const pct = dna.shapedNumber( dna.genesFor(`${label} gradient stop pct n`) );
 				const index = dna.shapedInt(dna.genesFor(`${label} gradient stop index n`), 0, colors.length-1);
-				stops.push( [pct, colors[index]+transp] );
+				let stopcolor = colors[index];
+				if ( stopcolor !== 'transparent' ) { stopcolor += transp; }
+				stops.push( [pct, stopcolor] );
 			}
 			stops.sort( (a,b) => a[0] - b[0] );
 			
