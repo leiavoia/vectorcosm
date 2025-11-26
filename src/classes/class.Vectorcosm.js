@@ -202,11 +202,12 @@ export default class Vectorcosm {
 			// update all plants ( fruit, death, etc )
 			for ( let i = this.tank.plants.length-1; i >= 0; i-- ) {
 				const plant = this.tank.plants[i];
-				plant.Update(delta);
+				plant.Update(this.plant_update_freq); // NOTE: not the normal delta!
 				if ( plant.dead ) {
 					this.tank.plants.splice(i,1);
 				}
 			}
+			
 		}
 		
 		// update food

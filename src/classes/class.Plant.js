@@ -3,6 +3,10 @@ import Food from '../classes/class.Food.js'
 import DNA from '../classes/class.DNA.js'
 
 const PLANT_GROWTH_SPEED = 20; // internal tuning number, in seconds
+const PLANT_DECAY_SPEED = 1; // death clock. higher number shortens all lifespans
+const PLANT_HEALTH_PENALTY_EXP = 3; // high number makes bad health drastically more bad.
+const PLANT_HEALTH_PENALTY_COEF = 2; // high number makes bad health drastically more bad.
+const PLANT_MIN_HEALTH_CREDIT = 0.25; // minimum amount of life credit to use if plant in perfect health.
 
 export default class Plant {
 	
@@ -20,22 +24,27 @@ export default class Plant {
 		this.age = 0;
 		this.perma = false;
 		this.mass = 1;
-		this.life_credits = 100; // counts down from
+		this.life_credits = 3000; // counts down from
 		this.fruit_credits = 0; // counts up from
 		this.health = 1;
 		this.growth_mass_request = 1;
 		this.fruit_mass_request = 1;
+		this.last_matter_grant_pct = 1;
 		if ( typeof params === 'object' ) {
 			Object.assign(this,params);
 		}
 		// basic genetic traits - individual plant types can add more
 		this.traits = {
-			lifespan: 10000000,
+			life_credits: 3000,
 			animation_method:'skew',
 			growth_speed: 0.5,
 			growth_curve_exp: utils.RandomFloat( 0.005, 0.1 ),
 			max_germ_density: 4,
 			germ_distance: 200,
+			light_pref: 0.65, // 0..1
+			light_tolr: 0.5, // 0..1
+			heat_pref: 0.65, // 0..1
+			heat_tolr: 0.5, // 0..1
 			fruit_num: 1,
 			fruit_size: 100,
 			fruit_lifespan: 6,
@@ -67,6 +76,7 @@ export default class Plant {
 		// how much did we originally request?
 		const total = this.growth_mass_request + this.fruit_mass_request;
 		const ratio = matter / total;
+		this.last_matter_grant_pct = ratio;
 		// growth
 		this.mass += this.growth_mass_request * ratio;
 		// fruit
@@ -75,21 +85,44 @@ export default class Plant {
 	}
 	
 	Kill() {
-		// this.geo.remove();
 		this.dead = true;
 	}	
 	
 	Update( delta ) {
+		if ( this.dead ) { return; }
 		this.age += delta;
-		if ( this.age >= this.traits.lifespan ) {
-			this.Kill();
-			return false;
+		if ( !this.perma ) {
+			this.CalcHealth();
+			const health_factor = PLANT_MIN_HEALTH_CREDIT + Math.pow( PLANT_HEALTH_PENALTY_COEF * ( 1 - this.health ), PLANT_HEALTH_PENALTY_EXP );
+			this.life_credits -= delta * health_factor * PLANT_DECAY_SPEED;
+			if ( this.life_credits <= 0 ) {
+				// leave behind food bits for scavengers
+				const bits = utils.RandomInt( 1, 4 );
+				const mass_per_bit = this.mass / bits;
+				for ( let i=0; i < bits; i++ ) {
+					const f = new Food( 
+						this.x + utils.RandomFloat( -50, 50 ), 
+						this.y + utils.RandomFloat( -50, 50 ), 
+						{ 
+						value: mass_per_bit, 
+						lifespan: utils.RandomFloat( 20, 60 ),
+						buoy_start: utils.RandomFloat( -100, 100 ),
+						buoy_end: utils.RandomFloat( -200, 0 ),
+						nutrients: this.traits.fruit_nutrients.map( n => 1 - n ),
+						complexity: 1,
+						} );
+				
+				}
+				this.Kill();
+				return false;
+			}
 		}
+		this.MakeFruit();
 	}
 	
 	Export( as_JSON=false ) {
 		let output = { classname: this.type };
-		let datakeys = ['x','y','fruit_credits','age','lifespan',
+		let datakeys = ['x','y','fruit_credits','age','life_credits',
 			'mass','health','dna','generation'];		
 		for ( let k of datakeys ) { 
 			if ( this.hasOwnProperty(k) ) { 
@@ -112,17 +145,17 @@ export default class Plant {
 	}
 
 	MakeFruit() {
-		let threshold = this.traits.fruit_num * this.traits.fruit_size;
+		// poor health reduces output and threshold for output
+		const fruit_size = this.traits.fruit_size * this.health;
+		let threshold = this.traits.fruit_num * fruit_size;
 		if ( this.fruit_credits > threshold ) {
 			// chance of fruiting goes up the further past the threshold we are
 			const overage = ( this.fruit_credits - threshold ) / threshold;
-			const roll = Math.random();
+			const roll = Math.random() * this.health; // weak plants dont ripen well
 			if ( overage >= roll ) {
-				// reset fruiting cycle
-				this.fruit_credits = 0; 
 				// create the fruit
 				if ( globalThis.vc.tank.foods.length < globalThis.vc.max_foods ) {
-					const size = ( this.traits.fruit_size * ( 1 + overage ) );
+					const size = fruit_size * ( 1 + overage );
 					for ( let n=0; n < this.traits.fruit_num; n++ ) {
 						// let vertex = this.geo.children.pickRandom().vertices.pickRandom();
 						// const f = new Food( this.x + ( vertex.x * 0.35 ) , this.y + ( vertex.y * 0.35 ) , { 
@@ -138,18 +171,42 @@ export default class Plant {
 							} );
 						// if there is room for more plants in the tank, make it a viable seed
 						if ( globalThis.vc.tank.plants.length < globalThis.vc.simulation.settings.num_plants ) {
-							let seed = new DNA(	this.dna.str );
-							seed.mutate( 2, false );
-							f.seed = seed.str;
-							f.max_germ_density = this.traits.max_germ_density;
-							f.germ_distance = this.traits.germ_distance;
+							// viability depends on health
+							if ( Math.random() < this.health ) {
+								let seed = new DNA(	this.dna.str );
+								seed.mutate( 2, false );
+								f.seed = seed.str;
+								f.max_germ_density = this.traits.max_germ_density;
+								f.germ_distance = this.traits.germ_distance;
+							}
 						}
 						globalThis.vc.tank.foods.push(f);
 					}
 				}
+				// if we cancel the food, return accumulated matter to the tank
+				else {
+					globalThis.vc.tank.AddMatterAt( this.x, this.y, this.fruit_credits );
+				}
+				// fruiting expends life credits - plants are only good for so long
+				this.life_credits - this.fruit_credits * 0.1;
+				// reset fruiting cycle
+				this.fruit_credits = 0; 
 			}
 		}
 	}
+	
+	CalcHealth() {
+		// these things never change (yet), so could be optimized out
+		const cell = globalThis.vc.tank.datagrid.CellAt( this.x, this.y );
+		const light_diff = Math.abs( cell.light - this.traits.light_pref );
+		const light_signal = utils.Clamp( light_diff / this.traits.light_tolr, 0, 1 );
+		const heat_diff = Math.abs( cell.heat - this.traits.heat_pref );
+		const heat_signal = utils.Clamp( heat_diff / this.traits.heat_tolr, 0, 1 );
+		let health = ( this.last_matter_grant_pct + light_signal + heat_signal ) / 3;
+		// average health over time to avoid wild swings
+		this.health = ( this.health + this.health + health ) / 3;
+	}
+	
 }
 
 export class DNAPlant extends Plant {
@@ -162,22 +219,6 @@ export class DNAPlant extends Plant {
 		this.CreateBody();
 	}
 	
-	Update(delta) {
-		super.Update(delta);
-		if ( this.dead ) { return; }
-		
-		// current plant class has hacks in to ignore death
-		if ( !this.perma && this.age >= this.traits.lifespan ) {
-			// chance to live a while longer
-			if ( Math.random() < 0.002 ) {
-				this.Kill();
-				return false;
-			}
-		}
-
-		this.MakeFruit();
-	}
-		
 	MakeGeneticColor( whatfor, colors ) {
 		let num_colors = Math.round( this.dna.mix( this.dna.genesFor(`plant ${whatfor} num colors gene 2`,2,1), 0, colors.length ) );
 		
@@ -277,9 +318,13 @@ export class DNAPlant extends Plant {
 			Math.max( 0, this.dna.mix( this.dna.genesFor('fruit nutrient 7',2,1), -15, 10 ) ),
 			Math.max( 0, this.dna.mix( this.dna.genesFor('fruit nutrient 8',2,1), -15, 10 ) ),
 		];
-		this.traits.lifespan = this.dna.shapedInt( this.dna.genesFor('lifespan',3,1), 3000, 30000, 10000, 2.2 );
+		this.traits.life_credits = this.dna.shapedInt( this.dna.genesFor('life_credits',3,1), 1000, 10000, 3000, 2.2 );
 		this.traits.max_germ_density = this.dna.shapedNumber( this.dna.genesFor('max_germ_density',2,1), 0, 10, 4, 2 );
 		this.traits.germ_distance = this.dna.shapedNumber( this.dna.genesFor('germ_distance',2,1), 10, 1000, 200, 2 );
+		this.traits.light_pref = this.dna.shapedNumber( this.dna.genesFor('light_pref',2,1), 0, 1 );
+		this.traits.light_tolr = this.dna.shapedNumber( this.dna.genesFor('light_tolr',2,1), 0, 1 );
+		this.traits.heat_pref = this.dna.shapedNumber( this.dna.genesFor('heat_pref',2,1), 0, 1 );
+		this.traits.heat_tolr = this.dna.shapedNumber( this.dna.genesFor('heat_tolr',2,1), 0, 1 );
 		this.traits.linewidth = this.dna.shapedInt( this.dna.genesFor('linewidth',2,1), 0, 10 );
 		this.traits.radius = this.dna.shapedInt( this.dna.genesFor('radius',2,1), 100, 350 );
 		this.traits.num_points = this.dna.shapedInt( this.dna.genesFor('num_points',2,1), 5, 12 );
@@ -322,9 +367,6 @@ export class DNAPlant extends Plant {
 			const multiplier = Math.round( this.dna.mix( this.dna.genesFor('LWM'), 2, 6 ) );
 			this.traits.linewidth *= multiplier;
 		}
-
-		// shimmed in to make it work. eventually move everything to "traits" data structure
-		this.traits.lifespan = this.traits.lifespan;
 	}	
 	GeoData() {
 		return this.geo;
@@ -423,7 +465,8 @@ export class DNAPlant extends Plant {
 	SortByAngle(a,b) { Math.atan2(b[1],b[0]) - Math.atan2(a[1],a[0]); }
 	RandomizeAge() {
 		const rand = Math.random();
-		this.age = this.traits.lifespan * rand;
+		this.age = this.traits.life_credits * rand;
+		this.life_credits = this.traits.life_credits - this.age;
 		this.mass = Math.log(rand*rand*rand) / -this.traits.growth_curve_exp;
 		// give fruiting a head start so that new tanks dont immediately starve
 		let threshold = this?.traits?.fruit_num * this?.traits?.fruit_size;
@@ -502,11 +545,6 @@ export class PendantLettuce extends Plant {
 		}
 		return this.geo;
 	}
-	Update(delta) {
-		super.Update(delta);
-		if ( this.dead ) { return; }
-		this.MakeFruit();
-	}
 } 
 Plant.PlantTypes.PendantLettuce = PendantLettuce;
 
@@ -567,11 +605,6 @@ export class VectorGrass extends Plant {
 		};
 		return this.geo;
 	}
-	Update(delta) {
-		super.Update(delta);
-		if ( this.dead ) { return; }
-		this.MakeFruit();
-	}	
 } 
 Plant.PlantTypes.VectorGrass = VectorGrass;
 
@@ -636,18 +669,13 @@ export class WaveyVectorGrass extends Plant {
 		};
 		return this.geo;
 	}
-	Update(delta) {
-		super.Update(delta);
-		if ( this.dead ) { return; }
-		this.MakeFruit();
-	}
 } 
 Plant.PlantTypes.WaveyVectorGrass = WaveyVectorGrass;
 
 const plantPicker = new utils.RandomPicker( [
-	[ PendantLettuce, 	50 ],
-	[ VectorGrass, 		150 ],
-	[ WaveyVectorGrass, 50 ],
+	// [ PendantLettuce, 	50 ],
+	// [ VectorGrass, 		150 ],
+	// [ WaveyVectorGrass, 50 ],
 	[ DNAPlant, 250 ],
 ] );
 
