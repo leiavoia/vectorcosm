@@ -186,11 +186,12 @@ export default class Simulation {
 		}
 		// invasive species
 		if ( this.settings?.invasives ) {
+			const num_invasives = Math.min( this.settings.invasives, this.settings?.num_boids );
 			const freq = this.settings?.invasives_freq || 500;
 			const next = this.next_invasive ?? freq;
 			const t = Math.floor( this.stats.round_time );
 			if ( t > next ) {
-				for ( let i=0; i < this.settings.invasives; i++ ) { 
+				for ( let i=0; i < num_invasives; i++ ) { 
 					this.AddNewBoidToTank();
 				}
 				this.next_invasive = next + freq;
