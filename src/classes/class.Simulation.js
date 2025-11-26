@@ -249,14 +249,18 @@ export default class Simulation {
 			PubSub.publishSync('sim.complete', this);
 			return;
 		}
-		// extinction check
-		if ( globalThis.vc.tank.boids.length === 0 ) {
+		// boid extinction check
+		if ( globalThis.vc.tank.boids.length === 0 && this.settings?.num_boids ) {
 			if ( typeof(this.settings.onExtinction) === 'function' ) {
 				this.settings.onExtinction();
 			}
 			else if ( this.settings.onExtinction === 'random' ) {
 				this.SetNumBoids( this.settings.num_boids );
 			}
+		}
+		// plant extinction check
+		if ( globalThis.vc.tank.plants.length === 0 && this.settings?.num_plants ) {
+			this.SetNumPlants( this.settings.num_plants );
 		}
 		// run of the mill
 		this.UpdateTankEnvironment(delta);
