@@ -43,8 +43,10 @@ export default class Plant {
 			germ_distance: 200,
 			light_pref: 0.65, // 0..1
 			light_tolr: 0.5, // 0..1
+			light_health: 0, // 0..1 - zero is a signal it needs to be computed
 			heat_pref: 0.65, // 0..1
 			heat_tolr: 0.5, // 0..1
+			heat_health: 0, // 0..1
 			fruit_num: 1,
 			fruit_size: 100,
 			fruit_lifespan: 6,
@@ -61,6 +63,8 @@ export default class Plant {
 			( globalThis.vc.simulation.settings?.fruiting_speed || 1 )
 			// plant's native growth speed
 			* this.traits.growth_speed
+			// light makes it grow!
+			* Math.min( 0.1, this.light_health )
 			// time interval and internal tuning number
 			* ( time_interval / PLANT_GROWTH_SPEED );
 		this.growth_mass_request = Math.pow( Math.E, -this.traits.growth_curve_exp * this.mass );
@@ -196,13 +200,15 @@ export default class Plant {
 	}
 	
 	CalcHealth() {
-		// these things never change (yet), so could be optimized out
-		const cell = globalThis.vc.tank.datagrid.CellAt( this.x, this.y );
-		const light_diff = Math.abs( cell.light - this.traits.light_pref );
-		const light_signal = utils.Clamp( light_diff / this.traits.light_tolr, 0, 1 );
-		const heat_diff = Math.abs( cell.heat - this.traits.heat_pref );
-		const heat_signal = utils.Clamp( heat_diff / this.traits.heat_tolr, 0, 1 );
-		let health = ( this.last_matter_grant_pct + light_signal + heat_signal ) / 3;
+		// these things never change (yet), so can be precomputed
+		if ( !this.light_health ) {
+			const cell = globalThis.vc.tank.datagrid.CellAt( this.x, this.y );
+			const light_diff = Math.abs( cell.light - this.traits.light_pref );
+			this.light_health = utils.Clamp( light_diff / this.traits.light_tolr, 0, 1 );
+			const heat_diff = Math.abs( cell.heat - this.traits.heat_pref );
+			this.heat_health = utils.Clamp( heat_diff / this.traits.heat_tolr, 0, 1 );
+		}
+		let health = ( this.last_matter_grant_pct + this.light_health + this.heat_health ) / 3;
 		// average health over time to avoid wild swings
 		this.health = ( this.health + this.health + health ) / 3;
 	}
