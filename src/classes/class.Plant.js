@@ -30,6 +30,8 @@ export default class Plant {
 		this.growth_mass_request = 1;
 		this.fruit_mass_request = 1;
 		this.last_matter_grant_pct = 1;
+		this.light_health = 0; // 0..1 - zero is a signal it needs to be computed
+		this.heat_health = 0; // 0..1
 		if ( typeof params === 'object' ) {
 			Object.assign(this,params);
 		}
@@ -46,7 +48,6 @@ export default class Plant {
 			light_health: 0, // 0..1 - zero is a signal it needs to be computed
 			heat_pref: 0.65, // 0..1
 			heat_tolr: 0.5, // 0..1
-			heat_health: 0, // 0..1
 			fruit_num: 1,
 			fruit_size: 100,
 			fruit_lifespan: 6,
@@ -64,7 +65,7 @@ export default class Plant {
 			// plant's native growth speed
 			* this.traits.growth_speed
 			// light makes it grow!
-			* Math.min( 0.1, this.light_health )
+			* Math.max( 0.1, this.light_health )
 			// time interval and internal tuning number
 			* ( time_interval / PLANT_GROWTH_SPEED );
 		this.growth_mass_request = Math.pow( Math.E, -this.traits.growth_curve_exp * this.mass );
@@ -76,11 +77,12 @@ export default class Plant {
 	}
 	
 	GrantResources( matter ) {
-		if ( !matter ) { return; }
 		// how much did we originally request?
 		const total = this.growth_mass_request + this.fruit_mass_request;
+		if ( !total ) { return; }
 		const ratio = matter / total;
 		this.last_matter_grant_pct = ratio;
+		if ( !matter ) { return; }
 		// growth
 		this.mass += this.growth_mass_request * ratio;
 		// fruit
