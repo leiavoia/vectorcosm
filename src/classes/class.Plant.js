@@ -182,6 +182,8 @@ export default class Plant {
 								f.seed = seed.str;
 								f.max_germ_density = this.traits.max_germ_density;
 								f.germ_distance = this.traits.germ_distance;
+								f.light_pref = this.traits.light_pref;
+								f.heat_pref = this.traits.heat_pref;
 							}
 						}
 						globalThis.vc.tank.foods.push(f);

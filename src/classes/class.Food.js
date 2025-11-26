@@ -207,11 +207,16 @@ export default class Food extends PhysicsObject {
 			if ( this.y < -0.01 || this.y > globalThis.vc.tank.height + 0.01 ) { this.Kill(); return; };
 		}
 		// plant a seed
-		if ( touching_rock && this.seed && this.age > 5 && Math.random() > 0.9999 && 
+		if ( touching_rock && this.seed && this.age > 5 && Math.random() > 0.9992 && 
 			globalThis.vc.tank.plants.length < globalThis.vc.simulation.settings.num_plants ) {
-			// only plant the seed if there are not too many other plants in the local area
-			let plant_the_seed = true;
-			if ( this.max_germ_density && this.germ_distance ) {
+			// check for local light and heat to be in reasonable range
+			const cell = globalThis.vc.tank.datagrid.CellAt( this.x, this.y );
+			const light_ok = Math.abs( cell.light - this.light_pref ) <= 0.5; // magic - you could make 0.5 a setting
+			const heat_ok = Math.abs( cell.heat - this.heat_pref ) <= 0.5; 
+			// only plant the seed under teh right conditions
+			let plant_the_seed = light_ok && heat_ok;
+			// check if there are not too many other plants in the local area
+			if ( plant_the_seed && this.max_germ_density && this.germ_distance ) {
 				// [1] plants are not in the collision detection space, so we need to check all of them for now ;-(
 				let found = 0;
 				const csqrd = this.germ_distance * this.germ_distance;
