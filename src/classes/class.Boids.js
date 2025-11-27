@@ -40,6 +40,12 @@ export class Boid extends PhysicsObject {
 	static metabolic_scaling_term = 0.75; // controls metabolic scaling speed
 	static metabolic_scaling_coef = 3.50; // controls metabolic scaling curve shape
 	static physics_max_time_per_step = 1/60; // controls how many physics substeps to perform
+	static GROWTH_SPEED = 20; // internal tuning number, in seconds
+	static LIFE_DECAY_SPEED = 1.5; // death clock. higher number shortens all lifespans
+	static HEALTH_PENALTY_EXP = 2; // high number makes bad health drastically more bad.
+	static HEALTH_PENALTY_COEF = 1.5; // high number makes bad health drastically more bad.
+	static MIN_HEALTH_CREDIT = 0.25; // minimum amount of life credit to use if plant in perfect health.
+	static HEALTH_UPDATE_FREQ = 5; // 5 second intervals
 	
 	Reset() {
 		this.x = 0;
@@ -75,7 +81,7 @@ export class Boid extends PhysicsObject {
 		}
 		// random age
 		if ( !globalThis.vc.simulation.settings?.ignore_lifecycle ) {
-			this.age = utils.RandomInt( 0, this.lifespan * 0.5 );
+			this.age = utils.RandomInt( 0, this.traits.life_credits * 0.5 );
 		}
 		this.ResetStats();
 	}
@@ -129,9 +135,11 @@ export class Boid extends PhysicsObject {
 		this.x = x;
 		this.y = y;
 		this.ang_vel = 0;
-		this.lifespan = 120; // in seconds
+		this.next_health_update = 0;
+		this.life_credits = 300;
+		this.health = 1;
 		this.age = 0; // in seconds
-		this.maturity_age = this.lifespan * 0.5;
+		this.maturity_age = 30;
 		this.mass = 1; // requires body plan info later
 		this.scale = 1; // current mass over body plan mature mass
 		this.length = 1; 
@@ -139,6 +147,11 @@ export class Boid extends PhysicsObject {
 		this.effective_length = 1;
 		// [!]TEMPORARY - new stuff goes in the "traits" or other sub-objects to separate from old stuff
 		this.traits = {
+			life_credits: 300,
+			light_pref: 0.5, // 0..1
+			light_tolr: 0.5, // 0..1
+			heat_pref: 0.5, // 0..1
+			heat_tolr: 0.5, // 0..1
 			nutrition: new Array(8).fill(0.5),// array of nutritional benefit of primary nutrients. 0..1: edible, >1: required, <0: toxic
 			growth_min_energy_pct: 0.5,		// minimum fraction of energy required to initiate organism growth
 			growth_cost: 0.01, 				// pct energy per second
@@ -240,11 +253,14 @@ export class Boid extends PhysicsObject {
 	
 		if ( !delta ) { return; }
 		
-		// aging out
+		// life credits / aging
 		this.age += delta;
-		if ( this.age > this.lifespan && !globalThis.vc.simulation.settings?.ignore_lifecycle ) {
-			// chance to live a while longer
-			if ( Math.random() < 0.002 ) {
+		this.CalcHealth();
+		const health_factor = Boid.MIN_HEALTH_CREDIT + Math.pow( Boid.HEALTH_PENALTY_COEF * ( 1 - this.health ), Boid.HEALTH_PENALTY_EXP );
+		this.life_credits -= delta * health_factor * Boid.LIFE_DECAY_SPEED;
+		if ( this.life_credits <= 0 ) {
+			this.life_credits = 0;
+			if ( !globalThis.vc.simulation.settings?.ignore_lifecycle ) {
 				this.Kill('age');
 				return;
 			}
@@ -338,7 +354,7 @@ export class Boid extends PhysicsObject {
 				const energy_ramp_pct = ( 1 - this.traits.growth_min_energy_pct ) 
 					* ( Math.max(energy_pct,this.traits.growth_min_energy_pct) - this.traits.growth_min_energy_pct );
 				// grow faster when young, power curve falloff with age
-				const age_ramp_pct = 1 - Math.pow( this.age / this.lifespan, 7 );
+				const age_ramp_pct = 1 - Math.pow( Math.min( 1, this.age / this.traits.life_credits), 7 );
 				const lump = this.mass * this.traits.growth_rate * digestInterval * energy_ramp_pct * age_ramp_pct;
 				// BALANCE NOTE: 
 				// Its incredibly difficult to get any traction from random organisms
@@ -612,7 +628,35 @@ export class Boid extends PhysicsObject {
 		this.metab.bowel.fill(0);
 		this.metab.seed_dna = null;
 	}
-			
+
+	CalcHealth() {
+	
+		// we dont need to calculate health on every frame
+		if ( this.age < this.next_health_update ) return;
+		
+		const cell = globalThis.vc.tank.datagrid.CellAt( this.x, this.y );
+		
+		// light
+		const light_diff = Math.abs( cell.light - this.traits.light_pref );
+		const light_health = utils.Clamp( light_diff / this.traits.light_tolr, 0, 1 );
+		
+		// heat
+		const heat_diff = Math.abs( cell.heat - this.traits.heat_pref );
+		const heat_health = utils.Clamp( heat_diff / this.traits.heat_tolr, 0, 1 );
+		
+		// current energy level (curved)
+		const energy_health = 1 - Math.exp( -10 * ( this.metab.energy / this.metab.max_energy ) );
+		
+		// averaged health (you could do a weighted average for more interest)
+		let health = energy_health + light_health + heat_health;
+		health /= 3;
+		
+		// average health over time to avoid wild swings
+		this.health = ( this.health + this.health + health ) / 3;
+		
+		this.next_health_update = this.age + Boid.HEALTH_UPDATE_FREQ;
+	}
+				
 	// provides reward and punishment signals for adaptive brains.
 	// suggested value of -1..1
 	Experience( value=1.0 ) {
@@ -974,7 +1018,7 @@ export class Boid extends PhysicsObject {
 		else if ( this.metab.energy < 0.01 ) {
 			this.stats.death.cause = 'energy';
 		}
-		else if ( this.age > this.lifespan ) {
+		else if ( this.life_credits <= 0 ) {
 			this.stats.death.cause = 'age';
 		}
 		else {
@@ -982,8 +1026,6 @@ export class Boid extends PhysicsObject {
 		}
 		this.stats.death.energy_remaining = Math.floor( this.metab.energy < 0.01 ? 0 : this.metab.energy );
 		this.stats.death.energy_remaining_pct = Math.floor( ( this.stats.death.energy_remaining / this.metab.max_energy ) * 100 );
-		this.stats.death.age_remaining = Math.floor( this.lifespan - this.age );
-		this.stats.death.age_remaining_pct = Math.floor( ( 1 - (this.age / this.lifespan) ) * 100 );
 		// console.log(this.stats);
 		globalThis.vc.simulation.RecordStat('deaths',1);
 		globalThis.vc.simulation.RecordStat('death_from_'+this.stats.death.cause,1);
@@ -994,7 +1036,7 @@ export class Boid extends PhysicsObject {
 		b.dna = new DNA();
 		b.genus = utils.RandomName(9);
 		b.species = b.genus;
-		b.age = utils.RandomInt( 0, b.lifespan * 0.5 );
+		b.age = utils.RandomInt( 0, 200 ); // arbitrary
 		b.RehydrateFromDNA();
 		// b.mass = b.body.mass; // random boids start adult size / full grown
 		b.mass = ( 0.5 +Math.random() * 0.5 ) * b.body.mass; // random size
@@ -1006,9 +1048,17 @@ export class Boid extends PhysicsObject {
 	// fill traits based on values mined from our DNA
 	RehydrateFromDNA() {
 
-		this.lifespan = this.dna.shapedInt( this.dna.genesFor('lifespan',2,1), 60, 800, 300, 2 );
-		this.maturity_age = this.dna.shapedInt( this.dna.genesFor('maturity age',2,1), 0.1 * this.lifespan, 0.9 * this.lifespan, 0.25 * this.lifespan, 2.5 );
+		// age and aging
+		this.traits.life_credits = this.dna.shapedInt( this.dna.genesFor('lifespan',2,1), 60, 800, 300, 2 );
+		this.life_credits = this.traits.life_credits;
+		this.maturity_age = this.dna.shapedInt( this.dna.genesFor('maturity age',2,1), 0.1 * this.traits.life_credits, 0.9 * this.traits.life_credits, 0.25 * this.traits.life_credits, 2.5 );
 		this.larval_age = Math.min( this.maturity_age, this.dna.shapedInt( this.dna.genesFor('larval_age',2,1), 2, 25, 5, 4 ) );
+		
+		// health
+		this.traits.light_tolr = this.dna.shapedNumber( this.dna.genesFor('light_tolr',1,1), 0, 1 );
+		this.traits.light_pref = this.dna.shapedNumber( this.dna.genesFor('light_pref',1,1), 0, 1 );
+		this.traits.hear_tolr = this.dna.shapedNumber( this.dna.genesFor('hear_tolr',1,1), 0, 1 );
+		this.traits.heat_pref = this.dna.shapedNumber( this.dna.genesFor('heat_pref',1,1), 0, 1 );
 		
 		// nutrition and metabolism:
 		
@@ -1111,7 +1161,20 @@ export class Boid extends PhysicsObject {
 			// bite speed allows faster eating - higher is better
 			cost = this.traits.bite_speed;
 			this.traits.boxfit.push([ cost*0.2, cost, 'body.bite_speed']);
+			
+			// light tolerance - more is better
+			cost = 4 * this.traits.light_tolr;
+			this.traits.boxfit.push([ cost, 2*cost, 'body.light_tolr']);
+			
+			// heat tolerance - more is better
+			// organism can deal with heat by either being bigger or metabolizing faster.
+			// here is where we decide which is which
+			const heat_cost_share = utils.Clamp(( this.traits.base_digest_rate - 0.001 ) / 0.007, 0, 1 );
+			cost = 30 * this.traits.heat_tolr;
+			this.traits.boxfit.push([ heat_cost_share*cost, (1-heat_cost_share)*cost, 'body.heat_tolr']);
+			
 		}
+		
 		
 		// MOTORS ---------------------\/------------------------
 		
@@ -1299,9 +1362,9 @@ export class Boid extends PhysicsObject {
 		if ( repro_type_roll < 0.5 ) {
 			const mitosis_num = this.dna.shapedInt( this.dna.genesFor('mitosis num',2,true), 1,5,1,3);
 			const stroketime = this.dna.shapedInt( this.dna.genesFor('mitosis stroketime',2,true), 
-				mitosis_num * this.lifespan * 0.02, 
-				mitosis_num * this.lifespan * 0.10,
-				mitosis_num * this.lifespan * 0.05,
+				mitosis_num * this.traits.life_credits * 0.02, 
+				mitosis_num * this.traits.life_credits * 0.10,
+				mitosis_num * this.traits.life_credits * 0.05,
 				2);
 			const offspring_tax =  (1/(mitosis_num+2)) * mitosis_num; // 1/3, 2/4, 3/5, 4/6, 5/7
 			// Cost is per stroke per unit of mass. The motor activation function will normalize it by mass per second.
@@ -1327,7 +1390,7 @@ export class Boid extends PhysicsObject {
 		}
 		// budding
 		else {
-			const max_stroketime = this.lifespan * 0.5;
+			const max_stroketime = this.traits.life_credits * 0.5;
 			const stroketime = max_stroketime * this.traits.offspring_investment;
 			const min_cost = (1/1000) * ( 1 + stroketime / max_stroketime );
 			const max_cost = (1/500) * ( 1 + stroketime / max_stroketime );
@@ -1986,7 +2049,7 @@ export class Boid extends PhysicsObject {
 	Export( as_JSON=false ) {
 		let b = {};
 		// POD we can just copy over
-		let datakeys = ['id','x','y','species','genus','age','stomach_contents', 'energy', 'mass', 'scale', 'length', 'width', 'generation','speciation', 'metab' ];		
+		let datakeys = ['id','x','y','species','genus','life_credits','age','stomach_contents', 'energy', 'mass', 'scale', 'length', 'width', 'generation','speciation', 'metab' ];		
 		for ( let k of datakeys ) { b[k] = this[k]; }
 		b.brain = this.brain.Export(false); // POD
 		b.dna = this.dna.str;

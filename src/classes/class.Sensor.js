@@ -620,7 +620,7 @@ export default class Sensor {
     }
 
     senseLifespan() {
-        let val = utils.Clamp(this.owner.age / this.owner.lifespan, 0, 1);
+        let val = 1 - utils.Clamp(this.owner.life_credits / this.owner.traits.life_credits, 0, 1);
         return [val];
     }
 

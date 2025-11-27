@@ -456,13 +456,13 @@ globalThis.vc = vc; // handy reference for everyone else
 function DescribeBoid( o, inc_sensor_geo=false,  inc_brain=false ) {
 	let data = { 
 		type: 'boid',
-		sensors: [],
+		sensors: []
 	};
 	
 	// scalar values we can just copy
 	for ( let i of ['oid','id','species','genus','generation','speciation',
 		'length','width','linear_impulse','torque',
-		'age', 'lifespan', 'maturity_age', 'scale', 'mass',
+		'age', 'life_credits', 'health', 'maturity_age', 'scale', 'mass',
 		'metab', 'traits', 'stats'
 		] ) {
 		data[i] = o[i];

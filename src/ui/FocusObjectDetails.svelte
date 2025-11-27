@@ -206,15 +206,15 @@
 			<div style="width:100%; margin-top:0.5em;">
 				<div class="meter" >
 					<output>
-						Age
+						Life
 					</output>
-					<div style="background-color:#1F60AC; height: 100%; width:{((boid.age / boid.lifespan)||0)*100}%"></div>
+					<div style="background-color:#1F60AC; height: 100%; width:{((boid.life_credits / boid.traits.life_credits)||0)*100}%"></div>
 				</div>
 				<div class="meter" >
 					<output>
-						Scale
+						Health
 					</output>
-					<div style="background-color:#1F60AC; height: 100%; width:{(boid.scale||0)*100}%"></div>
+					<div style="background-color:#1F60AC; height: 100%; width:{((boid.health)||0)*100}%"></div>
 				</div>
 				<div class="meter" >
 					<output>
@@ -226,9 +226,15 @@
 			<div style="width:100%; margin-top:0.5em;">
 				<div class="meter" >
 					<output>
-						Bite
+						Age
 					</output>
-					<div style="background-color:#1F60AC; height: 100%; width:{((boid.metab.bite_time / boid.traits.bite_speed)||0)*100}%"></div>
+					<div style="background-color:#1F60AC; height: 100%; width:{(Math.min( 1, (boid.age / boid.traits.life_credits)||0))*100}%"></div>
+				</div>
+				<div class="meter" >
+					<output>
+						Scale
+					</output>
+					<div style="background-color:#1F60AC; height: 100%; width:{(boid.scale||0)*100}%"></div>
 				</div>
 				<div class="meter" >
 					<output>
@@ -236,19 +242,28 @@
 					</output>
 					<div style="background-color:#1F60AC; height: 100%; width:{((boid.metab.stomach_total / boid.metab.stomach_size)||0)*100}%"></div>
 				</div>
-				<div class="meter" >
+				<!-- <div class="meter" >
+					<output>
+						Bite
+					</output>
+					<div style="background-color:#1F60AC; height: 100%; width:{((boid.metab.bite_time / boid.traits.bite_speed)||0)*100}%"></div>
+				</div> -->
+				<!-- <div class="meter" >
 					<output>
 						Bowel
 					</output>
 					<div style="background-color:#1F60AC; height: 100%; width:{((boid.metab.bowel_total / boid.metab.bowel_size)||0)*100}%"></div>
-				</div>
+				</div> -->
 			</div>
 		</summary>
 		<div>
 			<h4>Vitals</h4>
 
-			Age <output>{boid.age.toFixed(0)} / {boid.lifespan.toFixed(0)}</output>
-			<progress value={boid.age / boid.lifespan}></progress> 
+			Age <output>{boid.age.toFixed(0)} / {boid.traits.life_credits.toFixed(0)}</output>
+			<progress value={Math.min(1,boid.age / boid.traits.life_credits)}></progress> 
+
+			Life <output>{boid.life_credits.toFixed(0)} / {boid.traits.life_credits.toFixed(0)}</output>
+			<progress value={boid.life_credits / boid.traits.life_credits}></progress> 
 			
 			Scale <output>{((boid.scale||0)*100).toFixed(1)}%</output>
 			<progress value={boid.scale||0}></progress> 
@@ -261,10 +276,9 @@
 				<output>{(boid.metab.stomach_size||0).toFixed()}</output>
 			<progress value={((boid.metab.stomach_total / boid.metab.stomach_size)||0)}></progress>
 				
-			Bowel
-				<output>{(boid.metab.bowel_total||0).toFixed()}</output> / 
-				<output>{(boid.metab.bowel_size||0).toFixed()}</output>
-			<progress value={((boid.metab.bowel_total / boid.metab.bowel_size)||0)}></progress>
+			Health
+				<output>{((boid.health||0)*100).toFixed()}%</output>
+			<progress value={(boid.health||0)}></progress>
 			
 			Bite <output>{(boid.metab.bite_size||0).toFixed(1)}</output>
 				@ <output>{(boid.traits.bite_speed||0).toFixed(1)}s</output>
@@ -365,7 +379,7 @@
 			</div>
 			<p>ID: <output>{boid.id}</output></p>
 			<p>SPECIATION: <output>{boid.speciation}</output></p>
-			<p>LIFESPAN: <output>{boid.lifespan}</output></p>
+			<p>LIFESPAN: <output>{boid.traits.life_credits}</output></p>
 			<p>MATURITY AGE: <output>{boid.maturity_age}</output></p>
 			<p>BITE: <output>{(boid.metab.bite_size||0).toFixed(1)}</output>
 				@ <output>{(boid.traits.bite_speed||0).toFixed(1)}s</output></p>
