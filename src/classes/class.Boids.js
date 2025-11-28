@@ -185,9 +185,8 @@ export class Boid extends PhysicsObject {
 			energy: 0,						// current energy value
 			bite_size: 1,					// amount of food per bite attempt
 			bite_time: 0,					// countdown timer. zero if ready to bite. resets to bite_speed on bite.
-			deficient: false,				// UI flag. true if any required nutrient is currently causing harm from deficiency
-			toxins: false,					// UI flag. true if stomach contains any toxins 
-			growing: false,					// UI flag. true if boid actively grew mass on this frame
+			deficient: 0,					// UI flag. true if any required nutrient is currently causing harm from deficiency
+			toxins: 0,						// UI flag. true if stomach contains any toxins 
 			seed_dna: null					// DNA str of seed swallowed from food
 		};
 		// collision
@@ -293,10 +292,9 @@ export class Boid extends PhysicsObject {
 			// calculate the per-channel digestive rate
 			const channelDigestAmount = ( this.metab.digest_rate * digestInterval ) / nonZeroFoods;
 			
-			// reset flags
-			this.metab.deficient = false;
-			this.metab.toxins = false;
-			this.metab.growing = false;
+			// reset health signals
+			this.metab.deficient = 0;
+			this.metab.toxins = 0;
 			
 			// digest each food channel
 			for ( let i=0; i < this.metab.stomach.length; i++ ) {
@@ -310,7 +308,7 @@ export class Boid extends PhysicsObject {
 					this.metab.energy += energy_gain;
 					this.metab.bowel[ this.traits.poop_map[i] ] += morsel;
 					this.metab.bowel_total += morsel;
-					this.metab.toxins = this.metab.toxins || ( this.traits.nutrition[i] < 0 ); // flag for UI
+					this.metab.toxins += this.traits.nutrition[i] < 0 ? morsel : 0;
 					// stat tracking 
 					this.stats.food.total += morsel;
 					if ( this.traits.nutrition[i] < 0 ) { this.stats.food.toxins += morsel; }
@@ -321,26 +319,21 @@ export class Boid extends PhysicsObject {
 					else if ( energy_gain < 0 ) { this.stats.food.toxin_dmg += energy_gain; } 
 				}
 				// if we're empty but nutrient is required, check for scurvy
+				// below zero values represent deficiency 
 				else if ( v <= 0 && this.traits.nutrition[i] >= 2 ) {
-					// below zero values represent deficiency 
+					// morsel represents the amount we wish we had
 					let morsel = ( this.metab.digest_rate * digestInterval ) / this.metab.stomach.length;
-					this.metab.stomach[i] -= morsel;
-					// check for harm
-					// WARNING: MAGIC NUMBER - BASE time in seconds until it starts to hurt
-					const timeToHurt = 120;
-					// OPTIMIZATION: you could precompute this value - would also be useful for UI indicators
-					const dangerLevel = -( ( this.metab.digest_rate * timeToHurt ) / this.traits.nutrition[i] ) 
-						/ this.metab.stomach.length;
-					if ( v < dangerLevel ) {
-						// level of harm scales with level of deficiency and necessity
-						let mod = 1 + v / dangerLevel;
-						let damage = morsel * this.traits.nutrition[i] * mod;
-						this.metab.energy -= damage;
-						this.stats.food.deficit_dmg += damage;
-						this.metab.deficient = true; // flag for UI
-					}
+					this.metab.stomach[i] -= morsel; // going further into debt
+					this.metab.deficient += this.metab.stomach[i]; // deficiency is cumulative
+					this.stats.food.deficit += morsel;
 				}
 			}
+			
+			// toxins signal needs to be 0..1 range for health evaluation
+			this.metab.toxins = Math.tanh(this.metab.toxins);
+			
+			// deficiency has no upper limit, so just make something up
+			this.metab.deficient = Math.tanh(this.metab.deficient / this.metab.stomach_size);
 			
 			// potty time?
 			if ( this.metab.bowel_total >= this.metab.bowel_size ) {
@@ -369,7 +362,6 @@ export class Boid extends PhysicsObject {
 				if ( this.mass >= this.body.mass ) { this.mass = this.body.mass; }
 				this.metab.energy -= cost; 
 				this.ScaleBoidByMass();
-				this.metab.growing = true; // mostly for UI
 			}
 			
 		}		
@@ -647,9 +639,13 @@ export class Boid extends PhysicsObject {
 		// current energy level (curved)
 		const energy_health = 1 - Math.exp( -10 * ( this.metab.energy / this.metab.max_energy ) );
 		
+		// current energy level (curved)
+		const toxins_health = this.metab.toxins;
+		const deficient_health = this.metab.deficient;
+		
 		// averaged health (you could do a weighted average for more interest)
-		let health = energy_health + light_health + heat_health;
-		health /= 3;
+		let health = deficient_health + toxins_health + energy_health + light_health + heat_health;
+		health /= 5;
 		
 		// average health over time to avoid wild swings
 		this.health = ( this.health + this.health + health ) / 3;
