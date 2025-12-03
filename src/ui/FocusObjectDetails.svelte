@@ -265,7 +265,7 @@
 			Life <output>{boid.life_credits.toFixed(0)} / {boid.traits.life_credits.toFixed(0)}</output>
 			<progress value={boid.life_credits / boid.traits.life_credits}></progress> 
 			
-			Scale <output>{((boid.scale||0)*100).toFixed(1)}%</output>
+			Scale <output>{((boid.scale||0)*100).toFixed(1)}% ({(boid.mass||0).toFixed(0)})</output>
 			<progress value={boid.scale||0}></progress> 
 							
 			Energy <output>{(boid.metab.energy||0).toFixed(0)} / {(boid.metab.max_energy||0).toFixed(0)}</output>
@@ -283,6 +283,10 @@
 			Bite <output>{(boid.metab.bite_size||0).toFixed(1)}</output>
 				@ <output>{(boid.traits.bite_speed||0).toFixed(1)}s</output>
 			<progress value={((boid.metab.bite_time / boid.traits.bite_speed)||0)}></progress>
+			
+			Bowel <output>{(boid.metab.bowel_total||0).toFixed(1)}</output>
+				@ <output>{(boid.metab.bowel_size||0).toFixed(1)}s</output>
+			<progress value={((boid.metab.bowel_total / boid.metab.bowel_size)||0)}></progress>
 		</div>
 						
 	</details>

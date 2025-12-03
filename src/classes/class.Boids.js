@@ -153,9 +153,7 @@ export class Boid extends PhysicsObject {
 			heat_pref: 0.5, // 0..1
 			heat_tolr: 0.5, // 0..1
 			nutrition: new Array(8).fill(0.5),// array of nutritional benefit of primary nutrients. 0..1: edible, >1: required, <0: toxic
-			growth_min_energy_pct: 0.5,		// minimum fraction of energy required to initiate organism growth
-			growth_cost: 0.01, 				// pct energy per second
-			growth_rate: 0.01,				// percentage of current mass we can increase per second
+			growth_rate: 2,					// sigmoid incline exponent. 0..20 works well.
 			base_stomach_size: 0.1,			// percentage of mass
 			base_bowel_size: 0.05,			// percentage of mass
 			base_metabolic_rate: 0.003, 	// resting metabolism sans motors, energy per second per mass
@@ -292,6 +290,16 @@ export class Boid extends PhysicsObject {
 			// calculate the per-channel digestive rate
 			const channelDigestAmount = ( this.metab.digest_rate * digestInterval ) / nonZeroFoods;
 			
+			// if we have enough energy to grow, let's grow
+			let growth_mass = 0; // accumulates as we loop over nutrients
+			let growth_split = 0; // how much of our food we want to put towards growth
+			if ( this.mass < this.body.mass ) {
+				const energy_avail = this.metab.energy / this.metab.energy;
+				const energy_split = 1 / ( 1 + Math.exp( -this.traits.growth_rate * ( energy_avail - 0.5 ) ) ); 			
+				const growth_potential = 1 - Math.pow( 1 - ( this.mass / this.body.mass ), 2 ); // use larger expo for steeper curve
+				growth_split = growth_potential * energy_split;
+			}
+			
 			// reset health signals
 			this.metab.deficient = 0;
 			this.metab.toxins = 0;
@@ -304,19 +312,33 @@ export class Boid extends PhysicsObject {
 					let morsel = Math.min( v, channelDigestAmount );
 					this.metab.stomach[i] -= morsel; // can go negative
 					this.metab.stomach_total -= morsel;
-					let energy_gain = morsel * this.traits.nutrition[i] * MAGIC_ENERGY_MULTIPLIER;
-					this.metab.energy += energy_gain;
-					this.metab.bowel[ this.traits.poop_map[i] ] += morsel;
-					this.metab.bowel_total += morsel;
+					let energy_portion = 1;
+					
+					// if the nutrient is edible, siphon off some for growth
+					if ( this.traits.nutrition[i] > 0 ) {
+						growth_mass += growth_split * morsel;
+						energy_portion = 1 - ( growth_split * morsel ); 
+					}
+					
+					// gain or lose energy from metabolism
+					if ( this.traits.nutrition[i] != 0 ) {
+						let energy_gain = energy_portion * this.traits.nutrition[i] * MAGIC_ENERGY_MULTIPLIER;
+						this.metab.energy += energy_gain;
+						if ( energy_gain > 0 ) { this.stats.food.energy += energy_gain; } 
+						else if ( energy_gain < 0 ) { this.stats.food.toxin_dmg += energy_gain; } 
+					}
+					
+					// waste products
+					this.metab.bowel[ this.traits.poop_map[i] ] += energy_portion;
+					this.metab.bowel_total += energy_portion;
 					this.metab.toxins += this.traits.nutrition[i] < 0 ? morsel : 0;
+					
 					// stat tracking 
 					this.stats.food.total += morsel;
 					if ( this.traits.nutrition[i] < 0 ) { this.stats.food.toxins += morsel; }
-					else if ( this.traits.nutrition[i] >= 2 ) { this.stats.food.required += morsel; }
 					else if ( this.traits.nutrition[i] == 0 ) { this.stats.food.inedible += morsel; }
+					else if ( this.traits.nutrition[i] >= 2 ) { this.stats.food.required += morsel; }
 					else { this.stats.food.edible += morsel; }
-					if ( energy_gain > 0 ) { this.stats.food.energy += energy_gain; } 
-					else if ( energy_gain < 0 ) { this.stats.food.toxin_dmg += energy_gain; } 
 				}
 				// if we're empty but nutrient is required, check for scurvy
 				// below zero values represent deficiency 
@@ -340,30 +362,12 @@ export class Boid extends PhysicsObject {
 				this.Poop();
 			}
 			
-			// if we have enough energy to grow, let's grow
-			if ( this.mass < this.body.mass && this.metab.energy / this.metab.max_energy > this.traits.growth_min_energy_pct ) {
-				// growth rate increases as we have more energy to spare for growth
-				const energy_pct = this.metab.energy / this.metab.max_energy;
-				const energy_ramp_pct = ( 1 - this.traits.growth_min_energy_pct ) 
-					* ( Math.max(energy_pct,this.traits.growth_min_energy_pct) - this.traits.growth_min_energy_pct );
-				// grow faster when young, power curve falloff with age
-				const age_ramp_pct = 1 - Math.pow( Math.min( 1, this.age / this.traits.life_credits), 7 );
-				const lump = this.mass * this.traits.growth_rate * digestInterval * energy_ramp_pct * age_ramp_pct;
-				// BALANCE NOTE: 
-				// Its incredibly difficult to get any traction from random organisms
-				// when we stick to the laws of thermodynamics and try to create
-				// a constant mass situation in the tank. Instead, energy from food
-				// is multiplied, but energy needed for growth is not taxed the same way.
-				// Cost of growth SHOULD be the opposite of the energy gain from food:
-				// mass->energy vs energy->mass
-				// let cost = lump * energy_multiplier;
-				let cost = lump; // free energy
-				this.mass += lump;
+			// did we grow?
+			if ( growth_mass > 0 ) {
+				this.mass += growth_mass;
 				if ( this.mass >= this.body.mass ) { this.mass = this.body.mass; }
-				this.metab.energy -= cost; 
 				this.ScaleBoidByMass();
 			}
-			
 		}		
 		
 		// min/max energy cap
@@ -1079,9 +1083,7 @@ export class Boid extends PhysicsObject {
 			this.traits.nutrition[i] = this.dna.shapedNumber( this.dna.genesFor(`nutrition value fallback`,2,1), 0.2, 3, 1, 5 );
 		}
 		this.traits.offspring_investment	= this.dna.shapedNumber( this.dna.genesFor('offspring_investment',2,1), 0.1, 1.0, 0.5, 2 );
-		this.traits.growth_min_energy_pct	= this.dna.shapedNumber( this.dna.genesFor('growth_min_energy_pct',2,1), 0.1, 0.9, 0.4, 1.8 );
-		this.traits.growth_cost				= this.dna.shapedNumber( this.dna.genesFor('growth_cost',2,1), 0.002, 0.05, 0.01, 2 );
-		this.traits.growth_rate				= this.dna.shapedNumber( this.dna.genesFor('growth_rate',2,1), 0.01, 0.06, 0.03, 2 );
+		this.traits.growth_rate				= this.dna.shapedNumber( this.dna.genesFor('growth_rate',2,1), 0, 20, 3, 3 );
 		this.traits.base_stomach_size		= this.dna.shapedNumber( this.dna.genesFor('base_stomach_size',2,1), 0.5, 0.02, 0.1, 2 );
 		this.traits.base_bowel_size			= this.dna.shapedNumber( this.dna.genesFor('base_bowel_size',2,1), 0.01, 0.2, 0.07, 2 );
 		// this.traits.base_metabolic_rate		= this.dna.shapedNumber( this.dna.genesFor('base_metabolic_rate',2,1), 0.002, 0.008, 0.004, 1.4 );
@@ -1122,16 +1124,8 @@ export class Boid extends PhysicsObject {
 			}
 			this.traits.boxfit.push([ cost*cost, cost, 'body.diet']);
 			
-			// lower threshold to grow. lower is better.
-			cost = 1 - this.traits.growth_min_energy_pct;
-			this.traits.boxfit.push([ cost, cost, 'body.growth_min_energy_pct']);
-			
-			// growth cost is probably not something we want to include
-			cost = 1 - this.traits.growth_min_energy_pct;
-			this.traits.boxfit.push([ cost, cost, 'body.growth_cost']);
-			
-			// faster raw growth rate. higher is better.
-			cost = 100 * this.traits.growth_rate;
+			// faster raw growth rate. higher is better. marginal benefit
+			cost = this.traits.growth_rate;
 			this.traits.boxfit.push([ cost, cost, 'body.growth_rate']);
 			
 			// larger stomach means fewer trips to the fridge - higher is better
