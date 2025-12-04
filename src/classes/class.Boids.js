@@ -8,7 +8,7 @@ import Brain from '../classes/class.Brain.js'
 import Mark from '../classes/class.Mark.js'
 import * as utils from '../util/utils.js'
 import {Circle, Polygon, Result} from 'collisions';
-
+import {CompoundStatTracker} from '../classes/class.StatTracker.js'
 			
 // MAGIC NUMBER - tuning number for matter->energy conversion rate
 const MAGIC_ENERGY_MULTIPLIER = 10;
@@ -46,6 +46,8 @@ export class Boid extends PhysicsObject {
 	static HEALTH_PENALTY_COEF = 1.5; // high number makes bad health drastically more bad.
 	static MIN_HEALTH_CREDIT = 0.25; // minimum amount of life credit to use if plant in perfect health.
 	static HEALTH_UPDATE_FREQ = 5; // 5 second intervals
+	static TRACK_INDV_STATS = true;
+	static STAT_TRACK_INTERVAL = 1.0;
 	
 	Reset() {
 		this.x = 0;
@@ -87,6 +89,7 @@ export class Boid extends PhysicsObject {
 	}
 	
 	ResetStats() {
+		this.next_stat_flush = 0;
 		this.stats = {
 			death: {
 				cause: null,
@@ -116,10 +119,32 @@ export class Boid extends PhysicsObject {
 			metab: {
 				base: 0,
 				motors: 0
-			}
+			},
+			scratch: {} // for accumulating stats until they get flushed
 		};
+		// tracking individual stats for large numbers of boids is generally expensive and unnecessary
+		// but can be enabled for debugging and optional fun
+		if ( Boid.TRACK_INDV_STATS ) {
+			this.stats.records = new CompoundStatTracker( 
+				{ numLayers: 2, base: 10, recordsPerLayer: 60, stats:[
+				'health',
+				'mass',
+				'scale',
+				'bites',
+				'energy_pct',
+				'food.total',
+				'food.inedible',
+				'food.edible',
+				'food.toxins',
+				'calories',
+				'toxins',
+				'deficient',
+				'metab.base',
+				'metab.motors'
+			] });
+		}
 	}
-
+	
 	constructor( x=0, y=0, tank=null, json=null ) {
 		super();
 		this.oid = ++globalThis.vc.next_object_id;
@@ -135,6 +160,7 @@ export class Boid extends PhysicsObject {
 		this.x = x;
 		this.y = y;
 		this.ang_vel = 0;
+		this.next_stat_flush = 0;
 		this.next_health_update = 0;
 		this.life_credits = 300;
 		this.health = 1;
@@ -600,6 +626,8 @@ export class Boid extends PhysicsObject {
 				}
 			}		
 		}
+		
+		this.FlushStats();
 	}
 
 	Poop() {
@@ -623,6 +651,28 @@ export class Boid extends PhysicsObject {
 		this.metab.bowel_total = 0;
 		this.metab.bowel.fill(0);
 		this.metab.seed_dna = null;
+	}
+
+	FlushStats() {
+		if ( this.age >= this.next_stat_flush ) {
+			this.stats.records.Insert({
+				'health': this.health,
+				'mass': this.mass,
+				'scale': this.scale,
+				'bites': this.stats.food.bites,
+				'energy_pct': (this.metab.energy / this.metab.max_energy),
+				'food.total': this.stats.food.total,
+				'food.inedible': this.stats.food.inedible,
+				'food.edible': this.stats.food.edible,
+				'food.toxins': this.stats.food.toxins,
+				'calories': this.stats.food.energy,
+				'toxins': this.metab.toxins,
+				'deficient': this.metab.deficient,
+				'metab.base': this.stats.metab.base,
+				'metab.motors': this.stats.metab.motors,
+			});
+			this.next_stat_flush += Boid.STAT_TRACK_INTERVAL;
+		}
 	}
 
 	CalcHealth() {
