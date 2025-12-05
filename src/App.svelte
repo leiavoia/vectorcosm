@@ -1159,7 +1159,7 @@
 		order: 1;	
 		pointer-events:none;
 	}
-	aside {
+	DIV.focus_object_panel {
 		/* width: 50%;  */
 		flex: 1 1 1; 
 		padding: 1rem; 
@@ -1173,7 +1173,7 @@
 		pointer-events:none;
 	}
 	#pagewrapper main > *,
-	#pagewrapper aside > * { pointer-events:auto; }
+	#pagewrapper DIV.focus_object_panel > * { pointer-events:auto; }
 	.hidecursor { cursor: none; }
 </style>
 
@@ -1240,7 +1240,7 @@
 		
 	</main>
 	
-	<aside>
+	<div class="focus_object_panel">
 		<FocusObjectDetails bind:this={focus_object_panel}></FocusObjectDetails>
-	</aside>
+	</div>
 </div>
