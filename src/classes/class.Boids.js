@@ -1153,12 +1153,11 @@ export class Boid extends PhysicsObject {
 		if ( !this.traits.poop_complexity ) { this.traits.poop_complexity = 1; }
 		// poop map converts nutrients into other nutrients
 		this.traits.poop_map = [];
-		let badfood = this.traits.nutrition.map(_=>_).sort( (a,b) => a-b );
 		for ( let i=0; i< this.traits.nutrition.length; i++ ) {
-			let to = this.dna.shapedInt( this.dna.genesFor(`poopmap ${i}`, 2, 1 ), 0, 7, 0, 4 );
-			this.traits.poop_map[i] = badfood[to];
+			let to = this.dna.shapedInt( this.dna.genesFor(`poopmap ${i}`, 2, 1 ), 0, 7, 7, 4 );
+			this.traits.poop_map[i] = to;
 		}
-		
+
 		// do some accounting on the traits we've created
 		{
 			// total all positive nutrition requirements
