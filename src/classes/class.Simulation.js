@@ -3,7 +3,7 @@ import TankMaker from '../classes/class.TankMaker.js'
 import Food from '../classes/class.Food.js'
 import Rock from '../classes/class.Rock.js'
 import * as utils from '../util/utils.js'
-import { BoidFactory } from '../classes/class.Boids.js'
+import { Boid, BoidFactory } from '../classes/class.Boids.js'
 import SimulationLibrary from "./SimulationLibrary.js"
 import {Circle} from 'collisions'
 import { RandomPlant } from '../classes/class.Plant.js'
@@ -55,7 +55,8 @@ export default class Simulation {
 			fruiting_speed: 1.0,
 			onExtinction: 'random',
 			speciation_rate: 0,
-			tally_freq: 5 // how often to flush the tally and record stats
+			tally_freq: 5, // how often to flush the tally and record stats
+			boid_tally_freq: 2 // how often to flush individual boid stats if we are keeping track
 		};
 		if ( settings ) {
 			this.settings = Object.assign(this.settings, settings);
@@ -93,6 +94,7 @@ export default class Simulation {
 			] }),
 			tally: {}, // accumulator for point-in-time stats which get recorded periodically
 			last_tally: 0, // tracks to time next tally flush
+			last_boid_tally: 0, // tracks to time next tally flush for individual boids
 		};
 		// send record updates to the frontend if anyone cares
 		this.stats.records.onInsert = ( data, layer ) => {
@@ -109,6 +111,7 @@ export default class Simulation {
 	
 	// add all tally sheet data to the long term records
 	FlushTally() {
+		// for simulation level stats
 		const time_since_last_flush = this.stats.round_time - this.stats.last_tally;
 		if ( time_since_last_flush >= this.settings.tally_freq ) {
 			this.CalculatePeriodicStats();
@@ -117,6 +120,14 @@ export default class Simulation {
 				this.stats.tally[k] = 0;
 			};	
 			this.stats.last_tally = this.stats.round_time;
+		}
+		// for individual boids
+		if ( globalThis.vc.simulation.settings?.boid_tally_freq ) {
+			const time_since_last_flush = this.stats.round_time - this.stats.last_boid_tally;
+			if ( time_since_last_flush >= this.settings.boid_tally_freq ) {
+				globalThis.vc.tank.boids.forEach( b => b.FlushTally() );
+				this.stats.last_boid_tally = this.stats.round_time;
+			}
 		}
 	}
 	

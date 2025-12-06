@@ -199,14 +199,24 @@ function_registry.set( 'update', params => {
 	} );
 });
 
+let last_focus_object_id = null;
 function_registry.set( 'pickObject', params => {
 	let result = null;
+	let obj_id = params.data?.oid || 0;
+	let obj = null;
 	
 	// if they want a specific object by ID, just get that
-	if ( params.data?.oid ) {
+	if ( obj_id ) {
 		// NOTE: we only check boids right now
-		let obj = globalThis.vc.tank.boids.find( o => o.oid == params.data.oid );
-		if ( obj ) { result = DescribeBoid(obj, params.data?.inc_sensor_geo, params.data?.inc_brain); }
+		obj = globalThis.vc.tank.boids.find( o => o.oid == obj_id );
+		if ( obj ) {
+			result = DescribeBoid(
+				obj, 
+				params.data?.inc_sensor_geo, 
+				params.data?.inc_brain, 
+				params.data?.inc_brain // not a typo
+			); 
+		}
 	}
 	
 	// find the closest object to mouse click
@@ -221,19 +231,42 @@ function_registry.set( 'pickObject', params => {
 		}
 		// find the closest object
 		const min_dist = r*r*2 + r*r*2;
-		let closest = null;
 		let closest_dist = 9999999999;
 		for ( let o of objs ) {
 			const d = (o.x - x) * (o.x - x) + (o.y - y) * (o.y - y);
 			if ( d <= min_dist && d < closest_dist ) { 
 				closest_dist = d;
-				closest = o;
+				obj = o;
 			}
 		}
 		// assemble a report based on object type
-		if ( closest ) {
-			result = DescribeBoid(closest, params.data?.inc_sensor_geo, params.data?.inc_brain);
+		if ( obj ) {
+			obj_id = obj.oid;
+			result = DescribeBoid(
+				obj, 
+				params.data?.inc_sensor_geo, 
+				params.data?.inc_brain,
+				params.data?.inc_brain, // not a typo
+			);
 		}
+	}
+	
+	// if we are doing stat tracking and switched object IDs, we need to do some cleanup
+	if ( globalThis.vc.simulation.settings?.boid_tally_freq ) {
+		if ( obj_id != last_focus_object_id ) {
+			// remove stat update event subscription on old object
+			let old = globalThis.vc.tank.boids.find( o => o.oid == last_focus_object_id );
+			if ( old ) {
+				old.records.onInsert = null;
+			}
+			// install new callback
+			if ( obj ) {
+				obj.records.onInsert = ( data, layer ) => {
+					PubSub.publishSync('boid.records.push', {data, layer} );
+				};
+			}
+		}
+		last_focus_object_id = obj_id;
 	}
 	
 	// send back 
@@ -448,12 +481,22 @@ let onRecordsPushSubscription = PubSub.subscribe('records.push', (msg,data) => {
 		data: data
 	} );
 });
+
+// if stat tracking is enabled for individual boids, an update just occurred. 
+// this just let's the front-end know we have data it might want. no data is passed here.
+// if the front end needs details it will ask for a specific boid's stats.
+let onBoidRecordsPushSubscription = PubSub.subscribe('boid.records.push', (msg,data) => {
+	globalThis.postMessage( {
+		functionName: 'boid.records.push',
+		data: data
+	} );
+});
 		
 // set up the main simulation
 let vc = new Vectorcosm;
 globalThis.vc = vc; // handy reference for everyone else
 
-function DescribeBoid( o, inc_sensor_geo=false,  inc_brain=false ) {
+function DescribeBoid( o, inc_sensor_geo=false,  inc_brain=false, inc_stats=0 ) {
 	let data = { 
 		type: 'boid',
 		sensors: []
@@ -600,9 +643,15 @@ function DescribeBoid( o, inc_sensor_geo=false,  inc_brain=false ) {
 			s.type==='sense' )
 			.map( i => i.CreateGeometry() );
 	}
+	
 	if ( inc_brain ) {	
 		// include data for brain graph 
 		data.brain_struct = o.brain.network.Export(false); // POD
+	}
+	
+	// send all stats that we have (first frame)
+	if ( inc_stats && o.records ) {
+		data.records = o.records.Export();
 	}
 				
 	return data;

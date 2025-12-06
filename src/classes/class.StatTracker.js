@@ -24,7 +24,7 @@ export class StatTracker {
 		this.layers = new Array(this.numLayers).fill().map(() => []);
 		this.recordNumber = 0; // helps us decide when to add to the next layer
 		this.onInsert = params.onInsert || null;
-		this.inserts = new Array(this.numLayers).fill(null);
+		this.inserts = new Array(this.numLayers).fill(null); // keeps track of the last inserted data
 	}
 	Insert( data ) {
 		this.inserts.fill(null);
@@ -58,6 +58,24 @@ export class StatTracker {
 	}
 	LastOfEachLayer() {
 		return this.layers.map(layer => layer.length ? layer[layer.length - 1] : 0);	
+	}
+	Export() {
+		return {
+			layers: this.layers.map(layer => [...layer]),
+			base: this.base,
+			recordsPerLayer: this.recordsPerLayer,
+			numLayers: this.numLayers,
+			recordNumber: this.recordNumber
+		};
+	}
+	Import(data) {
+		if (!data || !Array.isArray(data.layers)) return;
+		this.base = data.base || this.base;
+		this.recordsPerLayer = data.recordsPerLayer || this.recordsPerLayer;
+		this.numLayers = data.numLayers || this.numLayers;
+		this.recordNumber = data.recordNumber || 0;
+		this.layers = data.layers.map(layer => Array.isArray(layer) ? [...layer] : []);
+		this.inserts = new Array(this.numLayers).fill(null);
 	}
 }
 
@@ -114,5 +132,26 @@ export class CompoundStatTracker {
 			result[name] = this.trackers[name].LastOfEachLayer();
 		}
 		return result;
+	}
+	Export() {
+		let data = {};
+		for (let name in this.trackers) {
+			data[name] = this.trackers[name].Export();
+		}
+		return {
+			stats: Object.keys(this.trackers),
+			data: data
+		};
+	}
+	Import(imported) {
+		if (!imported || !imported.data) return;
+		for (let name of imported.stats || Object.keys(imported.data)) {
+			if (!this.trackers[name]) {
+				// Use first existing tracker as template, or default params
+				let example = this.trackers[Object.keys(this.trackers)[0]];
+				this.trackers[name] = new StatTracker(example ? example.Export() : {});
+			}
+			this.trackers[name].Import(imported.data[name]);
+		}
 	}
 }

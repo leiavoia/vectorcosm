@@ -11,6 +11,14 @@
 	export function updateStats(data) {
 		if ( data === null && boid == null ) { return; }
 		boid = data;
+		// reset graph if we got graph data
+		if ( boid?.records ) {
+			// TODO
+		}
+	}
+	
+	export function AddGraphData(data) {
+		// TODO
 	}
 
 	function SaveBoid() {

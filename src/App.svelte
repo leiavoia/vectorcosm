@@ -413,6 +413,12 @@
 		}
 	} );
 	
+	api.RegisterResponseCallback( 'boid.records.push', msg => {
+		if ( msg.layer == 0 && focus_object_panel ) {
+			focus_object_panel.AddGraphData( msg.data );
+		}
+	} );
+	
 	api.RegisterResponseCallback( 'saveTank', str => {
 		;;
 	} );
