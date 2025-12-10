@@ -77,6 +77,20 @@ export class StatTracker {
 		this.layers = data.layers.map(layer => Array.isArray(layer) ? [...layer] : []);
 		this.inserts = new Array(this.numLayers).fill(null);
 	}
+    static Import(data) {
+        // if no data provided return a default tracker
+        const params = {
+            base: (data && data.base) ? data.base : undefined,
+            recordsPerLayer: (data && data.recordsPerLayer) ? data.recordsPerLayer : undefined,
+            numLayers: (data && data.numLayers) ? data.numLayers : undefined,
+        };
+        const st = new StatTracker(params);
+        if (!data) return st;
+        st.recordNumber = data.recordNumber || 0;
+        st.layers = (data.layers || []).map(layer => Array.isArray(layer) ? [...layer] : []);
+        st.inserts = new Array(st.numLayers).fill(null);
+        return st;
+    }	
 }
 
 // Tracks a multiple numeric statistic over multiple orders of magnitude.
@@ -99,6 +113,7 @@ export class CompoundStatTracker {
 		}
 		
 	}
+
 	Insert( data ) {
 		for ( let name in data ) {
 			if ( this.trackers[name] ) {
@@ -107,14 +122,14 @@ export class CompoundStatTracker {
 			// if we don't already have this stat tracked, make a new tracker
 			else {
 				// use an existing tracker as a template for the new one
-				let example = this.trackers[ Object.keys(this.trackers).pop() ]; // get a sample
+				let example = this.FirstTracker(); // get a sample
 				this.trackers[name] = new StatTracker( example );
 			}
 		}
 		if ( this.onInsert ) {
 			// we dont want all child stats to fire a bunch of events for onInsert.
 			// in order to get meaningful results from onInsert, do our own calculation.
-			let tracker = this.trackers[ Object.keys(this.trackers).shift() ]; // get a sample
+			let tracker = this.FirstTracker(); // get a sample
 			for ( let i=0; i < tracker.inserts.length; i++ ) {
 				if ( tracker.inserts[i] !== null ) {
 					let result = {};
@@ -126,6 +141,7 @@ export class CompoundStatTracker {
 			}
 		}
 	}
+
 	LastOfEachLayer() {
 		let result = {};
 		for ( let name in this.trackers ) {
@@ -133,6 +149,13 @@ export class CompoundStatTracker {
 		}
 		return result;
 	}
+
+	// utility function to access settings on the first tracker
+	FirstTracker() {
+		const first_key = Object.keys(this.trackers).shift();
+		return this.trackers[ first_key ];
+	}	
+
 	Export() {
 		let data = {};
 		for (let name in this.trackers) {
@@ -143,6 +166,7 @@ export class CompoundStatTracker {
 			data: data
 		};
 	}
+
 	Import(imported) {
 		if (!imported || !imported.data) return;
 		for (let name of imported.stats || Object.keys(imported.data)) {
@@ -154,4 +178,13 @@ export class CompoundStatTracker {
 			this.trackers[name].Import(imported.data[name]);
 		}
 	}
+
+    static Import(imported) {
+        if (!imported) return new CompoundStatTracker({ stats: [] });
+        const stats = imported.stats && Array.isArray(imported.stats) ? imported.stats : Object.keys(imported.data || {});
+        const cs = new CompoundStatTracker({ stats });
+        cs.Import(imported);
+        return cs;
+    }	
+
 }

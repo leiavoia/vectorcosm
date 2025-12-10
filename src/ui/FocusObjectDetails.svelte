@@ -1,26 +1,30 @@
 <script>
 	import { blur, fade } from 'svelte/transition';
-	import { getContext } from 'svelte';
+	import { getContext, tick } from 'svelte';
 	import BrainGraph from './BrainGraph.svelte';
+	import FocusObjectChart from './FocusObjectChart.svelte';
+	import {StatTracker, CompoundStatTracker} from '../classes/class.StatTracker.js'
 
+	// general provisions
 	let api = getContext('api');
 	let boid = $state(null);
 	let show_brain_graph = $state(false);
 	let tab = $state('overview');
-	
+	let records = $state(null);
+		
 	export function updateStats(data) {
 		if ( data === null && boid == null ) { return; }
 		boid = data;
-		// reset graph if we got graph data
+		// set up records tracker if we got graph data
 		if ( boid?.records ) {
-			// TODO
+			records = CompoundStatTracker.Import( boid.records );
 		}
 	}
 	
-	export function AddGraphData(data) {
-		// TODO
+	export function AddGraphData( data ) {
+		if ( records ) records.Insert( data );
 	}
-
+	
 	function SaveBoid() {
 		api.SendMessage('exportBoids', { db:true, ids: [boid.oid] });
 	}
@@ -181,6 +185,7 @@
 		font-size: 0.5rem; 
 		text-transform: uppercase; 
 	}
+
 </style>
 
 {#if boid !== null}
@@ -427,8 +432,10 @@
 				
 	<!-- STATS -->		
 	{:else if tab==='stats'}
+		
+		<FocusObjectChart records={records} />
 					
-		<h4>Lifetime Stats</h4>
+		<h4>Totals</h4>
 		<p>
 			<span style="width:32%; display:inline-block;" title="Number of food bites taken">
 				bites:&nbsp;<output>{(boid.stats.food.bites||0).toFixed()}</output>
@@ -501,7 +508,8 @@
 				
 		</table>
 				
-	{/if}							
+	{/if}			
+			
 </section>	
 
 {#if show_brain_graph}
