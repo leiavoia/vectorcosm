@@ -117,29 +117,40 @@ export class Boid extends PhysicsObject {
 				base: 0,
 				motors: 0
 			},
-			// tally: {} // for accumulating stats until they get flushed
 		};
 		// tracking individual stats for large numbers of boids is generally expensive and unnecessary
 		// but can be enabled for debugging and optional fun
 		if ( globalThis.vc.simulation.settings?.boid_tally_freq ) {
-			this.records = new CompoundStatTracker( 
-				{ numLayers: 2, base: 10, recordsPerLayer: 60, stats:[
-				'health',
-				'mass',
-				'scale',
-				'bites',
-				'energy_pct',
-				'food.total',
-				'food.inedible',
-				'food.edible',
-				'food.toxins',
-				'calories',
-				'toxins',
-				'deficient',
-				'metab.base',
-				'metab.motors'
-			] });
+			this.tally = {} // for accumulating stats until they get flushed
+			this.records = new CompoundStatTracker( { 
+				numLayers: 2, 
+				base: 10, 
+				recordsPerLayer: 60, 
+				stats: {
+					'health':  'avg',
+					'mass': 'avg',
+					'scale': 'avg',
+					'bites': 'sum',
+					'energy_pct': 'avg',
+					'food.total': 'sum',
+					'food.inedible': 'sum',
+					'food.edible': 'sum',
+					'food.toxins': 'sum',
+					// 'calories': 'sum',
+					// 'toxins': 'sum',
+					// 'deficient': 'sum',
+					'metab.base': 'sum',
+					'metab.motors': 'sum',
+		 		} 
+			} );
 		}
+	}
+	
+	// records a numerical statistic to the tally sheet / accumulator
+	RecordStat( name, value ) {
+		if ( !this.records ) { return; }
+		if ( !this.tally[ name ] ) { this.tally[ name ] = 0; }
+		this.tally[ name ] += value;
 	}
 	
 	constructor( x=0, y=0, tank=null, json=null ) {
@@ -294,6 +305,7 @@ export class Boid extends PhysicsObject {
 		if ( !globalThis.vc.simulation.settings?.ignore_lifecycle && this.age < this.larval_age ) { energy_to_burn *= 0.5; }
 		this.metab.energy -= energy_to_burn;
 		this.stats.metab.base += energy_to_burn;
+		this.RecordStat('metab.base', energy_to_burn);
 		globalThis.vc.simulation.RecordStat('energy_used',energy_to_burn);
 		
 		// digestion (optimized by not processing stomach contents every single frame)
@@ -357,10 +369,23 @@ export class Boid extends PhysicsObject {
 					
 					// stat tracking 
 					this.stats.food.total += morsel;
-					if ( this.traits.nutrition[i] < 0 ) { this.stats.food.toxins += morsel; }
-					else if ( this.traits.nutrition[i] == 0 ) { this.stats.food.inedible += morsel; }
-					else if ( this.traits.nutrition[i] >= 2 ) { this.stats.food.required += morsel; }
-					else { this.stats.food.edible += morsel; }
+					this.RecordStat('food.total', morsel);
+					if ( this.traits.nutrition[i] < 0 ) { 
+						this.stats.food.toxins += morsel;
+						this.RecordStat('food.toxins', morsel);
+					}
+					else if ( this.traits.nutrition[i] == 0 ) { 
+						this.stats.food.inedible += morsel; 
+						this.RecordStat('food.inedible', morsel);
+					}
+					else if ( this.traits.nutrition[i] >= 2 ) { 
+						this.stats.food.required += morsel;
+						this.RecordStat('food.required', morsel); 
+					}
+					else { 
+						this.stats.food.edible += morsel; 
+						this.RecordStat('food.edible', morsel);
+					}
 				}
 				// if we're empty but nutrient is required, check for scurvy
 				// below zero values represent deficiency 
@@ -605,6 +630,7 @@ export class Boid extends PhysicsObject {
 					// stat tracking
 					this.metab.stomach_total = this.metab.stomach.reduce( (a,c) => a + (c>0?c:0), 0 );
 					this.stats.food.bites++;
+					this.RecordStat('bites',1);
 					globalThis.vc.simulation.RecordStat('bites',1);
 					globalThis.vc.simulation.RecordStat('food_eaten',morsel);
 					// if the food has a seed, save the seed for excretion.
@@ -653,18 +679,21 @@ export class Boid extends PhysicsObject {
 			'health': this.health,
 			'mass': this.mass,
 			'scale': this.scale,
-			'bites': this.stats.food.bites,
+			'bites': (this.tally.bites || 0),
 			'energy_pct': (this.metab.energy / this.metab.max_energy),
-			'food.total': this.stats.food.total,
-			'food.inedible': this.stats.food.inedible,
-			'food.edible': this.stats.food.edible,
-			'food.toxins': this.stats.food.toxins,
-			'calories': this.stats.food.energy,
-			'toxins': this.metab.toxins,
-			'deficient': this.metab.deficient,
-			'metab.base': this.stats.metab.base,
-			'metab.motors': this.stats.metab.motors,
+			'food.total': (this.tally['food.total'] || 0),
+			'food.inedible': (this.tally['food.inedible'] || 0),
+			'food.edible': (this.tally['food.edible'] || 0),
+			'food.toxins': (this.tally['food.toxins'] || 0),
+			// 'calories': (this.tally['calories'] || 0),
+			// 'toxins': (this.tally['toxins'] || 0),
+			// 'deficient': (this.tally['deficient'] || 0),
+			'metab.base': (this.tally['metab.base'] || 0),
+			'metab.motors': (this.tally['metab.motors'] || 0),
 		});
+		for ( let k in this.tally ) {
+			this.tally[k] = 0;
+		};	
 	}
 
 	CalcHealth() {
@@ -795,6 +824,7 @@ export class Boid extends PhysicsObject {
 		else { cost *= Math.abs(m.strokepow); }
 		this.metab.energy -= cost;
 		this.stats.metab.motors += cost;
+		this.RecordStat('metab.motors', cost);
 		this.stats.metab[m.name] = (this.stats.metab[m.name] || 0) + cost;
 		globalThis.vc.simulation.RecordStat('energy_used',cost);
 		

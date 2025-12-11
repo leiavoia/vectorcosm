@@ -25,6 +25,7 @@ export class StatTracker {
 		this.recordNumber = 0; // helps us decide when to add to the next layer
 		this.onInsert = params.onInsert || null;
 		this.inserts = new Array(this.numLayers).fill(null); // keeps track of the last inserted data
+		this.squash = 'avg'; // 'avg', 'sum', 'min', 'max'
 	}
 	Insert( data ) {
 		this.inserts.fill(null);
@@ -45,16 +46,35 @@ export class StatTracker {
 		}
 		// if the record number is divisible by a base, insert a new record into the next layer
 		if ( layer + 1 < this.layers.length && this.recordNumber % Math.pow( this.base, layer+1 ) === 0 ) {
-			// average the previous <base> number of records to create the new record
-			let total = 0;
-			let length = this.layers[layer].length;
-			for ( let i = length-1; i >= (length - this.base); i-- ) {
-				let v = this.layers[layer][i];
-				total += v;
-			}
-			let new_data = total / this.base;
-			this.InsertToLayer( new_data, layer + 1 );
+			let v = this.SquashLayer(layer);
+			this.InsertToLayer( v, layer + 1 );
 		} 
+	}
+	SquashLayer( layer ) {
+		let length = this.layers[layer].length;
+		let x = 0;
+		if ( this.squash == 'avg' ) {
+			for ( let i = length-1; i >= (length - this.base); i-- ) {
+				x += this.layers[layer][i];
+			}
+			x /= this.base;	
+		}
+		else if ( this.squash == 'sum' ) {
+			for ( let i = length-1; i >= (length - this.base); i-- ) {
+				x += this.layers[layer][i];
+			}
+		}
+		else if ( this.squash == 'min' ) {
+			for ( let i = length-1; i >= (length - this.base); i-- ) {
+				x = Math.min( x, this.layers[layer][i] );
+			}
+		}
+		else if ( this.squash == 'max' ) {
+			for ( let i = length-1; i >= (length - this.base); i-- ) {
+				x = Math.max( x, this.layers[layer][i] );
+			}
+		}
+		return x;
 	}
 	LastOfEachLayer() {
 		return this.layers.map(layer => layer.length ? layer[layer.length - 1] : 0);	
@@ -65,7 +85,8 @@ export class StatTracker {
 			base: this.base,
 			recordsPerLayer: this.recordsPerLayer,
 			numLayers: this.numLayers,
-			recordNumber: this.recordNumber
+			recordNumber: this.recordNumber,
+			squash: this.squash
 		};
 	}
 	Import(data) {
@@ -76,6 +97,7 @@ export class StatTracker {
 		this.recordNumber = data.recordNumber || 0;
 		this.layers = data.layers.map(layer => Array.isArray(layer) ? [...layer] : []);
 		this.inserts = new Array(this.numLayers).fill(null);
+		this.squash = data.squash || 'avg';
 	}
     static Import(data) {
         // if no data provided return a default tracker
@@ -83,6 +105,7 @@ export class StatTracker {
             base: (data && data.base) ? data.base : undefined,
             recordsPerLayer: (data && data.recordsPerLayer) ? data.recordsPerLayer : undefined,
             numLayers: (data && data.numLayers) ? data.numLayers : undefined,
+            squash: (data && data.squash) ? data.squash : 'avg',
         };
         const st = new StatTracker(params);
         if (!data) return st;
@@ -96,6 +119,8 @@ export class StatTracker {
 // Tracks a multiple numeric statistic over multiple orders of magnitude.
 // PARAMS
 //	stats: array of names for the stats to track, e.g. ['stat1', 'stat2']
+//		can also take object of key value pairs to indicate layer squash modes (sum or average):
+//		e.g. {'stat1' => 'sum', 'stat2' => 'average' }
 //	numLayers: number of orders of magnitude to keep track of. Use "1" if you just want a flat array.
 //	recordsPerLayer: number of records to keep in each layer. Useful for graph displays.
 //	base: the number of records averaged to create the next higher order record.
@@ -108,10 +133,22 @@ export class CompoundStatTracker {
 		if ( this.onInsert ) {
 			params.onInsert = null; // do not pass to child trackers
 		}
-		for ( let name of params.stats ) {
-			this.trackers[name] = new StatTracker( params );
+		// if array
+		if ( Array.isArray( params.stats ) ) {
+			for ( let name of params.stats ) {
+				this.trackers[name] = new StatTracker( params );
+			}
 		}
-		
+		// if object, use keys and look for layer squash modes
+		else if ( typeof params.stats === 'object' ) {
+			for ( let name in params.stats ) {
+				this.trackers[name] = new StatTracker( params );
+				let mode = params.stats[name];
+				if ( mode === 'sum' ) {
+					this.trackers[name].sum_layers = true;
+				}
+			}
+		}
 	}
 
 	Insert( data ) {
