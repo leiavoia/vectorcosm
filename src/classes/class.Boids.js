@@ -284,7 +284,7 @@ export class Boid extends PhysicsObject {
 
 	Update( delta ) {
 	
-		if ( !delta ) { return; }
+		if ( !delta || this.dead ) { return; }
 		
 		// life credits / aging
 		this.age += delta;
