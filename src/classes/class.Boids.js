@@ -128,19 +128,22 @@ export class Boid extends PhysicsObject {
 				recordsPerLayer: 60, 
 				stats: {
 					'health':  'avg',
-					'mass': 'avg',
+					'life': 'avg',
+					'stomach': 'avg',
 					'scale': 'avg',
-					'bites': 'sum',
+					'mass': 'avg',
 					'energy_pct': 'avg',
-					'food.total': 'sum',
-					'food.inedible': 'sum',
-					'food.edible': 'sum',
-					'food.toxins': 'sum',
-					// 'calories': 'sum',
-					// 'toxins': 'sum',
-					// 'deficient': 'sum',
 					'metab.base': 'sum',
 					'metab.motors': 'sum',
+					'bites': 'sum',
+					'digest.total': 'sum',
+					'digest.inedible': 'sum',
+					'digest.edible': 'sum',
+					'digest.toxins': 'sum',
+					'growth_split': 'avg',
+					'food_eaten': 'sum',
+					// 'toxins': 'sum',
+					// 'deficient': 'sum',
 		 		} 
 			} );
 		}
@@ -328,10 +331,14 @@ export class Boid extends PhysicsObject {
 			let growth_mass = 0; // accumulates as we loop over nutrients
 			let growth_split = 0; // how much of our food we want to put towards growth
 			if ( this.mass < this.body.mass ) {
-				const energy_avail = this.metab.energy / this.metab.energy;
-				const energy_split = 1 / ( 1 + Math.exp( -this.traits.growth_rate * ( energy_avail - 0.5 ) ) ); 			
-				const growth_potential = 1 - Math.pow( 1 - ( this.mass / this.body.mass ), 2 ); // use larger expo for steeper curve
+				const energy_pct = this.metab.energy / this.metab.max_energy;
+				// when energy available is low, we can't spend much on growth. sigmoidal growth as there is more to spare.
+				const quarter_k = 0.25 * this.traits.growth_rate;
+				const energy_split = quarter_k / ( quarter_k + Math.exp( -this.traits.growth_rate * ( energy_pct - (2/this.traits.growth_rate) ) ) ); 		
+				// when mass is small, growth potential is big and slows down as organism gets bigger	
+				const growth_potential = Math.pow( 1 - ( this.mass / this.body.mass ), 2 ); // use larger expo for steeper curve
 				growth_split = growth_potential * energy_split;
+				this.RecordStat('growth_split',growth_split);
 			}
 			
 			// reset health signals
@@ -350,8 +357,8 @@ export class Boid extends PhysicsObject {
 					
 					// if the nutrient is edible, siphon off some for growth
 					if ( this.traits.nutrition[i] > 0 ) {
-						growth_mass += growth_split * morsel;
-						energy_portion = 1 - ( growth_split * morsel ); 
+						growth_mass += morsel * growth_split * MAGIC_ENERGY_MULTIPLIER; // /!\ HACK 2 WIN
+						energy_portion = morsel * ( 1 - growth_split ); 
 					}
 					
 					// gain or lose energy from metabolism
@@ -366,25 +373,26 @@ export class Boid extends PhysicsObject {
 					this.metab.bowel[ this.traits.poop_map[i] ] += energy_portion;
 					this.metab.bowel_total += energy_portion;
 					this.metab.toxins += this.traits.nutrition[i] < 0 ? morsel : 0;
+					this.RecordStat('poop', energy_portion);
 					
 					// stat tracking 
 					this.stats.food.total += morsel;
-					this.RecordStat('food.total', morsel);
+					this.RecordStat('digest.total', morsel);
 					if ( this.traits.nutrition[i] < 0 ) { 
 						this.stats.food.toxins += morsel;
-						this.RecordStat('food.toxins', morsel);
+						this.RecordStat('digest.toxins', morsel);
 					}
 					else if ( this.traits.nutrition[i] == 0 ) { 
 						this.stats.food.inedible += morsel; 
-						this.RecordStat('food.inedible', morsel);
+						this.RecordStat('digest.inedible', morsel);
 					}
 					else if ( this.traits.nutrition[i] >= 2 ) { 
 						this.stats.food.required += morsel;
-						this.RecordStat('food.required', morsel); 
+						this.RecordStat('digest.required', morsel); 
 					}
 					else { 
 						this.stats.food.edible += morsel; 
-						this.RecordStat('food.edible', morsel);
+						this.RecordStat('digest.edible', morsel);
 					}
 				}
 				// if we're empty but nutrient is required, check for scurvy
@@ -676,20 +684,23 @@ export class Boid extends PhysicsObject {
 	FlushTally() {
 		if ( !this.records ) return; 
 		this.records.Insert({
+			'life': ( this.life_credits / this.traits.life_credits ),
+			'stomach': ( this.metab.stomach_total / this.metab.stomach_size ),
 			'health': this.health,
 			'mass': this.mass,
 			'scale': this.scale,
 			'bites': (this.tally.bites || 0),
 			'energy_pct': (this.metab.energy / this.metab.max_energy),
-			'food.total': (this.tally['food.total'] || 0),
-			'food.inedible': (this.tally['food.inedible'] || 0),
-			'food.edible': (this.tally['food.edible'] || 0),
-			'food.toxins': (this.tally['food.toxins'] || 0),
-			// 'calories': (this.tally['calories'] || 0),
+			'digest.total': (this.tally['digest.total'] || 0),
+			'digest.inedible': (this.tally['digest.inedible'] || 0),
+			'digest.edible': (this.tally['digest.edible'] || 0),
+			'digest.toxins': (this.tally['digest.toxins'] || 0),
+			'food_eaten': (this.tally['food_eaten'] || 0),
 			// 'toxins': (this.tally['toxins'] || 0),
 			// 'deficient': (this.tally['deficient'] || 0),
 			'metab.base': (this.tally['metab.base'] || 0),
 			'metab.motors': (this.tally['metab.motors'] || 0),
+			'growth_split': (this.tally['growth_split'] || 0),
 		});
 		for ( let k in this.tally ) {
 			this.tally[k] = 0;

@@ -177,37 +177,39 @@
 		// maps certain datasets to named axis 
 		const axis_map = {
 			// tank stats
-			'boids':		'y_med_nums',
-			'foods':		'y_med_nums',
-			'plants':		'y_med_nums',
-			'boid_mass':	'y_mass',
-			'food_mass':	'y_mass',
-			'species':		'y_small_nums',
-			'births':		'y_small_nums',
-			'deaths':		'y_small_nums',
-			'food_eaten':	'y_large_nums',
-			'energy_used':	'y_large_nums',
-			'bites':		'y_med_nums',
-			'kills':		'y_small_nums',
+			'boids':			'y_med_nums',
+			'foods':			'y_med_nums',
+			'plants':			'y_med_nums',
+			'boid_mass':		'y_mass',
+			'food_mass':		'y_mass',
+			'species':			'y_small_nums',
+			'births':			'y_small_nums',
+			'deaths':			'y_small_nums',
+			'food_eaten':		'y_large_nums',
+			'energy_used':		'y_large_nums',
+			'bites':			'y_med_nums',
+			'kills':			'y_small_nums',
 			// boid stats
-			'health':		'y_pct',
-			'mass':			'y_mass',  
-			'scale':		'y_pct',  
-			'bites':		'y_small_nums', 
-			'energy_pct':	'y_pct',
-			'food.total':	'y_med_nums', 
-			'food.inedible':'y_med_nums', 
-			'food.edible':	'y_med_nums', 
-			'food.toxins':	'y_med_nums', 
-			'calories':		'y_med_nums', 
-			'toxins':		'y_med_nums', 
-			'deficient':	'y_med_nums', 
-			'metab.base':	'y_med_nums', 
-			'metab.motors':	'y_med_nums', 
+			'health':			'y_pct',
+			'life':				'y_pct',
+			'stomach':			'y_pct',
+			'scale':			'y_pct',  
+			'energy_pct':		'y_pct',
+			'mass':				'y_mass',  
+			'bites':			'y_small_nums', 
+			'digest.total':		'y_med_nums', 
+			'digest.inedible':	'y_med_nums', 
+			'digest.edible':	'y_med_nums', 
+			'digest.toxins':	'y_med_nums', 
+			'food_eaten':		'y_med_nums', 
+			'toxins':			'y_med_nums', 
+			'deficient':		'y_med_nums', 
+			'metab.base':		'y_med_nums', 
+			'metab.motors':		'y_med_nums', 
 		}
 					
 		// these datasets are on by default. all others must be toggled on
-		const visible_datasets = ['health','scale','energy_pct'];
+		const visible_datasets = ['health','life','stomach','scale','energy_pct'];
 		
 		// create the data sets based on record trackers.
 		// each tracker tracks a set of named statistics.
