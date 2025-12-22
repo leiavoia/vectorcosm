@@ -839,8 +839,6 @@ export class FinishingSimulation extends Simulation {
 		// food
 		b.total_fitness_score += 5 * b.stats.food.bites;
 		b.total_fitness_score += 3 * ( b.stats.food.required / b.mass ) * 10;
-		b.total_fitness_score -= 1 * ( b.stats.food.toxin_dmg / b.mass ) * 10;
-		b.total_fitness_score -= 1 * ( b.stats.food.deficit_dmg / b.mass ) * 10;
 		// attacks
 		// b.total_fitness_score += 2 * b.stats.combat.attacks;
 		// b.total_fitness_score -= 2 * b.stats.combat.attacks_received;

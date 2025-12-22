@@ -166,12 +166,6 @@ export default class Sensor {
 				case 'lifespan':
 					this.senseFunction = this.senseLifespan;
 					break;
-				case 'toxins':
-					this.senseFunction = this.senseToxins;
-					break;
-				case 'malnourished':
-					this.senseFunction = this.senseMalnourished;
-					break;
 				case 'chaos':
 					this.senseFunction = this.senseChaos;
 					break;
@@ -624,11 +618,6 @@ export default class Sensor {
         return [val];
     }
 
-    senseToxins() {
-        let val = this.owner.metab.toxins ? 1 : 0;
-        return [val];
-    }
-
     sensePulse() {
 		// if phase is zero, use a constant value instead
 		let val = this.power;
@@ -636,11 +625,6 @@ export default class Sensor {
 			val = Math.abs( Math.sin( globalThis.vc.simulation.stats.round_time / this.phase ) );
 		}
         return [val /* * this.power */];
-    }
-
-    senseMalnourished() {
-        let val = this.owner.metab.deficient ? 1 : 0;
-        return [val];
     }
 
     senseChaos() {

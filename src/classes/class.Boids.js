@@ -44,7 +44,7 @@ export class Boid extends PhysicsObject {
 	static LIFE_DECAY_SPEED = 1.5; // death clock. higher number shortens all lifespans
 	static HEALTH_PENALTY_EXP = 2; // high number makes bad health drastically more bad.
 	static HEALTH_PENALTY_COEF = 1.5; // high number makes bad health drastically more bad.
-	static MIN_HEALTH_CREDIT = 0.25; // minimum amount of life credit to use if plant in perfect health.
+	static MIN_HEALTH_CREDIT = 0.25; // minimum amount of life credit to use if organism in perfect health.
 	static HEALTH_UPDATE_FREQ = 5; // 5 second intervals
 	
 	Reset() {
@@ -55,11 +55,9 @@ export class Boid extends PhysicsObject {
 		this.accel_x = 0;
 		this.accel_y = 0;		
 		this.ang_vel = 0;
-		this.metab.energy = this.metab.max_energy;
 		this.age = 0; // in seconds
-		this.metab.stomach.fill(0);
+		this.metab.energy = this.metab.max_energy;
 		this.metab.stomach_total = 0;
-		this.metab.bowel.fill(0);
 		this.metab.bowel_total = 0;
 		this.metab.seed_dna = null;
 		this.angle = Math.random()*Math.PI*2;
@@ -97,12 +95,6 @@ export class Boid extends PhysicsObject {
 			},
 			food: {
 				total: 0,
-				toxins: 0,
-				edible: 0,
-				inedible: 0,
-				required: 0,
-				toxin_dmg: 0,
-				deficit_dmg: 0,
 				energy: 0,
 				bites: 0
 			},
@@ -137,13 +129,8 @@ export class Boid extends PhysicsObject {
 					'metab.motors': 'sum',
 					'bites': 'sum',
 					'digest.total': 'sum',
-					'digest.inedible': 'sum',
-					'digest.edible': 'sum',
-					'digest.toxins': 'sum',
-					'growth_split': 'avg',
 					'food_eaten': 'sum',
-					// 'toxins': 'sum',
-					// 'deficient': 'sum',
+					'growth_split': 'avg',
 		 		} 
 			} );
 		}
@@ -188,14 +175,14 @@ export class Boid extends PhysicsObject {
 			light_tolr: 0.5, // 0..1
 			heat_pref: 0.5, // 0..1
 			heat_tolr: 0.5, // 0..1
-			nutrition: new Array(8).fill(0.5),// array of nutritional benefit of primary nutrients. 0..1: edible, >1: required, <0: toxic
+			food_pref: 0.5,					// value of food this organism prefers
 			growth_rate: 2,					// sigmoid incline exponent. 0..20 works well.
 			base_stomach_size: 0.1,			// percentage of mass
 			base_bowel_size: 0.05,			// percentage of mass
 			base_metabolic_rate: 0.003, 	// resting metabolism sans motors, energy per second per mass
 			base_digest_rate: 0.01, 		// food per second per mass
 			base_energy_meter: 1,			// energy meter per mass
-			poop_map: new Array(8).fill(0),	// nutrient conversion on excretion. array of [ [from], [to] ]
+			poop_shift: 0.5,				// nutrient conversion on excretion. array of [ [from], [to] ]
 			poop_complexity: 0,				// determines food complexity value of resulting poop
 			poop_buoy: 0,					// you were going to ask eventually anyway
 			base_bite_size: 1,				// amount of food per bite attempt per mass
@@ -212,15 +199,12 @@ export class Boid extends PhysicsObject {
 			stomach_size: 1,				// current final size of stomach
 			bowel_size: 1,					// current final size of bowels
 			stomach_total: 0,				// total mass of stomach contents
+			stomach_color: 0,				// average flavor of food in stomach
 			bowel_total: 0,					// total mass of bowel contents
-			stomach: new Array(8).fill(0),	// nutrient contents of stomach
-			bowel: new Array(8).fill(0),	// nutrient contents of bowel
 			max_energy: 1,					// maximum value of energy meter
 			energy: 0,						// current energy value
 			bite_size: 1,					// amount of food per bite attempt
 			bite_time: 0,					// countdown timer. zero if ready to bite. resets to bite_speed on bite.
-			deficient: 0,					// UI flag. true if any required nutrient is currently causing harm from deficiency
-			toxins: 0,						// UI flag. true if stomach contains any toxins 
 			seed_dna: null					// DNA str of seed swallowed from food
 		};
 		// collision
@@ -311,118 +295,80 @@ export class Boid extends PhysicsObject {
 		this.RecordStat('metab.base', energy_to_burn);
 		globalThis.vc.simulation.RecordStat('energy_used',energy_to_burn);
 		
+		// DIGESTION ----------------------------\/---------------------------------------
+		
 		// digestion (optimized by not processing stomach contents every single frame)
+		// TODO: we could globalize this instead of tracking on each individual boid
 		const digestInterval = 0.5; // we can factor this out when tuning optimization is balanced
 		this.nextDigest = (this.nextDigest||0) + delta;
 		if ( this.nextDigest >= digestInterval ) {
 			
 			this.nextDigest -= digestInterval;
 			
-			// make sure our numbers are right
-			this.metab.stomach_total = this.metab.stomach.reduce( (a,c) => a + (c>0?c:0), 0 );
+			// digest food
+			if ( this.metab.stomach_total > 0 ) {
+			
+				// if we have enough energy to grow, let's grow
+				let growth_split = 0;
+				if ( this.mass < this.body.mass ) {
+					// growth is a balance between available energy and current physical size (room to grow)
+					const energy_pct = this.metab.energy / this.metab.max_energy;
+					// when energy available is low, we can't spend much on growth. sigmoidal growth as there is more to spare.
+					const quarter_k = 0.25 * this.traits.growth_rate;
+					const energy_split = quarter_k / ( quarter_k + Math.exp( -this.traits.growth_rate * ( energy_pct - (2/this.traits.growth_rate) ) ) ); 		
+					// when mass is small, growth potential is big and slows down as organism gets bigger	
+					const growth_potential = Math.pow( 1 - ( this.mass / this.body.mass ), 2 ); // use larger expo for steeper curve
+					growth_split = growth_potential * energy_split;
+					this.RecordStat('growth_split',growth_split);
+				}
 				
-			// count the number of non-zero food channels
-			const nonZeroFoods = this.metab.stomach.reduce( (a,c) => a + (c>0?1:0), 0 );
-			
-			// calculate the per-channel digestive rate
-			const channelDigestAmount = ( this.metab.digest_rate * digestInterval ) / nonZeroFoods;
-			
-			// if we have enough energy to grow, let's grow
-			let growth_mass = 0; // accumulates as we loop over nutrients
-			let growth_split = 0; // how much of our food we want to put towards growth
-			if ( this.mass < this.body.mass ) {
-				const energy_pct = this.metab.energy / this.metab.max_energy;
-				// when energy available is low, we can't spend much on growth. sigmoidal growth as there is more to spare.
-				const quarter_k = 0.25 * this.traits.growth_rate;
-				const energy_split = quarter_k / ( quarter_k + Math.exp( -this.traits.growth_rate * ( energy_pct - (2/this.traits.growth_rate) ) ) ); 		
-				// when mass is small, growth potential is big and slows down as organism gets bigger	
-				const growth_potential = Math.pow( 1 - ( this.mass / this.body.mass ), 2 ); // use larger expo for steeper curve
-				growth_split = growth_potential * energy_split;
-				this.RecordStat('growth_split',growth_split);
-			}
-			
-			// reset health signals
-			this.metab.deficient = 0;
-			this.metab.toxins = 0;
-			
-			// digest each food channel
-			for ( let i=0; i < this.metab.stomach.length; i++ ) {
-				const v = this.metab.stomach[i];
-				// if the value is positive, digest it
-				if ( v > 0 ) {
-					let morsel = Math.min( v, channelDigestAmount );
-					this.metab.stomach[i] -= morsel; // can go negative
-					this.metab.stomach_total -= morsel;
-					let energy_portion = 1;
+				// calculate bite size and subtract from stomach contents
+				let morsel = Math.min( this.metab.stomach_total, this.metab.digest_rate * digestInterval );
+				this.metab.stomach_total -= morsel;
 					
-					// if the nutrient is edible, siphon off some for growth
-					if ( this.traits.nutrition[i] > 0 ) {
-						growth_mass += morsel * growth_split * MAGIC_ENERGY_MULTIPLIER; // /!\ HACK 2 WIN
-						energy_portion = morsel * ( 1 - growth_split ); 
-					}
+				// siphon off some for growth - growth only cares about mass, does not require metabolism (yet...)
+				let growth_mass = morsel * growth_split * MAGIC_ENERGY_MULTIPLIER; // /!\ HACK 2 WIN
+				let energy_portion = morsel * ( 1 - growth_split ); 
 					
-					// gain or lose energy from metabolism
-					if ( this.traits.nutrition[i] != 0 ) {
-						let energy_gain = energy_portion * this.traits.nutrition[i] * MAGIC_ENERGY_MULTIPLIER;
-						this.metab.energy += energy_gain;
-						if ( energy_gain > 0 ) { this.stats.food.energy += energy_gain; } 
-						else if ( energy_gain < 0 ) { this.stats.food.toxin_dmg += energy_gain; } 
-					}
+				// determine nutritional value of food being digested.
+				// this provides 1.0 when distance is small in flavor-space,
+				// falling off sharply as distance increases to maximum (0.5).
+				// You may want this to go ABOVE 1.0 to reward better food sources.
+				// desmos Super-Gaussian falloff with wide center, sharp edges:
+				// exp(-((min(abs(c - p), 1 - abs(c - p)) / w)^s))
+				const foodEdibleRangeWidth = 0.5; // could be a genetic trait
+				const foodEdibilityEdgeSharpness = 5.0; // could be a genetic trait
+				const rawFlavorDifference = Math.abs(this.metab.stomach_color - this.traits.food_pref);
+				const circularFlavorDistance = Math.min( rawFlavorDifference, 1 - rawFlavorDifference );
+				const normalizedDistance = circularFlavorDistance / foodEdibleRangeWidth;
+				const food_quality = Math.exp( -Math.pow(normalizedDistance, foodEdibilityEdgeSharpness) );
+
+				// gain or lose energy from metabolism
+				let energy_gain = energy_portion * food_quality * MAGIC_ENERGY_MULTIPLIER;
+				this.metab.energy += energy_gain;
+				this.stats.food.energy += energy_gain;
 					
-					// waste products
-					this.metab.bowel[ this.traits.poop_map[i] ] += energy_portion;
-					this.metab.bowel_total += energy_portion;
-					this.metab.toxins += this.traits.nutrition[i] < 0 ? morsel : 0;
-					this.RecordStat('poop', energy_portion);
+				// waste products
+				this.metab.bowel_total += energy_portion;
+				this.RecordStat('poop', energy_portion);
 					
-					// stat tracking 
-					this.stats.food.total += morsel;
-					this.RecordStat('digest.total', morsel);
-					if ( this.traits.nutrition[i] < 0 ) { 
-						this.stats.food.toxins += morsel;
-						this.RecordStat('digest.toxins', morsel);
-					}
-					else if ( this.traits.nutrition[i] == 0 ) { 
-						this.stats.food.inedible += morsel; 
-						this.RecordStat('digest.inedible', morsel);
-					}
-					else if ( this.traits.nutrition[i] >= 2 ) { 
-						this.stats.food.required += morsel;
-						this.RecordStat('digest.required', morsel); 
-					}
-					else { 
-						this.stats.food.edible += morsel; 
-						this.RecordStat('digest.edible', morsel);
-					}
-				}
-				// if we're empty but nutrient is required, check for scurvy
-				// below zero values represent deficiency 
-				else if ( v <= 0 && this.traits.nutrition[i] >= 2 ) {
-					// morsel represents the amount we wish we had
-					let morsel = ( this.metab.digest_rate * digestInterval ) / this.metab.stomach.length;
-					this.metab.stomach[i] -= morsel; // going further into debt
-					this.metab.deficient += this.metab.stomach[i]; // deficiency is cumulative
-					this.stats.food.deficit += morsel;
+				// stat tracking 
+				this.stats.food.total += morsel;
+				this.RecordStat('digest.total', morsel);
+				
+				// did we grow?
+				if ( growth_mass > 0 ) {
+					this.mass += growth_mass;
+					if ( this.mass >= this.body.mass ) { this.mass = this.body.mass; }
+					this.ScaleBoidByMass();
 				}
 			}
-			
-			// toxins signal needs to be 0..1 range for health evaluation
-			this.metab.toxins = Math.tanh(this.metab.toxins);
-			
-			// deficiency has no upper limit, so just make something up
-			this.metab.deficient = Math.tanh(this.metab.deficient / this.metab.stomach_size);
 			
 			// potty time?
 			if ( this.metab.bowel_total >= this.metab.bowel_size ) {
 				this.Poop();
 			}
 			
-			// did we grow?
-			if ( growth_mass > 0 ) {
-				this.mass += growth_mass;
-				if ( this.mass >= this.body.mass ) { this.mass = this.body.mass; }
-				this.ScaleBoidByMass();
-			}
 		}		
 		
 		// min/max energy cap
@@ -627,16 +573,8 @@ export class Boid extends PhysicsObject {
 					const space_left = this.metab.stomach_size - this.metab.stomach_total;
 					const bitesize = Math.min( space_left, this.metab.bite_size );
 					const morsel = food.Eat( bitesize );
-					// add each nutrient to the stomach by channel
-					for ( let i=0; i < food.nutrients.length; i++ ) {
-						if ( !food.nutrients[i] ) { continue; }
-						// note: channels that are "deficient" are negative here. 
-						// If we eat something, it magically jumps back to positive.
-						const v = morsel * food.nutrients[i];
-						this.metab.stomach[i] = Math.max( v, this.metab.stomach[i] + v );
-					}
-					// stat tracking
-					this.metab.stomach_total = this.metab.stomach.reduce( (a,c) => a + (c>0?c:0), 0 );
+					this.metab.stomach_color = utils.modularWeightedAverage( this.metab.stomach_color, this.metab.stomach_total, food.flavor, morsel );
+					this.metab.stomach_total += morsel;
 					this.stats.food.bites++;
 					this.RecordStat('bites',1);
 					globalThis.vc.simulation.RecordStat('bites',1);
@@ -660,24 +598,29 @@ export class Boid extends PhysicsObject {
 
 	Poop() {
 		if ( !this.metab.bowel_total ) { return; }
-		// TODO: if there's too much crap on the screen, consider just having 
-		// it absorb into the background aether instead of ignoring it.
-		if ( globalThis.vc.tank.foods.length < 300 && globalThis.vc.simulation.settings?.poop!==false ) {
-			const f = new Food( this.x, this.y, { 
-				value: this.metab.bowel_total,
-				lifespan: Math.min( 15, this.metab.bowel_total/3 ),
-				buoy_start: ( this.traits.poop_buoy + ( this.traits.poop_buoy 
-					- (this.traits.poop_buoy * 2 * Math.random()) ) ),
-				buoy_end: ( (this.traits.poop_buoy + this.traits.poop_buoy) 
-					+ ( this.traits.poop_buoy - (this.traits.poop_buoy * 2 * Math.random()) ) ),
-				nutrients: this.metab.bowel.map( v => v / this.metab.bowel_total ),
-				complexity: this.traits.poop_complexity,
-				seed: this.metab.seed_dna
-				} );
-			globalThis.vc.tank.foods.push(f);
+		if ( globalThis.vc.simulation.settings?.poop!==false ) {
+			// create a food particle if there is room
+			if ( globalThis.vc.tank.foods.length < 300 ) {
+				const f = new Food( this.x, this.y, { 
+					value: this.metab.bowel_total,
+					lifespan: Math.min( 15, this.metab.bowel_total/3 ),
+					buoy_start: ( this.traits.poop_buoy + ( this.traits.poop_buoy 
+						- (this.traits.poop_buoy * 2 * Math.random()) ) ),
+					buoy_end: ( (this.traits.poop_buoy + this.traits.poop_buoy) 
+						+ ( this.traits.poop_buoy - (this.traits.poop_buoy * 2 * Math.random()) ) ),
+					flavor: ( this.metab.stomach_color + this.traits.poop_shift ) % 1,
+					complexity: this.traits.poop_complexity,
+					seed: this.metab.seed_dna
+					} );
+				globalThis.vc.tank.foods.push(f);
+			}
+			// too much crap on the screen - just absorb into background
+			else {
+				const cell = globalThis.vc.tank.datagrid.CellAt( this.x, this.y );
+				cell.matter += this.metab.bowel_total;
+			}
 		}
 		this.metab.bowel_total = 0;
-		this.metab.bowel.fill(0);
 		this.metab.seed_dna = null;
 	}
 
@@ -692,12 +635,7 @@ export class Boid extends PhysicsObject {
 			'bites': (this.tally.bites || 0),
 			'energy_pct': (this.metab.energy / this.metab.max_energy),
 			'digest.total': (this.tally['digest.total'] || 0),
-			'digest.inedible': (this.tally['digest.inedible'] || 0),
-			'digest.edible': (this.tally['digest.edible'] || 0),
-			'digest.toxins': (this.tally['digest.toxins'] || 0),
 			'food_eaten': (this.tally['food_eaten'] || 0),
-			// 'toxins': (this.tally['toxins'] || 0),
-			// 'deficient': (this.tally['deficient'] || 0),
 			'metab.base': (this.tally['metab.base'] || 0),
 			'metab.motors': (this.tally['metab.motors'] || 0),
 			'growth_split': (this.tally['growth_split'] || 0),
@@ -725,13 +663,9 @@ export class Boid extends PhysicsObject {
 		// current energy level (curved)
 		const energy_health = 1 - Math.exp( -10 * ( this.metab.energy / this.metab.max_energy ) );
 		
-		// current energy level (curved)
-		const toxins_health = this.metab.toxins;
-		const deficient_health = this.metab.deficient;
-		
 		// averaged health (you could do a weighted average for more interest)
-		let health = deficient_health + toxins_health + energy_health + light_health + heat_health;
-		health /= 5;
+		let health = energy_health + light_health + heat_health;
+		health /= 3;
 		
 		// average health over time to avoid wild swings
 		this.health = ( this.health + this.health + health ) / 3;
@@ -1047,9 +981,9 @@ export class Boid extends PhysicsObject {
 		if ( this.metab.energy > this.metab.max_energy ) { 
 			this.metab.energy = this.metab.max_energy; 
 		}
+		// explosive diarrhea	
 		if ( this.metab.stomach_total > this.metab.stomach_size ) { 
-			this.metab.stomach_total = this.metab.stomach_size; 
-			// TODO: explosive diarrhea	
+			this.Poop();
 		}
 		this.collision.radius = Math.max(this.length, this.width) / 2;
 	}
@@ -1089,7 +1023,7 @@ export class Boid extends PhysicsObject {
 					- (this.traits.poop_buoy * 2 * Math.random()) ) ),
 				buoy_end: ( (3 * this.traits.poop_buoy) 
 					+ ( this.traits.poop_buoy - (this.traits.poop_buoy * 2 * Math.random()) ) ),
-				nutrients: this.traits.nutrition, // arbitrary. reuse interesting data we already have.
+				flavor: ( 1 + this.traits.food_pref - this.traits.poop_shift ) % 1,
 				complexity: this.traits.poop_complexity // prevent canabolism
 				} );
 			globalThis.vc.tank.foods.push(f);	
@@ -1155,16 +1089,7 @@ export class Boid extends PhysicsObject {
 		if ( this.traits.food_mask==31 ) { this.traits.food_mask = 30; } // can't have it all
 		else if ( !this.traits.food_mask ) { this.traits.food_mask = 1; } // need at least something
 		// nutrition profile
-		for ( let i=0; i < 8; i++ ) {
-			this.traits.nutrition[i] = this.dna.shapedNumber( this.dna.genesFor(`nutrition value ${i}`,2,1), -3, 3, 0.5 - i*0.1, 3 - i*0.2 );
-			// inedible zone 0 to -2 clamps to zero
-			if ( this.traits.nutrition[i] > -2 && this.traits.nutrition[i] < 0 ) { this.traits.nutrition[i] = 0; } 
-		}
-		// if nothing is edible, pick one random nutrient
-		if ( 0 == this.traits.nutrition.reduce( (a,c) => a+c, 0 ) ) {
-			let i = this.dna.shapedInt( this.dna.genesFor(`nutrition fallback index`,2,1), 0, 7, 0, 2 );
-			this.traits.nutrition[i] = this.dna.shapedNumber( this.dna.genesFor(`nutrition value fallback`,2,1), 0.2, 3, 1, 5 );
-		}
+		this.traits.food_pref = this.dna.shapedNumber( this.dna.genesFor(`food_pref`,2,1) );
 		this.traits.offspring_investment	= this.dna.shapedNumber( this.dna.genesFor('offspring_investment',2,1), 0.1, 1.0, 0.5, 2 );
 		this.traits.growth_rate				= this.dna.shapedNumber( this.dna.genesFor('growth_rate',2,1), 0, 20, 3, 3 );
 		this.traits.base_stomach_size		= this.dna.shapedNumber( this.dna.genesFor('base_stomach_size',2,1), 0.5, 0.02, 0.1, 2 );
@@ -1174,6 +1099,7 @@ export class Boid extends PhysicsObject {
 		this.traits.base_energy_meter		= this.dna.shapedNumber( this.dna.genesFor('base_energy_meter',2,1), 0.4, 2, 1, 2 );
 		this.traits.base_bite_size			= this.traits.base_stomach_size * this.dna.shapedNumber( this.dna.genesFor('base_bite_size',2,1), 0.2, 0.8, 0.4, 2 );
 		this.traits.bite_speed				= this.dna.shapedNumber( this.dna.genesFor('bite_speed',2,1), 0.5, 5, 2, 2 );	
+		this.traits.poop_shift				= this.dna.shapedNumber( this.dna.genesFor(`poop_shift`, 2, 1 ), 0, 1, 0.5, 2 );
 		this.traits.poop_buoy				= this.dna.shapedNumber( this.dna.genesFor('poop_buoy',2,1), Boid.min_poop_buoy, Boid.max_poop_buoy, 0, 3 );
 		this.traits.poop_complexity			= 0;
 		// no autotrophy, thats gross - find the first zero bit (simplest shape we cannot eat)
@@ -1184,21 +1110,15 @@ export class Boid extends PhysicsObject {
 			}
 		}
 		if ( !this.traits.poop_complexity ) { this.traits.poop_complexity = 1; }
-		// poop map converts nutrients into other nutrients
-		this.traits.poop_map = [];
-		for ( let i=0; i< this.traits.nutrition.length; i++ ) {
-			let to = this.dna.shapedInt( this.dna.genesFor(`poopmap ${i}`, 2, 1 ), 0, 7, 7, 4 );
-			this.traits.poop_map[i] = to;
-		}
 
 		// do some accounting on the traits we've created
 		{
-			// total all positive nutrition requirements
-			let cost = this.traits.nutrition.reduce( (a,c) => a + (c>0?c:0), 0 );
-			this.traits.boxfit.push([ Math.pow(cost,1.5), cost, 'body.nutrition']);
+			// nutritional value of food
+			// let cost = this.traits.nutrition.reduce( (a,c) => a + (c>0?c:0), 0 );
+			// this.traits.boxfit.push([ Math.pow(cost,1.5), cost, 'body.nutrition']);
 			
 			// more food sources costs more
-			cost = 0;
+			let cost = 0;
 			for ( let i = 0; i < 6; i++ ) {
 				if ( this.traits.food_mask & (1 << i) ) {
 					cost += 3 + i;
@@ -1945,8 +1865,6 @@ export class Boid extends PhysicsObject {
 			'world-x': 		0.3,
 			'world-y': 		0.3,
 			'lifespan':		0.1,
-			'malnourished':	0.05,
-			'toxins': 		0.05,
 			'chaos': 		0.03,
 			//'friends': 		0.0,
 			//'enemies': 		0.0,
@@ -2121,7 +2039,11 @@ export class Boid extends PhysicsObject {
 	Export( as_JSON=false ) {
 		let b = {};
 		// POD we can just copy over
-		let datakeys = ['id','x','y','species','genus','life_credits','age','stomach_contents', 'energy', 'mass', 'scale', 'length', 'width', 'generation','speciation', 'metab' ];		
+		let datakeys = [
+			'id','x','y','species','genus','life_credits','age',
+			'mass', 'scale', 'length', 
+			'width', 'generation','speciation', 'metab' 
+		];		
 		for ( let k of datakeys ) { b[k] = this[k]; }
 		b.brain = this.brain.Export(false); // POD
 		b.dna = this.dna.str;

@@ -54,7 +54,7 @@ export default class Plant {
 			fruit_buoy_start: -10,
 			fruit_buoy_end: -10,
 			fruit_complexity: 2,
-			fruit_nutrients: [1,1,1,1,1,1,1,1],
+			fruit_flavor: 0.0, // 0..1
 		};
 	}
 	
@@ -114,7 +114,7 @@ export default class Plant {
 						lifespan: utils.RandomFloat( 20, 60 ),
 						buoy_start: utils.RandomFloat( -100, 100 ),
 						buoy_end: utils.RandomFloat( -200, 0 ),
-						nutrients: this.traits.fruit_nutrients.map( n => 1 - n ),
+						flavor: this.traits.fruit_flavor,
 						complexity: 1,
 						} );
 				
@@ -170,7 +170,7 @@ export default class Plant {
 							lifespan: ( this.traits.fruit_lifespan * ( 1 - (Math.random() * 0.2 ) ) ),
 							buoy_start: this.traits.fruit_buoy_start + ( 100 - (200 * Math.random()) ),
 							buoy_end: this.traits.fruit_buoy_end + ( 100 - (200 * Math.random()) ),
-							nutrients: this.traits.fruit_nutrients,
+							flavor: this.traits.fruit_flavor,
 							complexity: this.traits.fruit_complexity,
 							// vx: utils.RandomFloat(100,1000), // boing!
 							// vy: utils.RandomFloat(100,1000),
@@ -216,6 +216,17 @@ export default class Plant {
 		// average health over time to avoid wild swings
 		this.health = ( this.health + this.health + health ) / 3;
 	}
+	
+	RandomizeAge() {
+		const rand = Math.random();
+		this.age = this.traits.life_credits * rand;
+		this.life_credits = this.traits.life_credits - this.age;
+		this.mass = Math.log(rand*rand*rand) / -this.traits.growth_curve_exp;
+		// give fruiting a head start so that new tanks dont immediately starve
+		let threshold = this?.traits?.fruit_num * this?.traits?.fruit_size;
+		if ( !threshold ) { threshold = 300; }
+		this.fruit_credit = utils.RandomFloat( threshold * 0.96, threshold );
+	}	
 	
 }
 
@@ -318,16 +329,7 @@ export class DNAPlant extends Plant {
 		this.traits.fruit_buoy_end = this.dna.mix( this.dna.genesFor('fruit_buoy_end',2), -100, 100 );
 		const fruit_complexity_gene = 0x08000000 | this.dna.genesFor('fruit_complexity',1,true);
 		this.traits.fruit_complexity = Math.ceil( this.dna.shapedInt( fruit_complexity_gene, 0, 599, 150, 1.5 ) / 100 );
-		this.traits.fruit_nutrients = [
-			Math.max( 0, this.dna.mix( this.dna.genesFor('fruit nutrient 1',2,1), -15, 10 ) ),
-			Math.max( 0, this.dna.mix( this.dna.genesFor('fruit nutrient 2',2,1), -15, 10 ) ),
-			Math.max( 0, this.dna.mix( this.dna.genesFor('fruit nutrient 3',2,1), -15, 10 ) ),
-			Math.max( 0, this.dna.mix( this.dna.genesFor('fruit nutrient 4',2,1), -15, 10 ) ),
-			Math.max( 0, this.dna.mix( this.dna.genesFor('fruit nutrient 5',2,1), -15, 10 ) ),
-			Math.max( 0, this.dna.mix( this.dna.genesFor('fruit nutrient 6',2,1), -15, 10 ) ),
-			Math.max( 0, this.dna.mix( this.dna.genesFor('fruit nutrient 7',2,1), -15, 10 ) ),
-			Math.max( 0, this.dna.mix( this.dna.genesFor('fruit nutrient 8',2,1), -15, 10 ) ),
-		];
+		this.traits.fruit_flavor = this.dna.mix( this.dna.genesFor('fruit flavor',2,1), 0, 1, 0.5, 2 ); // create slight rarity
 		this.traits.life_credits = this.dna.shapedInt( this.dna.genesFor('life_credits',3,1), 1000, 10000, 3000, 2.2 );
 		this.traits.max_germ_density = this.dna.shapedNumber( this.dna.genesFor('max_germ_density',2,1), 0, 10, 4, 2 );
 		this.traits.germ_distance = this.dna.shapedNumber( this.dna.genesFor('germ_distance',2,1), 10, 1000, 200, 2 );
@@ -473,16 +475,6 @@ export class DNAPlant extends Plant {
 	SortByY(a,b) { return b[1] - a[1]; }
 	SortByX(a,b) { return b[0] - a[0]; }
 	SortByAngle(a,b) { Math.atan2(b[1],b[0]) - Math.atan2(a[1],a[0]); }
-	RandomizeAge() {
-		const rand = Math.random();
-		this.age = this.traits.life_credits * rand;
-		this.life_credits = this.traits.life_credits - this.age;
-		this.mass = Math.log(rand*rand*rand) / -this.traits.growth_curve_exp;
-		// give fruiting a head start so that new tanks dont immediately starve
-		let threshold = this?.traits?.fruit_num * this?.traits?.fruit_size;
-		if ( !threshold ) { threshold = 300; }
-		this.fruit_credit = utils.RandomFloat( threshold * 0.96, threshold );
-	}	
 }
 Plant.PlantTypes.DNAPlant = DNAPlant;
 
@@ -499,7 +491,7 @@ export class PendantLettuce extends Plant {
 		this.traits.fruit_size = 120;
 		this.traits.fruit_lifespan = 80;
 		this.traits.fruit_complexity = 3;
-		this.traits.fruit_nutrients = [10,20,25,0,0,0,5,0];
+		this.traits.fruit_flavor = 0.11;
 		this.CreateBody();
 	}
 	GeoData() {
@@ -520,7 +512,7 @@ export class PendantLettuce extends Plant {
 		// make the main body shape
 		const linewidth = utils.BiasedRandInt( 1, 6, 2, 0.95 );
 		const tip_hue = utils.RandomFloat(0.25,0.85);
-		const tip_color = `hsl(${tip_hue*255},50%,40%)`;
+		const tip_color = `hsl(${tip_hue*255},50%,40%)`; // 255 not a typo
 		const stops = [ [0, '#174D1F'], [1, tip_color] ];		
 		const grad = { type:'radial', xoff:0, yoff:1, r, stops, units:'userSpaceOnUse' };
 		this.geo.children.push({ 
@@ -571,7 +563,7 @@ export class VectorGrass extends Plant {
 		this.traits.fruit_size = utils.RandomInt(20,50);
 		this.traits.fruit_lifespan = 40 + utils.RandomInt(0,15);
 		this.traits.fruit_complexity = 1;
-		this.traits.fruit_nutrients = [0,0,5,20,15,0,0,0];
+		this.traits.fruit_flavor = 0.55;
 		this.traits.fruit_buoy_start = 100 - ( 200 * Math.random() );
 		this.traits.fruit_buoy_end = 100 - ( 200 * Math.random() );
 		this.CreateBody();
@@ -581,7 +573,7 @@ export class VectorGrass extends Plant {
 	}	
 	CreateBody() {
 		const tip_hue = utils.RandomFloat(0.55,0.8);
-		const tip_color = `hsl(${tip_hue*255},85%,75%)`;
+		const tip_color = `hsl(${tip_hue*255},85%,75%)`; // 255 not a typo
 		const stops = [ [0, '#697'], [0.68, '#697'], [1, tip_color] ];		
 		const grad = { xoff:0, yoff:1, xoff2:0, yoff2:0, stops, units:'objectBoundingBox' };
 		const dashes = [2,2];
@@ -631,7 +623,7 @@ export class WaveyVectorGrass extends Plant {
 		this.traits.fruit_size = utils.RandomInt(40,80);
 		this.traits.fruit_lifespan = 40 + utils.RandomInt(0,15);
 		this.traits.fruit_complexity = 2;
-		this.traits.fruit_nutrients = [20,0,5,0,0,5,0,50];
+		this.traits.fruit_flavor = 0.73;
 		this.traits.fruit_buoy_start = 100 - ( 200 * Math.random() );
 		this.traits.fruit_buoy_end = 100 - ( 200 * Math.random() );
 		this.CreateBody();
@@ -641,7 +633,7 @@ export class WaveyVectorGrass extends Plant {
 	}		
 	CreateBody() {
 		const tip_hue = utils.RandomFloat(0.05,0.20);
-		const tip_color = `hsl(${tip_hue*255},85%,75%)`;
+		const tip_color = `hsl(${tip_hue*255},85%,75%)`; // 255 not a typo
 		const stops = [ [0, '#243'], [0.68, '#726'], [1, tip_color] ];		
 		const grad = { xoff:0, yoff:1, xoff2:0, yoff2:0, stops, units:'objectBoundingBox' };
 		const dashes = [2,2];	
@@ -683,9 +675,9 @@ export class WaveyVectorGrass extends Plant {
 Plant.PlantTypes.WaveyVectorGrass = WaveyVectorGrass;
 
 const plantPicker = new utils.RandomPicker( [
-	// [ PendantLettuce, 	50 ],
-	// [ VectorGrass, 		150 ],
-	// [ WaveyVectorGrass, 50 ],
+	[ PendantLettuce, 	50 ],
+	[ VectorGrass, 		150 ],
+	[ WaveyVectorGrass, 50 ],
 	[ DNAPlant, 250 ],
 ] );
 

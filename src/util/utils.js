@@ -477,3 +477,25 @@ export function getLineIntersection(p0_x, p0_y, p1_x, p1_y, p2_x, p2_y, p3_x, p3
 		y: p0_y + (t * s1_y)
 	};	
 }
+
+export function modularWeightedAverage(a, wa, b, wb) {
+    // 1. Calculate relative weight of b
+    // Normalizes weights so that total weight is 1.0
+    const totalWeight = wa + wb;
+    if (totalWeight === 0) return a; // Avoid division by zero
+    const relativeWeightB = wb / totalWeight;
+
+    // 2. Find the shortest difference between a and b
+    let diff = b - a;
+
+    // Adjust for modular wrapping at the 1.0 boundary
+    // If distance is > 0.5, it's shorter to go the other way
+    if (diff > 0.5) diff -= 1.0;
+    if (diff < -0.5) diff += 1.0;
+
+    // 3. Apply the normalized weight to the shortest path
+    let result = (a + diff * relativeWeightB) % 1.0;
+    
+    // Ensure positive result (correcting JS remainder behavior)
+    return result < 0 ? result + 1.0 : result;
+}

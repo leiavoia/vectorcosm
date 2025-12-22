@@ -217,14 +217,16 @@
 		<p style="text-align:center;">
 			GEN: <output>{boid.generation}</output>&nbsp;&nbsp;
 			SIZE: <output>{boid.length.toFixed(0)}</output>x<output>{boid.width.toFixed(0)}</output>&nbsp;&nbsp;
-			DIET: <output>
+			DIET: <output style="color:hsl({boid.traits.food_pref*360},60%,60%);">
 				{#if (boid.traits.food_mask||0) & 1}▲{/if}
 				{#if (boid.traits.food_mask||0) & 2}■{/if}
 				{#if (boid.traits.food_mask||0) & 4}⬟{/if}
 				{#if (boid.traits.food_mask||0) & 8}⬢{/if}
 				{#if (boid.traits.food_mask||0) & 16}⯃{/if}
 				{#if (boid.traits.food_mask||0) & 32}●{/if}
+			</output>
 				🡒
+			<output style="color:hsl({((boid.traits.food_pref+boid.traits.poop_shift)%1)*360},60%,60%);">
 				{#if boid.traits.poop_complexity==1}▲{/if}
 				{#if boid.traits.poop_complexity==2}■{/if}
 				{#if boid.traits.poop_complexity==3}⬟{/if}
@@ -259,7 +261,7 @@
 				<div style="width:100%; margin-top:0.5em;">
 					<div class="meter" >
 						<output>
-							Age
+							Age{#if boid.age > boid.traits.life_credits} +{/if}
 						</output>
 						<div style="background-color:#1F60AC; height: 100%; width:{(Math.min( 1, (boid.age / boid.traits.life_credits)||0))*100}%"></div>
 					</div>
@@ -273,7 +275,7 @@
 						<output>
 							Stomach
 						</output>
-						<div style="background-color:#1F60AC; height: 100%; width:{((boid.metab.stomach_total / boid.metab.stomach_size)||0)*100}%"></div>
+						<div style="background-color:hsl({boid.metab.stomach_color*360},60%,50%); height: 100%; width:{((boid.metab.stomach_total / boid.metab.stomach_size)||0)*100}%"></div>
 					</div>
 					<!-- <div class="meter" >
 						<output>
@@ -440,29 +442,11 @@
 			<span style="width:32%; display:inline-block;" title="Number of food bites taken">
 				bites:&nbsp;<output>{(boid.stats.food.bites||0).toFixed()}</output>
 			</span>
-			<span style="width:32%; display:inline-block;" title="Edible food eaten">
-				edible:&nbsp;<output>{(boid.stats.food.edible||0).toFixed()}</output>
-			</span>
-			<span style="width:32%; display:inline-block;" title="Toxic food eaten">
-				toxins:&nbsp;<output>{(boid.stats.food.toxins||0).toFixed()}</output>
-			</span>
 			<span style="width:32%; display:inline-block;" title="Total food eaten">
-				total:&nbsp;<output>{(boid.stats.food.total||0).toFixed()}</output>
-			</span>
-			<span style="width:32%; display:inline-block;" title="Inedible food eaten">
-				inedible:&nbsp;<output>{(boid.stats.food.inedible||0).toFixed()}</output>
-			</span>
-			<span style="width:32%; display:inline-block;" title="Damage from toxic food">
-				tox_dmg:&nbsp;<output>{(boid.stats.food.toxin_dmg||0).toFixed()}</output>
+				consumed:&nbsp;<output>{(boid.stats.food.total||0).toFixed()}</output>
 			</span>
 			<span style="width:32%; display:inline-block;" title="Energy obtained from food">
-				energy:&nbsp;<output>{(boid.stats.food.energy||0).toFixed()}</output>
-			</span>
-			<span style="width:32%; display:inline-block;" title="Nutrient-required food eaten">
-				required:&nbsp;<output>{(boid.stats.food.required||0).toFixed()}</output>
-			</span>
-			<span style="width:32%; display:inline-block;" title="Damage from malnutrition">
-				def_dmg:&nbsp;<output>{(boid.stats.food.deficit_dmg||0).toFixed()}</output>
+				cal_burn:&nbsp;<output>{(boid.stats.food.energy||0).toFixed()}</output>
 			</span>
 			<!-- <span style="width:32%; display:inline-block;" title="Energy burned from base metabolic rate">
 				metab:&nbsp;<output>{(boid.stats.metab.base||0).toFixed()}</output>
@@ -477,37 +461,7 @@
 				</span>
 			{/each}
 		</p>
-
-		<h4>Digestion</h4>
-		<table style="width:100%" id="nutrition_table">
-			<tbody>
-				<tr>
-					<td>Nutrition</td>
-					{#each boid.traits.nutrition as v}
-						<td class={{ verybad:(v<=-2), verygood:(v>=2), good:(v>0&&v<2) }}>
-							{v.toFixed(1)}
-						</td>
-					{/each}
-				</tr>	
-				<tr>
-					<td>Stomach</td>
-					{#each boid.metab.stomach as v}
-						<td class={{ good:(v>0), bad:(v<0) }}>
-							{v.toFixed(1)}
-						</td>
-					{/each}
-				</tr>	
-				<tr>
-					<td>Bowel</td>
-					{#each boid.metab.bowel as v}
-						<td>
-							{v.toFixed(1)}
-						</td>
-					{/each}
-				</tr>	
-				
-		</table>
-				
+	
 	{/if}			
 			
 </section>	

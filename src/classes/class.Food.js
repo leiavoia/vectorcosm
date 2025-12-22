@@ -25,12 +25,7 @@ export default class Food extends PhysicsObject {
 		this.value = 300;
 		this.age = 0;
 		this.lifespan = 60 + Math.random() * 120;
-		this.nutrients = new Array(8); // as percentages. values add to 1
-		if ( !params || !params.nutrients ) { 
-			for ( let i=0; i < this.nutrients.length; i++ ) {
-				this.nutrients[i] = Math.random(); 
-			}
-		}
+		this.flavor = Math.random(); // 0..1
 		this.complexity = utils.RandomInt(1,6);
 		this.frictionless = false;
 		this.sense = new Array(16).fill(0);
@@ -41,84 +36,33 @@ export default class Food extends PhysicsObject {
 		Object.assign( this, params );
 		this.r = Math.sqrt( 2 * this.value / Math.PI ) * 10;
 		this.collision = { radius: this.r, shape: 'circle', qid:0 };		
-		// make sure we have exactly 8 nutrient indexes
-		if ( this.nutrients.length !== 8 ) {
-			for ( let i=0; i < 8; i++ ) {
-				this.nutrients[i] = this.nutrients[i] || 0;
-			}
-		}
-		// make sure nutrients add to 1
-		let nutrient_total = 0;
-		for ( let i=0; i < this.nutrients.length; i++ ) {
-			this.nutrients[i] = Math.max( this.nutrients[i], 0 );
-			nutrient_total += this.nutrients[i];
-		}
-		// prevent divide by zero
-		if ( nutrient_total == 0 ) { 
-			this.nutrients[7] = 1; 
-			nutrient_total = 1; 
-		}
-		// even out the numbers
-		else if ( nutrient_total < 0.999 || nutrient_total > 1.001 ) {
-			this.nutrients = this.nutrients.map( v => v / nutrient_total );
-		}
-			
-		// colors hardcoded mostly for aesthetics. you could change them.
-		let colors = [
-			'#C42452',
-			'#EB9223',
-			'#EBE313',
-			'#5DD94D',
-			'#2CAED4',
-			'#1F4BE3',
-			'#991FE3',
-			'#FF70E5',
-			'#FFFFFF',
-			'#666666',
-		];
 		
-		// sort nutrients by contribution
-		let components = [];
-		for ( let i=0; i < this.nutrients.length; i++ ) {
-			if ( this.nutrients[i] ) {
-				components.push({
-					color: colors[i],
-					pct: this.nutrients[i],
-				});
-			}
-		}
-		components.sort( (a,b) => a.pct - b.pct );
-		
-		// sensory data comes from nutrient composition unless overridden by creator
+		// sensory data comes from food flavor unless overridden by creator
 		if ( !params || !params?.sense ) {
-			// visual color comes from mixing the two primary colors
-			const maincomp =  components[components.length-1];
-			const secondcomp = components.length > 1 ? components[components.length-2] : maincomp;
-			const rgb1 = utils.HexColorToRGBArray( maincomp.color );
-			const rgb2 = utils.HexColorToRGBArray( secondcomp.color );
-			let r = ( rgb1[0] * maincomp.pct ) + ( rgb2[0] * secondcomp.pct ) / 2;
-			let g = ( rgb1[1] * maincomp.pct ) + ( rgb2[1] * secondcomp.pct ) / 2;
-			let b = ( rgb1[2] * maincomp.pct ) + ( rgb2[2] * secondcomp.pct ) / 2;
-			this.sense[0] = ( r / 255 ) * 10 ; // buff to help boids see food
-			this.sense[1] = ( g / 255 ) * 10 ; // buff to help boids see food
-			this.sense[2] = ( b / 255 ) * 10 ; // buff to help boids see food
+			// visual color
+			const rgb = utils.hsl2rgb(this.flavor,1,0.6);
+			const visual_buff = 10; // buff to help boids see food
+			this.sense[0] = rgb[0] * visual_buff;
+			this.sense[1] = rgb[1] * visual_buff;
+			this.sense[2] = rgb[2] * visual_buff;
 			// smell
 			let smell_scale = utils.Clamp( Math.pow(this.value,0.5) * 0.2, 0, 3 ); // arbitrary
-			this.sense[3] = smell_scale * this.nutrients[0] || 0;
-			this.sense[4] = smell_scale * this.nutrients[1] || 0;
-			this.sense[5] = smell_scale * this.nutrients[2] || 0;
-			this.sense[6] = smell_scale * this.nutrients[3] || 0;
-			this.sense[7] = smell_scale * this.nutrients[4] || 0;
-			this.sense[8] = smell_scale * this.nutrients[5] || 0;
-			this.sense[9] = smell_scale * this.nutrients[6] || 0;
-			this.sense[10] = smell_scale * this.nutrients[7] || 0;
+			const calcScent = i => smell_scale * Math.max( 0, Math.cos( this.flavor + Math.PI * 2 * (i/8) ) );
+			this.sense[3] =  calcScent(0); 
+			this.sense[4] =  calcScent(1); 
+			this.sense[5] =  calcScent(2); 
+			this.sense[6] =  calcScent(3); 
+			this.sense[7] =  calcScent(4); 
+			this.sense[8] =  calcScent(5); 
+			this.sense[9] =  calcScent(6); 
+			this.sense[10] = calcScent(7); 
 			this.sense[11] = smell_scale * (this.complexity || 0) / 5;
 		}
 
 	}
 	Export( as_JSON=false ) {
 		let output = {};
-		let datakeys = ['x','y','value','age','lifespan','seed','max_germ_density','germ_distance','frictionless','sense','nutrients','complexity'];		
+		let datakeys = ['x','y','value','age','lifespan','seed','max_germ_density','germ_distance','frictionless','sense','flavor','complexity'];		
 		for ( let k of datakeys ) { 
 			if ( k in this ) {
 				output[k] = this[k]; 
@@ -136,12 +80,9 @@ export default class Food extends PhysicsObject {
 		}
 		this.age += delta;
 		if ( this.age > this.lifespan && !this.permafood ) {
-			// chance to live a while longer
-			if ( Math.random() < 0.003 ) {
-				globalThis.vc.tank.AddMatterAt( this.x, this.y, this.value ); // rot
-				this.Kill();
-				return;
-			}
+			globalThis.vc.tank.AddMatterAt( this.x, this.y, this.value ); // rot
+			this.Kill();
+			return;
 		}
 		
 		// mass and radius can change as things get eaten
@@ -276,39 +217,8 @@ export default class Food extends PhysicsObject {
 		if ( this.complexity==5 ) { points=8 } // unicode doesnt have heptagons ;-( 
 		else if ( this.complexity==6 ) { points=12; } // getting hard to discern at this point 
 			
-		// colors hardcoded mostly for aesthetics. you could change them.
-		let colors = [
-			'#C42452',
-			'#EB9223',
-			'#EBE313',
-			'#5DD94D',
-			'#2CAED4',
-			'#1F4BE3',
-			'#991FE3',
-			'#FF70E5',
-			'#FFFFFF',
-			'#666666',
-		];
-		
-		// sort nutrients by contribution
-		let components = [];
-		for ( let i=0; i < this.nutrients.length; i++ ) {
-			if ( this.nutrients[i] ) {
-				components.push({
-					color: colors[i],
-					pct: this.nutrients[i],
-				});
-			}
-		}
-		components.sort( (a,b) => a.pct - b.pct );
-		
-		// only show the two primary ingredients to keep it simple
-		const maincolor =  components[components.length-1].color;
-		const secondcolor = components.length > 1 ? components[components.length-2].color : maincolor;
-		let rgb = utils.HexColorToRGBArray(maincolor);
-		let hsl = utils.rgb2hsl( rgb[0]/255, rgb[1]/255, rgb[2]/255 );
-		geodata.fill = `hsl(${hsl[0]*255},${hsl[1]*100}%,${hsl[2]*80}%)`;
-		geodata.stroke = secondcolor;
+		geodata.fill = `hsl(${this.flavor*360},85%,70%)`;
+		geodata.stroke = `hsl(${this.flavor*360},70%,35%)`;
 		// make dash pattern create a number of "pips" to represent food complexity.
 		// this is aesthetically better than using polygons to represent complexity.
 		let circ = this.r * 2 * Math.PI;
