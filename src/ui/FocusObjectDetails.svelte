@@ -217,22 +217,27 @@
 		<p style="text-align:center;">
 			GEN: <output>{boid.generation}</output>&nbsp;&nbsp;
 			SIZE: <output>{boid.length.toFixed(0)}</output>x<output>{boid.width.toFixed(0)}</output>&nbsp;&nbsp;
-			DIET: <output style="color:hsl({boid.traits.food_pref*360},60%,60%);">
-				{#if (boid.traits.food_mask||0) & 1}▲{/if}
-				{#if (boid.traits.food_mask||0) & 2}■{/if}
-				{#if (boid.traits.food_mask||0) & 4}⬟{/if}
-				{#if (boid.traits.food_mask||0) & 8}⬢{/if}
-				{#if (boid.traits.food_mask||0) & 16}⯃{/if}
-				{#if (boid.traits.food_mask||0) & 32}●{/if}
+			DIET: <output style="color:hsl({boid.traits.food_pref*360},60%,60%); text-box-trim: trim-both; text-box-edge: cap alphabetic;">
+				{#if (boid.traits.food_mask||0) & 1}➊ {/if}
+				{#if (boid.traits.food_mask||0) & 2}➋{/if}
+				{#if (boid.traits.food_mask||0) & 4}➌{/if}
+				{#if (boid.traits.food_mask||0) & 8}➍{/if}
+				{#if (boid.traits.food_mask||0) & 16}➎{/if}
+				{#if (boid.traits.food_mask||0) & 32}➏{/if}
+				{#if (boid.traits.food_mask||0) & 64}➐{/if}
+				{#if (boid.traits.food_mask||0) & 128}➑{/if}
 			</output>
 				🡒
-			<output style="color:hsl({((boid.traits.food_pref+boid.traits.poop_shift)%1)*360},60%,60%);">
-				{#if boid.traits.poop_complexity==1}▲{/if}
-				{#if boid.traits.poop_complexity==2}■{/if}
-				{#if boid.traits.poop_complexity==3}⬟{/if}
-				{#if boid.traits.poop_complexity==4}⬢{/if}
-				{#if boid.traits.poop_complexity==5}⯃{/if}
-				{#if boid.traits.poop_complexity==6}●{/if}
+			<output style="color:hsl({((boid.traits.food_pref+boid.traits.poop_shift)%1)*360},60%,60%); text-box-trim: trim-both; text-box-edge: cap alphabetic;">
+				{#if boid.traits.poop_complexity==0}X{/if}
+				{#if boid.traits.poop_complexity==1}➊{/if}
+				{#if boid.traits.poop_complexity==2}➋{/if}
+				{#if boid.traits.poop_complexity==3}➌{/if}
+				{#if boid.traits.poop_complexity==4}➍{/if}
+				{#if boid.traits.poop_complexity==5}➎{/if}
+				{#if boid.traits.poop_complexity==6}➏{/if}
+				{#if boid.traits.poop_complexity==7}➐{/if}
+				{#if boid.traits.poop_complexity==8}➑{/if}
 			</output>
 		</p>
 

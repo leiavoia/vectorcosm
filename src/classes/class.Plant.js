@@ -53,7 +53,7 @@ export default class Plant {
 			fruit_lifespan: 6,
 			fruit_buoy_start: -10,
 			fruit_buoy_end: -10,
-			fruit_complexity: 2,
+			fruit_complexity: 3,
 			fruit_flavor: 0.0, // 0..1
 		};
 	}
@@ -328,7 +328,7 @@ export class DNAPlant extends Plant {
 		this.traits.fruit_buoy_start = this.dna.mix( this.dna.genesFor('fruit_buoy_start',2), -100, 100 );
 		this.traits.fruit_buoy_end = this.dna.mix( this.dna.genesFor('fruit_buoy_end',2), -100, 100 );
 		const fruit_complexity_gene = 0x08000000 | this.dna.genesFor('fruit_complexity',1,true);
-		this.traits.fruit_complexity = Math.ceil( this.dna.shapedInt( fruit_complexity_gene, 0, 599, 150, 1.5 ) / 100 );
+		this.traits.fruit_complexity = 2 + Math.ceil( this.dna.shapedInt( fruit_complexity_gene, 0, 599, 150, 1.5 ) / 100 );
 		this.traits.fruit_flavor = this.dna.mix( this.dna.genesFor('fruit flavor',2,1), 0, 1, 0.5, 2 ); // create slight rarity
 		this.traits.life_credits = this.dna.shapedInt( this.dna.genesFor('life_credits',3,1), 1000, 10000, 3000, 2.2 );
 		this.traits.max_germ_density = this.dna.shapedNumber( this.dna.genesFor('max_germ_density',2,1), 0, 10, 4, 2 );
@@ -490,7 +490,7 @@ export class PendantLettuce extends Plant {
 		this.traits.fruit_num = 1;
 		this.traits.fruit_size = 120;
 		this.traits.fruit_lifespan = 80;
-		this.traits.fruit_complexity = 3;
+		this.traits.fruit_complexity = 5;
 		this.traits.fruit_flavor = 0.11;
 		this.CreateBody();
 	}
@@ -562,7 +562,7 @@ export class VectorGrass extends Plant {
 		this.traits.fruit_num = utils.RandomInt(1,5);
 		this.traits.fruit_size = utils.RandomInt(20,50);
 		this.traits.fruit_lifespan = 40 + utils.RandomInt(0,15);
-		this.traits.fruit_complexity = 1;
+		this.traits.fruit_complexity = 3;
 		this.traits.fruit_flavor = 0.55;
 		this.traits.fruit_buoy_start = 100 - ( 200 * Math.random() );
 		this.traits.fruit_buoy_end = 100 - ( 200 * Math.random() );
@@ -622,7 +622,7 @@ export class WaveyVectorGrass extends Plant {
 		this.traits.fruit_num = utils.RandomInt(1,5);
 		this.traits.fruit_size = utils.RandomInt(40,80);
 		this.traits.fruit_lifespan = 40 + utils.RandomInt(0,15);
-		this.traits.fruit_complexity = 2;
+		this.traits.fruit_complexity = 4;
 		this.traits.fruit_flavor = 0.73;
 		this.traits.fruit_buoy_start = 100 - ( 200 * Math.random() );
 		this.traits.fruit_buoy_end = 100 - ( 200 * Math.random() );

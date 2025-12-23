@@ -8,8 +8,11 @@ import { DNAPlant } from '../classes/class.Plant.js'
 const friction = 0.92; // physics friction when sliding
 const bounce = 0.38; // physics bounce when colliding with rocks and walls
 
+
 export default class Food extends PhysicsObject {
 
+	static FOOD_COMPLEXITY_LEVELS = 8;
+	
 	constructor(x=0,y=0,params) {
 		super();
 		this.oid = ++globalThis.vc.next_object_id;
@@ -26,7 +29,7 @@ export default class Food extends PhysicsObject {
 		this.age = 0;
 		this.lifespan = 60 + Math.random() * 120;
 		this.flavor = Math.random(); // 0..1
-		this.complexity = utils.RandomInt(1,6);
+		this.complexity = utils.RandomInt(1,Food.FOOD_COMPLEXITY_LEVELS);
 		this.frictionless = false;
 		this.sense = new Array(16).fill(0);
 		this.buoy = 0;
@@ -56,7 +59,7 @@ export default class Food extends PhysicsObject {
 			this.sense[8] =  calcScent(5); 
 			this.sense[9] =  calcScent(6); 
 			this.sense[10] = calcScent(7); 
-			this.sense[11] = smell_scale * (this.complexity || 0) / 5;
+			this.sense[11] = smell_scale * (this.complexity || 0) / Food.FOOD_COMPLEXITY_LEVELS;
 		}
 
 	}
@@ -198,12 +201,10 @@ export default class Food extends PhysicsObject {
 	}
 	// returns TRUE if the food is edible by the boid
 	IsEdibleBy( boid ) {
-		if ( this.dead ) { return false; }
-		if ( this.edibility >= 1 ) { return true; } // legacy hack for simulations
-		return (1 << (this.complexity-1)) & boid.traits.food_mask;
+		const masked = (1 << (this.complexity-1)) & boid.traits.food_mask;
+		return masked || this.dead || this.edibility >= 1; // legacy hack
 	}	
 	GeoData() {
-
 		let geodata = { 
 			type:'circle', 
 			r:this.r,
@@ -211,22 +212,22 @@ export default class Food extends PhysicsObject {
 			permafood:this.permafood,
 			complexity:this.complexity,
 		};
-		
-		// rendering
-		let points = this.complexity+2;
-		if ( this.complexity==5 ) { points=8 } // unicode doesnt have heptagons ;-( 
-		else if ( this.complexity==6 ) { points=12; } // getting hard to discern at this point 
-			
 		geodata.fill = `hsl(${this.flavor*360},85%,70%)`;
 		geodata.stroke = `hsl(${this.flavor*360},70%,35%)`;
+		geodata.linewidth = this.r/2;
+		geodata.rotation = Math.random() * Math.PI; // aesthetic rotation
 		// make dash pattern create a number of "pips" to represent food complexity.
 		// this is aesthetically better than using polygons to represent complexity.
-		let circ = this.r * 2 * Math.PI;
-		let segment = circ / ( points * 2 );
-		geodata.linewidth = this.r/2;
-		geodata.dashes = [segment,segment];
-		geodata.rotation = Math.random() * Math.PI; // aesthetic rotation
-			
+		if ( this.complexity >= 2 ) { 
+			let points = this.complexity;
+			if ( this.complexity==7 ) { points=8 } // unicode doesnt have heptagons ;-( 
+			else if ( this.complexity==8 ) { points=12; } // getting hard to discern at this point 
+			let circ = this.r * 2 * Math.PI;
+			let segment = circ / ( points * 2 );
+			// special case for complexity==2
+			if ( points == 2 ) { geodata.dashes = [segment*0.5,segment*1.5]; }
+			else { geodata.dashes = [segment,segment]; }
+		}
 		return geodata;
 	}	
 }

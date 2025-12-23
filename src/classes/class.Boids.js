@@ -600,7 +600,7 @@ export class Boid extends PhysicsObject {
 		if ( !this.metab.bowel_total ) { return; }
 		if ( globalThis.vc.simulation.settings?.poop!==false ) {
 			// create a food particle if there is room
-			if ( globalThis.vc.tank.foods.length < 300 ) {
+			if ( globalThis.vc.tank.foods.length < 300 && this.traits.poop_complexity ) {
 				const f = new Food( this.x, this.y, { 
 					value: this.metab.bowel_total,
 					lifespan: Math.min( 15, this.metab.bowel_total/3 ),
@@ -1016,17 +1016,25 @@ export class Boid extends PhysicsObject {
 			value += this.metab.stomach_total; // include stomach contents
 			// starving organisms have less meat on the bones?
 			// value = ( 0.5 * value ) + ( 0.5 * value * ( this.metab.energy / this.metab.max_energy ) );
-			const f = new Food( this.x, this.y, { 
-				value: value,
-				lifespan: utils.RandomInt(10,60),
-				buoy_start: ( 0.5 * this.traits.poop_buoy + ( this.traits.poop_buoy 
-					- (this.traits.poop_buoy * 2 * Math.random()) ) ),
-				buoy_end: ( (3 * this.traits.poop_buoy) 
-					+ ( this.traits.poop_buoy - (this.traits.poop_buoy * 2 * Math.random()) ) ),
-				flavor: ( 1 + this.traits.food_pref - this.traits.poop_shift ) % 1,
-				complexity: this.traits.poop_complexity // prevent canabolism
-				} );
-			globalThis.vc.tank.foods.push(f);	
+			// create as material food particle
+			if ( this.traits.poop_complexity ) {
+				const f = new Food( this.x, this.y, { 
+					value: value,
+					lifespan: utils.RandomInt(10,60),
+					buoy_start: ( 0.5 * this.traits.poop_buoy + ( this.traits.poop_buoy 
+						- (this.traits.poop_buoy * 2 * Math.random()) ) ),
+					buoy_end: ( (3 * this.traits.poop_buoy) 
+						+ ( this.traits.poop_buoy - (this.traits.poop_buoy * 2 * Math.random()) ) ),
+					flavor: ( 1 + this.traits.food_pref - this.traits.poop_shift ) % 1,
+					complexity: this.traits.poop_complexity // prevent canabolism
+					} );
+				globalThis.vc.tank.foods.push(f);	
+				}
+			// complexity "zero" means it goes back to the background ether
+			else {
+				const cell = globalThis.vc.tank.datagrid.CellAt( this.x, this.y );
+				cell.matter += value;
+			}
 		}
 		// autopsy
 		if ( cause ) {
@@ -1079,17 +1087,30 @@ export class Boid extends PhysicsObject {
 		
 		// nutrition and metabolism:
 		
-		// food mask - determines what complexity levels of food we can eat
+		// food mask - determines what complexity levels of food we can eat.
+		// we determine the mask by passing values 1..8 through a weird sine wave thingy. 
 		this.traits.food_mask = 0;
-		for ( let i=0; i < 6; i++ ) {
-			const roll = this.dna.shapedNumber( this.dna.genesFor(`foodmask-${i}`,2,true), 0, 1 );
-			const push = ( roll > 0.66 + (i * 0.06) ) ? 1 : 0;
+		const cos_vshift = this.dna.shapedNumber( this.dna.genesFor(`cos_vshift`,1,1), 0.1, 1, 0.5, 3 );
+		const cos_hshift = this.dna.shapedNumber( this.dna.genesFor(`cos_hshift`,1,1), 4, 12, 8, 2 );
+		const cos_wavelength = this.dna.shapedNumber( this.dna.genesFor(`cos_wavelength`,1,1), -3, 3 , 0, 2 );
+		let highest_food_complexity = 0;
+		let highest_food_complexity_value = 0;
+		for ( let i=0; i < Food.FOOD_COMPLEXITY_LEVELS; i++ ) {
+			const roll = Math.cos( 2 + i * cos_wavelength ) * ( Math.cos( 2 + i * cos_wavelength + cos_hshift ) + cos_vshift );
+			const push = roll > 0.5 ? 1 : 0;
 			this.traits.food_mask = this.traits.food_mask | (push << i);
+			// do some tracking as we go in case we totally whiff everything
+			if ( roll > highest_food_complexity_value ) {
+				highest_food_complexity = 1;
+				highest_food_complexity_value = roll;
+			}
 		}
-		if ( this.traits.food_mask==31 ) { this.traits.food_mask = 30; } // can't have it all
-		else if ( !this.traits.food_mask ) { this.traits.food_mask = 1; } // need at least something
+		// need at least something
+		if ( !this.traits.food_mask ) { 
+			this.traits.food_mask = 1 << highest_food_complexity;
+		}
 		// nutrition profile
-		this.traits.food_pref = this.dna.shapedNumber( this.dna.genesFor(`food_pref`,2,1) );
+		this.traits.food_pref 				= this.dna.shapedNumber( this.dna.genesFor(`food_pref`,2,1) );
 		this.traits.offspring_investment	= this.dna.shapedNumber( this.dna.genesFor('offspring_investment',2,1), 0.1, 1.0, 0.5, 2 );
 		this.traits.growth_rate				= this.dna.shapedNumber( this.dna.genesFor('growth_rate',2,1), 0, 20, 3, 3 );
 		this.traits.base_stomach_size		= this.dna.shapedNumber( this.dna.genesFor('base_stomach_size',2,1), 0.5, 0.02, 0.1, 2 );
@@ -1101,15 +1122,8 @@ export class Boid extends PhysicsObject {
 		this.traits.bite_speed				= this.dna.shapedNumber( this.dna.genesFor('bite_speed',2,1), 0.5, 5, 2, 2 );	
 		this.traits.poop_shift				= this.dna.shapedNumber( this.dna.genesFor(`poop_shift`, 2, 1 ), 0, 1, 0.5, 2 );
 		this.traits.poop_buoy				= this.dna.shapedNumber( this.dna.genesFor('poop_buoy',2,1), Boid.min_poop_buoy, Boid.max_poop_buoy, 0, 3 );
-		this.traits.poop_complexity			= 0;
-		// no autotrophy, thats gross - find the first zero bit (simplest shape we cannot eat)
-		for ( let i=0; i<6; i++ ) { // note it goes over a bit to make something interesting for species that consume everything else
-			if ( !( this.traits.food_mask & (1<<i) ) ) {
-				this.traits.poop_complexity = i+1;
-				break;
-			}
-		}
-		if ( !this.traits.poop_complexity ) { this.traits.poop_complexity = 1; }
+		// find the highest complexity that is one less that our lowest edible food, which may be zero
+		this.traits.poop_complexity = Math.clz32(this.traits.food_mask & -this.traits.food_mask) ^ 31;
 
 		// do some accounting on the traits we've created
 		{
@@ -1119,7 +1133,7 @@ export class Boid extends PhysicsObject {
 			
 			// more food sources costs more
 			let cost = 0;
-			for ( let i = 0; i < 6; i++ ) {
+			for ( let i = 0; i < Food.FOOD_COMPLEXITY_LEVELS; i++ ) {
 				if ( this.traits.food_mask & (1 << i) ) {
 					cost += 3 + i;
 				}
