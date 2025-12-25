@@ -217,7 +217,7 @@
 		<p style="text-align:center;">
 			GEN: <output>{boid.generation}</output>&nbsp;&nbsp;
 			SIZE: <output>{boid.length.toFixed(0)}</output>x<output>{boid.width.toFixed(0)}</output>&nbsp;&nbsp;
-			DIET: <output style="color:hsl({boid.traits.food_pref*360},60%,60%); text-box-trim: trim-both; text-box-edge: cap alphabetic;">
+			DIET: <output style="color:hsl({(boid.traits.food_pref||0)*360},60%,60%); text-box-trim: trim-both; text-box-edge: cap alphabetic;">
 				{#if (boid.traits.food_mask||0) & 1}➊ {/if}
 				{#if (boid.traits.food_mask||0) & 2}➋{/if}
 				{#if (boid.traits.food_mask||0) & 4}➌{/if}
@@ -228,7 +228,7 @@
 				{#if (boid.traits.food_mask||0) & 128}➑{/if}
 			</output>
 				🡒
-			<output style="color:hsl({((boid.traits.food_pref+boid.traits.poop_shift)%1)*360},60%,60%); text-box-trim: trim-both; text-box-edge: cap alphabetic;">
+			<output style="color:hsl({(((boid.traits.food_pref||0)+(boid.traits.poop_shift||0))%1)*360},60%,60%); text-box-trim: trim-both; text-box-edge: cap alphabetic;">
 				{#if boid.traits.poop_complexity==0}X{/if}
 				{#if boid.traits.poop_complexity==1}➊{/if}
 				{#if boid.traits.poop_complexity==2}➋{/if}
