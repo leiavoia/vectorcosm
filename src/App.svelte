@@ -920,12 +920,13 @@
 		if ( radius != o.geo.radius ) { // limit expensive redraws
 			o.geo.radius = radius;
 			let circ = radius * 2 * Math.PI;
-			let points = o.geodata.complexity+2;
-			if ( o.geodata.complexity==5 ) { points=8 } // unicode doesnt have heptagons ;-( 
-			else if ( o.geodata.complexity==6 ) { points=12; } // getting hard to discern at this point 
+			let points = o.geodata.complexity;
+			if ( o.geodata.complexity==7 ) { points=8 } // unicode doesnt have heptagons ;-( 
+			else if ( o.geodata.complexity==8 ) { points=12; } // getting hard to discern at this point 
 			let segment = circ / ( points * 2 );
 			o.geo.linewidth = radius/2;
-			o.geo.dashes = [segment,segment];
+			if ( points == 2 ) { o.geo.dashes = [segment*0.5,segment*1.5]; }
+			else { o.geo.dashes = [segment,segment]; }					
 		}
 		// fade out
 		if ( !o.geodata.permafood && o.anim.age > o.anim.lifespan - 1 ) {
