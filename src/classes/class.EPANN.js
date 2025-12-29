@@ -361,7 +361,13 @@ export default class EPANN {
 
 		// set inputs
 		for (let i = 0; i < inputs.length; i++) {
-			this.nodes[ i ].value = inputs[ i ];
+			// REMOVE ERROR TRAP IF THINGS LOOK GOOD
+			if ( !this.nodes[i] ) {
+				console.error(`missing neural node ${i}/${this.nodes.length}`);
+			}
+			else {
+				this.nodes[ i ].value = inputs[ i ];
+			}
 		}
 		// clear sums
 		for (let i = inputs.length; i < this.nodes.length; i++) {
