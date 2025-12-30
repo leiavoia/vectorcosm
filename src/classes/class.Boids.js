@@ -1822,6 +1822,37 @@ export class Boid extends PhysicsObject {
 			}
 		}
 		
+		// ambient light (whisker based) - alternative to vision sensors
+		const has_light = this.dna.shapedNumber(this.dna.genesFor('has light',2,true)) <= 0.62;
+		if ( has_light && !has_vision ) {
+			let whiskers = [];
+			// stereo
+			if ( this.dna.shapedNumber(this.dna.genesFor(`light sensor stereo`,true)) < 0.25 ) {
+				const length = this.dna.shapedNumber(this.dna.genesFor(`light sensor stereo length`,2,1), 100, 400, 200, 3 );
+				let angle = this.dna.shapedNumber(this.dna.genesFor(`light sensor stereo angle`,2,1), 0, Math.PI);
+				// don't get too close to front/rear 
+				angle = utils.Clamp( angle, Math.PI/20, Math.PI-(Math.PI/20) );
+				whiskers.push({l:length, a:angle});
+				whiskers.push({l:length, a:-angle});
+			}
+			// rear
+			if ( !whiskers.length && this.dna.shapedNumber(this.dna.genesFor('rear light sensor',1,true)) > 0.4 ) {
+				const length = this.dna.shapedNumber(this.dna.genesFor('rear light sensor length',2,1), 100, 600, 300, 3 );
+				whiskers.push({l:length, a:-Math.PI});
+			}
+			// front - default if no other rolls
+			if ( !whiskers.length || this.dna.shapedNumber(this.dna.genesFor('front light sensor',1,true)) > 0.25 ) {
+				const length = this.dna.shapedNumber(this.dna.genesFor('front light sensor',2,1), 100, 600, 300, 3 );
+				whiskers.push({l:length, a:0});
+			}
+			// commit
+			this.sensors.push( new Sensor({detect:'light', name:'light', type:'whisker', whiskers, color:'#9cebff'}, this) );
+			
+			// boxfit costs
+			const cost = whiskers.length;
+			this.traits.boxfit.push([ cost * 0.3, cost, `sensors.light`]);
+		}
+				
 		// proprioception
 		// NOTE: this only makes sense if there are two or more motors.
 		if ( this.motors.length >= 3 ) { // account for mitosis as a motor

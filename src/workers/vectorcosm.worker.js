@@ -640,6 +640,7 @@ function DescribeBoid( o, inc_sensor_geo=false,  inc_brain=false, inc_stats=0 ) 
 			s.detect=='food' || 
 			s.type=='whisker' || 
 			s.detect=='obstacles' || 
+			s.detect=='light' || 
 			s.type==='sense' )
 			.map( i => i.CreateGeometry() );
 	}

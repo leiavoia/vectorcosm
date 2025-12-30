@@ -80,7 +80,8 @@ export default class Sensor {
 		
 		// special purpose sensors
 		else if ( this.detect ) {
-			this.labels.push( this.name || this.detect );
+			const name = this.name || this.detect;
+			this.labels.push( name );
 		}
 		
 		// default
@@ -91,17 +92,16 @@ export default class Sensor {
 	
     setupSenseFunction() {
 	
-		// whiskers for physical obstacle detection
+		// whisker lines - multiple detection schemes
 		if ( this.type === 'whisker' ) {
-			this.senseFunction = this.senseWhiskers;
-			// setup and precompute stuff
 			if ( !this.whiskers ) {
-				this.whiskers = [
-					{a:0, l:1, v:0},
-					{a:-1, l:0.75, v:0},
-					{a:1, l:0.75, v:0}
-				];
+				this.whiskers = [ {a:this?.a??0, l:this?.l??100, v:0} ];
 			}			
+		}
+		
+		// default whiskers for physical obstacle detection
+		if ( this.type === 'whisker' && !this.detect ) {
+			this.senseFunction = this.senseWhiskers;
 		}
 		
 		// this is a general purpose sensor for vision, smell, and audio
@@ -133,6 +133,9 @@ export default class Sensor {
 		// small special purpose sensors
 		else {
 			switch (this.detect) {
+				case 'light':
+					this.senseFunction = this.senseLight;
+					break;
 				case 'displacement':
 					this.senseFunction = this.senseDisplacement;
 					break;
@@ -657,6 +660,24 @@ export default class Sensor {
         return [val];
     }
 
+    senseLight() {
+		let whiskers = this.whiskers || [];
+		if ( !whiskers.length ) {
+			whiskers.push( { l:this?.l??500, a:this?.a??0, v:0 } );
+		}
+		const output = [];
+		for ( let w of whiskers ) { 
+			const x2 = this.owner.x + w.l * Math.cos(this.owner.angle + w.a);
+			const y2 = this.owner.y + w.l * Math.sin(this.owner.angle + w.a);
+			const grid = globalThis.vc.tank.datagrid;
+			const v1 = grid.InterpolatedGridValue( this.owner.x, this.owner.y, 'light' );
+			const v2 = grid.InterpolatedGridValue( x2, y2, 'light' );
+			w.v = 0.5 + 0.5 * Math.tanh( 2 * ( v2 - v1 ) ); // tanh unnecessary but gives a more prompting signal
+			output.push( w.v );
+		}
+		return output; 
+	}		
+
     senseObstacles() {
         let val = 0;
         let sinAngle = Math.sin(this.owner.angle);
@@ -737,8 +758,9 @@ export default class Sensor {
 		// whisker lines
 		else if ( this.whiskers ) {
 			for ( let w of this.whiskers ) {
-				const whisker_length = Math.max( this.owner.collision.radius * 1.5, this.r * (w?.l || 1) );
-				const whisker_angle = /* this.owner.angle + */ (w?.a || 0);
+				let whisker_length = this.r ? (this.r * (w?.l || 1)) : w.l;
+				whisker_length = Math.max( this.owner.collision.radius * 1.5, whisker_length );
+				const whisker_angle = w?.a || 0;
 				const sx = 0;
 				const sy = 0;
 				const ax2 = sx + (whisker_length * Math.cos(whisker_angle)); 
@@ -757,7 +779,7 @@ export default class Sensor {
 		}
 		
 		// basic circle
-		else {
+		else if ( this.r ) {
 			container.children.push({
 				type:'circle',
 				x: this.x, 
@@ -768,7 +790,7 @@ export default class Sensor {
 				stroke: this.color || '#AAEEAA77'
 			});
 		}
-						
+
 		return container;
 	}
 }
