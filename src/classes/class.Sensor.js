@@ -204,10 +204,10 @@ export default class Sensor {
 		let sx = this.owner.x + ((this.x * cosAngle) - (this.y * sinAngle));
 		let sy = this.owner.y + ((this.x * sinAngle) + (this.y * cosAngle));
 		// find objects that are detected by this sensor
-		let objs = this.owner.tank.foods; // runs faster on small sets
+		let objs = globalThis.vc.tank.foods; // runs faster on small sets
 		if ( objs.length > 20 ) {
 			const test = o => { return o instanceof Food && o.IsEdibleBy(this.owner) && !( this.owner.ignore_list && this.owner.ignore_list.has(o) ) };
-			objs = this.owner.tank.grid.GetObjectsByBox( sx - this.r, sy - this.r, sx + this.r, sy + this.r, test );				
+			objs = globalThis.vc.tank.grid.GetObjectsByBox( sx - this.r, sy - this.r, sx + this.r, sy + this.r, test );				
 		}
 		let nearest_dist = Infinity;
 		let nearest_angle = 0;
@@ -259,7 +259,7 @@ export default class Sensor {
 		let sx = this.owner.x; // + ((this.x * cosAngle) - (this.y * sinAngle));
 		let sy = this.owner.y; // + ((this.x * sinAngle) + (this.y * cosAngle));
 		// find objects that are detected by this sensor
-		let candidates = this.owner.tank.grid.GetObjectsByBox( 
+		let candidates = globalThis.vc.tank.grid.GetObjectsByBox( 
 			sx - this.r,
 			sy - this.r,
 			sx + this.r,
@@ -373,7 +373,7 @@ export default class Sensor {
 			// on the ignore list?
 			&& !( this.owner.ignore_list && this.owner.ignore_list.has(o) )
 		};
-		let objs = this.owner.tank.grid.GetObjectsByBox( sx - this.r, sy - this.r, sx + this.r, sy + this.r, testfn );
+		let objs = globalThis.vc.tank.grid.GetObjectsByBox( sx - this.r, sy - this.r, sx + this.r, sy + this.r, testfn );
 		for ( let obj of objs ) {
 			
 			// if this is a circle object, get the radius
@@ -563,9 +563,9 @@ export default class Sensor {
         let cosAngle = Math.cos(this.owner.angle);
         let sx = this.owner.x + ((this.x * cosAngle) - (this.y * sinAngle));
         let sy = this.owner.y + ((this.x * sinAngle) + (this.y * cosAngle));
-        let objs = this.owner.tank.foods.length < 20
-            ? this.owner.tank.foods
-            : this.owner.tank.grid.GetObjectsByBox(sx - this.r, sy - this.r, sx + this.r, sy + this.r, 
+        let objs = globalThis.vc.tank.foods.length < 20
+            ? globalThis.vc.tank.foods
+            : globalThis.vc.tank.grid.GetObjectsByBox(sx - this.r, sy - this.r, sx + this.r, sy + this.r, 
 				o => o instanceof Food && o.IsEdibleBy(this.owner) && !( this.owner.ignore_list && this.owner.ignore_list.has(o) ) );
         for (let obj of objs) {
             const dx = Math.abs(obj.x - sx);
@@ -639,7 +639,7 @@ export default class Sensor {
     senseFriends() {
         let val = 0;
         if (globalThis.vc.simulation.settings?.ignore_other_boids === true) return [val];
-        let friends = this.owner.tank.grid.GetObjectsByCoords(this.owner.x, this.owner.y);
+        let friends = globalThis.vc.tank.grid.GetObjectsByCoords(this.owner.x, this.owner.y);
         if (friends) {
             friends = friends.filter(x => (x instanceof Boid) && x.species == this.owner.species);
             val = Math.max(friends.length - 1, 0);
@@ -651,7 +651,7 @@ export default class Sensor {
     senseEnemies() {
         let val = 0;
         if (globalThis.vc.simulation.settings?.ignore_other_boids === true) return [val];
-        let friends = this.owner.tank.grid.GetObjectsByCoords(this.owner.x, this.owner.y);
+        let friends = globalThis.vc.tank.grid.GetObjectsByCoords(this.owner.x, this.owner.y);
         if (friends) {
             friends = friends.filter(x => (x instanceof Boid) && x.species != this.owner.species);
             val = Math.max(friends.length - 1, 0);
@@ -684,7 +684,7 @@ export default class Sensor {
         let cosAngle = Math.cos(this.owner.angle);
         let sx = this.owner.x + ((this.x * cosAngle) - (this.y * sinAngle));
         let sy = this.owner.y + ((this.x * sinAngle) + (this.y * cosAngle));
-        let candidates = this.owner.tank.grid.GetObjectsByBox(sx - this.r, sy - this.r, sx + this.r, sy + this.r, o => o instanceof Rock);
+        let candidates = globalThis.vc.tank.grid.GetObjectsByBox(sx - this.r, sy - this.r, sx + this.r, sy + this.r, o => o instanceof Rock);
         for (let o of candidates) {
             const circle = new Circle(sx, sy, this.r);
             const polygon = new Polygon(o.x, o.y, o.collision.hull);

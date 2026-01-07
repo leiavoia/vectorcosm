@@ -12,10 +12,6 @@ import {CompoundStatTracker} from '../classes/class.StatTracker.js'
 			
 // MAGIC NUMBER - tuning number for matter->energy conversion rate
 const MAGIC_ENERGY_MULTIPLIER = 10;
-			
-export function BoidFactory( type, x, y, tank ) {
-	return Boid.Random(x, y, tank);
-}
 	
 export class Boid extends PhysicsObject {
 
@@ -143,7 +139,7 @@ export class Boid extends PhysicsObject {
 		this.tally[ name ] += value;
 	}
 	
-	constructor( x=0, y=0, tank=null, json=null ) {
+	constructor( x=0, y=0, json=null ) {
 		super();
 		this.oid = ++globalThis.vc.next_object_id;
 		this.ResetStats();
@@ -152,7 +148,6 @@ export class Boid extends PhysicsObject {
 		this.dna = '';
 		this.generation = 1;
 		this.speciation = 1;
-		this.tank = tank;
 		this.genus = 'unknown';
 		this.species = 'unknown';
 		this.x = x;
@@ -506,8 +501,8 @@ export class Boid extends PhysicsObject {
 			this.UpdatePosition(subdelta);
 			
 			// stay inside tank			
-			this.x = utils.clamp( this.x, 0 + this.collision.radius, this.tank.width - this.collision.radius );
-			this.y = utils.clamp( this.y, 0 + this.collision.radius, this.tank.height - this.collision.radius );
+			this.x = utils.clamp( this.x, 0 + this.collision.radius, globalThis.vc.tank.width - this.collision.radius );
+			this.y = utils.clamp( this.y, 0 + this.collision.radius, globalThis.vc.tank.height - this.collision.radius );
 			
 			// this.Constrain(bounce);
 		}
@@ -516,7 +511,7 @@ export class Boid extends PhysicsObject {
 		// collision detection with obstacles
 		// things i might collide with:
 		let my_radius = Math.max(this.length, this.width) * 0.5;
-		let candidates = this.tank.grid.GetObjectsByBox( 
+		let candidates = globalThis.vc.tank.grid.GetObjectsByBox( 
 			this.x - my_radius,
 			this.y - my_radius,
 			this.x + my_radius,
@@ -559,7 +554,7 @@ export class Boid extends PhysicsObject {
 				const r = this.collision.radius + grace;
 				// get a list of collision candidates
 				const test = o => { return o instanceof Food && o.IsEdibleBy(this) && !( this.ignore_list && this.ignore_list.has(o) ) };
-				let foods = this.tank.grid.GetObjectsByBox( this.x - r, this.y - r, this.x + r, this.y + r, test );				
+				let foods = globalThis.vc.tank.grid.GetObjectsByBox( this.x - r, this.y - r, this.x + r, this.y + r, test );				
 				// check for collision + edibility
 				for ( let food of foods ) { 
 					const dx = Math.abs(food.x - this.x);
@@ -716,7 +711,7 @@ export class Boid extends PhysicsObject {
 			}
 			// tank capacity sanity cap
 			if ( ( m.hasOwnProperty('bud') || m.hasOwnProperty('mitosis') ) && 
-				( this.tank.boids.length >= (globalThis.vc?.simulation?.settings?.num_boids || 100)
+				( globalThis.vc.tank.boids.length >= (globalThis.vc?.simulation?.settings?.num_boids || 100)
 				|| globalThis.vc.simulation.settings?.ignore_lifecycle ) ) {
 				m.last_amount = 0;
 				m.this_stroke_time = 0;
@@ -855,7 +850,7 @@ export class Boid extends PhysicsObject {
 	// true on success, false on whiff
 	AttemptAttack( attack_force /* this.mass * m.attack * amount */ ) {
 		// find boids in the local area
-		let victim = this.tank.grid.GetObjectsByBox( 
+		let victim = globalThis.vc.tank.grid.GetObjectsByBox( 
 			this.x - this.collision.radius, 
 			this.y - this.collision.radius,
 			this.x + this.collision.radius,
@@ -888,7 +883,7 @@ export class Boid extends PhysicsObject {
 		}
 		
 		// audio mark
-		this.tank.marks.push( new Mark({
+		globalThis.vc.tank.marks.push( new Mark({
 			x: victim.x,
 			y: victim.y,
 			r: Math.sqrt( attack_force * 10 * (killed?2:1) ),
@@ -904,7 +899,7 @@ export class Boid extends PhysicsObject {
 	
 	CreateMark( sense, radius, lifespan ) {
 		if ( !globalThis.vc?.simulation?.settings?.no_marks ) {
-			this.tank.marks.push( new Mark({
+			globalThis.vc.tank.marks.push( new Mark({
 				x: this.x,
 				y: this.y,
 				r: radius,
@@ -930,7 +925,7 @@ export class Boid extends PhysicsObject {
 			// which doesnt make a lot of sense. If they don't have enough
 			// energy, they don't stand a chance of surviving.
 			offspring.metab.energy = this.traits.offspring_investment * offspring.metab.max_energy;
-			this.tank.boids.push(offspring);
+			globalThis.vc.tank.boids.push(offspring);
 		}
 		// babies aren't free. we just lost a lot of mass.
 		this.mass /= ( num_offspring + 1 );
@@ -949,7 +944,7 @@ export class Boid extends PhysicsObject {
 		offspring.mass = this.mass * this.traits.offspring_investment * 0.5; 
 		offspring.ScaleBoidByMass();
 		offspring.metab.energy = offspring.metab.max_energy;
-		this.tank.boids.push(offspring);
+		globalThis.vc.tank.boids.push(offspring);
 		globalThis.vc.simulation.RecordStat('births',1);	
 	}
 	
@@ -1057,7 +1052,7 @@ export class Boid extends PhysicsObject {
 	}
 
 	static Random(x,y,tank) {
-		let b = new Boid(x,y,tank);
+		let b = new Boid(x,y);
 		b.dna = new DNA();
 		b.genus = utils.RandomName(9);
 		b.species = b.genus;
@@ -2043,7 +2038,7 @@ export class Boid extends PhysicsObject {
 	Copy( reset=false, dna_mutation=0, brain_mutation=0, speciation_chance=0 ) {
 		brain_mutation = utils.Clamp( brain_mutation, 0, 1 );
 		dna_mutation = utils.Clamp( dna_mutation, 0, 1 );
-		let b = new Boid(this.x, this.y, this.tank);
+		let b = new Boid(this.x, this.y);
 		// POD we can just copy over
 		let datakeys = ['species','genus','generation','speciation'];
 		for ( let k of datakeys ) { b[k] = this[k]; }

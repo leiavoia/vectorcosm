@@ -4,7 +4,7 @@ import Food from '../classes/class.Food.js'
 import Plant from '../classes/class.Plant.js'
 import BoidLibrary from '../classes/class.BoidLibrary.js'
 import { SimulationFactory, NaturalTankSimulation } from '../classes/class.Simulation.js'
-import { BoidFactory, Boid } from '../classes/class.Boids.js'
+import { Boid } from '../classes/class.Boids.js'
 import PubSub from 'pubsub-js'
 import {db} from '../classes/db.js'
 
@@ -271,7 +271,7 @@ export default class Vectorcosm {
 		if (json) {
 			json = JSON.parse(json);
 			for ( let j of json ) {
-				let b = new Boid( 0, 0, this.tank, j );
+				let b = new Boid( 0, 0, j );
 				b.ScaleBoidByMass();
 				this.simulation.AddBoidToTank(b); // handles safe spawn
 			}			
@@ -320,7 +320,7 @@ export default class Vectorcosm {
 			this.sim_queue.push( new NaturalTankSimulation(settings) );
 			this.LoadNextSim();
 			this.tank.boids = scene.boids.map( o => {
-				let b = new Boid( 0, 0, this.tank, o );
+				let b = new Boid( 0, 0, o );
 				b.angle = Math.random() * Math.PI * 2;		
 				b.ScaleBoidByMass();
 				return b;

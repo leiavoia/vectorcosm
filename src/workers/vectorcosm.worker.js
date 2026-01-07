@@ -329,7 +329,6 @@ function_registry.set( 'randTank', params => {
 	globalThis.vc.tank.Kill();
 	globalThis.vc.tank = new Tank( w, h );
 	globalThis.vc.tank.boids = boids;
-	globalThis.vc.tank.boids.forEach( b => b.tank = globalThis.vc.tank );
 	globalThis.vc.tank.MakeBackground();
 	const tm = new TankMaker( globalThis.vc.tank, {} );
 	tm.Make();
@@ -432,7 +431,7 @@ function_registry.set( 'addSavedBoidsToTank', async params => {
 		let results = await lib.Get({id});
 		for ( let row of results ) {
 			for ( let json of row.specimens ) {
-				let b = new Boid( 0, 0, globalThis.vc.tank, JSON.parse(json) );
+				let b = new Boid( 0, 0, JSON.parse(json) );
 				b.ScaleBoidByMass();
 				globalThis.vc.simulation.AddBoidToTank(b); // handles safe spawn
 				num_added++;						

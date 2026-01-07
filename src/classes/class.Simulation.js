@@ -3,7 +3,7 @@ import TankMaker from '../classes/class.TankMaker.js'
 import Food from '../classes/class.Food.js'
 import Rock from '../classes/class.Rock.js'
 import * as utils from '../util/utils.js'
-import { Boid, BoidFactory } from '../classes/class.Boids.js'
+import { Boid } from '../classes/class.Boids.js'
 import SimulationLibrary from "./SimulationLibrary.js"
 import {Circle} from 'collisions'
 import { RandomPlant } from '../classes/class.Plant.js'
@@ -367,7 +367,7 @@ export default class Simulation {
 						let species = parent ? parent.species : this.settings?.species;
 						let b = parent 
 							? parent.Copy(true, dna_mutation_rate, brain_mutation_rate, speciation_rate) 
-							: BoidFactory( species, 0, 0, globalThis.vc.tank ) ;
+							: Boid.Random() ;
 						// if no survivors, it automatically has a randomly generated brain
 						population.push(b);
 					}			
@@ -428,7 +428,7 @@ export default class Simulation {
 	}
 	
 	AddNewBoidToTank() {
-		const b = BoidFactory(this.settings?.species, 0, 0, globalThis.vc.tank);
+		const b = Boid.Random();
 		this.AddBoidToTank(b);
 	}
 	
@@ -625,7 +625,7 @@ export class FoodChaseSimulation extends Simulation {
 		let spawn_x = (Math.random() > 0.5 ? 0.25 : 0.75) * globalThis.vc.tank.width; 
 		let spawn_y = (Math.random() > 0.5 ? 0.25 : 0.75) * globalThis.vc.tank.height; 	
 		for ( let i=globalThis.vc.tank.boids.length; i < this.settings.num_boids; i++ ) {
-			const b = BoidFactory(this.settings?.species, spawn_x, spawn_y, globalThis.vc.tank );
+			const b = Boid.Random(spawn_x, spawn_y);
 			globalThis.vc.tank.boids.push(b);
 		}
 		this.Reset();
@@ -763,7 +763,7 @@ export class FinishingSimulation extends Simulation {
 		let spawn_x = (Math.random() > 0.5 ? 0.25 : 0.75) * globalThis.vc.tank.width; 
 		let spawn_y = (Math.random() > 0.5 ? 0.25 : 0.75) * globalThis.vc.tank.height; 	
 		for ( let i=globalThis.vc.tank.boids.length; i < this.settings.num_boids; i++ ) {
-			const b = BoidFactory(this.settings?.species, spawn_x, spawn_y, globalThis.vc.tank );
+			const b = Boid.Random(spawn_x, spawn_y);
 			globalThis.vc.tank.boids.push(b);
 		}
 		this.Reset();
