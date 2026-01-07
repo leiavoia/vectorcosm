@@ -127,6 +127,10 @@ export default class EPANN {
 		this.NormalizeWeights();
 	}
 
+	// NOTE: specify a layer if you want the network to update internal accounting:
+	// 	opts = { layer: <input|output|middle> }
+	// otherwise it will be assumed that the nodes counts for each layer were
+	// predetermined and we are just creating the initial population. 
 	addNode(opts = {}, insert_index = -1) {
 		// speed note: including strings with the function data is ~5% slower than just having numbers
 		// we like the variety of having functions per-node, but its faster to do them all the same 
@@ -145,11 +149,26 @@ export default class EPANN {
 			conns: [],
 			// TODO: unique ID for NEAT?
 		};
-		// insert or append
+		// if the user specified a layer but not an index, pick an index for them
+		if ( opts?.layer && insert_index < 0 ) {
+			if ( opts.layer=='input' ) {
+				insert_index = this.num_inputs;
+			}
+			else if ( opts.layer=='output' ) {
+				insert_index = this.nodes.length;
+			}
+			else {
+				insert_index = this.nodes.length - this.num_outputs;
+			}
+		}
+		// insert node
 		if ( insert_index >= 0 && insert_index <= this.nodes.length ) {
 			this.nodes.splice(insert_index, 0, node);
-			// update counts
-			if ( insert_index < this.num_inputs ) {
+			// if a layer was specified, assume they knew what they were doing
+			if ( opts?.layer=='input' ) { this.num_inputs++; }
+			else if ( opts?.layer=='output' ) { this.num_outputs++; }
+			// otherwise we have to guess
+			else if ( insert_index < this.num_inputs ) { // /!\ doesnt handle "first middle node"
 				this.num_inputs++;
 			}
 			else if ( insert_index >= this.nodes.length - this.num_outputs ) {
@@ -580,7 +599,7 @@ export default class EPANN {
 			else if ( action == 'add_node'  ) {
 				const new_index = Math.floor(RandomNumber(this.num_inputs, this.nodes.length - this.num_outputs + 1));
 				const squash = this.activation_type ?? RandomActivationFunction(true);
-				this.addNode({plasticity: 1, bias: 0, squash}, new_index);
+				this.addNode({plasticity: 1, bias: 0, squash, layer:'middle'}, new_index);
 				// connect it to at least one forward node
 				let index_to = Math.floor(RandomNumber(new_index + 1, this.nodes.length));
 				this.addConnection(new_index, index_to);
