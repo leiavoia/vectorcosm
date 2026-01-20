@@ -42,6 +42,7 @@ export class Boid extends PhysicsObject {
 	static HEALTH_PENALTY_COEF = 1.5; // high number makes bad health drastically more bad.
 	static MIN_HEALTH_CREDIT = 0.25; // minimum amount of life credit to use if organism in perfect health.
 	static HEALTH_UPDATE_FREQ = 5; // 5 second intervals
+	static TANK_MAX_OCCUPANCY_BUFFER = 0.1; // fraction of max boids setting we are allowed to exceed when making babies
 	
 	Reset() {
 		this.x = 0;
@@ -709,10 +710,8 @@ export class Boid extends PhysicsObject {
 				m.this_stroke_time = 0;
 				return 0; 
 			}
-			// tank capacity sanity cap
-			if ( ( m.hasOwnProperty('bud') || m.hasOwnProperty('mitosis') ) && 
-				( globalThis.vc.tank.boids.length >= (globalThis.vc?.simulation?.settings?.num_boids || 100)
-				|| globalThis.vc.simulation.settings?.ignore_lifecycle ) ) {
+			// no babies for this scenario
+			if ( ( m.hasOwnProperty('bud') || m.hasOwnProperty('mitosis') ) && globalThis.vc.simulation.settings?.ignore_lifecycle ) {
 				m.last_amount = 0;
 				m.this_stroke_time = 0;
 				return 0; 
@@ -912,7 +911,10 @@ export class Boid extends PhysicsObject {
 	Mitosis( num_offspring ) {
 		const mutation_rate = utils.Clamp( globalThis.vc?.simulation?.settings?.max_mutation, 0, 1 );
 		const speciation_rate = utils.Clamp( globalThis.vc?.simulation?.settings?.speciation_rate || 0, 0, 1 );
+		const tank_max_boids = ( 1 + Boid.TANK_MAX_OCCUPANCY_BUFFER ) * ( globalThis.vc?.simulation?.settings?.num_boids || 300 );
+		let num_produced = 0; // needed because tank size can limit how many get produced
 		for ( let n=0; n < num_offspring; n++ ) { 
+			if ( globalThis.vc.tank.boids.length >= tank_max_boids ) { break; }
 			let offspring = this.Copy(true, mutation_rate, mutation_rate, speciation_rate); // reset state and mutate organism
 			offspring.age = 0; // simulation can assign a random age on Copy
 			offspring.x = this.x;
@@ -926,14 +928,17 @@ export class Boid extends PhysicsObject {
 			// energy, they don't stand a chance of surviving.
 			offspring.metab.energy = this.traits.offspring_investment * offspring.metab.max_energy;
 			globalThis.vc.tank.boids.push(offspring);
+			num_produced++;
 		}
 		// babies aren't free. we just lost a lot of mass.
-		this.mass /= ( num_offspring + 1 );
+		this.mass /= ( num_produced + 1 );
 		this.ScaleBoidByMass();
-		globalThis.vc.simulation.RecordStat('births',num_offspring);	
+		globalThis.vc.simulation.RecordStat('births',num_produced);	
 	}
 	
 	Bud() {
+		const tank_max_boids = ( 1 + Boid.TANK_MAX_OCCUPANCY_BUFFER ) * ( globalThis.vc?.simulation?.settings?.num_boids || 300 );
+		if ( globalThis.vc.tank.boids.length >= tank_max_boids ) { return; }
 		const mutation_rate = utils.Clamp( globalThis.vc?.simulation?.settings?.max_mutation, 0, 1 );
 		const speciation_rate = utils.Clamp( globalThis.vc?.simulation?.settings?.speciation_rate || 0, 0, 1 );
 		let offspring = this.Copy(true, mutation_rate, mutation_rate, speciation_rate); // reset state and mutate organism
