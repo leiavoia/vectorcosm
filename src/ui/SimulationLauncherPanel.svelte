@@ -49,14 +49,14 @@
 		switch (program_name) {
 			// compound simulation queues need to be defined here
 			case 'quickstart' : {
-				queue.push( 'turning_training_easy' );
+				// queue.push( 'turning_training_easy' );
 				queue.push( 'turning_training_medium' );
 				queue.push( 'food_training_sim_easy' );
 				queue.push( 'finishing_school' );
 				break;
 			}
 			case 'the_works' : {
-				queue.push( 'turning_training_easy' );
+				// queue.push( 'turning_training_easy' );
 				queue.push( 'turning_training_medium' );
 				queue.push( 'turning_training_hard' );
 				queue.push( 'food_training_sim_medium' );
@@ -67,7 +67,7 @@
 				break;
 			}
 			case 'steering_comp' : {
-				queue.push( 'turning_training_easy' );
+				// queue.push( 'turning_training_easy' );
 				queue.push( 'turning_training_medium' );
 				queue.push( 'turning_training_hard' );
 				queue.push( 'turning_training_xhard' );
