@@ -278,18 +278,33 @@ export default class Vectorcosm {
 		}		
 	}
 	
+	// id: 
+	//	null creates a new record
+	// 	zero is used as the "buffer" slot
+	//	>0 for library slots
 	async SaveTank( id=0 ) {
 		if ( this.tank ) {
+			let tank = this.tank;
+			let w = tank.width.toFixed();
+			let h = tank.height.toFixed();
+			let b = tank.boids.length;
+			let p = tank.plants.length;
+			let r = tank.obstacles.length;
+			// TODO: age would be nice some day
+			let label = `${w}x${h}, ${b} Boids, ${p} Plants, ${r} Rocks`;			
 			const scene = {
-				tank: this.tank.Export(),
-				boids: this.tank.boids.map( x => x.Export() ),
-				obstacles: this.tank.obstacles.map( x => x.Export() ),
-				foods: this.tank.foods.map( x => x.Export() ),
-				plants: this.tank.plants.map( x => x.Export() ),
+				tank: tank.Export(),
+				boids: tank.boids.map( x => x.Export() ),
+				obstacles: tank.obstacles.map( x => x.Export() ),
+				foods: tank.foods.map( x => x.Export() ),
+				plants: tank.plants.map( x => x.Export() ),
 				sim_settings: this.simulation.settings,
 			};
-			const row = { id, scene, date: Date.now() };
-			await db.tanks.put(row);
+			let date = Date.now();
+			const row = { scene, label, date };
+			if ( id !== null ) { row.id = id; }
+			let new_id = await db.tanks.put(row);
+			return {id:new_id, label, date};
 		}
 	}
 	

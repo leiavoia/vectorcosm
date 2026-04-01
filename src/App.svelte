@@ -8,6 +8,7 @@
 	import SimulatorControlsPanel from './ui/SimulatorControlsPanel.svelte';
 	import SimulationLauncherPanel from './ui/SimulationLauncherPanel.svelte';
 	import BoidLibraryPanel from './ui/BoidLibraryPanel.svelte';
+	import TankLibraryPanel from './ui/TankLibraryPanel.svelte';
 	import CameraSettingsPanel from './ui/CameraSettingsPanel.svelte';
 	import VectorcosmDrawingContext from './ui/VectorcosmDrawingContext.svelte';
 	import GameLoop from './classes/class.GameLoop.js'
@@ -419,9 +420,10 @@
 		}
 	} );
 	
-	api.RegisterResponseCallback( 'saveTank', str => {
-		;;
-	} );
+	api.RegisterResponseCallback( 'saveTank', data => {
+		// let the tank library widget know we have a new row
+		PubSub.publish('tank-library-addition', data);
+	});
 	
 	api.RegisterResponseCallback( 'exportBoids', str => {
 		if ( str ) {
@@ -752,7 +754,7 @@
 			setPanelMode('settings')
 		},
 		'4': _ => {
-			setPanelMode('boid_library')
+			setPanelMode('object_library')
 		},
 		'5': _ => {
 			setPanelMode('sim_launcher')
@@ -1216,8 +1218,8 @@
 				title="Settings"
 				aria-label="Settings"
 				class="icon-camera"></button>	&nbsp;
-			<button onclick={_ => setPanelMode('boid_library')}	
-				class:selected={panel_mode=='boid_library'} 
+			<button onclick={_ => setPanelMode('object_library')}	
+				class:selected={panel_mode=='object_library'} 
 				title="Creature Library"
 				aria-label="Creature Library" 
 				class="icon-database"></button>	&nbsp;
@@ -1239,8 +1241,9 @@
 			<PerfStatsPanel tracker={performanceTracker} open={false}></PerfStatsPanel>
 		{:else if panel_mode==='settings'}
 			<CameraSettingsPanel camera={camera}></CameraSettingsPanel>
-		{:else if panel_mode==='boid_library'}
+		{:else if panel_mode==='object_library'}
 			<BoidLibraryPanel {api} ></BoidLibraryPanel>
+			<TankLibraryPanel {api} ></TankLibraryPanel>
 		{:else if panel_mode==='sim_launcher'}
 			<SimulationLauncherPanel {api} ></SimulationLauncherPanel>
 		{/if}

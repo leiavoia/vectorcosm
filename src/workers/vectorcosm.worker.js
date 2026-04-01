@@ -4,6 +4,7 @@ import * as utils from '../util/utils.js'
 import { SimulationFactory } from '../classes/class.Simulation.js'
 import PubSub from 'pubsub-js'
 import BoidLibrary from '../classes/class.BoidLibrary.js'
+import TankLibrary from '../classes/class.TankLibrary.js'
 import Tank from '../classes/class.Tank.js'
 import TankMaker from '../classes/class.TankMaker.js'
 
@@ -294,8 +295,9 @@ function_registry.set( 'endSim', params => {
 });
 
 function_registry.set( 'saveTank', params => {
-	globalThis.vc.SaveTank( params?.data?.id ?? 0 );
-	globalThis.postMessage( { functionName: 'saveTank', data: null } );
+	globalThis.vc.SaveTank( params?.data?.id ).then(
+		data => globalThis.postMessage( { functionName: 'saveTank', data } )
+	);
 });
 
 function_registry.set( 'loadTank', params => {

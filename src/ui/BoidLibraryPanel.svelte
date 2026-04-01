@@ -3,8 +3,8 @@
 	import FileSaver from 'file-saver';
 	import PubSub from 'pubsub-js'
 	
-	let { api } = $props();
-	
+	let { api, open=true } = $props();
+
 	const lib = new BoidLibrary();
 	let rows = $state([]);
 	let order_by = 'date';
@@ -174,62 +174,64 @@
 </style>
 
 <section>
-	<header>
-		<h3>Boid Library</h3>
+	<header onclick={()=>open=!open}>
+		<h3>Boid Library
+			<!-- {#if !open}  -->
+				<small class="dim"> | {rows.length}</small>
+			<!-- {/if} -->
+		</h3>
 	</header>
-	<div class="button_rack">
-		<button class={{ghost: !num_selected}} onclick={AddSelectedRowsToTank}>Add To Tank</button>
-		<button class={{ghost: !num_selected}} onclick={ToggleFavoriteSelectedRows}>Favorite</button>
-		<button class={{ghost: !num_selected}} onclick={DeleteSelectedRows}>Delete</button>
-	</div>
-	<div class="button_rack" style="margin-top:0;">
-		<button class={{ghost: !num_selected}} onclick={DeselectAll}>None</button>
-		<button onclick={SelectAll}>All</button>
-		<button onclick={ToggleQueryFavorites}>Favorites {star===null ? '' : (star ? '★' : '☆')}</button>
-	</div>
-	
-	<br/>
-	
-	{#if !rows.length}
-		<p style="text-align:center;">
-			<b>Library is empty.</b>
-			<br/>
-			Save specimens by clicking on them and pressing "Save".
-		</p>
-	{:else}
-		<p>
-			<b>{rows.length}</b> saved populations
-		</p>
-	{/if}
-	
-	<div class="scrollbox">
-		{#if rows.length}
-			<table>
-				<tbody>
-					{#each rows as row}
-						<tr class={{selected: row.selected}} onclick={()=>ToggleRowSelect(row)} >
-							<td style="padding-left: 0;">
-								{row.species} ({row.count})
-								<br/>
-								<small class="dim">{FormatTimestamp(row.date)}</small>
-							</td>	
-							<td onclick={(event)=>MarkRowAsFavorite(row, event)} style="text-align:right;">{row.star ? '★' : '☆'}</td>	
-						</tr>
-					{/each}
-				</tbody>
-			</table>
+	{#if open}
+		<div class="button_rack">
+			<button class={{ghost: !num_selected}} onclick={AddSelectedRowsToTank}>Add To Tank</button>
+			<button class={{ghost: !num_selected}} onclick={ToggleFavoriteSelectedRows}>Favorite</button>
+			<button class={{ghost: !num_selected}} onclick={DeleteSelectedRows}>Delete</button>
+		</div>
+		<div class="button_rack" style="margin-top:0;">
+			<button class={{ghost: !num_selected}} onclick={DeselectAll}>None</button>
+			<button onclick={SelectAll}>All</button>
+			<button onclick={ToggleQueryFavorites}>Favorites {star===null ? '' : (star ? '★' : '☆')}</button>
+		</div>
+		
+		{#if !rows.length}
+			<p style="text-align:center;">
+				<b>Library is empty.</b>
+				<br/>
+				Save specimens by clicking on them and pressing "Save".
+			</p>
+		<!-- {:else} -->
+			<!-- <p> -->
+				<!-- <b>{rows.length}</b> saved populations -->
+			<!-- </p> -->
 		{/if}
-	</div>
+		
+		<div class="scrollbox">
+			{#if rows.length}
+				<table>
+					<tbody>
+						{#each rows as row}
+							<tr class={{selected: row.selected}} onclick={()=>ToggleRowSelect(row)} >
+								<td style="padding-left: 0;">
+									{row.species} ({row.count})
+									<br/>
+									<small class="dim">{FormatTimestamp(row.date)}</small>
+								</td>	
+								<td onclick={(event)=>MarkRowAsFavorite(row, event)} style="text-align:right;">{row.star ? '★' : '☆'}</td>	
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			{/if}
+		</div>
 
-	<br/>
-	
-	<div class="button_rack">
-		<button class={{ghost: num_selected!==1}} onclick={ExportSelectedRowsToFile}>Export</button>
-		<button onclick={ToggleShowFileUploadControls}>Import</button>
-	</div>
-	{#if show_file_upload_controls}
-		<form onsubmit={ImportFile} onchange={ImportFile}>
-			<input type="file" bind:files={files} accept=".roe" id="savefileloader" />
-		</form>
+		<div class="button_rack">
+			<button class={{ghost: num_selected!==1}} onclick={ExportSelectedRowsToFile}>Export</button>
+			<button onclick={ToggleShowFileUploadControls}>Import</button>
+		</div>
+		{#if show_file_upload_controls}
+			<form onsubmit={ImportFile} onchange={ImportFile}>
+				<input type="file" bind:files={files} accept=".roe" id="savefileloader" />
+			</form>
+		{/if}
 	{/if}
 </section>	
