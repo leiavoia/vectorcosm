@@ -357,7 +357,7 @@ export default class SpikingNeuralNetwork {
 							for ( let i of [index1, index2] ) {
 								const n = this.nodes[i];
 								for ( let c = n.conns.length-2; c >= 0; c-=2 ) {
-									if ( c === i ) {
+									if ( n.conns[c] === i ) {
 										n.conns.splice( c, 2 );
 									}
 								}
