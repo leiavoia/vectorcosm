@@ -1243,7 +1243,7 @@
 			<CameraSettingsPanel camera={camera}></CameraSettingsPanel>
 		{:else if panel_mode==='object_library'}
 			<BoidLibraryPanel {api} ></BoidLibraryPanel>
-			<TankLibraryPanel {api} ></TankLibraryPanel>
+			<TankLibraryPanel {camera} {api} ></TankLibraryPanel>
 		{:else if panel_mode==='sim_launcher'}
 			<SimulationLauncherPanel {api} ></SimulationLauncherPanel>
 		{/if}

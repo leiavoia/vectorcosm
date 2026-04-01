@@ -3,7 +3,7 @@
 	import FileSaver from 'file-saver';
 	import PubSub from 'pubsub-js'
 	
-	let { api, open=true } = $props();
+	let { api, camera, open=true } = $props();
 
 	const lib = new TankLibrary();
 	let rows = $state([]);
@@ -15,6 +15,7 @@
 	
 	function LoadTank() {
 		if ( !selected_row ) { return; }
+		camera.dramatic_entrance = -1; // evaluates to "true" but resets to false on next action
 		api.SendMessage('loadTank', { id: selected_row.id } );
 	}
 	
