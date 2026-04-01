@@ -99,13 +99,8 @@ export default class Sensor {
 			}			
 		}
 		
-		// default whiskers for physical obstacle detection
-		if ( this.type === 'whisker' && !this.detect ) {
-			this.senseFunction = this.senseWhiskers;
-		}
-		
 		// this is a general purpose sensor for vision, smell, and audio
-		else if ( this.type === 'sense' ) {
+		if ( this.type === 'sense' ) {
 			this.senseFunction = this.senseGeneral;
 			// precompute some stuff for segmented vision
 			if ( this.segments && !this.segdata ) {
@@ -133,6 +128,9 @@ export default class Sensor {
 		// small special purpose sensors
 		else {
 			switch (this.detect) {
+				case 'whisker':
+					this.senseFunction = this.senseWhiskers;
+					break;
 				case 'light':
 					this.senseFunction = this.senseLight;
 					break;
