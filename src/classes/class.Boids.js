@@ -1633,13 +1633,13 @@ export class Boid extends PhysicsObject {
 		if ( has_food_locator ) {
 			const radius = this.dna.shapedNumber(this.dna.genesFor('food locator radius',3,2), 150, 600, 300, 1.5 );
 			const xoff = this.dna.shapedNumber(this.dna.genesFor('food locator xoff',3,2), -radius*0.5, radius, radius*0.5, 1.5 );
-			const detect = ['near_food_dist'];
+			const detect = ['food_dist'];
 			// include density 
 			if ( this.dna.shapedNumber(this.dna.genesFor('food locator density',1,true)) > 0.6 ) { detect.push('food_density'); }
 			// use single angle number
-			if ( this.dna.shapedNumber(this.dna.genesFor('food locator angle',1,true)) > 0.7 ) { detect.push('near_food_angle'); }
+			if ( this.dna.shapedNumber(this.dna.genesFor('food locator angle',1,true)) > 0.7 ) { detect.push('food_angle'); }
 			// otherwise use more advanced sine/cosine pair
-			else { detect.push('near_food_sine','near_food_cos'); }
+			else { detect.push('food_sine','food_cos'); }
 			this.sensors.push( new Sensor({ 
 				name: 'locate',
 				type: 'locater',
@@ -1851,6 +1851,46 @@ export class Boid extends PhysicsObject {
 			// boxfit costs
 			const cost = whiskers.length;
 			this.traits.boxfit.push([ cost * 0.3, cost, `sensors.light`]);
+		}
+				
+		
+		// ambient heat (whisker based)
+		const has_heat = this.dna.shapedNumber(this.dna.genesFor('has heat',2,true)) <= 0.62;
+		if ( has_heat ) {
+			let whiskers = [];
+			// stereo
+			if ( this.dna.shapedNumber(this.dna.genesFor(`heat sensor stereo`,true)) < 0.2 ) {
+				const length = this.dna.shapedNumber(this.dna.genesFor(`heat sensor stereo length`,2,1), 50, 250, 140, 3 );
+				let angle = this.dna.shapedNumber(this.dna.genesFor(`heat sensor stereo angle`,2,1), 0, Math.PI);
+				// tend to stick out to the sides
+				angle = utils.Clamp( angle, Math.PI/10, Math.PI-(Math.PI/10) );
+				whiskers.push({l:length, a:angle});
+				whiskers.push({l:length, a:-angle});
+			}
+			// rear
+			if ( this.dna.shapedNumber(this.dna.genesFor('rear heat sensor',1,true)) < 0.2 ) {
+				const length = this.dna.shapedNumber(this.dna.genesFor('rear heat sensor length',2,1), 50, 250, 140, 3 );
+				whiskers.push({l:length, a:-Math.PI});
+			}
+			// front
+			if ( this.dna.shapedNumber(this.dna.genesFor('front heat sensor',1,true)) < 0.25 ) {
+				const length = this.dna.shapedNumber(this.dna.genesFor('front heat sensor',2,1), 50, 250, 140, 3 );
+				whiskers.push({l:length, a:0});
+			}
+			
+			if ( whiskers.length ) {
+				// the scheme can be absolute or relative temperature
+				let scheme = this.dna.shapedNumber(this.dna.genesFor(`heat sensor scheme`,2,true)) <= 0.5 ? 'relative' : 'absolute';
+				let scheme_indicator = scheme.charAt(0).toUpperCase();
+				let name  = 'heat' + scheme_indicator;
+				
+				// commit
+				this.sensors.push( new Sensor({detect:'heat', name, type:'whisker', whiskers, scheme, color:'#FD7F47'}, this) );
+				
+				// boxfit costs
+				const cost = whiskers.length;
+				this.traits.boxfit.push([ cost * 0.3, cost, `sensors.heat`]);
+			}
 		}
 				
 		// proprioception

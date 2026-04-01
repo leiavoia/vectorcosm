@@ -65,7 +65,7 @@ export default class Sensor {
 		// legacy vision sensor
 		else if ( this.type === 'locater' ) {
 			// /!\ KLUNKY - specific order matters
-			let look_for = ['near_food_cos', 'near_food_sine', 'near_food_angle', 'near_food_dist', 'food_density'];
+			let look_for = ['food_cos', 'food_sine', 'food_angle', 'food_dist', 'food_density'];
 			for ( let x of look_for ) {
 				if ( this.detect.contains(x) ) { this.labels.push(x); }
 			}
@@ -133,6 +133,9 @@ export default class Sensor {
 					break;
 				case 'light':
 					this.senseFunction = this.senseLight;
+					break;
+				case 'heat':
+					this.senseFunction = this.senseHeat;
 					break;
 				case 'displacement':
 					this.senseFunction = this.senseDisplacement;
@@ -229,16 +232,16 @@ export default class Sensor {
 		// normalize outputs for neural network consumption
 		nearest_dist = Number.isFinite(nearest_dist) ? (1-utils.Clamp( nearest_dist / this.r, 0, 1)) : 0;
 		const density = Math.min( 1, num_edible_foods / 7 ); // [!]MAGICNUMBER
-		if ( this.detect.contains('near_food_cos') ) {
+		if ( this.detect.contains('food_cos') ) {
 			outputs.push( (nearest_angle?((Math.cos(nearest_angle)+1)/2):0) );
 		}
-		if ( this.detect.contains('near_food_sine') ) {
+		if ( this.detect.contains('food_sine') ) {
 			outputs.push( (nearest_angle?((Math.sin(nearest_angle)+1)/2):0) );
 		}
-		if ( this.detect.contains('near_food_angle') ) {
+		if ( this.detect.contains('food_angle') ) {
 			outputs.push( (nearest_angle?(nearest_angle/(2*Math.PI)):0) );
 		}
-		if ( this.detect.contains('near_food_dist') ) {
+		if ( this.detect.contains('food_dist') ) {
 			outputs.push( nearest_dist );
 		}
 		if ( this.detect.contains('food_density') ) {
@@ -674,6 +677,38 @@ export default class Sensor {
 			output.push( w.v );
 		}
 		return output; 
+	}		
+
+    senseHeat() {
+		let whiskers = this.whiskers || [];
+		if ( !whiskers.length ) {
+			whiskers.push( { l:this?.l??500, a:this?.a??0, v:0 } );
+		}
+		const output = [];
+		const grid = globalThis.vc.tank.datagrid;
+		// temperature gradient
+		if ( this.scheme==='relative' ) {
+			for ( let w of whiskers ) { 
+				const x2 = this.owner.x + w.l * Math.cos(this.owner.angle + w.a);
+				const y2 = this.owner.y + w.l * Math.sin(this.owner.angle + w.a);
+				const v1 = grid.InterpolatedGridValue( this.owner.x, this.owner.y, 'heat' );
+				const v2 = grid.InterpolatedGridValue( x2, y2, 'heat' );
+				w.v = 0.5 + 0.5 * Math.tanh( 2 * ( v2 - v1 ) ); // tanh unnecessary but gives a more prompting signal
+				output.push( w.v );
+			}
+			return output; 
+		}
+		// absolute temperature
+		else {
+			for ( let w of whiskers ) { 
+				const x2 = this.owner.x + w.l * Math.cos(this.owner.angle + w.a);
+				const y2 = this.owner.y + w.l * Math.sin(this.owner.angle + w.a);
+				const v = grid.InterpolatedGridValue( x2, y2, 'heat' );
+				output.push( v );
+			}
+			return output; 
+		
+		}
 	}		
 
     senseObstacles() {
