@@ -334,6 +334,26 @@
 		<details>
 			<summary>
 				<div class="krell">
+					{#each boid.hormones as i}
+						<div class="box" style="width:{Math.min(10,(100/boid.hormones.length)).toFixed()}px">
+							<div style="background-color:#E56ACC; height:{i*100}%"></div>
+						</div>
+					{/each}
+				</div>
+				<h4 style="clear:none; width:auto;">Hormone</h4>
+			</summary>
+			<div style="line-height:1.1em;">	
+				{#each boid.hormones as i}
+					<div class={{sensor_block:true}}>
+						<progress value={i}></progress>
+					</div>
+				{/each}
+			</div>
+		</details>
+
+		<details>
+			<summary>
+				<div class="krell">
 					{#each boid.sensors as i}
 						<div class="box" style="width:{Math.min(10,(100/boid.sensors.length)).toFixed()}px">
 							<div style="background-color:#80D4FF; height:{(i.val||0)*100}%"></div>

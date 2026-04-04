@@ -43,6 +43,7 @@ export default class Endocrine {
 		// consider having separate growth and decay rates.
 		// this.growthRates = Array.from({length: num_hormones}, () => 0.05 + Math.random() * 0.10);
 		// this.decayRates = Array.from({length: num_hormones}, () => 0.02 + Math.random() * 0.05);
+		this.tick = 0; // tracks number of updates
 	}
 	
 	// takes environmental input values to influence hormone changes
@@ -95,6 +96,8 @@ export default class Endocrine {
 		for ( let i=0; i < newHormones.length; i++ ) {
 			this.hormones[i] = newHormones[i];
 		}
+		
+		this.tick++;
 	}
 		
 }

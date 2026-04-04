@@ -5,6 +5,7 @@ import Rock from '../classes/class.Rock.js'
 import Food from '../classes/class.Food.js'
 import DNA from '../classes/class.DNA.js'
 import Brain from '../classes/class.Brain.js'
+import Endocrine from '../classes/class.Endocrine.js'
 import Mark from '../classes/class.Mark.js'
 import * as utils from '../util/utils.js'
 import {Circle, Polygon, Result} from 'collisions';
@@ -43,6 +44,7 @@ export class Boid extends PhysicsObject {
 	static MIN_HEALTH_CREDIT = 0.25; // minimum amount of life credit to use if organism in perfect health.
 	static HEALTH_UPDATE_FREQ = 5; // 5 second intervals
 	static TANK_MAX_OCCUPANCY_BUFFER = 0.1; // fraction of max boids setting we are allowed to exceed when making babies
+	static ENDOCRINE_UPDATE_FREQ = 5.0;
 	
 	Reset() {
 		this.x = 0;
@@ -589,6 +591,14 @@ export class Boid extends PhysicsObject {
 					break; // one bite only!
 				}
 			}		
+		}
+		
+		// ENDOCRINE / HORMONE LEVELS ------------------------\/-----------------------------------
+		// we don't need to update hormone levels every frame. 
+		// we can do this every 5 seconds or so.
+		if ( this.endocrine.tick <= Math.floor( this.age / Boid.ENDOCRINE_UPDATE_FREQ ) ) {
+			const endo_inputs = [0,0,0,0]; // number may change if we expand system
+			this.endocrine.update( endo_inputs );
 		}
 	}
 
@@ -2030,6 +2040,16 @@ export class Boid extends PhysicsObject {
 		
 		// console.log(`M=${metab_cost}, S=${size_cost}`, this.traits.boxfit);
 		
+		// create an endocrine system
+		this.endocrine = new Endocrine( { num_inputs:4, num_hormones:4, dna:this.dna} );
+		// rehydrate saved values
+		if ( this.hormones ) { 
+			for ( let i=0; i < this.endocrine.hormones.length; i++ ) {
+				this.endocrine.hormones[i] = this.hormones[i];
+			}
+			delete(this.hormones);
+		}
+		
 		// manually calculate body dimensions to pass to bodyplan
 		const size_ratio_l = this.dna.shapedNumber( this.dna.genesFor('body_size_ratio_l',2,1), 1, 10, 6, 2);
 		const size_ratio_w = this.dna.shapedNumber( this.dna.genesFor('body_size_ratio_w',2,1), 1, 8, 3, 2);
@@ -2132,6 +2152,9 @@ export class Boid extends PhysicsObject {
 		for ( let k of datakeys ) { b[k] = this[k]; }
 		b.brain = this.brain.Export(false); // POD
 		b.dna = this.dna.str;
+		// endocrine system only needs to store current values and meta info. 
+		// weights and rates are DNA derived.
+		b.hormones = this.endocrine.hormones;
 		// save motor timings - not doing this can mess up sensative mitosis strategies
 		b.motor_state = this.motors.map( m => ({
 			t: m.t,

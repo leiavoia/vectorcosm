@@ -520,6 +520,9 @@ function DescribeBoid( o, inc_sensor_geo=false,  inc_brain=false, inc_stats=0 ) 
 		data.sensors.push({ name: o.sensor_labels[i], val });
 	}
 		
+	// endocrine: just the current hormone levels
+	data.hormones = o.endocrine.hormones;
+		
 	// brain outputs - depends on brain type
 	if ( o.brain.type==='snn' || o.brain.type==='rnn' || o.brain.type==='epann' ) {
 		data.brain_outputs = o.brain.outputs.map( (v,i) => ({
