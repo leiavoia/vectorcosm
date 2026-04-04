@@ -239,7 +239,7 @@ export default class Vectorcosm {
 		PubSub.publish('frame-update', 'hello world!');							
 	}		
 
-	SavePopulation( species=null, ids=null, to_db=false /* can also be a string label */ ) {
+	SavePopulation( species=null, ids=null, to_db_as=null /* a string label */ ) {
 		if ( this.tank.boids.length ) {
 			let list = this.tank.boids;
 			if ( species ) {
@@ -250,10 +250,9 @@ export default class Vectorcosm {
 				list = list.filter( x => ids.includes(x.oid) );
 			}
 			// if saving to database, push objects directly in
-			if ( to_db ) {
+			if ( to_db_as ) {
 				const lib = new BoidLibrary();
-				let label = to_db !== true ? to_db : null;
-				lib.Add( list, label );
+				lib.Add( list, to_db_as );
 			}
 			// otherwise return JSON
 			else {
