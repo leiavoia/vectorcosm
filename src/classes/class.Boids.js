@@ -44,7 +44,7 @@ export class Boid extends PhysicsObject {
 	static MIN_HEALTH_CREDIT = 0.25; // minimum amount of life credit to use if organism in perfect health.
 	static HEALTH_UPDATE_FREQ = 5; // 5 second intervals
 	static TANK_MAX_OCCUPANCY_BUFFER = 0.1; // fraction of max boids setting we are allowed to exceed when making babies
-	static ENDOCRINE_UPDATE_FREQ = 5.0;
+	static ENDOCRINE_UPDATE_FREQ = 3.0;
 	
 	Reset() {
 		this.x = 0;
@@ -80,6 +80,7 @@ export class Boid extends PhysicsObject {
 		if ( !globalThis.vc.simulation.settings?.ignore_lifecycle ) {
 			this.age = utils.RandomInt( 0, this.traits.life_credits * 0.5 );
 		}
+		this.endocrine.tick = Math.floor( this.age / Boid.ENDOCRINE_UPDATE_FREQ );
 		this.ResetStats();
 	}
 	
@@ -596,10 +597,36 @@ export class Boid extends PhysicsObject {
 		// ENDOCRINE / HORMONE LEVELS ------------------------\/-----------------------------------
 		// we don't need to update hormone levels every frame. 
 		// we can do this every 5 seconds or so.
-		if ( this.endocrine.tick <= Math.floor( this.age / Boid.ENDOCRINE_UPDATE_FREQ ) ) {
-			const endo_inputs = [0,0,0,0]; // number may change if we expand system
+		const endocrine_update = Math.floor( this.age / Boid.ENDOCRINE_UPDATE_FREQ );
+		if ( this.endocrine.tick <= endocrine_update ) {
+			// inputs can be a blend of random stuff, but we roughly segment as:
+			// Self, Environment, Circumstance, Other
+			let self = (
+				this.health +
+				( this.life_credits / this.traits.life_credits )
+				) / 2 ;
+			const cell = globalThis.vc.tank.datagrid.CellAt( this.x, this.y );
+			let env = (
+				cell.light +
+				cell.heat
+				) / 2;
+			let circ = (
+				(this.metab.energy / this.metab.max_energy) +
+				( this.metab.stomach_total / this.metab.stomach_size )
+				) / 2;
+			// look for reproductive motors engaged
+			let reproducing = this.motors
+				.filter( m => ( m.hasOwnProperty('mitosis') || m.hasOwnProperty('bud') ) && m.t )
+				.map( m => Math.min( m.t / m.this_stroke_time, 1 ) )
+				.pop();
+			let other = (
+				(reproducing ?? 0)
+				);
+			// now apply the inputs and update the whole system	
+			const endo_inputs = [self, env, circ, other]; // number of inputs may change if we expand system
 			this.endocrine.update( endo_inputs );
 		}
+
 	}
 
 	Poop() {
@@ -2048,6 +2075,8 @@ export class Boid extends PhysicsObject {
 				this.endocrine.hormones[i] = this.hormones[i];
 			}
 			delete(this.hormones);
+			// set the tick counter according to the age 
+			this.endocrine.tick = Math.floor( this.age / Boid.ENDOCRINE_UPDATE_FREQ );
 		}
 		
 		// manually calculate body dimensions to pass to bodyplan
