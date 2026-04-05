@@ -185,6 +185,9 @@ export default class Sensor {
 				case 'obstacles':
 					this.senseFunction = this.senseObstacles;
 					break;
+				case 'hormone':
+					this.senseFunction = this.senseHormones;
+					break;
 				default:
 					this.senseFunction = this.senseDefault;
 					break;
@@ -658,6 +661,11 @@ export default class Sensor {
             val = Math.max(friends.length - 1, 0);
             val = Math.min(1.0, Math.log10(val + 1));
         }
+        return [val];
+    }
+
+    senseHormones() {
+        let val = this.owner.endocrine.hormones[this.hormone] || 0;
         return [val];
     }
 

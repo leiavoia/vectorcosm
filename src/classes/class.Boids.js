@@ -45,6 +45,8 @@ export class Boid extends PhysicsObject {
 	static HEALTH_UPDATE_FREQ = 5; // 5 second intervals
 	static TANK_MAX_OCCUPANCY_BUFFER = 0.1; // fraction of max boids setting we are allowed to exceed when making babies
 	static ENDOCRINE_UPDATE_FREQ = 3.0;
+	static ENDOCRINE_INPUT_CHANNELS = 4;
+	static ENDOCRINE_NUM_HORMONES = 4;
 	
 	Reset() {
 		this.x = 0;
@@ -2009,6 +2011,15 @@ export class Boid extends PhysicsObject {
 			}
 		}
 		
+		// random chance to have hormone sensors
+		for ( let i=0; i < Boid.ENDOCRINE_NUM_HORMONES; i++ ) {
+			const n = this.dna.shapedNumber( this.dna.genesFor(`has hormone sensor ${i}`,2,1), 0, 1 );
+			if ( n < 0.18 ) {
+				this.sensors.push( new Sensor({detect:`hormone`, hormone:i, name:`hormone${i}`}, this) );
+				this.traits.boxfit.push([ 1, 0.5, `sensors.hormone${i}`]);
+			}
+		}
+		
 		// if the organism has no inputs at all, they get fun defaults
 		if ( !this.sensors.length ) {
 			this.sensors.push( new Sensor({detect:'energy'}, this) );
@@ -2068,7 +2079,11 @@ export class Boid extends PhysicsObject {
 		// console.log(`M=${metab_cost}, S=${size_cost}`, this.traits.boxfit);
 		
 		// create an endocrine system
-		this.endocrine = new Endocrine( { num_inputs:4, num_hormones:4, dna:this.dna} );
+		this.endocrine = new Endocrine( { 
+			num_inputs:Boid.ENDOCRINE_INPUT_CHANNELS, 
+			num_hormones:Boid.ENDOCRINE_NUM_HORMONES, 
+			dna:this.dna
+		} );
 		// rehydrate saved values
 		if ( this.hormones ) { 
 			for ( let i=0; i < this.endocrine.hormones.length; i++ ) {
