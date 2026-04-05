@@ -47,6 +47,13 @@ export class Boid extends PhysicsObject {
 	static ENDOCRINE_UPDATE_FREQ = 3.0;
 	static ENDOCRINE_INPUT_CHANNELS = 4;
 	static ENDOCRINE_NUM_HORMONES = 4;
+	// hormones don't technically have names and are not rigidly programmed, 
+	// but you can use this as a guide for implementation of effects:
+	// 0: Awareness
+	// 1: Decision
+	// 2: Action
+	// 3: Wildcard
+	static HORMONE_MOTOR_SENSITIVITY = 2; // volume knob for hormone effects
 	
 	Reset() {
 		this.x = 0;
@@ -429,10 +436,16 @@ export class Boid extends PhysicsObject {
 			|| globalThis.vc.boid_sensors_every_frame
 			|| ( globalThis.vc.boid_snn_every_frame && this.brain.type==='snn' );
 		if ( activate_brain ) {
+			// motor controls can be doped by a blend of hormones
+			let caffiene = ( this.endocrine.hormones[2] * 0.80 + this.endocrine.hormones[3] * 0.20 ) / 2;
+			let alcohol = ( this.endocrine.hormones[1] * 0.70 + this.endocrine.hormones[0] * 0.30 ) / 2;
+			let net_modulation = caffiene - alcohol;
+			const dope = Math.exp(-Boid.HORMONE_MOTOR_SENSITIVITY * net_modulation); // exponent for the output level
 			// movement / motor control 				
 			let brain_outputs = this.brain.Activate( this.sensor_outputs, globalThis.vc.simulation.stats.round_time );
 			for ( let i=0; i < brain_outputs.length; i++ ) {
 				let level = brain_outputs[i];
+				level = Math.pow(level, dope); // dope the output (optional - can be removed. entertaining but not necessarily useful)
 				this.ActivateMotor( i, level, delta );
 			}
 		}
