@@ -54,6 +54,7 @@ export class Boid extends PhysicsObject {
 	// 2: Action
 	// 3: Wildcard
 	static HORMONE_MOTOR_SENSITIVITY = 2; // volume knob for hormone effects
+	static HORMONE_PERCEPTION_SENSITIVITY = 2; // volume knob for hormone effects
 	
 	Reset() {
 		this.x = 0;
@@ -419,6 +420,15 @@ export class Boid extends PhysicsObject {
 					if ( i % combine == 0 ) { new_outputs[j] /= combine; }
 				}
 				this.sensor_outputs = new_outputs;
+			}
+			// hormones affect perception - optional, may remove if it has no useful effect
+			let positive = ( this.endocrine.hormones[0] * 0.90 + this.endocrine.hormones[1] * 0.10 ) / 2;
+			let negative = ( this.endocrine.hormones[2] * 0.50 + this.endocrine.hormones[3] * 0.50 ) / 2;
+			let net_modulation = positive - negative;
+			const dope = Math.exp(-Boid.HORMONE_PERCEPTION_SENSITIVITY * net_modulation); // exponent for the output level
+			for ( let i=0; i < this.sensor_outputs.length; i++ ) {
+				let level = this.sensor_outputs[i];
+				this.sensor_outputs[i] = Math.pow(level, dope);
 			}
 		}
 		
