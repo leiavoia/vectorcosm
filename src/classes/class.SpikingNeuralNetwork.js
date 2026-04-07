@@ -196,7 +196,7 @@ export default class SpikingNeuralNetwork {
 	ReceiveSignal( index, v ) {
 		let n = this.nodes[index];
 		// refractory period
-		if ( n.fired >= this.tick - n.refract ) { return; }
+		if ( !n || n.fired >= this.tick - n.refract ) { return; }
 		// integrate
 		n.v += v;
 		// fire
@@ -340,9 +340,12 @@ export default class SpikingNeuralNetwork {
 								}
 							}
 							for ( let i=this.events_next.length-1; i >= 0 ; i-- ) {
-								if ( this.events_next[i] >= this.nodes.length ) {
+								if ( this.events_next[i] === insertion_index ) {
 									this.events_next.splice(i,1);	
-								}										
+								}
+								else if ( this.events_next[i] > insertion_index ) {
+									this.events_next[i] = this.events_next[i] - 1;
+								}
 							}
 							break;
 						}

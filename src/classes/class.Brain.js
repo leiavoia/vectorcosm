@@ -191,82 +191,94 @@ export default class Brain {
 		if ( this.type === 'epann' ) {
 			const epann = this.network;
 			
-			// Step 1: Find input_map entries that are no longer needed (sensor no longer exists)
-			const currentSensors = new Set(boid.sensor_labels);
-			const unusedInputIndexes = [];
-			for (const [label, index] of Object.entries(this.input_map)) {
-				if (!currentSensors.has(label)) {
-					unusedInputIndexes.push(index);
-					delete this.input_map[label];
-				}
-			}
-
-			// Step 2: Find sensors that do not currently correspond to a neural network node index (sensor is new)
-			const unmappedSensors = boid.sensor_labels.filter(label => !(label in this.input_map));
-
-			// Step 3: Reuse existing input nodes for unmapped sensors if possible
-			for (const sensor of unmappedSensors) {
-				if (unusedInputIndexes.length > 0) {
-					const reusedIndex = unusedInputIndexes.shift();
-					this.input_map[sensor] = reusedIndex;
-				}
-			}
-
-			// Step 4: Create new input nodes for unmapped sensors that could not be reassigned
-			for (const sensor of unmappedSensors) {
-				if (!(sensor in this.input_map)) {
-					// Add input node at the end of input section
-					epann.addNode({ layer: 'input' });
-					this.input_map[sensor] = epann.num_inputs - 1;
-				}
-			}
-
-			// Step 5: Remove existing input nodes that could not be filled
-			// Find all input node indexes in the network
-			const mappedIndexes = new Set(Object.values(this.input_map));
-			// Remove input nodes not mapped to any sensor, from highest to lowest index
-			for (let i = epann.num_inputs - 1; i >= 0; i--) {
-				if (!mappedIndexes.has(i)) {
-					epann.removeNode(i, true);
-					// After removal, all higher indexes shift down by 1, so update input_map
-					for (const label in this.input_map) {
-						if (this.input_map[label] > i) {
-							this.input_map[label]--;
-						}
-					}
-				}
-			}
-
-			// Step 6: Physically reorder the input nodes to align with the expected sensor outputs
-			// If the order is already correct, skip. Otherwise, reorder.
-			// Build desired order
-			let needsReorder = false;
-			for (let i = 0; i < boid.sensor_labels.length; i++) {
-				if (this.input_map[boid.sensor_labels[i]] !== i) {
-					needsReorder = true;
-					break;
-				}
-			}
-			if (needsReorder) {
-				// For each sensor, if its mapped index is not at the right spot, swap nodes
-				for (let i = 0; i < boid.sensor_labels.length; i++) {
-					const label = boid.sensor_labels[i];
+			// Build a clean mapping of sensor labels to input node indexes
+			// This ensures the mapping is always in sync with actual network structure
+			const newInputMap = {};
+			
+			// Step 1: Identify which current input nodes correspond to existing sensors
+			const sensorToCurrentNode = {};
+			const usedNodeIndexes = new Set();
+			for (const label of boid.sensor_labels) {
+				if (label in this.input_map) {
 					const currentIdx = this.input_map[label];
-					if (currentIdx !== i) {
-						// Swap node at i with node at currentIdx
-						const tmp = epann.nodes[i];
-						epann.nodes[i] = epann.nodes[currentIdx];
-						epann.nodes[currentIdx] = tmp;
-						// Update all input_map entries that pointed to i or currentIdx
-						for (const l in this.input_map) {
-							if (this.input_map[l] === i) this.input_map[l] = currentIdx;
-							else if (this.input_map[l] === currentIdx) this.input_map[l] = i;
+					// Verify the index is still valid
+					if (currentIdx < epann.num_inputs && currentIdx >= 0) {
+						sensorToCurrentNode[label] = currentIdx;
+						usedNodeIndexes.add(currentIdx);
+					}
+				}
+			}
+			
+			// Step 2: Identify unused input node indexes (can be reused or removed)
+			const unusedNodeIndexes = [];
+			for (let i = 0; i < epann.num_inputs; i++) {
+				if (!usedNodeIndexes.has(i)) {
+					unusedNodeIndexes.push(i);
+				}
+			}
+			
+			// Step 3: Assign sensors to input nodes, reusing unused indexes where possible
+			for (const label of boid.sensor_labels) {
+				if (label in sensorToCurrentNode) {
+					// Reuse existing mapping
+					newInputMap[label] = sensorToCurrentNode[label];
+				} 
+				else if (unusedNodeIndexes.length > 0) {
+					// Reuse an unused node index
+					newInputMap[label] = unusedNodeIndexes.shift();
+				} 
+				else {
+					// Add a new input node
+					epann.addNode({ layer: 'input' });
+					newInputMap[label] = epann.num_inputs - 1;
+				}
+			}
+			
+			// Step 4: Remove input nodes that are no longer needed
+			// Mark nodes for removal by collecting indexes not in the new mapping
+			const nodesToKeep = new Set(Object.values(newInputMap));
+			for (let i = epann.num_inputs - 1; i >= 0; i--) {
+				if (!nodesToKeep.has(i)) {
+					epann.removeNode(i, true);
+					// Update all mapping entries for higher indexes
+					for (const label in newInputMap) {
+						if (newInputMap[label] > i) {
+							newInputMap[label]--;
 						}
 					}
 				}
 			}
-
-			// Step 7: Recreate the input map (ensure 0..N-1 order)
+			
+			// Step 5: Reorder input nodes to align with sensor_labels order (0..N-1)
+			// Build desired order mapping
+			const desiredOrder = {};
+			for (let i = 0; i < boid.sensor_labels.length; i++) {
+				desiredOrder[boid.sensor_labels[i]] = i;
+			}
+			
+			// Reorder via swaps from front to back
+			for (let i = 0; i < boid.sensor_labels.length; i++) {
+				const label = boid.sensor_labels[i];
+				const currentIdx = newInputMap[label];
+				if (currentIdx !== i) {
+					// Swap nodes at positions i and currentIdx
+					const tmp = epann.nodes[i];
+					epann.nodes[i] = epann.nodes[currentIdx];
+					epann.nodes[currentIdx] = tmp;
+					// Update mapping: any other sensor at position i moves to currentIdx
+					for (const otherLabel in newInputMap) {
+						if (newInputMap[otherLabel] === i) {
+							newInputMap[otherLabel] = currentIdx;
+						} 
+						else if (newInputMap[otherLabel] === currentIdx) {
+							newInputMap[otherLabel] = i;
+						}
+					}
+				}
+			}
+			
+			// Step 6: Finalize input map (ensure clean 0..N-1 indexing)
+			this.input_map = {};
 			for (let i = 0; i < boid.sensor_labels.length; i++) {
 				this.input_map[boid.sensor_labels[i]] = i;
 			}
@@ -295,56 +307,51 @@ export default class Brain {
 		else if (this.type === 'snn') {
 			const snn = this.network;
 			
-			// Step 1: Find input_map entries that are no longer needed (sensor no longer exists)
-			const currentSensors = new Set(boid.sensor_labels);
-			const unusedInputIndexes = [];
-			for (const [label, index] of Object.entries(this.input_map)) {
-				if (!currentSensors.has(label)) {
-					unusedInputIndexes.push(index);
-					delete this.input_map[label];
+			// Build a mapping of sensor label -> node index (reusing existing connections when possible)
+			const newInputMap = {};
+			const newInputs = [];
+			
+			// Step 1: Preserve mappings for sensors that still exist
+			const mappedNodeIndexes = new Set();
+			for (const label of boid.sensor_labels) {
+				if (label in this.input_map) {
+					const oldInputIndex = this.input_map[label];
+					const nodeIndex = snn.inputs[oldInputIndex];
+					if (typeof nodeIndex !== 'undefined') {
+						// Reuse existing node connection
+						newInputMap[label] = newInputs.length;
+						newInputs.push(nodeIndex);
+						mappedNodeIndexes.add(nodeIndex);
+					}
 				}
 			}
 			
-			// Step 2: Find sensors that do not currently correspond to input_map (sensor is new)
-			const unmappedSensors = boid.sensor_labels.filter(label => !(label in this.input_map));
-			
-			// Step 3: Reuse existing input array indexes for unmapped sensors if possible
-			for (const sensor of unmappedSensors) {
-				if (unusedInputIndexes.length > 0) {
-					const reusedIndex = unusedInputIndexes.shift();
-					this.input_map[sensor] = reusedIndex;
+			// Step 2: Find unused node connections from old inputs
+			const unusedNodeIndexes = [];
+			for (let i = 0; i < snn.inputs.length; i++) {
+				if (!mappedNodeIndexes.has(snn.inputs[i])) {
+					unusedNodeIndexes.push(snn.inputs[i]);
 				}
 			}
 			
-			// Step 4: Create new input array entries for unmapped sensors that could not be reassigned
-			for (const sensor of unmappedSensors) {
-				if (!(sensor in this.input_map)) {
-					const inputIndex = snn.inputs.length;
-					const nodeIndex = Math.floor(Math.random() * Math.max(1, snn.nodes.length));
-					snn.inputs.push(nodeIndex);
-					this.input_map[sensor] = inputIndex;
+			// Step 3: Assign new sensors to unused node connections or create new ones
+			for (const label of boid.sensor_labels) {
+				if (!(label in newInputMap)) {
+					let nodeIndex;
+					if (unusedNodeIndexes.length > 0) {
+						nodeIndex = unusedNodeIndexes.shift();
+					}
+					else {
+						nodeIndex = Math.floor(Math.random() * Math.max(1, snn.nodes.length));
+					}
+					newInputMap[label] = newInputs.length;
+					newInputs.push(nodeIndex);
 				}
 			}
 			
-			// Step 5: Remove extra input entries if sensors were reduced
-			while (snn.inputs.length > boid.sensor_labels.length) {
-				snn.inputs.pop();
-			}
-			
-			// Step 6: Physically reorder inputs to align with sensor_labels order
-			const newInputs = new Array(boid.sensor_labels.length);
-			for (let i = 0; i < boid.sensor_labels.length; i++) {
-				const label = boid.sensor_labels[i];
-				const oldInputIndex = this.input_map[label];
-				newInputs[i] = snn.inputs[oldInputIndex];
-			}
+			// Step 4: Apply the new inputs and map atomically
 			snn.inputs = newInputs;
-			
-			// Step 7: Recreate input_map (ensure 0..N-1 order)
-			this.input_map = {};
-			for (let i = 0; i < boid.sensor_labels.length; i++) {
-				this.input_map[boid.sensor_labels[i]] = i;
-			}
+			this.input_map = newInputMap;
 			
 			// Step 8: Add new output nodes if boid.motors.length > snn.outputs.length
 			while (boid.motors.length > snn.outputs.length) {
@@ -358,7 +365,8 @@ export default class Brain {
 			
 			// Validate all node indexes in snn.inputs are valid
 			for (let i = 0; i < snn.inputs.length; i++) {
-				if (snn.inputs[i] < 0 || snn.inputs[i] >= snn.nodes.length) {
+				if (snn.inputs[i] < 0 || snn.inputs[i] >= snn.nodes.length || typeof(snn.nodes[snn.inputs[i]]) === 'undefined' ) {
+					console.error(`SNN.Remap invalid input index:`, snn.nodes, snn.inputs);
 					snn.inputs[i] = Math.floor(Math.random() * Math.max(1, snn.nodes.length));
 				}
 			}
