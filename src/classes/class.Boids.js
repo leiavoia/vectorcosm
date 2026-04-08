@@ -402,7 +402,7 @@ export class Boid extends PhysicsObject {
 		let do_sensors = globalThis.vc.boid_sensors_every_frame;
 		if ( !do_sensors ) {
 			for ( let m of this.motors ) {
-				if ( !m.t && !m?.skip_sensor_check ) { do_sensors = true; break; }
+				if ( !m.t && !m?.skip_sensor_check && m.neuro ) { do_sensors = true; break; }
 			}
 		}
 		if ( do_sensors ) {
@@ -453,10 +453,20 @@ export class Boid extends PhysicsObject {
 			const dope = Math.exp(-Boid.HORMONE_MOTOR_SENSITIVITY * net_modulation); // exponent for the output level
 			// movement / motor control 				
 			let brain_outputs = this.brain.Activate( this.sensor_outputs, globalThis.vc.simulation.stats.round_time );
-			for ( let i=0; i < brain_outputs.length; i++ ) {
-				let level = brain_outputs[i];
+			for ( let o=0, m=0; m < this.motors.length; o++,m++ ) {
+				const motor = this.motors[m];
+				let level = 0; 
+				if ( !motor.neuro ) { 
+					--o;
+					if ( !motor.t && motor.hasOwnProperty('autolevel') ) {
+						level = motor.autolevel(this);
+					}
+				}
+				else {
+					level = brain_outputs[o];
+				}
 				level = Math.pow(level, dope); // dope the output (optional - can be removed. entertaining but not necessarily useful)
-				this.ActivateMotor( i, level, delta );
+				this.ActivateMotor( m, level, delta );
 			}
 		}
 		// shoot blanks and keep the motors running through strokes
@@ -1306,7 +1316,7 @@ export class Boid extends PhysicsObject {
 				stroketime = Math.max( stroketime * 2, 0.6 );
 			}
 			
-			let motor = { min_act, stroketime, t:0, strokefunc, wheel, min_age };
+			let motor = { min_act, stroketime, t:0, strokefunc, wheel, min_age, neuro:true };
 			
 			const linearGene = this.dna.genesFor(`motor linear ${n}`, 2, 1);
 			let linear = this.dna.shapedNumber(linearGene, min_linear_motor, max_linear_motor, max_linear_motor/3, 2.5);
@@ -1443,7 +1453,7 @@ export class Boid extends PhysicsObject {
 			const mitosis_cost = mitosis_min_cost + ( mitosis_max_cost - mitosis_min_cost ) * this.traits.offspring_investment;
 			this.motors.push({
 				mitosis: mitosis_num, // number of new organisms
-				min_act: this.dna.shapedNumber( this.dna.genesFor('mitosis min act',2), 0.05, 0.9, 0.2, 5),
+				//min_act: this.dna.shapedNumber( this.dna.genesFor('mitosis min act',2), 0.05, 0.9, 0.2, 5),
 				cost: mitosis_cost, 
 				stroketime: stroketime, 
 				strokefunc: 'linear_up', 
@@ -1451,7 +1461,18 @@ export class Boid extends PhysicsObject {
 				min_age: this.maturity_age,
 				min_scale: 0.65, // prevents infinite subdivision
 				use_max: true, // prevents cheating on time
-				skip_sensor_check:true
+				skip_sensor_check:true,
+				// hormones induce mitosis. energy level modifies it.
+				// TODO: genetic variation in which hormones and how much
+				autolevel: ( boid ) => {
+					let hormone = (
+						boid.endocrine.hormones[1] * 0.25 +
+						boid.endocrine.hormones[3] * 0.75 );
+					const threshold = 0.4;
+					return hormone > threshold
+						? ( ( hormone - threshold ) / ( 1 - threshold ) )
+						: 0;
+				}
 			});
 			// TODO: cost of reproduction depends on variety of factors
 			this.traits.boxfit.push([ 0, 2 * mitosis_num * this.traits.offspring_investment, `motors.mitosis`]);
@@ -1466,7 +1487,7 @@ export class Boid extends PhysicsObject {
 			const min_act = this.dna.shapedNumber( this.dna.genesFor('bud min act',2), 0.05, 0.9, 0.2, 5);
 			this.motors.push({
 				bud: 1,
-				min_act: min_act,
+				// min_act: min_act,
 				cost: cost, 
 				stroketime: stroketime, 
 				strokefunc: 'linear_up', 
@@ -1474,7 +1495,18 @@ export class Boid extends PhysicsObject {
 				min_age: this.maturity_age,
 				min_scale: (0.65 + 0.35 * this.traits.offspring_investment), // higher than mitosis!
 				use_max: true, // prevents cheating on time
-				skip_sensor_check:true
+				skip_sensor_check:true,
+				// hormones induce mitosis. energy level modifies it.
+				// TODO: genetic variation in which hormones and how much
+				autolevel: ( boid ) => {
+					let hormone = (
+						boid.endocrine.hormones[0] * 0.15 +
+						boid.endocrine.hormones[3] * 0.85 );
+					const threshold = 0.3;
+					return hormone > threshold
+						? ( ( hormone - threshold ) / ( 1 - threshold ) )
+						: 0;
+				}				
 			});
 			// requiring a large body for budding differentiates this from mitosis method
 			this.traits.boxfit.push([ 1 * this.traits.offspring_investment, 20 * this.traits.offspring_investment, `motors.bud`]);
@@ -1495,7 +1527,8 @@ export class Boid extends PhysicsObject {
 				strokefunc: 'linear_down', 
 				name: `attack${attackValue.toFixed(1)}`,
 				min_age: this.larval_age * 3,
-				skip_sensor_check:true
+				skip_sensor_check:true,
+				neuro:true
 				// TODO: throttle
 			});
 			this.traits.boxfit.push([ attackValue, attackValue * 3, `motors.attack`]);
@@ -1530,7 +1563,8 @@ export class Boid extends PhysicsObject {
 				min_age: this.larval_age * 2,
 				lifespan,
 				r: radius,
-				skip_sensor_check:true
+				skip_sensor_check:true,
+				neuro:true
 			});		
 			const boxcost = strength * radius * 0.001;
 			this.traits.boxfit.push([ boxcost * 0.2, boxcost, `motors.scent1`]);
@@ -1558,7 +1592,8 @@ export class Boid extends PhysicsObject {
 				min_age: this.larval_age * 2,
 				lifespan,
 				r: radius,
-				skip_sensor_check:true
+				skip_sensor_check:true,
+				neuro:true
 			});		
 			const boxcost = strength * radius * 0.001;
 			this.traits.boxfit.push([ boxcost * 0.2, boxcost, `motors.scent2`]);
@@ -1586,7 +1621,8 @@ export class Boid extends PhysicsObject {
 				min_age: this.larval_age * 2,
 				lifespan,
 				r: radius,
-				skip_sensor_check:true
+				skip_sensor_check:true,
+				neuro:true
 			});		
 			const boxcost = strength * radius * 0.001;
 			this.traits.boxfit.push([ boxcost * 0.2, boxcost, `motors.call1`]);
@@ -1620,7 +1656,8 @@ export class Boid extends PhysicsObject {
 				min_age: this.larval_age * 2,
 				lifespan,
 				r: radius,
-				skip_sensor_check:true
+				skip_sensor_check:true,
+				neuro:true
 			});		
 			const boxcost = strength * radius * 0.0005;
 			this.traits.boxfit.push([ boxcost * 0.2, boxcost, `motors.signal1`]);

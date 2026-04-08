@@ -118,7 +118,7 @@ export default class Brain {
 	MakeBrain( boid ) {
 		
 		const inputs = boid.sensor_labels.length;
-		const outputs = boid.motors.length || 1;
+		const outputs = boid.motors.reduce( (a,c) => a + ( c.neuro ? 1 : 0  ), 0 ); // neuro outputs only
 
 		// determine what kind of brain network we are going to make first
 		// NOTE: gene codes are copied in Boid sensor creation to avoid chicken/egg issues.
@@ -183,8 +183,8 @@ export default class Brain {
 			6)  remove existing input nodes that could not be filled
 			7)  physically reorder the input nodes to align with the expected sensor outputs.
 			8)  recreate the input map
-			9)  add new neural network output nodes if boid.motors.length > this.network.num_outputs
-			10) remove unused output nodes if boid.motors.length < this.network.num_outputs (no attempt to maintain alignment)
+			9)  add new neural network output nodes if neuromotors > this.network.num_outputs
+			10) remove unused output nodes if neuromotors < this.network.num_outputs (no attempt to maintain alignment)
 	*/
 	Remap( boid ) {
 
@@ -283,13 +283,14 @@ export default class Brain {
 				this.input_map[boid.sensor_labels[i]] = i;
 			}
 
-			// Step 8: Add new neural network output nodes if boid.motors.length > this.network.num_outputs
-			while (boid.motors.length > epann.num_outputs) {
+			// Step 8: Add new neural network output nodes if neuromotors > this.network.num_outputs
+			const neuromotors = boid.motors.reduce( (a,c) => a + ( c.neuro ? 1 : 0  ), 0 );
+			while (neuromotors > epann.num_outputs) {
 				epann.addNode({ layer: 'output' });
 			}
 
-			// Step 9: Remove unused output nodes if boid.motors.length < this.network.num_outputs
-			while (boid.motors.length < epann.num_outputs) {
+			// Step 9: Remove unused output nodes if neuromotors < this.network.num_outputs
+			while (neuromotors < epann.num_outputs) {
 				// Remove last output node
 				epann.removeNode(epann.nodes.length - 1, true);
 			}
@@ -353,13 +354,14 @@ export default class Brain {
 			snn.inputs = newInputs;
 			this.input_map = newInputMap;
 			
-			// Step 8: Add new output nodes if boid.motors.length > snn.outputs.length
-			while (boid.motors.length > snn.outputs.length) {
+			// Step 8: Add new output nodes if neuromotors > snn.outputs.length
+			const neuromotors = boid.motors.reduce( (a,c) => a + ( c.neuro ? 1 : 0  ), 0 );
+			while (neuromotors > snn.outputs.length) {
 				snn.CreateRandomOutputNode();
 			}
 			
-			// Step 9: Remove unused output nodes if boid.motors.length < snn.outputs.length
-			while (boid.motors.length < snn.outputs.length) {
+			// Step 9: Remove unused output nodes if neuromotors < snn.outputs.length
+			while (neuromotors < snn.outputs.length) {
 				snn.outputs.pop();
 			}
 			
