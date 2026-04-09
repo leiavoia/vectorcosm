@@ -751,27 +751,21 @@ export class Boid extends PhysicsObject {
 			amount = utils.clamp(amount,0,1); // TODO: can get rid of this some day if we make sure all inputs are good
 			
 			// no activation
-			if ( amount <= 0 ) { return 0; }
+			if ( amount <= 0 ) { 
+				// its sad that we have to keep setting this to clean up after previous frames.
+				// because this is mostly for UI feedback, maybe we can remove some day?
+				m.last_amount = 0;
+				return 0; 
+				}
 			
 			// shift amount to halfway point for wheel motors (0..1 becomes -1..1)
-			if ( m.wheel ) { amount = (amount * 2) - 1; } 
-			
-			// attack executes only on the first frame and only if there is a victim
-			// TODO: move to attach motor
-			// if ( m.hasOwnProperty('attack') && !globalThis.vc.simulation.settings?.no_combat ) {
-			// 	const power = this.mass * m.attack * amount;
-			// 	const gotcha = this.AttemptAttack(power);
-			// 	if ( !gotcha ) { 
-			// 		m.last_amount = 0;
-			// 		m.this_stroke_time = 0;
-			// 		return 0; 
-			// 	}
-			// }			
+			if ( m.wheel ) { amount = (amount * 2) - 1; } 	
 				
 			// if we decided to activate a new stroke, record the power it was
 			// activated with instead of using a varying stroke each frame.
 			m.strokepow = amount; 
-			// use this modified version to make sure stroke times are "kinda normalized"
+			
+			// use this to make sure stroke times are "kinda normalized"
 			// and can't get too low with very short power values
 			if ( m?.stroke_time_strategy == 'blend' ) {
 				m.this_stroke_time = m.stroketime * ( Math.abs(amount) + ( (1-Math.abs(amount)) * 0.25 ) );
@@ -806,10 +800,7 @@ export class Boid extends PhysicsObject {
 		this.RecordStat('metab.motors', cost);
 		this.stats.metab[m.name] = (this.stats.metab[m.name] || 0) + cost;
 		globalThis.vc.simulation.RecordStat('energy_used',cost);
-		
-		// increase stroke time
-		m.t = utils.clamp(m.t+delta, 0, m.this_stroke_time); 
-		
+
 		// stroke power function modifies the power withdrawn per frame
 		// In addition to the curve shape, we also modify the power by a constant
 		// to make sure the total power output of the entire stroke is the same
@@ -861,28 +852,17 @@ export class Boid extends PhysicsObject {
 		// final output calculation
 		amount = amount_now * amount_adjust;
 		
-		// apply forces and effects
-		if ( m.hasOwnProperty('linear') ) {
-			this.linear_impulse += m.linear * amount * Boid.max_boid_linear_impulse;
-		}
-		if ( m.hasOwnProperty('angular') ) {
-			this.torque += m.angular * amount * Boid.max_boid_angular_impulse;
-		}
-		else if ( m.hasOwnProperty('sense') && m.t <= delta ) { // first frame
-			const radius = (m.r || 100) * m.strokepow;
-			const lifespan = ( m.lifespan || ( Math.random() * 10 ) );
-			this.CreateMark( m.sense, radius, lifespan );
-		}
-		if ( m.hasOwnProperty('mitosis') && m.t >= m.this_stroke_time ) {
-			this.Mitosis( m.mitosis );
-		}
-		else if ( m.hasOwnProperty('bud') && m.t >= m.this_stroke_time ) {
-			this.Bud();
-		}
-		// reset stroke when complete
+		// perform the motor function
+		m.Do(this,amount);
+
+		// increase stroke time for next stroke
+		m.t = utils.clamp(m.t+delta, 0, m.this_stroke_time); 
+		
+		// reset stroke if complete
 		if ( m.t >= m.this_stroke_time ) { 
-			m.t = 0; 
+			m.t = 0;
 			m.this_stroke_time = 0;
+			// NOTE: need to retain `last_amount` one more frame. cant reset here.
 		} 
 	}
 	
@@ -1224,6 +1204,17 @@ export class Boid extends PhysicsObject {
 		
 		// MOTORS ---------------------\/------------------------
 		
+		// set up a standardized locomotive motor performance function
+		function LocomotiveMotorDo( boid, amount ) {
+			// apply forces and effects
+			if ( this.hasOwnProperty('linear') ) {
+				boid.linear_impulse += this.linear * amount * Boid.max_boid_linear_impulse;
+			}
+			if ( this.hasOwnProperty('angular') ) {
+				boid.torque += this.angular * amount * Boid.max_boid_angular_impulse;
+			}		
+		}
+		
 		// these constants constrain individual motors to range 0..1.
 		// we multiply the motor power by global power constants during activiation.
 		const min_linear_motor = 0.05;			
@@ -1284,7 +1275,7 @@ export class Boid extends PhysicsObject {
 				stroketime = Math.max( stroketime * 2, 0.6 );
 			}
 			
-			let motor = { min_act, stroketime, t:0, strokefunc, wheel, min_age, neuro:true };
+			let motor = { min_act, stroketime, t:0, strokefunc, wheel, min_age, neuro:true, Do:LocomotiveMotorDo };
 			
 			const linearGene = this.dna.genesFor(`motor linear ${n}`, 2, 1);
 			let linear = this.dna.shapedNumber(linearGene, min_linear_motor, max_linear_motor, max_linear_motor/3, 2.5);
@@ -1428,7 +1419,7 @@ export class Boid extends PhysicsObject {
 				skip_sensor_check:true, // TODO: still need this?
 				// hormones induce reproduction. energy level modifies it.
 				// TODO: genetic variation in which hormones and how much
-				AutoInput: ( boid ) => {
+				AutoInput: function ( boid ) {
 					// no babies for this scenario
 					if ( globalThis.vc.simulation.settings?.ignore_lifecycle ) {
 						return 0; 
@@ -1450,7 +1441,12 @@ export class Boid extends PhysicsObject {
 					// TODO: figure out how varying hormone levels might have side effects.
 					// reproduction must use the full motor effort, regardless of activation value.
 					return amount ? 1 : 0;
-				}
+				},
+				Do: function (boid,amount) {
+					if ( this.t >= this.this_stroke_time ) {
+						boid.Mitosis( this.mitosis );
+					}
+				} 
 			});
 			// TODO: cost of reproduction depends on variety of factors
 			this.traits.boxfit.push([ 0, 2 * mitosis_num * this.traits.offspring_investment, `motors.mitosis`]);
@@ -1498,32 +1494,60 @@ export class Boid extends PhysicsObject {
 					// TODO: figure out how varying hormone levels might have side effects.
 					// reproduction must use the full motor effort, regardless of activation value.
 					return amount ? 1 : 0;
-				}				
+				},
+				Do: function (boid,amount) {
+					if ( this.t >= this.this_stroke_time ) {
+						boid.Bud();
+					}
+				} 			
 			});
 			// requiring a large body for budding differentiates this from mitosis method
 			this.traits.boxfit.push([ 1 * this.traits.offspring_investment, 20 * this.traits.offspring_investment, `motors.bud`]);
 		}
 		
 		// combat
-		const canAttack = this.dna.shapedNumber( this.dna.genesFor(`attack motor chance`,1,1) );
-		if ( canAttack > 0.5 ) {
-			const attackValue = this.dna.shapedNumber( this.dna.genesFor(`attack motor value`,1,1), 0.2, 2.0, 2, 3 ); 
-			const max_stroketime = 10;
-			let stroketime = max_stroketime * ( attackValue / 2 );
-			const cost = ( Math.sqrt(1 + (max_stroketime - stroketime)) * (1/250) ) / stroketime; // discount for infrequent violence
-			this.motors.push({
-				attack: attackValue,
-				min_act: this.dna.shapedNumber( this.dna.genesFor('attack motor min act',2), 0.25, 0.9, 0.5, 3),
-				cost: cost,
-				stroketime: stroketime, 
-				strokefunc: 'linear_down', 
-				name: `attack${attackValue.toFixed(1)}`,
-				min_age: this.larval_age * 3,
-				skip_sensor_check:true,
-				neuro:true
-				// TODO: throttle
-			});
-			this.traits.boxfit.push([ attackValue, attackValue * 3, `motors.attack`]);
+		// const canAttack = this.dna.shapedNumber( this.dna.genesFor(`attack motor chance`,1,1) );
+		// if ( canAttack > 0.5 ) {
+		// 	const attackValue = this.dna.shapedNumber( this.dna.genesFor(`attack motor value`,1,1), 0.2, 2.0, 2, 3 ); 
+		// 	const max_stroketime = 10;
+		// 	let stroketime = max_stroketime * ( attackValue / 2 );
+		// 	const cost = ( Math.sqrt(1 + (max_stroketime - stroketime)) * (1/250) ) / stroketime; // discount for infrequent violence
+		// 	this.motors.push({
+		// 		attack: attackValue,
+		// 		min_act: this.dna.shapedNumber( this.dna.genesFor('attack motor min act',2), 0.25, 0.9, 0.5, 3),
+		// 		cost: cost,
+		// 		stroketime: stroketime, 
+		// 		strokefunc: 'linear_down', 
+		// 		name: `attack${attackValue.toFixed(1)}`,
+		// 		min_age: this.larval_age * 3,
+		// 		skip_sensor_check:true,
+		// 		neuro:true,
+		// 		// AutoInput: ( boid ) => {
+		// 		// 	// TODO: combat detection - collision detection to find victim makes this super awkward.
+		// 		// },				
+		// 		Do: function (boid,amount) {
+		// 			// // attack executes only on the first frame and only if there is a victim
+		// 			// if ( m.hasOwnProperty('attack') && !globalThis.vc.simulation.settings?.no_combat ) {
+		// 			// 	const power = this.mass * m.attack * amount;
+		// 			// 	const gotcha = this.AttemptAttack(power);
+		// 			// 	if ( !gotcha ) { 
+		// 			// 		m.last_amount = 0;
+		// 			// 		m.this_stroke_time = 0;
+		// 			// 		return 0; 
+		// 			// 	}
+		// 			// }						
+		// 		} 				
+		// 		// TODO: throttle
+		// 	});
+		// 	this.traits.boxfit.push([ attackValue, attackValue * 3, `motors.attack`]);
+		// }
+		
+		function StandardMarkMotorDo( boid, amount ) {
+			if ( this.t == 0 ) { // first frame ONLY
+				const radius = (this.r || 100) * this.strokepow;
+				const lifespan = ( this.lifespan || ( Math.random() * 10 ) );
+				boid.CreateMark( this.sense, radius, lifespan );
+			}
 		}
 		
 		// mark motors (calls, scents, "pheromones", flashes of light, etc...)
@@ -1556,7 +1580,8 @@ export class Boid extends PhysicsObject {
 				lifespan,
 				r: radius,
 				skip_sensor_check:true,
-				neuro:true
+				neuro:true,
+				Do: StandardMarkMotorDo
 			});		
 			const boxcost = strength * radius * 0.001;
 			this.traits.boxfit.push([ boxcost * 0.2, boxcost, `motors.scent1`]);
@@ -1585,7 +1610,8 @@ export class Boid extends PhysicsObject {
 				lifespan,
 				r: radius,
 				skip_sensor_check:true,
-				neuro:true
+				neuro:true,
+				Do: StandardMarkMotorDo
 			});		
 			const boxcost = strength * radius * 0.001;
 			this.traits.boxfit.push([ boxcost * 0.2, boxcost, `motors.scent2`]);
@@ -1614,7 +1640,8 @@ export class Boid extends PhysicsObject {
 				lifespan,
 				r: radius,
 				skip_sensor_check:true,
-				neuro:true
+				neuro:true,
+				Do: StandardMarkMotorDo
 			});		
 			const boxcost = strength * radius * 0.001;
 			this.traits.boxfit.push([ boxcost * 0.2, boxcost, `motors.call1`]);
@@ -1649,7 +1676,8 @@ export class Boid extends PhysicsObject {
 				lifespan,
 				r: radius,
 				skip_sensor_check:true,
-				neuro:true
+				neuro:true,
+				Do: StandardMarkMotorDo
 			});		
 			const boxcost = strength * radius * 0.0005;
 			this.traits.boxfit.push([ boxcost * 0.2, boxcost, `motors.signal1`]);
