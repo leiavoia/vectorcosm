@@ -55,6 +55,8 @@ export class Boid extends PhysicsObject {
 	// 3: Wildcard
 	static HORMONE_MOTOR_SENSITIVITY = 2; // volume knob for hormone effects
 	static HORMONE_PERCEPTION_SENSITIVITY = 2; // volume knob for hormone effects
+	static DOPE_SENSORS = true;
+	static DOPE_MOTORS = true;
 	
 	Reset() {
 		this.x = 0;
@@ -425,13 +427,15 @@ export class Boid extends PhysicsObject {
 				this.sensor_outputs = new_outputs;
 			}
 			// hormones affect perception - optional, may remove if it has no useful effect
-			let positive = ( this.endocrine.hormones[0] * 0.90 + this.endocrine.hormones[1] * 0.10 ) / 2;
-			let negative = ( this.endocrine.hormones[2] * 0.50 + this.endocrine.hormones[3] * 0.50 ) / 2;
-			let net_modulation = positive - negative;
-			const dope = Math.exp(-Boid.HORMONE_PERCEPTION_SENSITIVITY * net_modulation); // exponent for the output level
-			for ( let i=0; i < this.sensor_outputs.length; i++ ) {
-				let level = this.sensor_outputs[i];
-				this.sensor_outputs[i] = Math.pow(level, dope);
+			if ( Boid.DOPE_SENSORS ) {
+				let positive = ( this.endocrine.hormones[0] * 0.90 + this.endocrine.hormones[1] * 0.10 ) / 2;
+				let negative = ( this.endocrine.hormones[2] * 0.50 + this.endocrine.hormones[3] * 0.50 ) / 2;
+				let net_modulation = positive - negative;
+				const dope = Math.exp(-Boid.HORMONE_PERCEPTION_SENSITIVITY * net_modulation); // exponent for the output level
+				for ( let i=0; i < this.sensor_outputs.length; i++ ) {
+					let level = this.sensor_outputs[i];
+					this.sensor_outputs[i] = Math.pow(level, dope);
+				}
 			}
 		}
 		
@@ -451,13 +455,17 @@ export class Boid extends PhysicsObject {
 		if ( activate_brain ) {
 			// activate the neural network to get brain.outputs (motor activation signals)			
 			this.brain.Activate( this.sensor_outputs, globalThis.vc.simulation.stats.round_time );
-			// TODO: reactivate motor doping
-			// motor controls can be doped by a blend of hormones
-			// let caffiene = ( this.endocrine.hormones[2] * 0.80 + this.endocrine.hormones[3] * 0.20 ) / 2;
-			// let alcohol = ( this.endocrine.hormones[1] * 0.70 + this.endocrine.hormones[0] * 0.30 ) / 2;
-			// let net_modulation = caffiene - alcohol;
-			// const dope = Math.exp(-Boid.HORMONE_MOTOR_SENSITIVITY * net_modulation); // exponent for the output level
-			// const level = Math.pow(level, dope); // dope the output (optional - can be removed. entertaining but not necessarily useful)
+			// motor controls can be doped by a blend of hormones.
+			// optional - can be removed. entertaining but not necessarily useful
+			if ( Boid.DOPE_MOTORS ) {
+				let caffiene = ( this.endocrine.hormones[2] * 0.80 + this.endocrine.hormones[3] * 0.20 ) / 2;
+				let alcohol = ( this.endocrine.hormones[1] * 0.70 + this.endocrine.hormones[0] * 0.30 ) / 2;
+				let net_modulation = caffiene - alcohol;
+				const dope = Math.exp(-Boid.HORMONE_MOTOR_SENSITIVITY * net_modulation); // exponent for the output level
+				for ( let i=0; i < this.brain.outputs.length; i++ ) {
+					this.brain.outputs[i] = Math.pow(this.brain.outputs[i], dope);
+				}
+			}
 		}
 		
 		// run all motors every frame. motors in progress will simply ignore extra calls. 
