@@ -402,7 +402,10 @@ export class Boid extends PhysicsObject {
 		let do_sensors = globalThis.vc.boid_sensors_every_frame;
 		if ( !do_sensors ) {
 			for ( let m of this.motors ) {
-				if ( !m.t && !m?.skip_sensor_check && m.neuro ) { do_sensors = true; break; }
+				if ( !m.t && m.neuro && !m?.skip_sensor_check ) { 
+					do_sensors = true; 
+					break; 
+				}
 			}
 		}
 		if ( do_sensors ) {
@@ -446,34 +449,21 @@ export class Boid extends PhysicsObject {
 			|| globalThis.vc.boid_sensors_every_frame
 			|| ( globalThis.vc.boid_snn_every_frame && this.brain.type==='snn' );
 		if ( activate_brain ) {
+			// activate the neural network to get brain.outputs (motor activation signals)			
+			this.brain.Activate( this.sensor_outputs, globalThis.vc.simulation.stats.round_time );
+			// TODO: reactivate motor doping
 			// motor controls can be doped by a blend of hormones
-			let caffiene = ( this.endocrine.hormones[2] * 0.80 + this.endocrine.hormones[3] * 0.20 ) / 2;
-			let alcohol = ( this.endocrine.hormones[1] * 0.70 + this.endocrine.hormones[0] * 0.30 ) / 2;
-			let net_modulation = caffiene - alcohol;
-			const dope = Math.exp(-Boid.HORMONE_MOTOR_SENSITIVITY * net_modulation); // exponent for the output level
-			// movement / motor control 				
-			let brain_outputs = this.brain.Activate( this.sensor_outputs, globalThis.vc.simulation.stats.round_time );
-			for ( let o=0, m=0; m < this.motors.length; o++,m++ ) {
-				const motor = this.motors[m];
-				let level = 0; 
-				if ( !motor.neuro ) { 
-					--o;
-					if ( !motor.t && motor.hasOwnProperty('autolevel') ) {
-						level = motor.autolevel(this);
-					}
-				}
-				else {
-					level = brain_outputs[o];
-				}
-				level = Math.pow(level, dope); // dope the output (optional - can be removed. entertaining but not necessarily useful)
-				this.ActivateMotor( m, level, delta );
-			}
+			// let caffiene = ( this.endocrine.hormones[2] * 0.80 + this.endocrine.hormones[3] * 0.20 ) / 2;
+			// let alcohol = ( this.endocrine.hormones[1] * 0.70 + this.endocrine.hormones[0] * 0.30 ) / 2;
+			// let net_modulation = caffiene - alcohol;
+			// const dope = Math.exp(-Boid.HORMONE_MOTOR_SENSITIVITY * net_modulation); // exponent for the output level
+			// const level = Math.pow(level, dope); // dope the output (optional - can be removed. entertaining but not necessarily useful)
 		}
-		// shoot blanks and keep the motors running through strokes
-		else {
-			for ( let i=0; i < this.motors.length; i++ ) {
-				this.ActivateMotor( i, 0, delta );
-			}
+		
+		// run all motors every frame. motors in progress will simply ignore extra calls. 
+		// motors now get activation value internally. no need to pass a parameter.
+		for ( let m of this.motors ) {
+			this.ActivateMotor( m, delta );
 		}
 		
 		// MOVEMENT ----------------------------\/---------------------------------------
@@ -749,59 +739,35 @@ export class Boid extends PhysicsObject {
 		// }
 	}
 	
-	ActivateMotor( i, amount /* 0..1 */, delta ) {
-		let m = this.motors[i];
-		if ( !m ) { return 0; }
+	ActivateMotor( m, delta ) {
 		
-		// start a timer if there isnt one
-		if ( !m.hasOwnProperty('t') ) { m.t = 0; }
-		
-		// sanity check
-		amount = utils.clamp(amount,0,1);
-		
-		// shift amount to halfway point for wheel motors (0..1 becomes -1..1)
-		if ( m.wheel ) { amount = (amount * 2) - 1; } 
+		let amount =  0;
 		
 		// new stroke
-		if ( m.t==0 ) { 
-			// check for minimum activation
-			if ( m.min_act && Math.abs(amount) < m.min_act ) { 
-				m.last_amount = 0;
-				m.this_stroke_time = 0;
-				return 0; 
-			}
-			// age restricted
-			if ( m.hasOwnProperty('min_age') && this.age < m.min_age && !globalThis.vc.simulation.settings?.ignore_lifecycle ) { 
-				m.last_amount = 0;
-				m.this_stroke_time = 0;
-				return 0; 
-			}
-			// you must be this tall to enter
-			if ( m.hasOwnProperty('min_scale') && this.scale < m.min_scale ) { 
-				m.last_amount = 0;
-				m.this_stroke_time = 0;
-				return 0; 
-			}
-			// no babies for this scenario
-			if ( ( m.hasOwnProperty('bud') || m.hasOwnProperty('mitosis') ) && globalThis.vc.simulation.settings?.ignore_lifecycle ) {
-				m.last_amount = 0;
-				m.this_stroke_time = 0;
-				return 0; 
-			}
-			// reproduction and other triggers must use the full amount, regardless of activation
-			if ( m.hasOwnProperty('use_max') ) {
-				amount = 1; 
-			}
+		if ( !m.t ) { 
+			m.t = 0; // in case not already set
+			
+			amount = m.AutoInput(this);
+			amount = utils.clamp(amount,0,1); // TODO: can get rid of this some day if we make sure all inputs are good
+			
+			// no activation
+			if ( amount <= 0 ) { return 0; }
+			
+			// shift amount to halfway point for wheel motors (0..1 becomes -1..1)
+			if ( m.wheel ) { amount = (amount * 2) - 1; } 
+			
 			// attack executes only on the first frame and only if there is a victim
-			if ( m.hasOwnProperty('attack') && !globalThis.vc.simulation.settings?.no_combat ) {
-				const power = this.mass * m.attack * amount;
-				const gotcha = this.AttemptAttack(power);
-				if ( !gotcha ) { 
-					m.last_amount = 0;
-					m.this_stroke_time = 0;
-					return 0; 
-				}
-			}				
+			// TODO: move to attach motor
+			// if ( m.hasOwnProperty('attack') && !globalThis.vc.simulation.settings?.no_combat ) {
+			// 	const power = this.mass * m.attack * amount;
+			// 	const gotcha = this.AttemptAttack(power);
+			// 	if ( !gotcha ) { 
+			// 		m.last_amount = 0;
+			// 		m.this_stroke_time = 0;
+			// 		return 0; 
+			// 	}
+			// }			
+				
 			// if we decided to activate a new stroke, record the power it was
 			// activated with instead of using a varying stroke each frame.
 			m.strokepow = amount; 
@@ -816,6 +782,8 @@ export class Boid extends PhysicsObject {
 				m.this_stroke_time = m.stroketime * Math.abs(amount);
 			}
 		}
+		
+		// continuing stroke - reference the initial activation value
 		else { 
 			amount = m.strokepow; 
 		}
@@ -1453,25 +1421,35 @@ export class Boid extends PhysicsObject {
 			const mitosis_cost = mitosis_min_cost + ( mitosis_max_cost - mitosis_min_cost ) * this.traits.offspring_investment;
 			this.motors.push({
 				mitosis: mitosis_num, // number of new organisms
-				//min_act: this.dna.shapedNumber( this.dna.genesFor('mitosis min act',2), 0.05, 0.9, 0.2, 5),
 				cost: mitosis_cost, 
 				stroketime: stroketime, 
 				strokefunc: 'linear_up', 
 				name: `mitosis+${mitosis_num}`,
-				min_age: this.maturity_age,
-				min_scale: 0.65, // prevents infinite subdivision
-				use_max: true, // prevents cheating on time
-				skip_sensor_check:true,
-				// hormones induce mitosis. energy level modifies it.
+				skip_sensor_check:true, // TODO: still need this?
+				// hormones induce reproduction. energy level modifies it.
 				// TODO: genetic variation in which hormones and how much
-				autolevel: ( boid ) => {
+				AutoInput: ( boid ) => {
+					// no babies for this scenario
+					if ( globalThis.vc.simulation.settings?.ignore_lifecycle ) {
+						return 0; 
+					}
+					// age restricted
+					if ( boid.age < boid.maturity_age ) { 
+						return 0; 
+					}
+					// min scale required
+					if ( boid.scale < 0.65 ) { 
+						return 0; 
+					}
+					// get the blended hormone value
 					let hormone = (
 						boid.endocrine.hormones[1] * 0.25 +
 						boid.endocrine.hormones[3] * 0.75 );
 					const threshold = 0.4;
-					return hormone > threshold
-						? ( ( hormone - threshold ) / ( 1 - threshold ) )
-						: 0;
+					const amount = ( hormone > threshold ) ? ( ( hormone - threshold ) / ( 1 - threshold ) ) : 0;
+					// TODO: figure out how varying hormone levels might have side effects.
+					// reproduction must use the full motor effort, regardless of activation value.
+					return amount ? 1 : 0;
 				}
 			});
 			// TODO: cost of reproduction depends on variety of factors
@@ -1496,16 +1474,30 @@ export class Boid extends PhysicsObject {
 				min_scale: (0.65 + 0.35 * this.traits.offspring_investment), // higher than mitosis!
 				use_max: true, // prevents cheating on time
 				skip_sensor_check:true,
-				// hormones induce mitosis. energy level modifies it.
+				// hormones induce reproduction. energy level modifies it.
 				// TODO: genetic variation in which hormones and how much
-				autolevel: ( boid ) => {
+				AutoInput: ( boid ) => {
+					// no babies for this scenario
+					if ( globalThis.vc.simulation.settings?.ignore_lifecycle ) {
+						return 0; 
+					}
+					// age restricted
+					if ( boid.age < boid.maturity_age ) { 
+						return 0; 
+					}
+					// min scale required
+					if ( boid.scale < 0.65 ) { 
+						return 0; 
+					}
+					// get the blended hormone value
 					let hormone = (
 						boid.endocrine.hormones[0] * 0.15 +
 						boid.endocrine.hormones[3] * 0.85 );
-					const threshold = 0.3;
-					return hormone > threshold
-						? ( ( hormone - threshold ) / ( 1 - threshold ) )
-						: 0;
+					const threshold = 0.4;
+					const amount = ( hormone > threshold ) ? ( ( hormone - threshold ) / ( 1 - threshold ) ) : 0;
+					// TODO: figure out how varying hormone levels might have side effects.
+					// reproduction must use the full motor effort, regardless of activation value.
+					return amount ? 1 : 0;
 				}				
 			});
 			// requiring a large body for budding differentiates this from mitosis method
@@ -1663,31 +1655,39 @@ export class Boid extends PhysicsObject {
 			this.traits.boxfit.push([ boxcost * 0.2, boxcost, `motors.signal1`]);
 		}
 		
-		// // connect motor animations to specific points
-		// let leftside_motors = this.motors.filter( m => typeof(m.sym)=='undefined' || m.sym < this.motors[m.sym].sym );
-		// for ( let i=0; i < leftside_motors.length; i++ ) {
-		// 	const m = leftside_motors[i];
-		// 	const p = i+1;
-		// 	// not enough points to give each one a different motor
-		// 	if ( p >= Math.trunc((this.body.points.length)/2) ) {
-		// 		m.anim.index = -1;
-		// 	}
-		// 	// assign the motor to the next point on the body
-		// 	else {
-		// 		// if there is a twin, assign that to the symmetrical point
-		// 		if ( m.sym ) {
-		// 			m.anim.index = p;
-		// 			const opp = this.body.OppositePoint(p, this.body.points.length);
-		// 			this.motors[m.sym].anim.index = opp; 
-		// 		}
-		// 		// singles use the nose or toe point
-		// 		else {
-		// 			m.anim.index = 0;
-		// 		}
-		// 	}
-		// }	
-		
-
+		// this function gets activation values from the brain for each neuro motor.
+		// built in filters cut the value to zero when motor should not fire.
+		// it takes a boid (the owner) as a param, returns motor activation value.
+		// returns value 0..1, zero indicates no activation
+		function StandardNeuroMotorAutoInput( boid ) {
+			const m = this;
+			// age restricted
+			if ( m.hasOwnProperty('min_age') && boid.age < m.min_age && !globalThis.vc.simulation.settings?.ignore_lifecycle ) { 
+				return 0; 
+			}
+			// you must be this tall to enter /!\ TODO: Can probably move then entirely to reproduction motors
+			if ( m.hasOwnProperty('min_scale') && boid.scale < m.min_scale ) { 
+				return 0; 
+			}
+			// get activation value from neural network output
+			const amount = boid.brain.outputs[ this.slot ?? 0 ]; // we wire up the slot next
+			// check for minimum activation
+			if ( m.min_act && Math.abs(amount) < m.min_act ) {
+				return 0; 
+			}
+			return amount;
+		}
+				
+		// Wire all neuro motors up to brain output slots in sequential order
+		for ( let i=0, s=0; i < this.motors.length; i++ ) {
+			const m = this.motors[i];
+			if ( m.neuro ) {
+				m.slot = s++;
+				m.AutoInput = StandardNeuroMotorAutoInput;
+			}
+		}
+	
+	
 		// SENSORS ------------------------\/--------------------------
 		this.sensors = [];
 		
