@@ -336,7 +336,7 @@
 				<div class="krell">
 					{#each boid.hormones as i}
 						<div class="box" style="width:{Math.min(10,(100/boid.hormones.length)).toFixed()}px">
-							<div style="background-color:#E56ACC; height:{i*100}%"></div>
+							<div style="background-color:#E56ACC; height:{(i||0)*100}%"></div>
 						</div>
 					{/each}
 				</div>
@@ -345,7 +345,7 @@
 			<div style="line-height:1.1em;">	
 				{#each boid.hormones as i}
 					<div class={{sensor_block:true}}>
-						<progress value={i}></progress>
+						<progress value={(i||0)}></progress>
 					</div>
 				{/each}
 			</div>

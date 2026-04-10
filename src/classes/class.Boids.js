@@ -1701,10 +1701,6 @@ export class Boid extends PhysicsObject {
 			if ( m.hasOwnProperty('min_age') && boid.age < m.min_age && !globalThis.vc.simulation.settings?.ignore_lifecycle ) { 
 				return 0; 
 			}
-			// you must be this tall to enter /!\ TODO: Can probably move then entirely to reproduction motors
-			if ( m.hasOwnProperty('min_scale') && boid.scale < m.min_scale ) { 
-				return 0; 
-			}
 			// get activation value from neural network output
 			const amount = boid.brain.outputs[ this.slot ?? 0 ]; // we wire up the slot next
 			// check for minimum activation

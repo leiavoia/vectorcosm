@@ -335,7 +335,7 @@
 						label = boid.sensors[input_i++].name + ' ' + activation_label
 					}
 					else if ( is_output ) {
-						label = boid.motors[output_i++].name + ' ' + activation_label
+						label = boid.brain_outputs[output_i++].name + ' ' + activation_label
 					}
 					else {
 						label = node.s + ' ' + activation_label;
