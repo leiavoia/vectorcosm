@@ -36,8 +36,10 @@ export default class TankMaker {
 			crazytown_chance: 0.3,
 			max_crazyness: 0.4,
 			skew_x: (Math.random() > 0.75 ? Math.random()*2 : 0),
-			max_rock_shrinkage: 0.72,
+			max_rock_shrinkage: 0.73, // max percentage to reduce. (final_size = 1 - max_shrink)
 			rock_shrinkage_chance: 0.34,
+			rock_shrinkage_pattern: ['random','lines'].pickRandom(),
+			rock_shrinkage_lines: Math.round(Math.random() * 3),
 			rock_color_schemes: [],
 			visualize: false
 		};
@@ -492,7 +494,72 @@ export default class TankMaker {
 				);
 			}
 		}
-
+		
+		// shrinkage function determines if and how much rocks shrink / fracture.
+		// takes: rock position x, y
+		// returns float 0..1, percentage target to shrink rock to
+		const shrinkage = ( px, py ) => {
+			if ( !this.settings.max_rock_shrinkage ) { return 1.0; }
+			// use a lines strategy
+			let shrinkage_val = 1.0;
+			if ( this.settings.rock_shrinkage_pattern=='lines' ) {
+				if ( this.settings.rock_shrinkage_lines > 0 ) {
+					const tankw = xmax - xmin;
+					const tankh = ymax - ymin;
+					const min_dim = Math.min(tankw,tankh);
+					// create random lines if not already existing 
+					if ( !this.rock_shrinkage_lines ) {
+						this.rock_shrinkage_lines = [];
+						for ( let i=0; i < this.settings.rock_shrinkage_lines; i++ ) {
+							this.rock_shrinkage_lines.push({
+								x1: tankw * Math.random(),
+								y1: tankh * Math.random(),
+								x2: tankw * Math.random(),
+								y2: tankh * Math.random()
+							});
+						}
+					}
+					// find least distance to any line
+					for ( let i=0; i < this.rock_shrinkage_lines.length; i++ ) {
+						const l = this.rock_shrinkage_lines[i];
+						const dx = l.x2 - l.x1;
+						const dy = l.y2 - l.y1;
+						const lengthSq = dx * dx + dy * dy;
+						let t = 0;
+						if (lengthSq !== 0) {
+							t = ((px - l.x1) * dx + (py - l.y1) * dy) / lengthSq;
+							t = Math.max(0, Math.min(1, t));
+						}
+						// size of the line also determines its fracturing power, kinda
+						const min_dist = Math.min( min_dim*0.4, min_dim * ( lengthSq / (tankw * tankh) ) );
+						const closestX = l.x1 + t * dx;
+						const closestY = l.y1 + t * dy;
+						const dist = Math.sqrt((px - closestX) ** 2 + (py - closestY) ** 2);
+						if ( dist < min_dist ) { 
+							shrinkage_val = Math.min(shrinkage_val,(dist / min_dist));
+						}
+					}
+				}
+			}
+			// random strategy
+			else if ( this.settings.rock_shrinkage_chance ) {
+				if ( Math.random() <= this.settings.rock_shrinkage_chance ) {
+					shrinkage_val = Math.random() * ( 1 - this.settings.max_rock_shrinkage );
+				}
+			}
+			// no shrink
+			else {
+				return 1;
+			}
+			// buffer - dont want too-small rocks or too-thin gaps
+			const min_size = 1 - this.settings.max_rock_shrinkage;
+			const max_size = 0.86;
+			if ( shrinkage_val > max_size && shrinkage_val < 1.0 ) {
+				shrinkage_val = max_size;
+			}
+			return Math.max( min_size, shrinkage_val ); 
+		}
+					
 		// create rocks from each voronoi cell according to mask
 		let cells =[];
 		forEachVoronoiCell(pts, delaunay, ( vertices, px, py ) => {
@@ -555,31 +622,31 @@ export default class TankMaker {
 			if ( !vertices.length ) { return false; }
 			
 			// rock shrinkage / fracturing
-			if ( this.settings.max_rock_shrinkage ) {
-				if ( Math.random() <= this.settings.rock_shrinkage_chance ) {
-					// compute the center of the polygon
-					let center_x = 0;
-					let center_y = 0;
-					for ( let v of vertices ) {
-						center_x += v[0];
-						center_y += v[1];
-					}
-					center_x /= vertices.length;
-					center_y /= vertices.length;
-					// move each vertex towards the center by a random amount up to the max shrinkage
-					const shrinkage = Math.random() * this.settings.max_rock_shrinkage;
-					vertices = vertices.map( v => {
-						const dx = v[0] - center_x;
-						const dy = v[1] - center_y;
-						const dist = Math.sqrt( dx*dx + dy*dy );
-						const angle = Math.atan2( dy, dx );
-						const shrink = dist * Math.max( 0.15, shrinkage );
-						return [
-							v[0] - Math.cos(angle) * shrink,
-							v[1] - Math.sin(angle) * shrink
-						]
-					});
+			const shrink_pct = shrinkage( px, py );
+			if ( shrink_pct < 1.0 ) {
+				// compute the center of the polygon
+				let center_x = 0;
+				let center_y = 0;
+				for ( let v of vertices ) {
+					center_x += v[0];
+					center_y += v[1];
 				}
+				center_x /= vertices.length;
+				center_y /= vertices.length;
+				// shrink each vertex towards the center
+				vertices = vertices.map( v => {
+					const dx = v[0] - center_x;
+					const dy = v[1] - center_y;
+					const dist = Math.sqrt( dx*dx + dy*dy );
+					const angle = Math.atan2( dy, dx );
+					// because we are shrinking from all corners, we have to divide shrinkage in half
+					const half_shrink_pct = ( 1 - shrink_pct ) / 2;
+					const shrink = dist * half_shrink_pct;
+					return [
+						v[0] - Math.cos(angle) * shrink,
+						v[1] - Math.sin(angle) * shrink
+					]
+				});
 			}
 			
 			cells.push(vertices);
