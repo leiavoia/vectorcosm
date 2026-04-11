@@ -335,7 +335,7 @@
 			<summary>
 				<div class="krell">
 					{#each boid.hormones as i}
-						<div class="box" style="width:{Math.min(10,(100/boid.hormones.length)).toFixed()}px">
+						<div class="box" style="width:{Math.min(10,(100/boid.hormones.length)).toFixed()||0}px">
 							<div style="background-color:#E56ACC; height:{(i||0)*100}%"></div>
 						</div>
 					{/each}

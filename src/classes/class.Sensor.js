@@ -611,12 +611,12 @@ export default class Sensor {
     }
 
     senseWorldX() {
-        let val = this.owner.x / globalThis.vc.tank.width;
+        let val = utils.Clamp( this.owner.x / globalThis.vc.tank.width, 0, globalThis.vc.tank.width );
         return [val];
     }
 
     senseWorldY() {
-        let val = this.owner.y / globalThis.vc.tank.height;
+        let val = utils.Clamp( this.owner.y / globalThis.vc.tank.height, 0, globalThis.vc.tank.height );
         return [val];
     }
 

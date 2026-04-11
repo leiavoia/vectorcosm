@@ -464,6 +464,10 @@ export class Boid extends PhysicsObject {
 				const dope = Math.exp(-Boid.HORMONE_MOTOR_SENSITIVITY * net_modulation); // exponent for the output level
 				for ( let i=0; i < this.brain.outputs.length; i++ ) {
 					this.brain.outputs[i] = Math.pow(this.brain.outputs[i], dope);
+					if ( isNaN(this.brain.outputs[i]) ) {
+						console.error('bad dope / brain', i, this.brain.outputs[i]);
+						debugger;
+					}					
 				}
 			}
 		}
@@ -861,7 +865,7 @@ export class Boid extends PhysicsObject {
 		amount = amount_now * amount_adjust;
 		
 		// perform the motor function
-		m.Do(this,amount);
+		m.Do(this, amount, delta);
 
 		// increase stroke time for next stroke
 		m.t = utils.clamp(m.t+delta, 0, m.this_stroke_time); 
@@ -1213,7 +1217,7 @@ export class Boid extends PhysicsObject {
 		// MOTORS ---------------------\/------------------------
 		
 		// set up a standardized locomotive motor performance function
-		function LocomotiveMotorDo( boid, amount ) {
+		function LocomotiveMotorDo( boid, amount, delta ) {
 			// apply forces and effects
 			if ( this.hasOwnProperty('linear') ) {
 				boid.linear_impulse += this.linear * amount * Boid.max_boid_linear_impulse;
@@ -1450,8 +1454,8 @@ export class Boid extends PhysicsObject {
 					// reproduction must use the full motor effort, regardless of activation value.
 					return amount ? 1 : 0;
 				},
-				Do: function (boid,amount) {
-					if ( this.t >= this.this_stroke_time ) {
+				Do: function (boid, amount, delta) {
+					if ( this.t + delta >= this.this_stroke_time ) {
 						boid.Mitosis( this.mitosis );
 					}
 				} 
@@ -1503,8 +1507,8 @@ export class Boid extends PhysicsObject {
 					// reproduction must use the full motor effort, regardless of activation value.
 					return amount ? 1 : 0;
 				},
-				Do: function (boid,amount) {
-					if ( this.t >= this.this_stroke_time ) {
+				Do: function (boid, amount, delta) {
+					if ( this.t + delta >= this.this_stroke_time ) {
 						boid.Bud();
 					}
 				} 			
@@ -1550,7 +1554,7 @@ export class Boid extends PhysicsObject {
 		// 	this.traits.boxfit.push([ attackValue, attackValue * 3, `motors.attack`]);
 		// }
 		
-		function StandardMarkMotorDo( boid, amount ) {
+		function StandardMarkMotorDo( boid, amount, delta ) {
 			if ( this.t == 0 ) { // first frame ONLY
 				const radius = (this.r || 100) * this.strokepow;
 				const lifespan = ( this.lifespan || ( Math.random() * 10 ) );
