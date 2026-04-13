@@ -927,8 +927,8 @@
 			else if ( o.geodata.complexity==8 ) { points=12; } // getting hard to discern at this point 
 			let segment = circ / ( points * 2 );
 			o.geo.linewidth = radius/2;
-			if ( points == 2 ) { o.geo.dashes = [segment*0.5,segment*1.5]; }
-			else { o.geo.dashes = [segment,segment]; }					
+			if ( points > 2 ) { o.geo.dashes = [segment,segment]; }					
+			else if ( points == 2 ) { o.geo.dashes = [segment*0.5,segment*1.5]; }
 		}
 		// fade out
 		if ( !o.geodata.permafood && o.anim.age > o.anim.lifespan - 1 ) {
