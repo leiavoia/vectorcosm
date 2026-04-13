@@ -79,6 +79,12 @@ export default class Tank {
 		}
 		this.grid = new SpaceGrid(this.width,this.height,300);
 		this.CreateDataGrid(this.width,this.height);
+		// if we are importing an object, look for specially compressed import data
+		if ( w && typeof w === 'object' && w.hasOwnProperty('matter') ) {
+			for ( let i=0; i < w.matter.length; i++ ) {
+				this.datagrid.cells[i].matter = w.matter[i];
+			}
+		}
 	}
 
 	Export( as_JSON=false ) {
@@ -86,6 +92,8 @@ export default class Tank {
 		let datakeys = ['width','height','whirls','background_triangles',
 			'bg_opacity', 'bg_visible', 'bg_theme', 'mutate_whirls_every', 'turbulence'];		
 		for ( let k of datakeys ) { output[k] = this[k]; }
+		// get data from the grid that cant be reproduced or inferred
+		output.matter = this.datagrid.cells.map( c => c.matter );	
 		if ( as_JSON ) { output = JSON.stringify(output); }
 		return output;
 	}
@@ -376,6 +384,11 @@ export default class Tank {
 	}
 	
 	Resize(w,h) {
+		// do not recreate the tank if the size didnt change.
+		// this helps save/load functionality from getting clobbered,
+		// as the tank is loaded first then Resize() triggered automatically
+		// as part of Simulation setup.
+		if ( Math.trunc(this.width) == Math.trunc(w) && Math.trunc(this.height) == Math.trunc(h) ) { console.log('no resize'); return; }
 		this.width = w;
 		this.height = h;
 		let gridcell_area = (w*h) / 200; // arbitrary number
