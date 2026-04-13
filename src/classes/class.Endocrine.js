@@ -1,6 +1,7 @@
 import DNA from '../classes/class.DNA.js'
 
 const GLOBAL_HORMONE_THROTTLE = 1.0;
+const HORMONE_BASE_LEVEL = 0.25;
 
 export default class Endocrine {
 	
@@ -32,7 +33,7 @@ export default class Endocrine {
 		this.num_inputs = num_inputs;
 		this.num_hormones = num_hormones;
 		// starting random conditions
-		this.hormones = Array.from({length: num_hormones}, () => 0.5);
+		this.hormones = Array.from({length: num_hormones}, () => HORMONE_BASE_LEVEL);
 		this.inputs = Array.from({length: num_inputs}, () => 0);
 		// hormone-input weights (flattened multidimensional array)
 		this.weights = Array.from({length: num_hormones * num_inputs}, () => ( randomDNAValue() - 0.5 ) * 2 );
@@ -100,5 +101,10 @@ export default class Endocrine {
 		this.tick++;
 	}
 		
+	Reset() {
+		for ( let i=0; i < this.hormones.length; i++ ) {
+			this.hormones[i] = HORMONE_BASE_LEVEL;
+		}
+	}		
 }
 	

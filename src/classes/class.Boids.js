@@ -76,6 +76,8 @@ export class Boid extends PhysicsObject {
 		this.torque = 0; // rotational impulse, can be negative for left/right
 		// flatline brain
 		if ( this.brain ) { this.brain.Reset(); }
+		// baseline hormones
+		this.endocrine.Reset();
 		// zero out all motor timing
 		for ( const m of this.motors ) {
 			m.t = 0;
