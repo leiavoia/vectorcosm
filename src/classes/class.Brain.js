@@ -12,7 +12,6 @@ export default class Brain {
 		// setup
 		this.type = 'epann';
 		this.network = null;
-		this.outputs = [];
 		this.input_map = {};
 		this.last_update = 0;		
 		// existing brain object - copy properties over
@@ -47,6 +46,8 @@ export default class Brain {
 				this.input_map[label] = i;
 			}
 		}
+		// set up correct number of outputs to avoid premature missing index lookups
+		this.outputs = new Array( this.type == 'epann' ? this.network.num_outputs : this.network.outputs.length ).fill(0);
 	}
 	
 	// works the network, and outputs outputs to "outputs"
@@ -80,11 +81,6 @@ export default class Brain {
 				}
 			}
 		}
-		// // RNN
-		// else if ( this.type==='rnn' ) {
-		// 	// TODO: add actual timer
-		// 	this.outputs = this.network.activate( inputs, 1/60 );
-		// }
 		// EPANN
 		else if ( this.type==='epann' ) {
 			this.outputs = this.network.Activate( inputs );
