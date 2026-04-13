@@ -428,8 +428,8 @@ export class Boid extends PhysicsObject {
 			}
 			// hormones affect perception - optional, may remove if it has no useful effect
 			if ( Boid.DOPE_SENSORS ) {
-				let positive = ( this.endocrine.hormones[0] * 0.90 + this.endocrine.hormones[1] * 0.10 ) / 2;
-				let negative = ( this.endocrine.hormones[2] * 0.50 + this.endocrine.hormones[3] * 0.50 ) / 2;
+				let positive = ( this.endocrine.hormones[0] * 0.90 + this.endocrine.hormones[1] * 0.10 );
+				let negative = ( this.endocrine.hormones[2] * 0.50 + this.endocrine.hormones[3] * 0.50 );
 				let net_modulation = positive - negative;
 				const dope = Math.exp(-Boid.HORMONE_PERCEPTION_SENSITIVITY * net_modulation); // exponent for the output level
 				for ( let i=0; i < this.sensor_outputs.length; i++ ) {
@@ -458,16 +458,12 @@ export class Boid extends PhysicsObject {
 			// motor controls can be doped by a blend of hormones.
 			// optional - can be removed. entertaining but not necessarily useful
 			if ( Boid.DOPE_MOTORS ) {
-				let caffiene = ( this.endocrine.hormones[2] * 0.80 + this.endocrine.hormones[3] * 0.20 ) / 2;
-				let alcohol = ( this.endocrine.hormones[1] * 0.70 + this.endocrine.hormones[0] * 0.30 ) / 2;
-				let net_modulation = caffiene - alcohol;
+				let positive = ( this.endocrine.hormones[2] * 0.80 + this.endocrine.hormones[3] * 0.20 );
+				let negative = ( this.endocrine.hormones[1] * 0.70 + this.endocrine.hormones[0] * 0.30 );
+				let net_modulation = positive - negative;
 				const dope = Math.exp(-Boid.HORMONE_MOTOR_SENSITIVITY * net_modulation); // exponent for the output level
 				for ( let i=0; i < this.brain.outputs.length; i++ ) {
-					this.brain.outputs[i] = Math.pow(this.brain.outputs[i], dope);
-					if ( isNaN(this.brain.outputs[i]) ) {
-						console.error('bad dope / brain', i, this.brain.outputs[i]);
-						debugger;
-					}					
+					this.brain.outputs[i] = Math.pow(this.brain.outputs[i], dope);				
 				}
 			}
 		}
@@ -1107,7 +1103,7 @@ export class Boid extends PhysicsObject {
 
 		// age and aging
 		this.traits.life_credits = this.dna.shapedInt( this.dna.genesFor('lifespan',2,1), 60, 800, 300, 2 );
-		this.life_credits = this.traits.life_credits;
+		this.life_credits = this.life_credits || this.traits.life_credits;
 		this.maturity_age = this.dna.shapedInt( this.dna.genesFor('maturity age',2,1), 0.1 * this.traits.life_credits, 0.9 * this.traits.life_credits, 0.25 * this.traits.life_credits, 2.5 );
 		this.larval_age = Math.min( this.maturity_age, this.dna.shapedInt( this.dna.genesFor('larval_age',2,1), 2, 25, 5, 4 ) );
 		
@@ -2220,6 +2216,7 @@ export class Boid extends PhysicsObject {
 		
 		// reset energy level to max if this is a new organism
 		if ( !this.metab.energy ) { this.metab.energy = this.metab.max_energy; }
+		if ( isNaN(this.metab.energy) ) { console.error('nan energy'); debugger; }
 	}
 
 	// analyzes species-defining features to create a hash for quick comparisons
