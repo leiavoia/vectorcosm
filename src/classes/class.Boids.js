@@ -1393,6 +1393,11 @@ export class Boid extends PhysicsObject {
 		}
 			
 		// reproductive motors
+		//
+		// TODO: Biologically, organisms reproduce when there is a surplus in energy.
+		// However, plants often feature hurried reproduction under stress.
+		// Consider how energy level might affect current reproduction triggers.
+		//
 		const repro_type_roll = this.dna.shapedInt( this.dna.genesFor('repro_type_roll num',3,true), 0, 1);
 		// mitosis
 		if ( repro_type_roll < 0.5 ) {
@@ -1409,43 +1414,28 @@ export class Boid extends PhysicsObject {
 			const mitosis_min_cost = (1/1000) * offspring_tax * stroketime; // cost per per mass second times length of gestation
 			const mitosis_max_cost = (1/500) * offspring_tax * stroketime; // cost per per mass second times length of gestation
 			const mitosis_cost = mitosis_min_cost + ( mitosis_max_cost - mitosis_min_cost ) * this.traits.offspring_investment;
+			const min_act = this.dna.shapedNumber( this.dna.genesFor('mitosis min act',2), 0.4, 0.9, 0.5, 3);
+			const hormone_factors = [
+				this.dna.shapedNumber( this.dna.genesFor(`mitosis hfactor 0`,2,1), 0, 1, 0.5, 0.85 ),
+				this.dna.shapedNumber( this.dna.genesFor(`mitosis hfactor 1`,2,1), 0, 1, 0.5, 0.85 ),
+				this.dna.shapedNumber( this.dna.genesFor(`mitosis hfactor 2`,2,1), 0, 1, 0.5, 0.85 ),
+				this.dna.shapedNumber( this.dna.genesFor(`mitosis hfactor 3`,2,1), 0, 1, 0.5, 0.85 )
+			];
+			// normalize hormone signals
+			const hormone_factors_total = hormone_factors.reduce( (a,c) => a + c, 0 );
+			for ( let i=0; i < 4; i++ ) { hormone_factors[i] /= hormone_factors_total; }				
 			this.motors.push({
 				mitosis: mitosis_num, // number of new organisms
 				cost: mitosis_cost, 
 				stroketime: stroketime, 
 				strokefunc: 'linear_up', 
 				name: `mitosis+${mitosis_num}`,
+				min_scale: 0.65,
+				min_act: min_act,
+				hormone_factors,
 				skip_sensor_check:true, // TODO: still need this?
-				// hormones induce reproduction. energy level modifies it.
-				// TODO: genetic variation in which hormones and how much
-				AutoInput: function ( boid ) {
-					// no babies for this scenario
-					if ( globalThis.vc.simulation.settings?.ignore_lifecycle ) {
-						return 0; 
-					}
-					// age restricted
-					if ( boid.age < boid.maturity_age ) { 
-						return 0; 
-					}
-					// min scale required
-					if ( boid.scale < 0.65 ) { 
-						return 0; 
-					}
-					// get the blended hormone value
-					let hormone = (
-						boid.endocrine.hormones[1] * 0.25 +
-						boid.endocrine.hormones[3] * 0.75 );
-					const threshold = 0.4;
-					const amount = ( hormone > threshold ) ? ( ( hormone - threshold ) / ( 1 - threshold ) ) : 0;
-					// TODO: figure out how varying hormone levels might have side effects.
-					// reproduction must use the full motor effort, regardless of activation value.
-					return amount ? 1 : 0;
-				},
-				Do: function (boid, amount, delta) {
-					if ( this.t + delta >= this.this_stroke_time ) {
-						boid.Mitosis( this.mitosis );
-					}
-				} 
+				AutoInput: ReproductionAutoInput,
+				Do: MitosisMotorDo
 			});
 			// TODO: cost of reproduction depends on variety of factors
 			this.traits.boxfit.push([ 0, 2 * mitosis_num * this.traits.offspring_investment, `motors.mitosis`]);
@@ -1457,48 +1447,28 @@ export class Boid extends PhysicsObject {
 			const min_cost = (1/1000) * ( 1 + stroketime / max_stroketime );
 			const max_cost = (1/500) * ( 1 + stroketime / max_stroketime );
 			const cost = min_cost + ( max_cost - min_cost ) * this.traits.offspring_investment;
-			const min_act = this.dna.shapedNumber( this.dna.genesFor('bud min act',2), 0.05, 0.9, 0.2, 5);
+			const min_act = this.dna.shapedNumber( this.dna.genesFor('bud min act',2), 0.7, 0.9, 0.77, 2);
+			const hormone_factors = [
+				this.dna.shapedNumber( this.dna.genesFor(`bud hfactor 0`,2,1), 0, 1, 0.5, 0.85 ),
+				this.dna.shapedNumber( this.dna.genesFor(`bud hfactor 1`,2,1), 0, 1, 0.5, 0.85 ),
+				this.dna.shapedNumber( this.dna.genesFor(`bud hfactor 2`,2,1), 0, 1, 0.5, 0.85 ),
+				this.dna.shapedNumber( this.dna.genesFor(`bud hfactor 3`,2,1), 0, 1, 0.5, 0.85 )
+			];
+			// normalize hormone signals
+			const hormone_factors_total = hormone_factors.reduce( (a,c) => a + c, 0 );
+			for ( let i=0; i < 4; i++ ) { hormone_factors[i] /= hormone_factors_total; }
 			this.motors.push({
 				bud: 1,
-				// min_act: min_act,
+				min_act: min_act,
 				cost: cost, 
 				stroketime: stroketime, 
 				strokefunc: 'linear_up', 
 				name: `bud`,
-				min_age: this.maturity_age,
 				min_scale: (0.65 + 0.35 * this.traits.offspring_investment), // higher than mitosis!
-				use_max: true, // prevents cheating on time
 				skip_sensor_check:true,
-				// hormones induce reproduction. energy level modifies it.
-				// TODO: genetic variation in which hormones and how much
-				AutoInput: ( boid ) => {
-					// no babies for this scenario
-					if ( globalThis.vc.simulation.settings?.ignore_lifecycle ) {
-						return 0; 
-					}
-					// age restricted
-					if ( boid.age < boid.maturity_age ) { 
-						return 0; 
-					}
-					// min scale required
-					if ( boid.scale < 0.65 ) { 
-						return 0; 
-					}
-					// get the blended hormone value
-					let hormone = (
-						boid.endocrine.hormones[0] * 0.15 +
-						boid.endocrine.hormones[3] * 0.85 );
-					const threshold = 0.4;
-					const amount = ( hormone > threshold ) ? ( ( hormone - threshold ) / ( 1 - threshold ) ) : 0;
-					// TODO: figure out how varying hormone levels might have side effects.
-					// reproduction must use the full motor effort, regardless of activation value.
-					return amount ? 1 : 0;
-				},
-				Do: function (boid, amount, delta) {
-					if ( this.t + delta >= this.this_stroke_time ) {
-						boid.Bud();
-					}
-				} 			
+				hormone_factors,
+				AutoInput: ReproductionAutoInput,
+				Do: BudMotorDo		
 			});
 			// requiring a large body for budding differentiates this from mitosis method
 			this.traits.boxfit.push([ 1 * this.traits.offspring_investment, 20 * this.traits.offspring_investment, `motors.bud`]);
@@ -2402,6 +2372,34 @@ function ScentMotorAutoInput( boid ) {
 	return amount;
 }
 
+function ReproductionAutoInput( boid ) {
+	// no babies for this scenario
+	if ( globalThis.vc.simulation.settings?.ignore_lifecycle ) {
+		return 0; 
+	}
+	// age restricted
+	if ( boid.age < boid.maturity_age ) { 
+		return 0; 
+	}
+	// min scale required
+	if ( this.min_scale && boid.scale < this.min_scale ) { 
+		return 0; 
+	}
+	// get the total hormone value
+	let hormone =
+		boid.endocrine.hormones[0] * this.hormone_factors[0] +
+		boid.endocrine.hormones[1] * this.hormone_factors[1] +
+		boid.endocrine.hormones[2] * this.hormone_factors[2] +
+		boid.endocrine.hormones[3] * this.hormone_factors[3] ;
+	// go ahead with reproduction?	
+	const amount = ( hormone > this.min_act ) 
+		? ( hormone - this.min_act ) / ( 1 - this.min_act )
+		: 0;
+	// TODO: figure out how varying hormone levels might have side effects.
+	// reproduction must use the full motor effort, regardless of activation value.
+	return amount ? 1 : 0;
+}
+
 function StandardMarkMotorDo( boid, amount, delta ) {
 	if ( this.t == 0 ) { // first frame ONLY
 		const radius = (this.r || 100) * this.strokepow;
@@ -2420,3 +2418,15 @@ function LocomotiveMotorDo( boid, amount, delta ) {
 		boid.torque += this.angular * amount * Boid.max_boid_angular_impulse;
 	}		
 }
+
+function MitosisMotorDo(boid, amount, delta) {
+	if ( this.t + delta >= this.this_stroke_time ) {
+		boid.Mitosis( this.mitosis );
+	}
+} 
+
+function BudMotorDo(boid, amount, delta) {
+	if ( this.t + delta >= this.this_stroke_time ) {
+		boid.Bud();
+	}
+} 
