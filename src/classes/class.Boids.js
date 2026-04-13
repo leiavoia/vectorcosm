@@ -1214,17 +1214,6 @@ export class Boid extends PhysicsObject {
 		
 		// MOTORS ---------------------\/------------------------
 		
-		// set up a standardized locomotive motor performance function
-		function LocomotiveMotorDo( boid, amount, delta ) {
-			// apply forces and effects
-			if ( this.hasOwnProperty('linear') ) {
-				boid.linear_impulse += this.linear * amount * Boid.max_boid_linear_impulse;
-			}
-			if ( this.hasOwnProperty('angular') ) {
-				boid.torque += this.angular * amount * Boid.max_boid_angular_impulse;
-			}		
-		}
-		
 		// these constants constrain individual motors to range 0..1.
 		// we multiply the motor power by global power constants during activiation.
 		const min_linear_motor = 0.05;			
@@ -1551,15 +1540,8 @@ export class Boid extends PhysicsObject {
 		// 	});
 		// 	this.traits.boxfit.push([ attackValue, attackValue * 3, `motors.attack`]);
 		// }
-		
-		function StandardMarkMotorDo( boid, amount, delta ) {
-			if ( this.t == 0 ) { // first frame ONLY
-				const radius = (this.r || 100) * this.strokepow;
-				const lifespan = ( this.lifespan || ( Math.random() * 10 ) );
-				boid.CreateMark( this.sense, radius, lifespan );
-			}
-		}
-		
+
+						
 		// mark motors (calls, scents, "pheromones", flashes of light, etc...)
 		const hasScent1 = this.dna.shapedNumber( 0x08000000 | this.dna.genesFor(`hasScent1`,1,1) );
 		if ( hasScent1 > 0.42 ) { 
@@ -1574,11 +1556,20 @@ export class Boid extends PhysicsObject {
 			const radius = this.dna.shapedNumber( this.dna.genesFor(`scent1 radius`,2,1), 50, 650, 125, 3 );
 			const time = this.dna.shapedNumber( this.dna.genesFor(`scent1 time`,2,1), 5, 30, 10, 3 );
 			const lifespan = this.dna.shapedNumber( this.dna.genesFor(`scent1 lifespan`,2,1), 5, 20, 10, 3 );
-			const act = this.dna.shapedNumber( this.dna.genesFor(`scent1 act`,2,1), 0.5, 1.0, 0.6, 3 );
+			const act = this.dna.shapedNumber( this.dna.genesFor(`scent1 act`,2,1), 0.5, 1.0, 0.65, 3 );
 			const cost = (1/500) / time;
 			sense[i1] += strength;
 			sense[i2] += strength * 0.5;
 			sense[i3] += strength * 0.25;
+			const hormone_factors = [
+				this.dna.shapedNumber( this.dna.genesFor(`scent1 hfactor 0`,2,1), 0, 1, 0.5, 0.75 ),
+				this.dna.shapedNumber( this.dna.genesFor(`scent1 hfactor 1`,2,1), 0, 1, 0.5, 0.75 ),
+				this.dna.shapedNumber( this.dna.genesFor(`scent1 hfactor 2`,2,1), 0, 1, 0.5, 0.75 ),
+				this.dna.shapedNumber( this.dna.genesFor(`scent1 hfactor 3`,2,1), 0, 1, 0.5, 0.75 )
+			];
+			// normalize hormone signals
+			const hormone_factors_total = hormone_factors.reduce( (a,c) => a + c, 0 );
+			for ( let i=0; i < 4; i++ ) { hormone_factors[i] /= hormone_factors_total; }
 			this.motors.push({
 				sense,
 				min_act: act,
@@ -1590,7 +1581,8 @@ export class Boid extends PhysicsObject {
 				lifespan,
 				r: radius,
 				skip_sensor_check:true,
-				neuro:true,
+				hormone_factors,
+				AutoInput: ScentMotorAutoInput,
 				Do: StandardMarkMotorDo
 			});		
 			const boxcost = strength * radius * 0.001;
@@ -1609,6 +1601,15 @@ export class Boid extends PhysicsObject {
 			const act = this.dna.shapedNumber( this.dna.genesFor(`scent2 act`,2,1), 0.68, 1.0, 0.78, 3 );
 			const cost = (1/550) / time;
 			sense[i] = strength;
+			const hormone_factors = [
+				this.dna.shapedNumber( this.dna.genesFor(`scent2 hfactor 0`,2,1), 0, 1, 0.5, 0.65 ),
+				this.dna.shapedNumber( this.dna.genesFor(`scent2 hfactor 1`,2,1), 0, 1, 0.5, 0.65 ),
+				this.dna.shapedNumber( this.dna.genesFor(`scent2 hfactor 2`,2,1), 0, 1, 0.5, 0.65 ),
+				this.dna.shapedNumber( this.dna.genesFor(`scent2 hfactor 3`,2,1), 0, 1, 0.5, 0.65 )
+			];
+			// normalize hormone signals
+			const hormone_factors_total = hormone_factors.reduce( (a,c) => a + c, 0 );
+			for ( let i=0; i < 4; i++ ) { hormone_factors[i] /= hormone_factors_total; }			
 			this.motors.push({
 				sense,
 				min_act: act,
@@ -1620,7 +1621,8 @@ export class Boid extends PhysicsObject {
 				lifespan,
 				r: radius,
 				skip_sensor_check:true,
-				neuro:true,
+				hormone_factors,
+				AutoInput: ScentMotorAutoInput,
 				Do: StandardMarkMotorDo
 			});		
 			const boxcost = strength * radius * 0.001;
@@ -2379,3 +2381,42 @@ export class Boid extends PhysicsObject {
 		};
 	}
 };
+
+
+		
+// ================================================================
+// HELPER FUNCTIONS
+// ================================================================
+
+function ScentMotorAutoInput( boid ) {
+	// get the total hormone value
+	let hormone =
+		boid.endocrine.hormones[0] * this.hormone_factors[0] +
+		boid.endocrine.hormones[1] * this.hormone_factors[1] +
+		boid.endocrine.hormones[2] * this.hormone_factors[2] +
+		boid.endocrine.hormones[3] * this.hormone_factors[3] ;
+	const amount = ( hormone > this.min_act ) 
+		? Math.max( 0.2, ( hormone - this.min_act ) / ( 1 - this.min_act ) ) 
+		: 0;
+	// if order to avoid excessively small radius, define a minimum starting size of the mark
+	return amount;
+}
+
+function StandardMarkMotorDo( boid, amount, delta ) {
+	if ( this.t == 0 ) { // first frame ONLY
+		const radius = (this.r || 100) * this.strokepow;
+		const lifespan = ( this.lifespan || ( Math.random() * 10 ) );
+		boid.CreateMark( this.sense, radius, lifespan );
+	}
+}
+
+// set up a standardized locomotive motor performance function
+function LocomotiveMotorDo( boid, amount, delta ) {
+	// apply forces and effects
+	if ( this.hasOwnProperty('linear') ) {
+		boid.linear_impulse += this.linear * amount * Boid.max_boid_linear_impulse;
+	}
+	if ( this.hasOwnProperty('angular') ) {
+		boid.torque += this.angular * amount * Boid.max_boid_angular_impulse;
+	}		
+}
