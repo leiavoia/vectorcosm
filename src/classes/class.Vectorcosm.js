@@ -56,8 +56,8 @@ export default class Vectorcosm {
 			// SimulationFactory('treasure_hunt_perpetual'),
 			// SimulationFactory('obstacle_course'),
 			// SimulationFactory('race_track'),
-			SimulationFactory('natural_tank'),
-			// SimulationFactory('peaceful_tank'),
+			// SimulationFactory('natural_tank'),
+			SimulationFactory('peaceful_tank'),
 		];
 		
 		// subscribe to critical events
@@ -184,7 +184,7 @@ export default class Vectorcosm {
 				}
 			}
 			
-			if ( this.free_plant_growth ) {
+			if ( !this.free_plant_growth ) {
 				// convert the requested matter to a ratio of availability and
 				// subtract the requested matter from the cell.
 				for ( let cell_index in requests_per_cell ) {

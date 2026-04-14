@@ -196,7 +196,7 @@ export default class Plant {
 					globalThis.vc.tank.AddMatterAt( this.x, this.y, this.fruit_credits );
 				}
 				// fruiting expends life credits - plants are only good for so long
-				this.life_credits - this.fruit_credits * 0.1;
+				this.life_credits -= this.fruit_credits * 0.1;
 				// reset fruiting cycle
 				this.fruit_credits = 0; 
 			}
@@ -208,9 +208,9 @@ export default class Plant {
 		if ( !this.light_health ) {
 			const cell = globalThis.vc.tank.datagrid.CellAt( this.x, this.y );
 			const light_diff = Math.abs( cell.light - this.traits.light_pref );
-			this.light_health = utils.Clamp( light_diff / this.traits.light_tolr, 0, 1 );
+			this.light_health = 1 - utils.Clamp( light_diff / this.traits.light_tolr, 0, 1 );
 			const heat_diff = Math.abs( cell.heat - this.traits.heat_pref );
-			this.heat_health = utils.Clamp( heat_diff / this.traits.heat_tolr, 0, 1 );
+			this.heat_health = 1 - utils.Clamp( heat_diff / this.traits.heat_tolr, 0, 1 );
 		}
 		let health = ( this.last_matter_grant_pct + this.light_health + this.heat_health ) / 3;
 		// average health over time to avoid wild swings
@@ -225,7 +225,7 @@ export default class Plant {
 		// give fruiting a head start so that new tanks dont immediately starve
 		let threshold = this?.traits?.fruit_num * this?.traits?.fruit_size;
 		if ( !threshold ) { threshold = 300; }
-		this.fruit_credit = utils.RandomFloat( threshold * 0.96, threshold );
+		this.fruit_credits = utils.RandomFloat( threshold * 0.96, threshold );
 	}	
 	
 }
@@ -474,7 +474,7 @@ export class DNAPlant extends Plant {
 	}
 	SortByY(a,b) { return b[1] - a[1]; }
 	SortByX(a,b) { return b[0] - a[0]; }
-	SortByAngle(a,b) { Math.atan2(b[1],b[0]) - Math.atan2(a[1],a[0]); }
+	SortByAngle(a,b) { return Math.atan2(b[1],b[0]) - Math.atan2(a[1],a[0]); }
 }
 Plant.PlantTypes.DNAPlant = DNAPlant;
 
