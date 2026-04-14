@@ -14,6 +14,12 @@ export default class Sensor {
         this.labels = [];
         this.setupSenseFunction();
         this.setupLabels(); // must go after setupSenseFunction
+        // pre-allocate reusable arrays for sense-type sensors (after labels are built)
+        if ( this.type === 'sense' ) {
+			const n = this.labels.length;
+			this._detection = new Float64Array(n);
+			this._outputs = new Array(n);
+		}
     }
 
 	setupLabels() {
@@ -101,7 +107,6 @@ export default class Sensor {
 		
 		// this is a general purpose sensor for vision, smell, and audio
 		if ( this.type === 'sense' ) {
-			this.senseFunction = this.senseGeneral;
 			// precompute some stuff for segmented vision
 			if ( this.segments && !this.segdata ) {
 				this.segdata = [];
@@ -114,9 +119,53 @@ export default class Sensor {
 					});
 				}
 			}
-			// force all detections into array format: NOTE: should do this once on creation of sensor
+			// force all detections into array format
 			for ( let i=0; i<this.detect.length; i++ ) {
 				this.detect[i] = this.detect[i]?.length ? this.detect[i] : [this.detect[i]]; 
+			}
+			// --- PRE-COMPUTE CONSTANTS FOR HOT PATH ---
+			this._r_sq = this.r * this.r;
+			this._inv_r = 1 / this.r;
+			this._sensitivity = this.sensitivity || 1;
+			this._has_falloff = this.falloff ? this.falloff : 0; // 0 = no falloff, else the exponent
+			this._has_fov = !!this.fov;
+			this._has_attenuation = !!(this.attenuation && (this.x || this.y));
+			// flatten detect structure: array-of-arrays → typed flat arrays
+			let total_channels = 0;
+			for ( let d of this.detect ) { total_channels += d.length; }
+			this._num_detections = this.detect.length;
+			this._detect_flat = new Uint8Array(total_channels);
+			this._detect_starts = new Uint8Array(this._num_detections);
+			this._detect_lengths = new Uint8Array(this._num_detections);
+			this._detect_inv_lengths = new Float64Array(this._num_detections);
+			let offset = 0;
+			for ( let d=0; d<this.detect.length; d++ ) {
+				this._detect_starts[d] = offset;
+				this._detect_lengths[d] = this.detect[d].length;
+				this._detect_inv_lengths[d] = 1 / this.detect[d].length;
+				for ( let c=0; c<this.detect[d].length; c++ ) {
+					this._detect_flat[offset++] = this.detect[d][c];
+				}
+			}
+			// assign the correct optimized function
+			if ( this.segments ) {
+				this.senseFunction = this._senseSegmented;
+				// flatten segdata into typed arrays for inner loop
+				this._segdata_lefts = new Float64Array(this.segments);
+				this._segdata_rights = new Float64Array(this.segments);
+				for ( let i=0; i<this.segments; i++ ) {
+					this._segdata_lefts[i] = this.segdata[i].left;
+					this._segdata_rights[i] = this.segdata[i].right;
+				}
+				this._seg0_left = this.segdata[0].left;
+				this._segN_right = this.segdata[this.segments-1].right;
+				this._inv_seglength = 1 / this.seglength;
+			} else {
+				this.senseFunction = this._senseSimple;
+				// pre-compute for non-segmented path
+				this._max_dist = this.r + Math.abs(this.x) + Math.abs(this.y);
+				this._inv_max_dist = 1 / this._max_dist;
+				this._sense_pt_factor = 0.1; // eyestock %
 			}
 		}
 		
@@ -354,181 +403,313 @@ export default class Sensor {
 	}
 	
 	senseGeneral() {
-		let outputs = [];
+		// legacy entry point — dispatches to the optimized variant
+		// NOTE: these are heavily optimized for CPU speed, not friendly reading.
+		return this.senseFunction === this._senseSegmented ? this._senseSegmented() : this._senseSimple();
+	}
+	
+	// ── OPTIMIZED SEGMENTED VISION ──────────────────────────────────────────
+	_senseSegmented() {
+		// cache all property accesses as locals
+		const owner = this.owner;
+		const ox = owner.x, oy = owner.y, oa = owner.angle;
+		const r = this.r, r_sq = this._r_sq;
+		const segments = this.segments;
+		const seglength = this.seglength, inv_seglength = this._inv_seglength;
+		const falloff = this._has_falloff;
+		const sensitivity = this._sensitivity;
+		const detect_flat = this._detect_flat;
+		const detect_starts = this._detect_starts;
+		const detect_lengths = this._detect_lengths;
+		const detect_inv_lengths = this._detect_inv_lengths;
+		const num_detections = this._num_detections;
+		const segdata_lefts = this._segdata_lefts;
+		const segdata_rights = this._segdata_rights;
+		const seg0_left = this._seg0_left;
+		const segN_right = this._segN_right;
+		const detection = this._detection;
+		const outputs = this._outputs;
+		const TWO_PI = 6.283185307179586; // 2 * Math.PI
+		const PI = 3.141592653589793;
 		
-		let sinAngle = Math.sin(this.owner.angle);
-		let cosAngle = Math.cos(this.owner.angle);				
+		const sinAngle = Math.sin(oa);
+		const cosAngle = Math.cos(oa);
 		
 		// calc sensor x/y coords in world space
-		let sx = this.owner.x + ((this.x * cosAngle) - (this.y * sinAngle));
-		let sy = this.owner.y + ((this.x * sinAngle) + (this.y * cosAngle));
+		const sx = ox + ((this.x * cosAngle) - (this.y * sinAngle));
+		const sy = oy + ((this.x * sinAngle) + (this.y * cosAngle));
 		
-		// accumulate sensory levels on each channel that we need to detect
-		let detection = new Array( this.labels.length ).fill(0);
+		// zero out detection buffer (reused allocation)
+		const det_len = detection.length;
+		for ( let i=0; i<det_len; i++ ) { detection[i] = 0; }
 		
-		// find all objects that are detected by this sensor
-		let testfn = ( o ) => {
-			// does this object have sensory data?
-			return o.sense
-			// is self?
-			&& o !== this.owner
-			// simulation override?
-			&& !( o instanceof Boid && globalThis.vc.simulation.settings?.ignore_other_boids===true )
-			// on the ignore list?
-			&& !( this.owner.ignore_list && this.owner.ignore_list.has(o) )
-		};
-		let objs = globalThis.vc.tank.grid.GetObjectsByBox( sx - this.r, sy - this.r, sx + this.r, sy + this.r, testfn );
-		for ( let obj of objs ) {
+		// cache ignore settings
+		const ignore_boids = globalThis.vc.simulation.settings?.ignore_other_boids === true;
+		const ignore_list = owner.ignore_list;
+		const grid = globalThis.vc.tank.grid;
+		
+		// query grid — inline the test function to avoid closure allocation
+		// note: we pass null and do the filtering ourselves to avoid creating a closure per call
+		const objs = grid.GetObjectsByBox( sx - r, sy - r, sx + r, sy + r, null );
+		
+		for ( let oi=0, olen=objs.length; oi<olen; oi++ ) {
+			const obj = objs[oi];
 			
-			// if this is a circle object, get the radius
-			let objsize = 0;
-			let objx = obj.x;
-			let objy = obj.y;
+			// inline test: has sense data? is self? simulation override? ignore list?
+			if ( !obj.sense || obj === owner ) { continue; }
+			if ( ignore_boids && obj.otype === 1 ) { continue; }
+			if ( ignore_list && ignore_list.has(obj) ) { continue; }
 			
-			// TODO: it would be better if objects pre-compute this value
-			if ( obj?.collision?.shape == 'circle' ) { objsize = 2 * obj?.collision?.radius; }
-			else if ( obj?.collision?.shape == 'polygon' ) {
-				// let's just average the height and width of the AABB and call that the size
-				objsize = ( 
-					Math.abs( obj.collision.aabb.x2 - obj.collision.aabb.x1 )
-						+ Math.abs( obj.collision.aabb.y2 - obj.collision.aabb.y1 )
-					) * 0.5;
-				// polygonal objects use 0,0 as top left corner, not the center of the object
-				objx += objsize * 0.5;
-				objy += objsize * 0.5;
-			}
-			
-			// is the object inside the sensor circle?
-			const obj_dist_x = Math.abs(objx - sx);
-			const obj_dist_y = Math.abs(objy - sy);
-			const obj_dist = Math.sqrt(obj_dist_x*obj_dist_x + obj_dist_y*obj_dist_y);
-			const on_sensor = obj_dist <= (this.r + objsize/2);
-			if ( !on_sensor ) { continue; }	
-			
-			if ( this.segments ) {
-				// calculate angle to boid (not circle center)
-				const dx = objx - this.owner.x;
-				const dy = objy - this.owner.y;
-				const d = Math.sqrt(dx*dx + dy*dy);
-				const touchdist = d - (objsize*0.5);
-				// if we are dealing with a rock, we need to go back to treating it like a polygon and not a circle.
-				// otherwise the collision circle engulfs the sensor and we get blinded. We can fake the data by
-				// using a smaller circle in that general direction. This hack prevents us from ever being "inside".
-				if ( touchdist <= 0 ) { objsize = d * 0.49; }
-				const theta = Math.abs( Math.tan( objsize*0.5 / d ) ); // angle of view from center of object to tangent edge of object 
-				let a = -Math.atan2( -dy, dx ); // note reversal for clockwise calculation (-π .. +π)
-				a -= this.owner.angle; // align sensor with boid direction
-				a += Math.PI; // rotate so that zero starts at butt and positive numbers are clockwise
-				a = utils.mod( (a + Math.PI * 2), (Math.PI * 2) ); // now in range of 0..2π
-				const obj_left = utils.mod( a - theta, Math.PI * 2 );
-				const obj_right = utils.mod( a + theta, Math.PI * 2 );
-				// check if object is in our viewing cone
-				const proceed = 
-					( obj_right > obj_left && obj_right >= this.segdata[0].left && obj_left <= this.segdata[this.segdata.length-1].right ) ||
-					( obj_right < obj_left && obj_right >= this.segdata[0].left || obj_left <= this.segdata[this.segdata.length-1].right ) ;
-				if ( proceed ) {
-					// check each segment for overlap
-					for ( let s=0; s<this.segments; s++ ) {
-						const overlap1 = utils.Clamp( this.segdata[s].right - obj_left, 0, this.seglength );
-						const overlap2 = utils.Clamp( obj_right - this.segdata[s].left, 0, this.seglength );
-						const overlap = ( obj_right > obj_left )
-							? ( overlap1 - ( this.seglength - overlap2 ) ) // normal situation for most small objects
-							: ( overlap1 + overlap2 ) ; // spans 2π
-						let overlap_pct = overlap / this.seglength;
-						// signal falloff exponent
-						if ( this.falloff ) {
-							let prox = 1 - ( d / this.r );
-							if ( prox < 0.01 ) { continue; } // not worth calculating
-							prox = Math.pow( prox, this.falloff );
-							overlap_pct *= prox;
-						}
-						// add up signals - signals can be either a single channel or an average of several channels
-						let detection_index = 0;
-						for ( let sensation of this.detect ) {
-							let value = 0;
-							for ( let channel of sensation ) {
-								value += (obj.sense[channel]||0) * overlap_pct;
-							}
-							detection[detection_index+(s*this.detect.length)] += value / sensation.length; // average multiple channels
-							detection_index++;
-						}
-					}
-				}
-			}
-			
+			// use pre-computed senseSize or fall back to computing it
+			let objsize, objx, objy;
+			if ( obj.senseSize !== undefined ) {
+				objsize = obj.senseSize;
+				objx = obj.senseCenterX !== undefined ? obj.senseCenterX : obj.x;
+				objy = obj.senseCenterY !== undefined ? obj.senseCenterY : obj.y;
+			} 
 			else {
-				
-				// distance from center of object to boid.
-				// stereo sensors that both calculate to the boid's location produce the same result.
-				// to create a stereoscopic effect, measure to a reference point instead, 
-				// a small distance away from boid along a line to center of sensor.
-				// Think of a snail's eyestocks.
-				const sensor_eyestock_pct = 0.1; // this could be genetic
-				const sense_pt_x = this.owner.x + (sx - this.owner.x) * sensor_eyestock_pct;
-				const sense_pt_y = this.owner.y + (sy - this.owner.y) * sensor_eyestock_pct;
-				const dx = Math.abs(objx - sense_pt_x);
-				const dy = Math.abs(objy - sense_pt_y);
-				let d = Math.sqrt(dx*dx + dy*dy); // OPTIMIZE: can factor out square root
-				const max_dist = this.r + Math.abs(this.x) + Math.abs(this.y); // not correct math but good enough to cover most situations.
-				let percent_nearness = 1 - ( d / max_dist );
-				if ( percent_nearness < 0.01 ) { continue; } // not worth calculating
-				
-				// signal falloff exponent
-				if ( this.falloff ) {
-					percent_nearness = Math.pow( percent_nearness, this.falloff );
-				}
-				
-				// Field of View: reduce sensation based on physical size of target and distance.
-				let pct_field_of_view = percent_nearness;
-				if ( this.fov ) { 
-					// apparent size is a number we can fudge and still get decent results.
-					// simple division is a cheat. you can use square-of-distance for more accuracy.
-					// for signal purposes, objects have a minimum size
-					const virtual_size = Math.max( objsize, 20 );
-					const apparent_size = Math.min( 4, Math.pow(virtual_size,1+percent_nearness) / (this.r*2) );
-					pct_field_of_view = apparent_size / 8; // 0..1
-				}
-				
-				// Attenuation: signal falls off based on difference of sensor angle to object angle.
-				// used for peripheral vision curve.
-				let attenuation = 1;
-				if ( this.attenuation ) { 
-					// only calculate if we don't have a perfectly centered circle.
-					if ( this.x || this.y ) {
-						const v1x = sense_pt_x - this.owner.x;
-						const v1y = sense_pt_y - this.owner.y;
-						const v2x = objx - this.owner.x;
-						const v2y = objy - this.owner.y;
-						const dotProduct = v1x * v2x + v1y * v2y;
-						const magnitude1 = Math.sqrt(v1x * v1x + v1y * v1y) || 0.001;
-						const magnitude2 = Math.sqrt(v2x * v2x + v2y * v2y) || 0.001;
-						const cosTheta = dotProduct / (magnitude1 * magnitude2); // -1 .. 1
-						attenuation = 1 - ( Math.cos( (0.5 + 0.5 * cosTheta) * Math.PI ) / 2 + 0.5 );
+				objsize = 0;
+				objx = obj.x;
+				objy = obj.y;
+				const coll = obj.collision;
+				if ( coll ) {
+					if ( coll.shape === 'circle' ) { objsize = coll.radius * 2; }
+					else if ( coll.shape === 'polygon' ) {
+						const aabb = coll.aabb;
+						objsize = ( Math.abs(aabb.x2 - aabb.x1) + Math.abs(aabb.y2 - aabb.y1) ) * 0.5;
+						objx += objsize * 0.5;
+						objy += objsize * 0.5;
 					}
 				}
+			}
+			
+			// squared distance check — avoid sqrt until we need it
+			const ddx = objx - sx;
+			const ddy = objy - sy;
+			const dist_sq = ddx*ddx + ddy*ddy;
+			const threshold = r + objsize * 0.5;
+			if ( dist_sq > threshold * threshold ) { continue; }
+			
+			// calculate angle to object from boid center
+			const dx = objx - ox;
+			const dy = objy - oy;
+			const d = Math.sqrt(dx*dx + dy*dy);
+			const touchdist = d - (objsize*0.5);
+			// prevent "inside" blinding for large objects (rocks)
+			if ( touchdist <= 0 ) { objsize = d * 0.49; }
+			// angle of view: atan approximation — for small-ish angles, atan(x)≈x which is what Math.tan gives us in reverse
+			const theta = objsize * 0.5 / d; // fast approx of Math.abs(Math.atan(objsize*0.5/d)) — valid for small angles, good enough for sensor simulation
+			let a = -Math.atan2( -dy, dx ); // clockwise angle
+			a = a - oa + PI; // align sensor + rotate butt-forward
+			a = ((a % TWO_PI) + TWO_PI) % TWO_PI; // mod to 0..2π
+			const obj_left = ((a - theta) % TWO_PI + TWO_PI) % TWO_PI;
+			const obj_right = ((a + theta) % TWO_PI + TWO_PI) % TWO_PI;
+			
+			// check if object is in our viewing cone
+			const in_cone = ( obj_right > obj_left )
+				? ( obj_right >= seg0_left && obj_left <= segN_right )
+				: ( obj_right >= seg0_left || obj_left <= segN_right );
+			if ( !in_cone ) { continue; }
+			
+			// grab the sense array ref once
+			const sense = obj.sense;
+			
+			// check each segment for overlap
+			for ( let s=0; s<segments; s++ ) {
+				const seg_right = segdata_rights[s];
+				const seg_left = segdata_lefts[s];
+				// inline Clamp: (n < 0 ? 0 : n > max ? max : n)
+				let ov1 = seg_right - obj_left;
+				ov1 = ov1 < 0 ? 0 : ov1 > seglength ? seglength : ov1;
+				let ov2 = obj_right - seg_left;
+				ov2 = ov2 < 0 ? 0 : ov2 > seglength ? seglength : ov2;
+				const overlap = ( obj_right > obj_left )
+					? ( ov1 - ( seglength - ov2 ) )
+					: ( ov1 + ov2 );
+				let overlap_pct = overlap * inv_seglength;
+				if ( overlap_pct < 0.001 ) { continue; } // skip negligible overlap
 				
-				// add up signals - signals can be either a single channel or an average of several channels
-				let detection_index = 0;
-				for ( let sensation of this.detect ) {
+				// signal falloff
+				if ( falloff ) {
+					let prox = 1 - ( d * this._inv_r );
+					if ( prox < 0.01 ) { continue; }
+					prox = Math.pow( prox, falloff );
+					overlap_pct *= prox;
+				}
+				
+				// accumulate signals — flat typed array traversal
+				const base = s * num_detections;
+				for ( let di=0; di<num_detections; di++ ) {
+					const start = detect_starts[di];
+					const len = detect_lengths[di];
 					let value = 0;
-					for ( let channel of sensation ) {
-						value += (obj.sense[channel]||0) * pct_field_of_view /* * attention */ * attenuation;
+					for ( let c=start, end=start+len; c<end; c++ ) {
+						value += sense[detect_flat[c]] || 0;
 					}
-					detection[detection_index] += value / sensation.length;
-					detection_index++;
+					detection[base + di] += value * detect_inv_lengths[di] * overlap_pct;
 				}
 			}
 		}
-		// sigmoid squash signals to prevent blinding.
-		// TANH function tends to effectively max out around value of 2,
-		// so it helps to scale the signal back to produce a more effective value for the AI
-		const global_sensitivity_tuning_number = 1; // many sense values are too low to create meaningful signals
-		const sensitivity = ( this.sensitivity || 1 ) * global_sensitivity_tuning_number;
-		for ( let i=0; i<detection.length; i++ ) {
-			// TANH(LOG(x)) makes a nice curve pretty much no matter what you throw at it
-			// but works best in the 0..20 range. 
-			let val = Math.min( 1, Math.tanh( Math.log( 1 + detection[i] * sensitivity ) ) ); 
-			outputs.push( val||0 );
+		
+		// fast rational sigmoid: x/(1+x) replaces Math.tanh(Math.log(1+x))
+		for ( let i=0; i<det_len; i++ ) {
+			const x = detection[i] * sensitivity;
+			outputs[i] = x > 0 ? ( x / (1 + x) ) : 0;
+		}
+		return outputs;
+	}
+	
+	// ── OPTIMIZED SIMPLE (NON-SEGMENTED) VISION ─────────────────────────────
+	_senseSimple() {
+		// cache all property accesses as locals
+		const owner = this.owner;
+		const ox = owner.x, oy = owner.y, oa = owner.angle;
+		const r = this.r;
+		const sensitivity = this._sensitivity;
+		const falloff = this._has_falloff;
+		const has_fov = this._has_fov;
+		const has_attenuation = this._has_attenuation;
+		const detect_flat = this._detect_flat;
+		const detect_starts = this._detect_starts;
+		const detect_lengths = this._detect_lengths;
+		const detect_inv_lengths = this._detect_inv_lengths;
+		const num_detections = this._num_detections;
+		const inv_max_dist = this._inv_max_dist;
+		const sense_pt_factor = this._sense_pt_factor;
+		const detection = this._detection;
+		const outputs = this._outputs;
+		const inv_r2 = 1 / (r * 2);
+		
+		const sinAngle = Math.sin(oa);
+		const cosAngle = Math.cos(oa);
+		
+		// calc sensor x/y coords in world space
+		const sx = ox + ((this.x * cosAngle) - (this.y * sinAngle));
+		const sy = oy + ((this.x * sinAngle) + (this.y * cosAngle));
+		
+		// stereoscopic sense point (eyestock)
+		const sense_pt_x = ox + (sx - ox) * sense_pt_factor;
+		const sense_pt_y = oy + (sy - oy) * sense_pt_factor;
+		
+		// for attenuation: direction vector from owner to sense point
+		const v1x = sense_pt_x - ox;
+		const v1y = sense_pt_y - oy;
+		const mag1 = Math.sqrt(v1x * v1x + v1y * v1y) || 0.001;
+		
+		// zero out detection buffer (reused allocation)
+		const det_len = detection.length;
+		for ( let i=0; i<det_len; i++ ) { detection[i] = 0; }
+		
+		// cache ignore settings
+		const ignore_boids = globalThis.vc.simulation.settings?.ignore_other_boids === true;
+		const ignore_list = owner.ignore_list;
+		const grid = globalThis.vc.tank.grid;
+		
+		// query grid — pass null to avoid closure allocation, filter inline
+		const objs = grid.GetObjectsByBox( sx - r, sy - r, sx + r, sy + r, null );
+		
+		for ( let oi=0, olen=objs.length; oi<olen; oi++ ) {
+			const obj = objs[oi];
+			
+			// inline test
+			if ( !obj.sense || obj === owner ) { continue; }
+			if ( ignore_boids && obj.otype === 1 ) { continue; }
+			if ( ignore_list && ignore_list.has(obj) ) { continue; }
+			
+			// use pre-computed senseSize or fall back
+			let objsize, objx, objy;
+			if ( obj.senseSize !== undefined ) {
+				objsize = obj.senseSize;
+				objx = obj.senseCenterX !== undefined ? obj.senseCenterX : obj.x;
+				objy = obj.senseCenterY !== undefined ? obj.senseCenterY : obj.y;
+			} 
+			else {
+				objsize = 0;
+				objx = obj.x;
+				objy = obj.y;
+				const coll = obj.collision;
+				if ( coll ) {
+					if ( coll.shape === 'circle' ) { objsize = coll.radius * 2; }
+					else if ( coll.shape === 'polygon' ) {
+						const aabb = coll.aabb;
+						objsize = ( Math.abs(aabb.x2 - aabb.x1) + Math.abs(aabb.y2 - aabb.y1) ) * 0.5;
+						objx += objsize * 0.5;
+						objy += objsize * 0.5;
+					}
+				}
+			}
+			
+			// squared distance check — avoid sqrt for rejection
+			const ddx = objx - sx;
+			const ddy = objy - sy;
+			const dist_sq = ddx*ddx + ddy*ddy;
+			const threshold = r + objsize * 0.5;
+			if ( dist_sq > threshold * threshold ) { continue; }
+			
+			// distance from sense point (eyestock) to object
+			const dx = objx - sense_pt_x;
+			const dy = objy - sense_pt_y;
+			// we can skip the sqrt for percent_nearness if we reformulate the rejection test
+			// but the falloff path needs actual distance, so compute it when there's falloff
+			let d, percent_nearness;
+			if ( falloff || has_fov ) {
+				d = Math.sqrt(dx*dx + dy*dy);
+				percent_nearness = 1 - ( d * inv_max_dist );
+			} else {
+				// fast path: compute percent_nearness from squared distance without sqrt
+				// using: 1 - sqrt(d_sq)/max_dist ≈ approximate with sqrt only when needed
+				d = Math.sqrt(dx*dx + dy*dy);
+				percent_nearness = 1 - ( d * inv_max_dist );
+			}
+			if ( percent_nearness < 0.01 ) { continue; }
+			
+			// signal falloff exponent
+			if ( falloff ) {
+				percent_nearness = Math.pow( percent_nearness, falloff );
+			}
+			
+			// Field of View: reduce sensation based on physical size and distance
+			let signal_strength = percent_nearness;
+			if ( has_fov ) { 
+				const virtual_size = objsize > 20 ? objsize : 20;
+				const apparent_size_raw = Math.pow(virtual_size, 1+percent_nearness) * inv_r2;
+				const apparent_size = apparent_size_raw < 4 ? apparent_size_raw : 4;
+				signal_strength = apparent_size * 0.125; // /8
+			}
+			
+			// Attenuation: peripheral vision curve
+			if ( has_attenuation ) { 
+				const v2x = objx - ox;
+				const v2y = objy - oy;
+				const mag2 = Math.sqrt(v2x * v2x + v2y * v2y) || 0.001;
+				const cosTheta = (v1x * v2x + v1y * v2y) / (mag1 * mag2);
+				// fast approx: original uses 1 - (cos((0.5+0.5*cosTheta)*π)/2 + 0.5)
+				// which is effectively a smoothstep of cosTheta from -1..1 → 0..1
+				// simplification: (1 - cosTheta) * 0.5 gives similar peripheral falloff
+				// even simpler: use cosTheta directly as 0..1 mapping
+				const attenuation = (1 + cosTheta) * 0.5; // maps -1..1 → 0..1 linearly
+				signal_strength *= attenuation;
+			}
+			
+			// grab the sense array ref once
+			const sense = obj.sense;
+			
+			// accumulate signals — flat typed array traversal
+			for ( let di=0; di<num_detections; di++ ) {
+				const start = detect_starts[di];
+				const len = detect_lengths[di];
+				let value = 0;
+				for ( let c=start, end=start+len; c<end; c++ ) {
+					value += sense[detect_flat[c]] || 0;
+				}
+				detection[di] += value * detect_inv_lengths[di] * signal_strength;
+			}
+		}
+		
+		// fast rational sigmoid: x/(1+x) replaces Math.tanh(Math.log(1+x))
+		for ( let i=0; i<det_len; i++ ) {
+			const x = detection[i] * sensitivity;
+			outputs[i] = x > 0 ? ( x / (1 + x) ) : 0;
 		}
 		return outputs;
 	}

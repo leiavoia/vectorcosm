@@ -36,6 +36,7 @@ export default class Rock {
 	// new_points_respect_hull = BOOL default true. if false, new points can be outside hull
 	constructor( params ) {
 		this.oid = ++globalThis.vc.next_object_id;
+		this.otype = 3; // numeric type tag for fast checks (1=Boid, 2=Food, 3=Rock)
 		this.sense = new Array(16).fill(0);
 		this.sense[0] = 0.2; // dull grey appearance
 		this.sense[1] = 0.2;
@@ -188,6 +189,11 @@ export default class Rock {
 				]);
 			}
 		}
+		// pre-compute sensory size for sensor hot path (polygon → avg AABB dimension)
+		const aabb = this.collision.aabb;
+		this.senseSize = ( Math.abs(aabb.x2 - aabb.x1) + Math.abs(aabb.y2 - aabb.y1) ) * 0.5;
+		this.senseCenterX = this.x + this.senseSize * 0.5;
+		this.senseCenterY = this.y + this.senseSize * 0.5;
 	}
 	Kill() {
 		// this.geo.remove();

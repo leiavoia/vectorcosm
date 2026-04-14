@@ -16,6 +16,7 @@ export default class Food extends PhysicsObject {
 	constructor(x=0,y=0,params) {
 		super();
 		this.oid = ++globalThis.vc.next_object_id;
+		this.otype = 2; // numeric type tag for fast checks (1=Boid, 2=Food, 3=Rock)
 		// first param can be JSON to rehydrate entire object from save
 		if ( x && typeof x === 'object' ) {
 			params = x;
@@ -38,7 +39,8 @@ export default class Food extends PhysicsObject {
 		this.dead = false;		
 		Object.assign( this, params );
 		this.r = Math.sqrt( 2 * this.value / Math.PI ) * 10;
-		this.collision = { radius: this.r, shape: 'circle', qid:0 };		
+		this.collision = { radius: this.r, shape: 'circle', qid:0 };
+		this.senseSize = this.r * 2; // pre-computed for sensor hot path		
 		
 		// sensory data comes from food flavor unless overridden by creator
 		if ( !params || !params?.sense ) {
@@ -91,6 +93,7 @@ export default class Food extends PhysicsObject {
 		// mass and radius can change as things get eaten
 		this.mass = this.value;
 		this.r = Math.sqrt( 2 * this.value / Math.PI );
+		this.senseSize = this.r * 2; // pre-computed for sensor hot path	
 
 		// buoyancy
 		if ( !this?.frictionless ) { 

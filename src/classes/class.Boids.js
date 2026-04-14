@@ -159,6 +159,7 @@ export class Boid extends PhysicsObject {
 	constructor( x=0, y=0, json=null ) {
 		super();
 		this.oid = ++globalThis.vc.next_object_id;
+		this.otype = 1; // numeric type tag for fast checks (1=Boid, 2=Food, 3=Rock)
 		this.ResetStats();
 		this.sense = new Array(16).fill(0);
 		this.id = utils.RandomInt();
@@ -265,8 +266,12 @@ export class Boid extends PhysicsObject {
 	
 	MakeSensorLabels() {
 		this.sensor_labels = [];
+		this._sensor_output_offsets = []; // pre-computed offset for each sensor's outputs
+		let total = 0;
 		for ( let s of this.sensors ) {
 			this.sensor_labels.push( ... s.labels );
+			this._sensor_output_offsets.push(total);
+			total += s.labels.length;
 		}
 		if ( this.traits.synesthesia ) {	
 			let new_labels = [];
@@ -275,7 +280,11 @@ export class Boid extends PhysicsObject {
 				new_labels.push(`syn${this.traits.synesthesia}-${i}`);
 			}
 			this.sensor_labels = new_labels;
-		}	
+		}
+		this._total_sensor_outputs = this.traits.synesthesia 
+			? this.sensor_labels.length 
+			: total;
+		this.sensor_outputs = new Array(this._total_sensor_outputs).fill(0);
 	}
 
 	Update( delta ) {
@@ -412,9 +421,14 @@ export class Boid extends PhysicsObject {
 			}
 		}
 		if ( do_sensors ) {
-			this.sensor_outputs = [];
-			for ( let s of this.sensors ) { 
-				this.sensor_outputs.push( ... s.Sense() );
+			// write sensor outputs into pre-allocated array by offset (avoids spread/push allocation)
+			for ( let si=0, slen=this.sensors.length; si<slen; si++ ) {
+				const s = this.sensors[si];
+				const result = s.Sense();
+				const offset = this._sensor_output_offsets[si];
+				for ( let j=0, rlen=result.length; j<rlen; j++ ) {
+					this.sensor_outputs[offset + j] = result[j];
+				}
 			}
 			// if the boid has synesthesia, combine inputs
 			if ( this.traits.synesthesia ) {
@@ -997,6 +1011,7 @@ export class Boid extends PhysicsObject {
 			this.Poop();
 		}
 		this.collision.radius = Math.max(this.length, this.width) / 2;
+		this.senseSize = this.collision.radius * 2; // pre-computed for sensor hot path
 	}
 
 	// keeping this here for possible interesting expansions on calculating effective length for use with motor force
