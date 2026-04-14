@@ -27,9 +27,16 @@ export default class PhysicsObject {
 		this.accel_y += fy / this.mass;
 	}
 
-	// euler integration
-	UpdatePosition(deltaTime) {
-		// Update velocity with acceleration
+	// Modified Euler integration — split into two phases so dissipative forces (drag)
+	// can be inserted between them. Correct order:
+	//   UpdateVelocity(dt)   — integrate motor forces into velocity
+	//   DampVelocity(...)         — apply analytical drag to the updated velocity
+	//   StepPosition(dt)     — advance position using the fully-resolved velocity
+	//
+	// UpdatePosition() is preserved as a convenience for callers that need no drag split.
+
+	// Phase 1: integrate accumulated forces into velocity, then clear acceleration.
+	UpdateVelocity(deltaTime) {
 		this.vel_x += this.accel_x * deltaTime;
 		this.vel_y += this.accel_y * deltaTime;
 
@@ -41,13 +48,20 @@ export default class PhysicsObject {
 			this.vel_y *= scale;
 		}
 
-		// Update position with velocity
-		this.x += this.vel_x * deltaTime;
-		this.y += this.vel_y * deltaTime;
-
-		// Reset acceleration for next frame
 		this.accel_x = 0;
 		this.accel_y = 0;
+	}
+
+	// Phase 2: advance position using current velocity (post-drag).
+	StepPosition(deltaTime) {
+		this.x += this.vel_x * deltaTime;
+		this.y += this.vel_y * deltaTime;
+	}
+
+	// Convenience: full update with no drag split (classic callers unchanged).
+	UpdatePosition(deltaTime) {
+		this.UpdateVelocity(deltaTime);
+		this.StepPosition(deltaTime);
 	}
 	
 	Slide( overlap_x, overlap_y, friction = 0.92 ) {
@@ -143,67 +157,57 @@ export default class PhysicsObject {
 		const drag_y = drag * this.vel_y;
 		this.ApplyForce(drag_x, drag_y);    
 	}
+
+	// Analytical (exponential) linear drag — exact solution to dv/dt = -(k) * v
+	// where k = coefficient * viscosity * radius / mass.
+	// Unconditionally stable: velocity decays smoothly to zero regardless of delta,
+	// mass, or radius. Replaces force-based AddDrag to prevent Euler overcompensation
+	// oscillation when c/m * dt > 1 (e.g. small or dying food particles).
+	DampLinearVelocity( radius, viscosity, coefficient, deltaTime ) {
+		const k = coefficient * viscosity * radius / Math.max(this.mass, PhysicsObject.MIN_MASS);
+		const damping = Math.exp( -k * deltaTime );
+		this.vel_x *= damping;
+		this.vel_y *= damping;
+	}
+
+	// Analytical (exponential) angular drag — exact solution to d(ang_vel)/dt = -(k) * ang_vel
+	// where k = coef * viscosity * length / mass.
+	// Unconditionally stable: angular velocity decays smoothly to zero regardless of step size.
+	// Replaces force-based rotational drag to prevent Euler overcompensation on rotation.
+	// Requires subclass to have an `ang_vel` property.
+	DampAngularVelocity( coef, viscosity, length, deltaTime ) {
+		const k = coef * viscosity * length / Math.max(this.mass, PhysicsObject.MIN_MASS);
+		const damping = Math.exp( -k * deltaTime );
+		this.ang_vel *= damping;
+	}
 	
-	// this applies realistic drag physics to a "boat".
-	// `length` = length of object (the broadside)
-	// `width` = width of object (bow/face)
-	// `heading` = direction of travel in world coordinates, in radians. Zero = positive x axis.
-	// `dragLong` = Drag when traveling forward ("regular" drag)
-	// `dragLat` = Drag when turning (prevents drifting)
-	ApplyHydrodynamicDrag( length, width, heading, viscosity, dragLong=0.05, dragLat=0.5 ) {
-
-		// `dragLong` controls how much the boat slows down when moving forward or backward.
-		// `dragLat` controls how much the boat slows down when sliding sideways or turning.
-		// If you make dragLong bigger, the boat will go slower in a straight line.
-		// If you make dragLat bigger, the boat will have a harder time sliding or drifting 
-		// sideways—it will “stick” more when turning.
-	
-		// To capture the effect that a longer boat exposes more of its long side when turning 
-		// (and thus experiences more lateral drag), you should scale the lateral drag force by 
-		// the boat’s length. This reflects the increased “side area” presented to the water when 
-		// the boat moves sideways or turns.
-
-		// The lateral drag area should be proportional to the boat’s length (not just length × width).
-		// You can use areaLat = length * k, where k is a constant (often just 1, or you can tune it).
-		// The longer the boat, the greater the lateral drag when turning.
-
-		// Lateral drag (forceLat) is proportional to the boat’s length, 
-		// so longer boats will “slide” less when turning, matching real hydrodynamics.
-		// You can further tune the effect by adjusting the dragLat coefficient.
-
-		// Forward and lateral direction unit vectors
+	// Analytical directional (hydrodynamic) drag using the exact solution to the quadratic drag ODE:
+	// dv/dt = -k * v * |v|  =>  v(t+dt) = v / (1 + k * |v| * dt)
+	// Unconditionally stable: |v_new| < |v| always — velocity can never reverse from drag alone.
+	// Uses the same forward/lateral coefficients as previous ApplyHydrodynamicDrag so feel is identical,
+	// but without the Euler overcompensation oscillation at large dt or high speed.
+	// Call this AFTER UpdatePosition so motor forces integrate first (operator splitting).
+	DampHydrodynamicVelocity( length, width, heading, viscosity, dragLong=0.05, dragLat=0.5, deltaTime ) {
 		const forward_x = Math.cos(heading);
 		const forward_y = Math.sin(heading);
 		const lateral_x = -forward_y;
 		const lateral_y =  forward_x;
 
-		// Project velocity
-		const v_forward = this.vel_x * forward_x + this.vel_y * forward_y;
-		const v_lateral = this.vel_x * lateral_x + this.vel_y * lateral_y;
+		// Project velocity onto forward and lateral axes
+		const v_fwd = this.vel_x * forward_x + this.vel_y * forward_y;
+		const v_lat = this.vel_x * lateral_x + this.vel_y * lateral_y;
 
-		// Effective "areas" (just scalers in this 2D sim)
-		const areaLong = length * width;
-		const areaLat  = length;
+		// Drag coefficients
+		const k_long = dragLong * (length * width) * viscosity / PhysicsObject.MAX_SPEED;
+		const k_lat  = dragLat  *  length          * viscosity / PhysicsObject.MAX_SPEED;
 
-		const C_long = (this.mass * dragLong / PhysicsObject.MAX_SPEED) * areaLong * viscosity;
-		const C_lat  = (this.mass * dragLat / PhysicsObject.MAX_SPEED) * areaLat  * viscosity;
+		// Analytical quadratic decay
+		const v_fwd_new = v_fwd / (1 + k_long * Math.abs(v_fwd) * deltaTime);
+		const v_lat_new = v_lat / (1 + k_lat  * Math.abs(v_lat) * deltaTime);
 
-		// Forces (quadratic, opposing velocity)
-		let forceLong = -C_long * v_forward * Math.abs(v_forward);
-		let forceLat  = -C_lat  * v_lateral * Math.abs(v_lateral);
-
-		// Clamp to max physically reasonable drag
-		const maxForceLong = this.mass * PhysicsObject.MAX_SPEED * PhysicsObject.MAX_SPEED;
-		const maxForceLat  = this.mass * PhysicsObject.MAX_SPEED * PhysicsObject.MAX_SPEED;
-
-		forceLong = Math.max(-maxForceLong, Math.min(forceLong, maxForceLong));
-		forceLat  = Math.max(-maxForceLat,  Math.min(forceLat,  maxForceLat));
-
-		// Convert to world space
-		const fx = forceLong * forward_x + forceLat * lateral_x;
-		const fy = forceLong * forward_y + forceLat * lateral_y;
-
-		this.ApplyForce(fx, fy);
+		// Reconstruct world-space velocity
+		this.vel_x = v_fwd_new * forward_x + v_lat_new * lateral_x;
+		this.vel_y = v_fwd_new * forward_y + v_lat_new * lateral_y;
 	}
 
 }

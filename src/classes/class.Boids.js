@@ -36,7 +36,6 @@ export class Boid extends PhysicsObject {
 	static motor_cost_exponent = 1.5; // punishment curve
 	static metabolic_scaling_term = 0.75; // controls metabolic scaling speed
 	static metabolic_scaling_coef = 3.50; // controls metabolic scaling curve shape
-	static physics_max_time_per_step = 1/60; // controls how many physics substeps to perform
 	static GROWTH_SPEED = 20; // internal tuning number, in seconds
 	static LIFE_DECAY_SPEED = 1.5; // death clock. higher number shortens all lifespans
 	static HEALTH_PENALTY_EXP = 2; // high number makes bad health drastically more bad.
@@ -475,7 +474,7 @@ export class Boid extends PhysicsObject {
 		for ( let m of this.motors ) {
 			this.ActivateMotor( m, delta );
 		}
-		
+					
 		// MOVEMENT ----------------------------\/---------------------------------------
 		
 		// torque scales with effective body length (2D version of muscle cross-section)
@@ -494,57 +493,39 @@ export class Boid extends PhysicsObject {
 		if ( impulse_y > 20000000 || impulse_y < -20000000 || isNaN(impulse_y) ) { impulse_y=0; }
 		this.ApplyForce(impulse_x, impulse_y);
 		
-		// in order to avoid jittering problems caused by drag forces and high velocities,
-		// we need to break the physics into smaller time slices.
-		// we generally want 2 or sometimes 3 steps per frame to cover all cases.
-		const torque_was = this.torque;
-		const accel_x_was = this.accel_x;
-		const accel_y_was = this.accel_y;
-		const steps = 1 + Math.ceil( delta / Boid.physics_max_time_per_step );
-		const subdelta = delta / steps;
-		for ( let i=0; i < steps; i++ ) {
-			
-			// reset force values (UpdatePosition will clear them every time)
-			this.torque = torque_was;
-			this.accel_x = accel_x_was;
-			this.accel_y = accel_y_was;
-			
-			// apply rotational drag
-			const rot_drag = -Boid.ang_drag_coef * this.ang_vel * globalThis.vc.simulation.settings.viscosity * this.body.length;
-			this.torque += rot_drag / this.mass;
-				
-			// calculate angular velocity
-			this.ang_vel += this.torque * subdelta;
-			
-			if ( !isFinite(this.ang_vel) || isNaN(this.ang_vel) ) { this.ang_vel = 0; }
-			
-			// limit rotation
-			this.ang_vel = utils.Clamp( this.ang_vel, -Boid.maxrot, Boid.maxrot );
-			
-			// apply angular velocity / adjust pointing angle
-			this.angle = utils.mod( this.angle + (subdelta * this.ang_vel), 2*Math.PI );
-			
-			// drag force, otherwise we just go faster and faster.
-			// note: we need to use hydrodynamic drag, not regular drag.
-			// Regular drag has unrealistic drifting you would not expect in aquatic environments.
-			this.ApplyHydrodynamicDrag( 
-				this.body.length, 
-				this.body.width, 
-				this.angle, 
-				globalThis.vc.simulation.settings.viscosity,
-				Boid.forward_drag_coef,
-				Boid.lateral_drag_coef
-			);
+		// integrate motor torque into angular velocity (Euler)
+		this.ang_vel += this.torque * delta;
 
-			// translate position based on all forces
-			this.UpdatePosition(subdelta);
-			
-			// stay inside tank			
-			this.x = utils.clamp( this.x, 0 + this.collision.radius, globalThis.vc.tank.width - this.collision.radius );
-			this.y = utils.clamp( this.y, 0 + this.collision.radius, globalThis.vc.tank.height - this.collision.radius );
-			
-			// this.Constrain(bounce);
-		}
+		// apply rotational drag as analytical exponential damping — avoids Euler overcompensation
+		// oscillation that occurs with force-based drag when ang_drag_coef * visc * length / mass * dt > 1
+		this.DampAngularVelocity( Boid.ang_drag_coef, globalThis.vc.simulation.settings.viscosity, this.body.length, delta );
+
+		if ( !isFinite(this.ang_vel) || isNaN(this.ang_vel) ) { this.ang_vel = 0; }
+
+		// limit rotation
+		this.ang_vel = utils.Clamp( this.ang_vel, -Boid.maxrot, Boid.maxrot );
+
+		// apply angular velocity / adjust pointing angle
+		this.angle = utils.mod( this.angle + (delta * this.ang_vel), 2*Math.PI );
+
+		// Modified Euler: integrate motor forces into velocity, apply drag, then step position.
+		// Drag is applied between velocity and position updates so position uses the
+		// fully-resolved (post-drag) velocity — consistent with angular integration.
+		this.UpdateVelocity(delta);
+		this.DampHydrodynamicVelocity(
+			this.body.length,
+			this.body.width,
+			this.angle,
+			globalThis.vc.simulation.settings.viscosity,
+			Boid.forward_drag_coef,
+			Boid.lateral_drag_coef,
+			delta
+		);
+		this.StepPosition(delta);
+
+		// stay inside tank
+		this.x = utils.clamp( this.x, 0 + this.collision.radius, globalThis.vc.tank.width - this.collision.radius );
+		this.y = utils.clamp( this.y, 0 + this.collision.radius, globalThis.vc.tank.height - this.collision.radius );
 
 		
 		// collision detection with obstacles

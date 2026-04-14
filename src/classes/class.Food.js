@@ -98,14 +98,14 @@ export default class Food extends PhysicsObject {
 			this.ApplyForce(0, -this.buoy * this.mass); // buoyancy force scales with mass
 		}
 		
-		// drag force, otherwise we just go faster and faster.
+		// Modified Euler: integrate motor forces into velocity, apply drag, then step position.
+		// Drag is applied between velocity and position updates so position uses the
+		// fully-resolved (post-drag) velocity — consistent with angular integration.
+		this.UpdateVelocity(delta);
 		if ( !this?.frictionless ) {
-			// simplified drag function for round objects
-			this.AddDrag( this.r, globalThis.vc.simulation.settings.viscosity, 60 ); // arbitrary balance number
+			this.DampLinearVelocity( this.r, globalThis.vc.simulation.settings.viscosity, 60, delta );
 		}
-		
-		// integrate all forces and move
-		this.UpdatePosition(delta);
+		this.StepPosition(delta);
 				
 		// stay in tank
  		this.Constrain(bounce);
