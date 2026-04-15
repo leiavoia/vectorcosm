@@ -305,9 +305,9 @@ function_registry.set( 'loadTank', params => {
 	globalThis.postMessage( { functionName: 'loadTank', data: null } );
 });
 
-function_registry.set( 'exportBoids', params => {
-	let db = params.data?.db || false;
-	let str = globalThis.vc.SavePopulation( params.data?.species, params.data?.ids, db );
+function_registry.set( 'exportBoids', async params => {
+	let to_db = !!params.data?.db;
+	let str = await globalThis.vc.SavePopulation( params.data?.species, params.data?.ids, to_db );
 	globalThis.postMessage( { functionName: 'exportBoids', data: str } );
 });
 
@@ -430,9 +430,9 @@ function_registry.set( 'addSavedBoidsToTank', async params => {
 	let num_added = 0;
 	const lib = new BoidLibrary;
 	for ( let id of params.data.ids ) {
-		let results = await lib.Get({id});
-		for ( let row of results ) {
-			for ( let json of row.specimens ) {
+		let data = await lib.GetData(id);
+		if ( data && data.specimens ) {
+			for ( let json of data.specimens ) {
 				let b = new Boid( 0, 0, JSON.parse(json) );
 				b.ScaleBoidByMass();
 				globalThis.vc.simulation.AddBoidToTank(b); // handles safe spawn
@@ -578,37 +578,7 @@ function DescribeBoid( o, inc_sensor_geo=false,  inc_brain=false, inc_stats=0 ) 
 			};
 		}) );
 	}
-	if ( o.brain.type === 'rnn' ) {
-		data.brain = [];
-		for ( let i = 0; i < o.brain.network.nodes.length; i++ ) {
-			data.brain.push( ...o.brain.network.nodes[i].map( v => {
-				v = utils.clamp(v,-1,1);
-				let hexval = utils.DecToHex( Math.round(Math.abs(v) * 255) );
-				let color = ( v >= 0 ? ('#00' + hexval + '00') : ('#' + hexval + '0000') );
-				if ( v === 1 ) { color = '#FFFFFF'; }
-				const is_input = i==0;
-				return { 
-					type: (is_input ? 'input' : 'node' ), 
-					value: v,
-					symbol: (is_input ? 'I' : 'N' ),
-					color: color,
-				};
-			}) );
-		}
-		// separate outputs
-		data.brain.push( ...o.brain.network.nodes[ o.brain.network.nodes.length-1 ].map( v => {
-			let r = utils.DecToHex( Math.round(Math.abs(v) * 230) );
-			let g = utils.DecToHex( Math.round(Math.abs(v) * 120) );
-			let b = utils.DecToHex( Math.round(Math.abs(v) * 30) );
-			let color = '#' + r + g + b;
-			return { 
-				type: 'output', 
-				value: v,
-				symbol: 'O',
-				color: color 
-			};
-		}) );
-	}
+	
 	if ( o.brain.type === 'epann' ) {
 		data.brain = [];
 		for ( let i = 0; i < o.brain.network.nodes.length; i++ ) {

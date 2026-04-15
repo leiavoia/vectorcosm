@@ -3,6 +3,7 @@ import Rock from '../classes/class.Rock.js'
 import Food from '../classes/class.Food.js'
 import Plant from '../classes/class.Plant.js'
 import BoidLibrary from '../classes/class.BoidLibrary.js'
+import TankLibrary from '../classes/class.TankLibrary.js'
 import { SimulationFactory, NaturalTankSimulation } from '../classes/class.Simulation.js'
 import { Boid } from '../classes/class.Boids.js'
 import PubSub from 'pubsub-js'
@@ -239,20 +240,24 @@ export default class Vectorcosm {
 		PubSub.publish('frame-update', 'hello world!');							
 	}		
 
-	SavePopulation( species=null, ids=null, to_db_as=null /* a string label */ ) {
+	async SavePopulation( species=null, ids=null, to_db=false ) {
 		if ( this.tank.boids.length ) {
 			let list = this.tank.boids;
 			if ( species ) {
-				list = list.filter( x => x.species == species );
+				if ( Array.isArray(species) ) {
+					list = list.filter( x => species.includes(x.species) );
+				} else {
+					list = list.filter( x => x.species == species );
+				}
 			}
 			if ( ids ) {
 				if ( !Array.isArray(ids) ) { ids = [ids]; }
 				list = list.filter( x => ids.includes(x.oid) );
 			}
-			// if saving to database, push objects directly in
-			if ( to_db_as ) {
+			// save to database
+			if ( to_db ) {
 				const lib = new BoidLibrary();
-				lib.Add( list, to_db_as );
+				await lib.Add( list ); // label auto-generated
 			}
 			// otherwise return JSON
 			else {
@@ -284,13 +289,14 @@ export default class Vectorcosm {
 	async SaveTank( id=0 ) {
 		if ( this.tank ) {
 			let tank = this.tank;
-			let w = tank.width.toFixed();
-			let h = tank.height.toFixed();
-			let b = tank.boids.length;
-			let p = tank.plants.length;
-			let r = tank.obstacles.length;
-			// TODO: age would be nice some day
-			let label = `${w}x${h}, ${b} Boids, ${p} Plants, ${r} Rocks`;			
+			let w = Math.round(tank.width);
+			let h = Math.round(tank.height);
+			let num_boids = tank.boids.length;
+			let num_plants = tank.plants.length;
+			let num_rocks = tank.obstacles.length;
+			let num_foods = tank.foods.length;
+			let age = Math.round(this.simulation?.stats?.round_time || 0);
+			let label = `${w}x${h}, ${num_boids} Boids, ${num_plants} Plants, ${num_rocks} Rocks`;
 			const scene = {
 				tank: tank.Export(),
 				boids: tank.boids.map( x => x.Export() ),
@@ -299,17 +305,25 @@ export default class Vectorcosm {
 				plants: tank.plants.map( x => x.Export() ),
 				sim_settings: this.simulation.settings,
 			};
+			const meta = { width: w, height: h, num_boids, num_plants, num_rocks, num_foods, age };
+			const lib = new TankLibrary();
+			let new_id;
+			if ( id !== null ) {
+				// id=0 is the buffer slot, id>0 saves over existing library entry
+				new_id = await lib.Save( id, scene, label, meta );
+			} 
+			else {
+				new_id = await lib.Add( scene, label, meta );
+			}
 			let date = Date.now();
-			const row = { scene, label, date };
-			if ( id !== null ) { row.id = id; }
-			let new_id = await db.tanks.put(row);
-			return {id:new_id, label, date};
+			return { id: new_id, label, date };
 		}
 	}
 	
 	async LoadTank( id=0, settings=null ) {
 		if ( id >= 0 ) {
-			const data = await db.tanks.get(id);
+			const lib = new TankLibrary();
+			const data = await lib.GetData(id);
 			if ( !data ) { return null; }
 			const scene = data.scene;
 			this.tank.Kill();

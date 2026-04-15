@@ -76,15 +76,17 @@
 		return date.toLocaleString();	
 	}
 	
-	function ExportSelectedRowsToFile() {
+	async function ExportSelectedRowsToFile() {
 		for ( let i=rows.length-1; i >= 0; i-- ) {
 			if ( rows[i].selected ) {
 				rows[i].selected = false;
 				num_selected--;
-				let str = JSON.stringify(rows[i]);
-				let filename = rows[i].species + '_' +
-					+ rows[i].count + '_' +
-					+ rows[i].date
+				let full_row = await lib.GetFullRow(rows[i].id);
+				if ( !full_row ) { break; }
+				let str = JSON.stringify(full_row);
+				let filename = full_row.label + '_' +
+					+ full_row.count + '_' +
+					+ full_row.date
 					+ '.roe';
 				filename = filename.replace(/( |\s)+/ig,'_')	
 				let blob = new Blob([str], {type: "text/plain;charset=utf-8"});
@@ -212,7 +214,7 @@
 						{#each rows as row}
 							<tr class={{selected: row.selected}} onclick={()=>ToggleRowSelect(row)} >
 								<td style="padding-left: 0;">
-									{row.species} ({row.count})
+									{row.label} ({row.count})
 									<br/>
 									<small class="dim">{FormatTimestamp(row.date)}</small>
 								</td>	

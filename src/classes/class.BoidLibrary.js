@@ -8,60 +8,86 @@ export default class BoidLibrary {
 	
 	}
 	
+	static MakeLabel( population ) {
+		const genus_set = new Set( population.map( _ => _.genus ) );
+		const species_set = new Set( population.map( _ => _.genus === _.species ? _.genus : `${_.genus} ${_.species}` ) );
+		if ( species_set.size === 1 ) {
+			// all same species: "Genus Species" or just "Genus" if genus==species
+			const first = population[0];
+			return first.genus === first.species ? first.genus : `${first.genus} ${first.species}`;
+		}
+		if ( genus_set.size === 1 ) {
+			return population[0].genus;
+		}
+		return `Mixed (${species_set.size} species, ${genus_set.size} genus)`;
+	}
+	
 	async Add( population, label=null ) {
 		if ( !Array.isArray(population) ) { population = [population]; }
-		if ( !label ) {
-			let species = new Set( population.map( _ => _.genus==_.species ? _.genus : `${_.genus} ${_.species}` ) );
-			label = species.size === 1 ? population[0].species : 'mixed';
+		if ( !label || typeof label !== 'string' ) {
+			label = BoidLibrary.MakeLabel( population );
 		}
-		const row = {
-			species: label,
+		const genus_set = new Set( population.map( _ => _.genus ) );
+		const species_set = new Set( population.map( _ => _.genus === _.species ? _.genus : `${_.genus} ${_.species}` ) );
+		const index_row = {
+			label: label,
 			date: Date.now(),
 			count: population.length,
 			star: 0,
-			svg: null,
-			specimens: population.map( _ => _.Export(true) )
+			num_species: species_set.size,
+			num_genus: genus_set.size,
 		};
-		return await this.AddRow(row);
+		const id = await db.population_index.put(index_row);
+		await db.population_data.put({
+			id: id,
+			specimens: population.map( _ => _.Export(true) ),
+		});
+		PubSub.publish('boid-library-addition', null);
+		return id;
 	}
 	
 	async AddRow( row ) {
-		return await db.populations.put(row)
-		.then( _ => {
-			PubSub.publish('boid-library-addition', null);
-			return _;
-		});
+		// for importing from file - row has index fields + specimens
+		const specimens = row.specimens || [];
+		delete row.specimens;
+		delete row.selected;
+		// don't let IDs in from the outside
+		delete row.id;
+		// handle legacy field name
+		if ( row.species && !row.label ) {
+			row.label = row.species;
+			delete row.species;
+		}
+		const id = await db.population_index.put(row);
+		await db.population_data.put({ id, specimens });
+		PubSub.publish('boid-library-addition', null);
+		return id;
 	}
 	
 	async Update( row ) {
 		if ( !row.id ) { return false; }
-		return await db.populations.put(row);
+		// only update index fields, never touch data
+		const { specimens, ...index_row } = row;
+		return await db.population_index.put(index_row);
 	}
 	
 	async Delete( id ) {
-		return await db.populations.delete(id);
+		await db.population_data.delete(id);
+		return await db.population_index.delete(id);
 	}
 	
+	// Get index rows only (lightweight, no specimen data)
 	async Get( params ) {
-		// id
-		// date
-		// species
-		//
-		// page
-		// per_page
-		// order_by
-		// ascending
-		
-		let data = await db.populations;
+		let data = db.population_index;
 		
 		// filtering
 		if ( params.id ) {
 			data = data.where("id").equals(params.id);
 		}
-		if ( params.species ) {
-			data = data.where("species").equalsIgnoreCase(params.species);
+		else if ( params.label ) {
+			data = data.where("label").equalsIgnoreCase(params.label);
 		}
-		if ( params.hasOwnProperty('star') && params.star !== null ) {
+		else if ( params.hasOwnProperty('star') && params.star !== null ) {
 			data = data.where("star").equals(params.star);
 		}
 		
@@ -79,6 +105,19 @@ export default class BoidLibrary {
 		}
 		
 		return data;	
+	}
+	
+	// Get full specimen data for a single record (heavy)
+	async GetData( id ) {
+		return await db.population_data.get(id);
+	}
+
+	// Export a full row (index + data merged) for file export
+	async GetFullRow( id ) {
+		const index = await db.population_index.get(id);
+		const data = await db.population_data.get(id);
+		if ( !index || !data ) { return null; }
+		return { ...index, specimens: data.specimens };
 	}
 	
 }		

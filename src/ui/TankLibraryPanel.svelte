@@ -29,7 +29,7 @@
 		if ( !selected_row ) { return; }
 		lib.Delete(selected_row.id);
 		let i = rows.indexOf(selected_row);
-		if ( 1 >= 0 ) { rows.splice(i,1); }
+		if ( i >= 0 ) { rows.splice(i,1); }
 		selected_row = null;
 	}
 	
@@ -43,9 +43,11 @@
 		return date.toLocaleString();	
 	}
 	
-	function ExportSelectedRowToFile() {
+	async function ExportSelectedRowToFile() {
 		if ( !selected_row ) { return; }
-		let str = JSON.stringify(selected_row);
+		let full_row = await lib.GetFullRow(selected_row.id);
+		if ( !full_row ) { return; }
+		let str = JSON.stringify(full_row);
 		let filename = 'vectorcosm_' + selected_row.id + '_' + selected_row.label + '.tank';
 		filename = filename.replace(/( |\s)+/ig,'_')	
 		let blob = new Blob([str], {type: "text/plain;charset=utf-8"});
