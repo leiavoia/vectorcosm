@@ -80,3 +80,16 @@ Keep .ai documentation up to date when:
 - Files are added or removed.
 - Major features are updated.
 - Tech stack has changed. 
+
+---
+
+### Agent Auto-Documentation
+
+Look for special agent instructions at the top of code files as "AI tags" inside comment blocks. Use regex tools to find these easily. Use this for fast scouting.
+
+```javascript
+/* <AI>
+ ... Notes to yourself ...
+</AI> */
+```
+This section should summarize code features, provide major examples, explain relationships, give context. This section is primarily for your benefit. Include whatever will help your future self understand code fast. Update this section when you update code. Be very succinct. This is just a guide.
