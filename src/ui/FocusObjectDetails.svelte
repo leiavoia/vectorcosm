@@ -26,15 +26,15 @@
 	}
 	
 	function SaveBoid() {
-		api.SendMessage('exportBoids', { db:true, ids: [boid.oid] });
+		api.SendMessage('export_boids', { db:true, ids: [boid.oid] });
 	}
 	
 	function SaveSpecies() {
-		api.SendMessage('exportBoids', { db:true, species: [boid.species] });
+		api.SendMessage('export_boids', { db:true, species: [boid.species] });
 	}
 	
 	function SaveTankPopulation() {
-		api.SendMessage('exportBoids', { db:true });
+		api.SendMessage('export_boids', { db:true });
 	}
 	
 	function SmiteBoid() {

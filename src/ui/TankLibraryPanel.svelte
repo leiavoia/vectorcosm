@@ -16,13 +16,13 @@
 	function LoadTank() {
 		if ( !selected_row ) { return; }
 		camera.dramatic_entrance = -1; // evaluates to "true" but resets to false on next action
-		api.SendMessage('loadTank', { id: selected_row.id } );
+		api.SendMessage('load_tank', { id: selected_row.id } );
 	}
 	
 	function SaveTank() {
 		// save over or have existing id?
 		let id = selected_row ? selected_row.id : null;
-		api.SendMessage('saveTank', {id});
+		api.SendMessage('save_tank', {id});
 	}
 	
 	function DeleteSelectedRow() {

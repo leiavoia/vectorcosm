@@ -7,13 +7,13 @@ COMMAND DISPATCH
 - Unhandled errors post { functionName: 'error', data: { command, message, stack } }.
 - Built-in commands: help, describe, ping.
 
-REGISTERED COMMANDS (14 app + 3 built-in)
-  update, pickObject, getTankEnvironmentData, endSim, saveTank, loadTank,
-  exportBoids, loadBoids, smite, randTank, init, updateSimSettings,
-  pushSimQueue, addSavedBoidsToTank, help, describe, ping
+REGISTERED COMMANDS (14 app + 3 built-in, all snake_case)
+  update, pick_object, get_tank_env_data, end_sim, save_tank, load_tank,
+  export_boids, load_boids, smite, rand_tank, init, update_sim_settings,
+  push_sim_queue, add_saved_boids, help, describe, ping
 
-PUBSUB EVENTS (forwarded to main thread, not commands)
-  sim.complete, sim.round, sim.new, records.push, boid.records.push, autosave
+PUBSUB EVENTS (forwarded to main thread, not commands — dot.notation)
+  sim_complete, sim_round, sim_new, records_push, boid_records_push, save_tank (autosave)
 
 GLOBALS
   globalThis.vc — the Vectorcosm instance (authoritative simulation state)
@@ -233,7 +233,7 @@ commands.register( { name: 'update', description: 'Advance simulation and return
 } });
 
 let last_focus_object_id = null;
-commands.register( { name: 'pickObject', description: 'Select a boid by ID or by proximity to coordinates', handler: params => {
+commands.register( { name: 'pick_object', description: 'Select a boid by ID or by proximity to coordinates', handler: params => {
 	let result = null;
 	let obj_id = params.data?.oid || 0;
 	let obj = null;
@@ -304,48 +304,48 @@ commands.register( { name: 'pickObject', description: 'Select a boid by ID or by
 	
 	// send back 
 	globalThis.postMessage( {
-		functionName: 'pickObject',
+		functionName: 'pick_object',
 		data: result
 	} );
 } });
 
 
-commands.register( { name: 'getTankEnvironmentData', description: 'Return tank environment grid and whirl data', handler: params => {
+commands.register( { name: 'get_tank_env_data', description: 'Return tank environment grid and whirl data', handler: params => {
 	const grid = globalThis.vc.tank.datagrid;
 	const whirls = globalThis.vc.tank.whirls;
 	const request = params.data?.request || 'current';
-	globalThis.postMessage( { functionName: 'getTankEnvironmentData', data: { 
+	globalThis.postMessage( { functionName: 'get_tank_env_data', data: { 
 		grid,
 		whirls,
 		request
 	} } );
 } });
 
-commands.register( { name: 'endSim', description: 'End the current simulation immediately', handler: params => {
+commands.register( { name: 'end_sim', description: 'End the current simulation immediately', handler: params => {
 	globalThis.vc.simulation.killme = true;
-	globalThis.postMessage( { functionName: 'endSim', data: null } );
+	globalThis.postMessage( { functionName: 'end_sim', data: null } );
 } });
 
-commands.register( { name: 'saveTank', description: 'Save current tank state to IndexedDB', handler: params => {
+commands.register( { name: 'save_tank', description: 'Save current tank state to IndexedDB', handler: params => {
 	globalThis.vc.SaveTank( params?.data?.id ).then(
-		data => globalThis.postMessage( { functionName: 'saveTank', data } )
+		data => globalThis.postMessage( { functionName: 'save_tank', data } )
 	);
 } });
 
-commands.register( { name: 'loadTank', description: 'Load a tank state from IndexedDB by ID', handler: params => {
+commands.register( { name: 'load_tank', description: 'Load a tank state from IndexedDB by ID', handler: params => {
 	globalThis.vc.LoadTank( params?.data?.id ?? 0, params.data?.settings );
-	globalThis.postMessage( { functionName: 'loadTank', data: null } );
+	globalThis.postMessage( { functionName: 'load_tank', data: null } );
 } });
 
-commands.register( { name: 'exportBoids', description: 'Export boids as JSON, optionally saving to IndexedDB', handler: async params => {
+commands.register( { name: 'export_boids', description: 'Export boids as JSON, optionally saving to IndexedDB', handler: async params => {
 	let to_db = !!params.data?.db;
 	let str = await globalThis.vc.SavePopulation( params.data?.species, params.data?.ids, to_db );
-	globalThis.postMessage( { functionName: 'exportBoids', data: str } );
+	globalThis.postMessage( { functionName: 'export_boids', data: str } );
 } });
 
-commands.register( { name: 'loadBoids', description: 'Load a population of boids from JSON data', handler: params => {
+commands.register( { name: 'load_boids', description: 'Load a population of boids from JSON data', handler: params => {
 	globalThis.vc.LoadPopulation( params.data );
-	globalThis.postMessage( { functionName: 'loadBoids', data: null } );
+	globalThis.postMessage( { functionName: 'load_boids', data: null } );
 } });
 
 commands.register( { name: 'smite', description: 'Kill boids by ID', handler: params => {
@@ -355,7 +355,7 @@ commands.register( { name: 'smite', description: 'Kill boids by ID', handler: pa
 	globalThis.postMessage( { functionName: 'smite', data: targets.map(t=>t.oid) } );
 } });
 
-commands.register( { name: 'randTank', description: 'Regenerate tank obstacles and environment', handler: params => {
+commands.register( { name: 'rand_tank', description: 'Regenerate tank obstacles and environment', handler: params => {
 	// this is really overreaching and we should make something cleaner
 	const w = globalThis.vc.tank.width;
 	const h = globalThis.vc.tank.height;
@@ -366,7 +366,7 @@ commands.register( { name: 'randTank', description: 'Regenerate tank obstacles a
 	globalThis.vc.tank.MakeBackground();
 	const tm = new TankMaker( globalThis.vc.tank, {} );
 	tm.Make();
-	globalThis.postMessage( { functionName: 'randTank', data: null } );
+	globalThis.postMessage( { functionName: 'rand_tank', data: null } );
 } });
 
 
@@ -382,7 +382,7 @@ commands.register( { name: 'init', description: 'Initialize the simulation with 
 } });
 
 
-commands.register( { name: 'updateSimSettings', description: 'Update simulation settings on the fly', handler: params => {
+commands.register( { name: 'update_sim_settings', description: 'Update simulation settings on the fly', handler: params => {
 	// look for meta params separately
 	if ( params.data?.sim_meta_params ) {
 		for ( let k in params.data.sim_meta_params ) {
@@ -425,12 +425,12 @@ commands.register( { name: 'updateSimSettings', description: 'Update simulation 
 		}
 	}
 	globalThis.postMessage( {
-		functionName: 'updateSimSettings',
+		functionName: 'update_sim_settings',
 		data: Object.assign( { sim_meta_params: globalThis.vc.sim_meta_params }, globalThis.vc.simulation.settings )
 	} );
 } });
 
-commands.register( { name: 'pushSimQueue', description: 'Add simulations to the queue', handler: params => {
+commands.register( { name: 'push_sim_queue', description: 'Add simulations to the queue', handler: params => {
 	// look for meta params
 	let meta_params = params.data?.sim_meta_params;
 	if ( meta_params ) {
@@ -453,12 +453,12 @@ commands.register( { name: 'pushSimQueue', description: 'Add simulations to the 
 		}
 	}
 	globalThis.postMessage( {
-		functionName: 'pushSimQueue',
+		functionName: 'push_sim_queue',
 		data: Object.assign( { sim_meta_params: globalThis.vc.sim_meta_params }, globalThis.vc.simulation.settings )
 	} );
 } });
 
-commands.register( { name: 'addSavedBoidsToTank', description: 'Load saved boids from library and add to current tank', handler: async params => {
+commands.register( { name: 'add_saved_boids', description: 'Load saved boids from library and add to current tank', handler: async params => {
 	let num_added = 0;
 	const lib = new BoidLibrary;
 	for ( let id of params.data.ids ) {
@@ -473,7 +473,7 @@ commands.register( { name: 'addSavedBoidsToTank', description: 'Load saved boids
 		}
 	}
 	globalThis.postMessage( {
-		functionName: 'addSavedBoidsToTank',
+		functionName: 'add_saved_boids',
 		data: { ok: true, num_added }
 	} );
 } });
@@ -483,7 +483,7 @@ let onSimCompleteSubscription = PubSub.subscribe('sim.complete', (msg, sim) => {
 	let stats = Object.assign({}, sim.stats);
 	delete(stats.records); // don't need records - those are sent separately
 	globalThis.postMessage( {
-		functionName: 'simComplete',
+		functionName: 'sim_complete',
 		data: {
 			settings: sim.settings,
 			stats: stats,
@@ -496,7 +496,7 @@ let onSimRoundSubscription = PubSub.subscribe('sim.round', (msg, sim) => {
 	delete(datapacket.chartdata); // don't need all of this every frame
 	delete(datapacket.records); // don't need all of this every frame
 	globalThis.postMessage( {
-		functionName: 'simRound',
+		functionName: 'sim_round',
 		data: datapacket
 	} );
 });
@@ -504,13 +504,13 @@ let onSimNewSubscription = PubSub.subscribe('sim.new', (msg, sim) => {
 	// force the tank geometry to update
 	globalThis.vc.tank.geodata_sent = false;
 	globalThis.postMessage( {
-		functionName: 'simNew',
+		functionName: 'sim_new',
 		data: sim.settings
 	} );
 });
 let onRecordsPushSubscription = PubSub.subscribe('records.push', (msg,data) => {
 	globalThis.postMessage( {
-		functionName: 'records.push',
+		functionName: 'records_push',
 		data: data
 	} );
 });
@@ -518,7 +518,7 @@ let onRecordsPushSubscription = PubSub.subscribe('records.push', (msg,data) => {
 // simulation autosave
 let onAutosaveSubscription = PubSub.subscribe('autosave', (msg,data) => {
 	globalThis.postMessage( {
-		functionName: 'saveTank',
+		functionName: 'save_tank',
 		data: data
 	} );
 });
@@ -528,7 +528,7 @@ let onAutosaveSubscription = PubSub.subscribe('autosave', (msg,data) => {
 // if the front end needs details it will ask for a specific boid's stats.
 let onBoidRecordsPushSubscription = PubSub.subscribe('boid.records.push', (msg,data) => {
 	globalThis.postMessage( {
-		functionName: 'boid.records.push',
+		functionName: 'boid_records_push',
 		data: data
 	} );
 });

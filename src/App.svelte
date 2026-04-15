@@ -113,7 +113,7 @@
 					inc_sensor_geo: needs_sensors,
 					inc_brain: needs_brain
 				}
-				api.SendMessage('pickObject', params); // send back for another round
+				api.SendMessage('pick_object', params); // send back for another round
 			}
 			else if ( focus_object_panel ) {
 				focus_object_panel.updateStats(null); // null will make it go away
@@ -343,7 +343,7 @@
 	// causing it to re-focus. To detect this situation, take of presence of sensor_geo
 	// which is only sent on the first frame and can be used to understand if this is the
 	// first frame or a repeat request
-	api.RegisterResponseCallback( 'pickObject', data => {
+	api.RegisterResponseCallback( 'pick_object', data => {
 		const focus_object_id = data ? data.oid : 0;
 		// capture brain in case we want to display braingraph
 		if ( data && data?.brain_struct ) {
@@ -385,7 +385,7 @@
 		labels:[]
 	});
 		
-	api.RegisterResponseCallback( 'simRound', data => {
+	api.RegisterResponseCallback( 'sim_round', data => {
 		simChartData.averages.push( data.round_avg_score );
 		simChartData.highscores.push( data.round_best_score );
 		simChartData.labels.push( data.round_num );
@@ -394,14 +394,14 @@
 		}
 	} );
 	
-	api.RegisterResponseCallback( 'simComplete', data => {
+	api.RegisterResponseCallback( 'sim_complete', data => {
 		// a series of trainings is completed - halt fast forward
 		if ( !data.in_queue ) {
 			gameloop.updates_per_frame = 1; 	
 		}
 	} );
 	
-	api.RegisterResponseCallback( 'simNew', data => {
+	api.RegisterResponseCallback( 'sim_new', data => {
 		camera.ResetCameraZoom();	
 		simChartData.averages.length = 0;
 		simChartData.highscores.length = 0;
@@ -415,31 +415,31 @@
 		}
 	} );
 	
-	api.RegisterResponseCallback( 'records.push', msg => {
+	api.RegisterResponseCallback( 'records_push', msg => {
 		if ( msg.layer == 0 ) {
 			recordsTracker.Insert( msg.data );
 		}
 	} );
 	
-	api.RegisterResponseCallback( 'boid.records.push', msg => {
+	api.RegisterResponseCallback( 'boid_records_push', msg => {
 		if ( msg.layer == 0 && focus_object_panel ) {
 			focus_object_panel.AddGraphData( msg.data );
 		}
 	} );
 	
-	api.RegisterResponseCallback( 'saveTank', data => {
+	api.RegisterResponseCallback( 'save_tank', data => {
 		// let the tank library widget know we have a new row
 		PubSub.publish('tank-library-addition', data);
 	});
 	
-	api.RegisterResponseCallback( 'exportBoids', str => {
+	api.RegisterResponseCallback( 'export_boids', str => {
 		if ( str ) {
 			globalThis.localStorage.setItem("population", str);
 		}
 		PubSub.publish('boid-library-addition', null);
 	} );
 	
-	api.RegisterResponseCallback( 'getTankEnvironmentData', data => {
+	api.RegisterResponseCallback( 'get_tank_env_data', data => {
 		const request = data.request || 'current';
 		if ( request == 'current' ) {
 			RenderTankCurrent(data);
@@ -642,7 +642,7 @@
 		}
 		else {
 			tankEnvOverlayMode = request;
-			api.SendMessage('getTankEnvironmentData', {request:request});
+			api.SendMessage('get_tank_env_data', {request:request});
 		}
 	}
 			
@@ -745,11 +745,11 @@
 			camera.TrackObject( list[i].oid );		
 		},
 		's': _ => {
-			api.SendMessage('saveTank',null);
+			api.SendMessage('save_tank',null);
 		},
 		'a': _ => {
 			camera.dramatic_entrance = -1; // evaluates to "true" but resets to false on next action
-			api.SendMessage('loadTank', { id:0, settings: $state.snapshot(simSettings) });
+			api.SendMessage('load_tank', { id:0, settings: $state.snapshot(simSettings) });
 		},
 		'1': _ => {
 			setPanelMode('tank_stats')
@@ -803,11 +803,11 @@
 			}
 		},
 		'9': _ => {
-			api.SendMessage('exportBoids',null);
+			api.SendMessage('export_boids',null);
 		},
 		'0': _ => {
 			const str = globalThis.localStorage.getItem("population");
-			if ( str ) { api.SendMessage('loadBoids', str ); }
+			if ( str ) { api.SendMessage('load_boids', str ); }
 		},
 	}
 
@@ -867,7 +867,7 @@
 				inc_brain:true
 			};
 			camera.TrackObject(false); // unselect currently selected object
-			api.SendMessage('pickObject', params);
+			api.SendMessage('pick_object', params);
 		}
 	}
 	
@@ -915,7 +915,7 @@
 	};
 	
 	function onSimulatorControlsUpdate(params) {
-		api.SendMessage('updateSimSettings',params);
+		api.SendMessage('update_sim_settings',params);
 		// we also need to update the local settings
 		for ( let k in params ) {
 			simSettings[k] = params[k];

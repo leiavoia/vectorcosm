@@ -106,7 +106,7 @@
 				break;
 			}
 		}
-		api.SendMessage('pushSimQueue', {
+		api.SendMessage('push_sim_queue', {
 			sims: queue,
 			reset: true, // clear queue
 			sim_meta_params: {

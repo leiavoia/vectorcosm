@@ -26,7 +26,7 @@
 	
 	function AddSelectedRowsToTank() {
 		const ids = rows.filter( _ => _.selected ).map( row => row.id );
-		api.SendMessage('addSavedBoidsToTank', {ids});
+		api.SendMessage('add_saved_boids', {ids});
 	}
 	
 	function ToggleQueryFavorites() {
