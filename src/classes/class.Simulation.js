@@ -56,7 +56,8 @@ export default class Simulation {
 			onExtinction: 'random',
 			speciation_rate: 0,
 			tally_freq: 5, // how often to flush the tally and record stats
-			boid_tally_freq: 2 // how often to flush individual boid stats if we are keeping track
+			boid_tally_freq: 2, // how often to flush individual boid stats if we are keeping track
+			autosave: 0, // how often in seconds to autosave. 0 = no autosave. 
 		};
 		if ( settings ) {
 			this.settings = Object.assign(this.settings, settings);
@@ -281,6 +282,15 @@ export default class Simulation {
 		this.stats.delta = delta;
 		this.stats.framenum++;
 		this.FlushTally();
+		// autosave if we rolled over autosave time value on this delta
+		if ( this.settings.autosave ) {
+			if ( this.stats.round_time % this.settings.autosave < delta ) {
+				globalThis.vc.SaveTank(0) // use the buffer slot
+				.then( data => {
+					PubSub.publishSync('autosave', {data});
+				});
+			}	
+		}
 		// score boids on performance
 		if ( this.settings.timeout ) { // endless sims (time=0) don't need to waste CPU cycles
 			for ( let b of globalThis.vc.tank.boids ) { this.ScoreBoidPerFrame(b); }

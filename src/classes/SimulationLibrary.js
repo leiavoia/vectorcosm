@@ -419,6 +419,7 @@ export default {
 		matter_diffusion_freq: 33,
 		matter_diffusion_strength: 0.1,
 		speciation_rate: 1/30,
+		autosave: 3600
 	},
 	peaceful_tank: {
 		simtype: 'NaturalTankSimulation',
@@ -446,6 +447,7 @@ export default {
 		matter_diffusion_freq: 33,
 		matter_diffusion_strength: 0.1,
 		speciation_rate: 1/30,
+		autosave: 3600
 	},
 			
 	petri_dish: {

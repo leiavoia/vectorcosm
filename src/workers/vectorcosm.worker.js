@@ -483,6 +483,14 @@ let onRecordsPushSubscription = PubSub.subscribe('records.push', (msg,data) => {
 	} );
 });
 
+// simulation autosave
+let onAutosaveSubscription = PubSub.subscribe('autosave', (msg,data) => {
+	globalThis.postMessage( {
+		functionName: 'saveTank',
+		data: data
+	} );
+});
+
 // if stat tracking is enabled for individual boids, an update just occurred. 
 // this just let's the front-end know we have data it might want. no data is passed here.
 // if the front end needs details it will ask for a specific boid's stats.
