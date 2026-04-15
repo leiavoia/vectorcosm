@@ -54,6 +54,9 @@ All heavy computation (physics, neural nets, collisions, genetics) runs in a **d
 - Use common javascript conventions.
 - No typescript.
 - Ignore legacy browser support.
+- Opening braces on same line.
+- if/else/then branches start a new line. 
+- Inline very short statements with braces and contents on one line.
 - Spaces around curly and round braces for readability.
 - Tab indent, 4-space alignment.
 - CPU speed is critical for this app. 
@@ -79,7 +82,9 @@ Keep .ai documentation up to date when:
 
 - Files are added or removed.
 - Major features are updated.
-- Tech stack has changed. 
+- Tech stack has changed.
+
+Do not change existing code if it is not in task scope, even if it conflicts with coding conventions. 
 
 ---
 
