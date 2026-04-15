@@ -63,12 +63,12 @@ function AutoIncludeGeoData(obj) {
 
 commands.register( { name: 'update', description: 'Advance simulation and return render data', handler: params => {
 	
-	let delta = params.delta || 1/30;
-	let num_frames = params?.num_frames || 1;
-	let inc_boid_animation_data = params?.inc_boid_animation_data ?? false;
-	let inc_mark_animation_data = params?.inc_mark_animation_data ?? false;
-	let inc_plant_animation_data = params?.inc_plant_animation_data ?? false;
-	let inc_food_animation_data = params?.inc_food_animation_data ?? false;
+	let delta = params.data?.delta || 1/30;
+	let num_frames = params.data?.num_frames || 1;
+	let inc_boid_animation_data = params.data?.inc_boid_animation_data ?? false;
+	let inc_mark_animation_data = params.data?.inc_mark_animation_data ?? false;
+	let inc_plant_animation_data = params.data?.inc_plant_animation_data ?? false;
+	let inc_food_animation_data = params.data?.inc_food_animation_data ?? false;
 	for ( let i=0; i < num_frames; i++ ) {
 		globalThis.vc.update(delta);
 	}
@@ -538,20 +538,20 @@ let vc = new Vectorcosm;
 globalThis.vc = vc; // handy reference for everyone else
 
 // built-in introspection and health-check commands
-commands.register( { name: 'help', description: 'List all available commands with metadata', handler: () => {
+commands.register( { name: 'help', description: 'List all available commands with metadata', handler: (params) => {
 	const list = commands.list();
-	globalThis.postMessage( { functionName: 'help', data: list } );
+	globalThis.postMessage( { functionName: 'help', data: list, request_id: params?.request_id } );
 } });
 
 commands.register( { name: 'describe', description: 'Get full metadata for a single command', params: {
 	name: { type: 'string', description: 'Command name to describe' }
 }, handler: params => {
 	const info = commands.describe( params.data?.name );
-	globalThis.postMessage( { functionName: 'describe', data: info } );
+	globalThis.postMessage( { functionName: 'describe', data: info, request_id: params?.request_id } );
 } });
 
-commands.register( { name: 'ping', description: 'Health check — returns pong', handler: () => {
-	globalThis.postMessage( { functionName: 'ping', data: 'pong' } );
+commands.register( { name: 'ping', description: 'Health check — returns pong', handler: (params) => {
+	globalThis.postMessage( { functionName: 'ping', data: 'pong', request_id: params?.request_id } );
 } });
 
 function DescribeBoid( o, inc_sensor_geo=false,  inc_brain=false, inc_stats=0 ) {

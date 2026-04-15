@@ -92,7 +92,6 @@
 
 	gameloop.onStartSim = delta => {
 		const data = {
-			f:'update',
 			num_frames: gameloop.updates_per_frame, // variable turbo
 			delta: ( gameloop.updates_per_frame > 1 ? gameloop.max_delta : delta ),
 			inc_boid_animation_data: (camera && camera.animate_boids) ? true : false,
@@ -100,7 +99,7 @@
 			inc_food_animation_data: (camera && camera.animate_foods) ? true : false,
 			inc_plant_animation_data: (camera && camera.animate_plants) ? true : false,
 		};
-		worker.postMessage( data ); // TODO standardize this as API call
+		api.SendMessage('update', data);
 		// update or cancel object tracking
 		if ( camera ) {
 			if ( camera.focus_obj_id > 0 ) {
@@ -780,7 +779,6 @@
 		},
 		'Escape': _ => {
 			if ( camera.focus_obj_id > 0 ) { 
-				api.expect.pickObject = false; // stop any pending picking update
 				camera.TrackObject(false);
 				focus_object_panel.updateStats(null);
 			}
