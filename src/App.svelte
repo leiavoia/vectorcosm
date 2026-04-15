@@ -122,7 +122,11 @@
 	}
 
 	gameloop.onStartDrawing = () => {
-		if ( camera ) { camera.Render(); }
+		if ( camera ) {
+			const t = performance.now();
+			camera.Render();
+			gameloop.drawtime = ( performance.now() - t ) / 1000; // seed with camera render cost
+		}
 	}
 	
 	// create a map of all drawable objects. these are coming from the vectorcosm worker.
@@ -138,6 +142,9 @@
 	
 	// for each type of message we want to send, set up a callback to handle the response
 	api.RegisterResponseCallback( 'update', data => {
+		// End sim phase first (records pure worker roundtrip time), then begin draw phase
+		gameloop.EndSimFrame();
+		gameloop.drawtime_ts = performance.now();
 		if ( globalThis.two ) {
 			// keep track of what there is so we can remove what there aint
 			const found = new WeakSet();
@@ -328,7 +335,7 @@
 		simStats.fps = gameloop.updates_per_frame > 1
 			? (gameloop.fps * gameloop.updates_per_frame).toFixed(0)
 			: gameloop.fps_avg.toFixed(0);
-		gameloop.EndSimFrame();
+		gameloop.EndDrawing();
 	});
 		
 	// NOTE: this is called every frame while an object is in focus.

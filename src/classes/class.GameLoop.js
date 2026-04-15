@@ -49,6 +49,7 @@ export default class GameLoop {
 			this.playing = true;
 			this.drawing_finished = false;
 			this.sim_finished = false;
+			this.drawtime = 0; // reset accumulator before each frame
 			this.StartSimFrame(this.delta);
 			this.StartDrawing();	
 		}
@@ -82,10 +83,10 @@ export default class GameLoop {
 	StartDrawing() {
 		this.drawtime_ts = performance.now();
 		if ( this.onStartDrawing ) { this.onStartDrawing(); }
-		this.EndDrawing();
+		// EndDrawing() must be called explicitly by the caller when rendering is complete
 	}
 	EndDrawing() {
-		this.drawtime = ( performance.now() - this.drawtime_ts ) / 1000;
+		this.drawtime += ( performance.now() - this.drawtime_ts ) / 1000;
 		this.drawing_finished = true;
 		if ( this.onEndDrawing ) { this.onEndDrawing(); }
 		this.End();
