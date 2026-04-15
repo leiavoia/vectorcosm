@@ -1,3 +1,26 @@
+/* <AI>
+GameLoop — rAF-based frame controller. Coordinates sim (worker) and draw (main thread) phases.
+
+OVERVIEW
+- One GameLoop per page. Uses `requestAnimationFrame` (or setTimeout fallback).
+- Each frame splits into two concurrent phases:
+    1. Sim phase: calls `onStartSim(delta)` to kick off the worker step.
+    2. Draw phase: calls `onStartDrawing()` to kick off Two.js render.
+- `End()` fires when both `sim_finished` and `drawing_finished` are true; schedules next frame.
+- `throttle` (0..1) scales effective delta for slow-motion.
+- `max_delta` caps delta to prevent physics explosions after tab focus loss.
+
+CALLBACKS (assign externally)
+- `onStartSim(delta)` / `onEndSim()` — sim phase bookends.
+- `onStartDrawing()` / `onEndDrawing()` — draw phase bookends.
+- `onStartFrame` / `onEndFrame` — optional outer frame bookends.
+- Call `EndSimFrame()` from the worker response handler to signal sim completion.
+- Call `EndDrawing()` after Two.js update to signal draw completion.
+
+METRICS
+- `fps`, `fps_avg`, `drawtime`, `simtime`, `waittime` — updated each frame.
+</AI> */
+
 export default class GameLoop {
 	constructor() {
 		this.updates_per_frame = 1;

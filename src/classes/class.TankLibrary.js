@@ -1,3 +1,23 @@
+/* <AI>
+TankLibrary — IndexedDB persistence for saved tank scenes.
+
+OVERVIEW
+- Same pattern as BoidLibrary. Split tables: `tank_index` (metadata) and `tank_data` (scene JSON).
+- `Add(scene, label, meta)` — saves a new tank entry; returns new DB id.
+- `Save(id, scene, label, meta)` — overwrites an existing entry by id.
+- `AddRow(row)` — import from file (row has index fields + `scene`).
+- `Get(params)` — queries index only (no scene data). Filter by id, date, label.
+- `GetData(id)` — loads the full scene JSON for one tank.
+- `Delete(id)` — removes both index and data rows.
+- `Update(row)` — updates index fields only.
+
+META FIELDS TRACKED
+- width, height, num_boids, num_plants, num_rocks, num_foods, age.
+
+EVENTS
+- Publishes 'tank-library-addition' with `{ id }` on Add/Save.
+</AI> */
+
 import * as utils from '../util/utils.js'
 import {db} from '../classes/db.js'
 import PubSub from 'pubsub-js'

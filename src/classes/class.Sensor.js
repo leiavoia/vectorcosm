@@ -1,3 +1,29 @@
+/* <AI>
+Sensor — perception system for boids. Reads the world and outputs floats for brain inputs.
+
+SENSOR TYPES
+- 'sense'     — geometric sweep (circle or arc). Integrates `sense[]` channels from nearby objects
+                (boids, food, marks, rocks). `segments` splits arc into directional bands.
+                Labels: "name/seg-channel". Pre-allocated Float64Array `_detection` for hot-path speed.
+- 'whisker'   — thin ray probes. N rays at spread angles; returns 1-normalized_dist when near obstacle.
+                Labels: "whiskernameN".
+- 'proprio'   — reads boid's own motor outputs back as inputs. Labels: "motor_0", "motor_1", ...
+- 'energy'    — boid's own energy level (0..1).
+- 'edge'      — distance to each wall: top, right, bottom, left.
+- 'current'   — datagrid fluid current vector at boid position.
+- 'datagrid'  — any datagrid cell attribute (light, heat, matter) at boid position.
+- 'locater'   — legacy directional food finder (deprecated; do not extend).
+
+KEY METHODS
+- `Sense(tank, boid)` — main update; returns `this.outputs[]`.
+- `setupSenseFunction()` — maps `this.type` to the internal sense implementation.
+- `setupLabels()` — builds `labels[]` array; must match output array length exactly.
+
+PERFORMANCE
+- `_detection` (Float64Array) reused each frame for 'sense' type; avoids per-frame allocation.
+- Object type checks use `otype` integer, not `instanceof`.
+</AI> */
+
 import * as utils from '../util/utils.js'
 import { Boid } from '../classes/class.Boids.js'
 import Rock from '../classes/class.Rock.js'

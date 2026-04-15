@@ -1,3 +1,22 @@
+/* <AI>
+VectorcosmAPI — IPC bridge between the main thread and the simulation Web Worker.
+
+OVERVIEW
+- Wraps `worker.postMessage` / `worker.onmessage` with a named-function dispatch table.
+- `SendMessage(functionName, data)` — posts { functionName, data } to the worker.
+- `RegisterResponseCallback(functionName, cb)` — registers a handler for a named worker response.
+- `expect` map — tracks expected responses; set a key to false to suppress that function.
+- Unregistered functions fall through to the 'default' handler (console.error).
+
+USAGE PATTERN
+  api.RegisterResponseCallback('update', renderData => { camera.ApplyRenderData(renderData); });
+  api.SendMessage('update', { delta });
+
+NAMING
+- Worker-side function names use lowercase snake_case per project convention.
+- Both directions use the same `functionName` field for routing.
+</AI> */
+
 export default class VectorcosmAPI  {
 	constructor( worker ) {
 		this.worker = worker;

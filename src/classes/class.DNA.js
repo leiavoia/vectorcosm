@@ -1,3 +1,24 @@
+/* <AI>
+DNA — genome encoding as a hex character string.
+
+OVERVIEW
+- All boid/plant traits are derived from a hex string (default 512 chars; first 4 chars are the scramble seed).
+- `genesFor(label, num)` → deterministic gene codes via MurmurHash of a label string. Use this everywhere traits are read.
+- `read(gene)` → extracts a number from the string using the gene code as an address/encoding descriptor:
+    Bits 0-15: base address, bits 16-19: horizontal stride, bits 20-23: vertical stride (×16),
+    bits 24-27: number of chars to read, bits 28-31: post-mix transform type.
+- `mix(genes[])` → reads multiple genes and combines them with transforms (avg, blend, modulo, rotate, invert).
+- `shapedNumber(genes, min, max, target, influence)` → statistically biased number from genes.
+- `shapedInt` → same but returns integer.
+- `mutate(n)` → randomly modifies n hex chars. First 4 chars (scramble seed) are protected by default.
+- First 256 chars (addresses 0x0000..0x00FF) are the 'safe zone': gene addresses starting here hit read-only space.
+- Use `genesFor()` not raw gene codes. Labels are stable identifiers; mutation only changes char values, not structure.
+
+EXAMPLE
+  const genes = dna.genesFor('body length', 2, 1);
+  const length = dna.shapedInt(genes, 8, 120, 25, 3);
+</AI> */
+
 import * as utils from '../util/utils.js'
 	
 /*	

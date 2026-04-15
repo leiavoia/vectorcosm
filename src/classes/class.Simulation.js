@@ -1,3 +1,31 @@
+/* <AI>
+Simulation — base class and subclasses for evolutionary training rounds.
+
+SIMULATION FACTORY
+- `SimulationFactory(name_or_settings)` — creates the right subclass from a SimulationLibrary preset name or a plain settings object.
+- Settings objects are structurally cloned before use.
+
+BASE CLASS
+- `settings` controls everything: num_boids, timeout, cullpct, max_mutation, species, food config, etc.
+- Runs rounds: `Begin()` → spawn → `Update(delta)` each frame → timeout → score/cull/breed → repeat.
+- When `rounds` exhausted (or 0 for perpetual), publishes 'sim.complete'.
+
+SUBCLASSES
+- `NaturalTankSimulation` — open-ended perpetual tank; no scoring rounds.
+- `FoodChaseSimulation` — boids scored on food consumed.
+- `TurningSimulation` — scored on rotational agility.
+- `AvoidEdgesSimulation` — scored on staying away from walls (race track, obstacle course).
+- `CombatSimulation` — scored on combat performance.
+- `FinishingSimulation` — special logic for a conclusive final round.
+
+ROUND LIFECYCLE
+  Begin() → spawn boids/food/rocks → Update() per frame → TallyScores() → sort → cull → Breed() → repeat
+
+STATS
+- `this.stats` — best scores, round info, chartdata, CompoundStatTracker for historical records.
+- `autosave` setting — if non-zero, periodically saves the tank to TankLibrary.
+</AI> */
+
 import Tank from '../classes/class.Tank.js'
 import TankMaker from '../classes/class.TankMaker.js'
 import Food from '../classes/class.Food.js'

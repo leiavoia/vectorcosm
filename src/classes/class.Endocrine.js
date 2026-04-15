@@ -1,3 +1,27 @@
+/* <AI>
+Endocrine — hormone system that modulates boid behavior over slow timescales.
+
+OVERVIEW
+- 4 inputs, 4 hormones (configurable at construction).
+- Inputs represent environmental signals (e.g. energy, threat, hunger).
+- Hormones converge toward a target determined by weighted input sums + hormone cross-effects.
+- In Boid: hormones modulate sensor gain (DOPE_SENSORS) and motor power (DOPE_MOTORS).
+
+UPDATE MODEL (each call to `update(inputs[])`)
+  1. Sum weighted inputs → pressure  (matrix: inputs × weights[h × num_inputs + i])
+  2. Add hormone cross-effects        (matrix: hormones × crossWeights[h × num_hormones + k])
+  3. Nonlinearity: target = 0.5 + 0.5 * tanh(pressure)
+  4. Lerp each hormone toward target at `rates[h]` speed
+
+DNA ENCODING
+- `dna_pos` starts from a DNA-derived address (`genesFor('endocrine dna read start')`).
+- Sequential 2-char reads fill weights, crossWeights, and rates in order.
+- First 4 chars of DNA act as a scramble seed, keeping the read pattern stable under mutation.
+
+HORMONE GUIDE (not rigidly enforced)
+  0: Awareness  1: Decision  2: Action  3: Wildcard
+</AI> */
+
 import DNA from '../classes/class.DNA.js'
 
 const GLOBAL_HORMONE_THROTTLE = 1.0;

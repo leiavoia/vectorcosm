@@ -1,3 +1,23 @@
+/* <AI>
+RecurrentNeuralNetwork — layered RNN with hidden state decay. Legacy/experimental; not the primary brain.
+
+OVERVIEW
+- Layer architecture: input → hidden layers → output.
+- Hidden states persist across frames with exponential temporal decay (`decayTime` per layer).
+- Connections stored as flat interleaved arrays: [target_index, weight, ...].
+- Self-connections on hidden layers create recurrence.
+
+FORWARD PASS (`activate(inputs, timeDelta)`)
+  1. Decay hidden states: `decayFactor = exp(-timeDelta / decayTime^layer)` (deeper = longer memory).
+  2. Sum weighted inputs from previous layer.
+  3. Apply saferelu (hidden) or sigmoid (output) activation.
+
+LIMITATIONS
+- No `Mutate()` or `Export()` methods — not wired into the GA pipeline.
+- Not routed by the Brain wrapper (Brain only handles 'snn' and 'epann').
+- Available for direct instantiation in experimental scenarios.
+</AI> */
+
 const MAX_INITIAL_WEIGHT = 0.35;
 
 export default class RecurrentNeuralNetwork {

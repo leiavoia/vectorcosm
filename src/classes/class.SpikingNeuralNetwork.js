@@ -1,3 +1,57 @@
+/* <AI>
+
+SpikingNeuralNetwork — integrate-and-fire SNN for boid brains.
+
+MODEL
+  - Each node: { v (voltage), threshold, decay (linear/tick), refract (ticks), fired (last tick), conns[] }
+  - conns[] is a flat interleaved array: [target_index, weight, target_index, weight, ...]
+  - A node fires when v >= threshold: resets v=0, records fired=tick, enqueues itself.
+  - Refractory period: fired nodes within `refract` ticks of current tick are skipped.
+  - Voltage bottom-clamps at -1 to prevent bottomless inhibition.
+  
+TICK LOOP  (Tick())
+  1. Linear voltage decay for all nodes (subtracted each tick, not exponential).
+  2. Swap events_now <-> events_next (double-buffer; avoids mid-tick queue contamination).
+  3. Inject inputs: direct ReceiveSignal() OR stochastic probabilistic fire (STOCHASTIC_INPUTS flag, off by default).
+  4. Process events_now: each fired node propagates weight to all connected targets via ReceiveSignal().
+  5. Purge events_now in one shot (length=0, no per-item shifting).
+  
+OUTPUTS  (CalculateOutputs())
+  - Each output monitors a set of node indexes.
+  - Recency score per node: 1 - (ticks_since_fire / max_age), clamped 0..1.
+  - Aggregated with RMS across monitored nodes.
+  - Smoothed with 0.5 echo blend (moving average) and small stochastic jitter.
+  - Call CalculateOutputs() after Tick(); not called automatically.
+  
+CONNECTION STRATEGIES  (ConnectionStrategy enum)
+  - random:   complete chaos, any node can connect to any other node.
+  - linear:   ring topology, locally biased with occasional long-jump (longjump_chance=0.15).
+  - cellular: nodes cluster into sqrt(N) cells; connections stay within cell, rare long-jump.
+  - layered:  like cellular but connections skip exactly one cell forward (feedforward bias).
+  Strategy is chosen randomly at construction if not specified (conn_strat < 0).
+  
+MUTATION  (Mutate(reps))
+  Weighted random pick from 10 operations per rep:
+  - node_add/remove: splice into nodes[], then shift ALL indexes in conns[], outputs, inputs, events_next.
+  - node_index_swap: swap two nodes in-place; prune self-referencing conns that result.
+  - node_refractory / node_threshold / node_decay: perturb individual node parameters.
+  - conn_value / conn_add / conn_remove / conn_reassign: weight and target edits on random node.
+  - conn_reverse: remove connection A→B, add B→A with same weight.
+  - output_conn_add/remove: add or drop a monitored node from a random output.
+  Index shifting on node add/remove is the trickiest part — done carefully for nodes, outputs, inputs, events_next.
+  
+SERIALIZATION  (Export / Import)
+  - Compact JSON with short keys: t=threshold, d=decay, r=refract, c=conns, n=output.nodes, a=max_age.
+  - inc_state optionally preserves runtime state (v, fired, output, tick) for save/restore of live brains.
+  - Import resets v=0/fired=-2 by default (fresh start).
+  
+PERFORMANCE NOTES
+  - Flat interleaved conns[] array is cache-friendly (avoids object overhead per connection).
+  - Double-buffer event queues avoid allocation per tick.
+  - Linear decay chosen over exponential for speed.
+  - TODO comment: maintain a Set of active nodes to skip decay on silent nodes (not yet implemented).
+
+</AI> */
 
 // tuning config
 const max_node_connections = 7;

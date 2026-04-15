@@ -1,3 +1,30 @@
+/* <AI>
+Plant — sessile photosynthetic organism. Grows in place, produces Food fruit, and seeds offspring.
+
+OVERVIEW
+- Not a PhysicsObject; no velocity or collision registration. Position is fixed.
+- `mass` grows over time. `life_credits` counts down. `health` (0..1) gates growth.
+- `light_health` / `heat_health` computed from datagrid cell; affect growth rate.
+
+RESOURCE SYSTEM (driven by Tank each frame)
+- `RequestResources(dt)` → returns total matter requested (split between growth + fruiting).
+- `GrantResources(matter)` → tank allocates a share; plant converts it to growth or new fruit.
+- Fruiting: when `fruit_credits` exceeds threshold, `Fruit()` spawns Food objects.
+
+SUBCLASSES / TYPES
+- `Plant.PlantTypes` Map — registry of plant subtype classes.
+- `DNAPlant` — reads all traits from a DNA object; fruit carries seed DNA for germination.
+- `RandomPlant(x, y)` — factory picks a random registered subtype.
+
+KEY TRAITS
+- `growth_speed`, `fruit_num`, `fruit_size`, `fruit_flavor`, `fruit_complexity`, `germ_distance`, etc.
+- Light/heat preferences: `light_pref`, `light_tolr`, `heat_pref`, `heat_tolr`.
+
+VISUAL
+- `GeoData()` — returns geometry info for the renderer.
+- `animation_method` ('skew', 'wave', etc.) controls per-frame visual wiggle driven by Camera.
+</AI> */
+
 import * as utils from '../util/utils.js'
 import Food from '../classes/class.Food.js'
 import DNA from '../classes/class.DNA.js'

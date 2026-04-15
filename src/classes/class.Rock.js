@@ -1,3 +1,28 @@
+/* <AI>
+Rock — static polygon obstacle.
+
+OVERVIEW
+- `otype = 3` (numeric type tag). Not a PhysicsObject; does not move.
+- Geometry built from explicit `pts[]` or generated from hull/box params + Delaunay triangulation.
+- Collision polygon registered with the tank's Collisions system on construction.
+- `sense[]` (16 channels) — defaults to dull grey visual [0.2, 0.2, 0.2, ...]; read by boid whisker sensors.
+
+CONSTRUCTION MODES
+- `hull` — convex boundary; random points added inside.
+- `w / h` — bounding box mode; corners auto-placed.
+- `points` / `pts` — explicit point list (used when loading from save).
+- `force_corners` — always include bounding box corners.
+- `new_points_respect_hull` — keep new random interior points inside the hull.
+
+COLOR SCHEMES
+- `Rock.color_schemes` — named palettes ('Grey Marble', 'Sandstone', 'Obsidian', etc.).
+- Active scheme assigned per-rock at construction by TankMaker.
+
+METHODS
+- `GeoData()` — returns Two.js-compatible polygon path data for rendering.
+- `Export()` — serializes geometry and collision data to a plain object.
+</AI> */
+
 import Two from "two.js";
 import * as utils from '../util/utils.js'
 import Delaunator from 'delaunator';

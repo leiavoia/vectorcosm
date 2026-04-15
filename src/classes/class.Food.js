@@ -1,3 +1,25 @@
+/* <AI>
+Food — consumable resource. Extends PhysicsObject.
+
+OVERVIEW
+- `otype = 2` (numeric type tag used in hot-path checks instead of instanceof).
+- Spawned by tank, simulation spawn logic, or plant fruiting. Falls and drifts by default.
+- `value` — energy content; determines radius `r = sqrt(2*value/PI) * 10`.
+- `flavor` (0..1) — determines color and smell channels auto-filled in `sense[]`.
+- `complexity` (1..8) — encoded in `sense[11]`; matched against boid food preference.
+- `sense[]` (16 channels) — [0..2] RGB visual, [3..10] 8 smell values (cosine-encoded flavor), [11] complexity.
+- `lifespan` — seconds before expiry; `dead` = true when killed.
+- `frictionless` — if true, ignores surface friction (useful for wall-hugging spawn patterns).
+
+PLANT SEEDS
+- If spawned from a DNAPlant, carries `seed` DNA string for germination on contact.
+- `max_germ_density` and `germ_distance` control when new plants can sprout.
+
+UPDATE
+- `Update(delta)` — moves, applies buoyancy, ages, kills when expired.
+- `GeoData()` — returns render shape data (circle, color derived from sense[]).
+</AI> */
+
 import Two from "two.js";
 import * as utils from '../util/utils.js'
 import {Circle, Polygon, Result} from 'collisions';

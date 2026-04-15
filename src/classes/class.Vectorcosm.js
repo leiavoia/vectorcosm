@@ -1,3 +1,24 @@
+/* <AI>
+Vectorcosm — worker-side root singleton. Lives at `globalThis.vc`.
+
+OVERVIEW
+- Owns the Tank, simulation queue, and all top-level game state inside the Web Worker.
+- `Init(params)` — sets up the Tank and starts the sim queue. Called once on worker init.
+- `next_object_id` — global sequential OID counter. Always increment via `++globalThis.vc.next_object_id`.
+- `simulation` — current active Simulation instance.
+- `tank` — single Tank instance for the session.
+- `LoadNextSim()` — pops next Simulation from queue; restarts with a new sim when queue empties.
+
+SIM QUEUE
+- `sim_queue[]` holds Simulation instances to run in order.
+- Subscribed to 'sim.complete' PubSub event → calls `LoadNextSim()`.
+
+SETTINGS
+- `boid_sensors_every_frame` — run sensors on every frame (slow, for debugging).
+- `plant_update_freq` — seconds between plant updates.
+- `max_foods` — global food cap.
+</AI> */
+
 import Tank from '../classes/class.Tank.js'
 import Rock from '../classes/class.Rock.js'
 import Food from '../classes/class.Food.js'

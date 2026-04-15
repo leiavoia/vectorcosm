@@ -1,3 +1,18 @@
+/* <AI>
+PhysicsObject — base class for all moving entities (Boid, Food).
+
+OVERVIEW
+- x, y, vel_x, vel_y, accel_x, accel_y, mass.
+- `ApplyForce(fx, fy)` — accumulates acceleration (F = ma).
+- Split-phase Euler integration (preferred for dissipative drag):
+    1. `UpdateVelocity(dt)` — integrate accel into vel, clamp to MAX_SPEED, clear accel.
+    2. (caller applies drag externally between these two calls)
+    3. `StepPosition(dt)` — advance x/y by vel.
+- `UpdatePosition(dt)` — convenience wrapper: UpdateVelocity + StepPosition, no drag split.
+- `Slide(overlap_x, overlap_y, friction)` — projects velocity onto collision tangent for wall/rock sliding.
+- MAX_SPEED = 2800 sanity cap applied in UpdateVelocity.
+</AI> */
+
 export default class PhysicsObject {
 
 	static MAX_SPEED = 2800;

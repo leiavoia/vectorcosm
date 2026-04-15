@@ -1,3 +1,22 @@
+/* <AI>
+Brain — thin wrapper over EPANN or SNN. Unified interface for boid cognition.
+
+OVERVIEW
+- Constructed from: `{ boid }` (new from boid data), `{ json }` (deserialized), or `{ brain }` (copy).
+- `this.type` = 'epann' | 'snn' — selects which network impl is used.
+- `this.input_map` = { label: index } — maps sensor label strings to input indices.
+- `Activate(inputs, timestamp)` → runs the network, returns `this.outputs[]`.
+    SNN: sub-ticks at 120hz using accumulated timestamp delta.
+    EPANN: single forward pass per call.
+- `Export(asJSON)` / `Reset()` for save-load and reuse.
+- `MakeBrain(boid)` — builds a new EPANN from boid body plan sensor/motor counts.
+
+RELATIONSHIPS
+- Created by Boid constructor; accessed as `boid.brain`.
+- SNN and EPANN are fully swappable via `this.type`.
+- `input_map` built from `boid.sensor_labels`; duplicate labels warn (brain damage).
+</AI> */
+
 import SpikingNeuralNetwork from './class.SpikingNeuralNetwork.js';
 import EPANN from './class.EPANN.js';
 import * as utils from '../util/utils.js';

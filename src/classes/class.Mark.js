@@ -1,3 +1,27 @@
+/* <AI>
+Mark — ephemeral spatial pheromone marker deposited by boids.
+
+OVERVIEW
+- Short-lived circle with a `sense[]` (16 channels) encoding the signal type and intensity.
+- `strongest_sense` — index of the dominant channel; determines the visual color.
+- `collision` — registered as a circle with radius `r` for sensor queries.
+- If all sense values are zero at construction, the mark immediately kills itself.
+
+CHANNELS
+- [0..2]: visual (RGB)
+- [3..10]: smell
+- [11]: complexity
+- [12..15]: audio / custom
+
+UPDATE
+- `Update(delta)` — ages by delta; calls `Kill()` when lifespan exceeded.
+- `GeoData()` — returns a colored ring outline (color maps to `strongest_sense` index).
+
+USAGE
+- Boids create Marks to leave trail signals or communicate local state.
+- Sensors of type 'sense' detect marks in range and read their `sense[]` values.
+</AI> */
+
 export default class Mark {
 	constructor(params) {
 		this.oid = ++globalThis.vc.next_object_id;

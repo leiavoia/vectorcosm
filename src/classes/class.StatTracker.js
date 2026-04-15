@@ -1,3 +1,26 @@
+/* <AI>
+StatTracker / CompoundStatTracker — multi-scale rolling statistics storage.
+
+StatTracker
+- Tracks a single numeric stat at N 'orders of magnitude' (layers).
+- Layer 0: raw inserts. Layer 1: averaged over `base` samples. Layer N: averaged over `base^N`.
+- `Insert(value)` — adds to layer 0; rolls up to higher layers when divisible by `base^layer`.
+- `squash` = 'avg' | 'sum' | 'min' | 'max' — aggregation method for higher layers.
+- Each layer retains `recordsPerLayer` entries (FIFO sliding window).
+- `onInsert(data, layer)` — callback for live chart updates or alarms.
+- `LastOfEachLayer()` — returns the most recent value from each layer.
+
+CompoundStatTracker
+- Wraps multiple named StatTrackers (one per stat key).
+- `Insert({ key: value, ... })` — fans out to individual trackers.
+- `stats` config: `{ 'stat_name': 'avg' | 'sum' | ... }` defines tracked keys and squash modes.
+- `GetLayer(layerIndex)` — returns all stats at that layer as a plain object.
+
+USAGE
+- `simulation.stats.records` — CompoundStatTracker logging round-level stats.
+- `boid.records` — optional per-boid tracker (health/energy/metabolism); disabled by default.
+</AI> */
+
 import * as utils from '../util/utils.js';
 
 // Tracks a single-value statistic over multiple orders of magnitude.

@@ -1,3 +1,32 @@
+/* <AI>
+BodyPlan — visual and physical body definition. Fully DNA-derived.
+
+OVERVIEW
+- Generates body shape, mass, size limits, colors, motors, and sensor specs from DNA.
+- `this.mass = length * width` — base mass used for metabolism scaling.
+- `this.points[]` — polygon vertices in local body space.
+- `this.motors[]` — sine-oscillator motor specs per appendage.
+- `this.sensors[]` — plain Sensor spec objects; Boid constructs actual Sensor instances from them.
+
+DNA READING
+- Every property uses `dna.genesFor(label)` + `dna.shapedNumber/shapedInt`.
+- The label string is the stable trait identifier; changing it is equivalent to a full re-roll.
+- Color system: 5 base colors + optional transparency + radial/linear gradient generation with stops.
+
+MOTORS
+- Each motor: `{ x, y, front, size, rate, phase, strokepow }` — position on body, freq, phase from DNA.
+- Output is a sine wave that drives `boid.linear_impulse` and `boid.torque`.
+- Number of motors from DNA.
+
+SENSOR SPECS
+- `sensors[]` items are plain data objects (type, detect[], segments, whiskers, etc.).
+- BodyPlan only builds specs — Boid instantiates actual Sensor objects from them.
+
+GEOMETRY
+- `curved` flag switches between polygon and curved path SVG rendering.
+- `BuildGeometry()` (called externally by rendering code) produces Two.js shapes from `points[]`.
+</AI> */
+
 import Two from "two.js";
 import * as utils from '../util/utils.js'
 

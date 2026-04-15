@@ -1,3 +1,22 @@
+/* <AI>
+db — Dexie (IndexedDB) database definition and migrations.
+
+SCHEMA (current v3)
+- `population_index`: ++id, label, star, date — metadata for saved boid populations.
+- `population_data`: id — actual specimen JSON arrays (not indexed; loaded on demand).
+- `tank_index`: ++id, label, date — metadata for saved tank scenes.
+- `tank_data`: id — full scene JSON (not indexed; loaded on demand).
+
+MIGRATION v2 → v3
+- Old monolithic `populations` table split into `population_index` + `population_data`.
+- Old monolithic `tanks` table split into `tank_index` + `tank_data`.
+- Upgrade function iterates old rows and inserts into the new split tables.
+
+EXPORT
+- Single named `db` export. Used by BoidLibrary and TankLibrary.
+- Never import Dexie directly elsewhere — always use this `db` singleton.
+</AI> */
+
 import Dexie from 'dexie';
 
 export const db = new Dexie('vectorcosm');

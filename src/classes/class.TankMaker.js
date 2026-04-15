@@ -1,3 +1,31 @@
+/* <AI>
+TankMaker — procedural rock layout generator.
+
+OVERVIEW
+- Takes a Tank and settings object; `Make()` populates `tank.obstacles[]` with Rock instances.
+- Two rock strategies: 'voronoi' (default, complex) and 'individual' (simpler scatter).
+
+VORONOI STRATEGY
+- Distributes Voronoi seed points using one of: 'blotch', 'random', 'square', 'hex' patterns.
+- A mask function decides which cells become rocks: 'lines', 'radial', 'sine', 'zone', 'xzone',
+  'random', 'hole', 'burg', 'depth', 'cave', 'trench', 'interference'.
+- Each unmasked Voronoi cell becomes a polygon Rock trimmed to the cell boundary.
+
+INDIVIDUAL STRATEGY
+- Places N rocks at random positions with optional margin/separation constraints.
+- Rocks can be blunt (box-like) or angular.
+
+POST-PROCESSING
+- `max_rock_shrinkage` + `rock_shrinkage_chance` — randomly shrinks a fraction of rocks.
+- `crazytown_chance` — allows skew/scale distortion on individual rocks.
+- Colors picked from `Rock.color_schemes` (1–5 random schemes per make call).
+- Always calls `tank.FindSafeZones()` after rock placement.
+
+NOTES
+- All settings randomize by default; pass explicit values to control output deterministically.
+- `visualize` flag draws Voronoi cell outlines via Two.js for debugging.
+</AI> */
+
 import Two from "two.js";
 import * as utils from '../util/utils.js';
 import Rock from '../classes/class.Rock.js';

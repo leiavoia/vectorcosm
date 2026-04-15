@@ -1,3 +1,26 @@
+/* <AI>
+Camera — main-thread rendering camera for the Two.js SVG scene.
+
+OVERVIEW
+- Controls pan (x, y) + zoom (z / scale) over the tank world.
+- Owned by the main thread; never runs in the worker.
+- `renderLayers` — object of Two.js groups: { background, obstacles, plants, foods, boids, marks, ui }.
+- `renderObjects` — live game object data for focus/cinema interaction.
+
+KEY FEATURES
+- Focus mode: `Focus(oid)` → centers on a boid, shows indicator ring + sensor overlay + info panel.
+- Cinema mode: auto-cycles focus across interesting boids at `focus_time` intervals.
+- Smooth transitions: TWEEN.js animations on pan/zoom.
+- `ApplyRenderData(data)` — called each frame with packed geometry from the worker; updates Two.js transforms.
+- `ZoomIn/Out()`, `ZoomTo()`, `PanTo(x, y)` for UI-driven navigation.
+- Focus ring drawn into the 'ui' layer; removed with `HiliteOff()`.
+
+PAN/ZOOM NOTES
+- `z` is the logical zoom; `scale` is derived (1/z * correction factor).
+- `xmin/ymin/xmax/ymax` — world-space view frustum; use for off-screen culling.
+- `background_attachment` — 'tank' (background scrolls with pan) or 'screen' (background stays fixed).
+</AI> */
+
 import * as utils from '../util/utils.js'
 import * as TWEEN from '@tweenjs/tween.js'
 import * as SVGUtils from '../util/svg.js'

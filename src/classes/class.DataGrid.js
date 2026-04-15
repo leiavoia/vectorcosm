@@ -1,3 +1,26 @@
+/* <AI>
+DataGrid — cell-based environmental data grid for the tank world.
+
+OVERVIEW
+- Fixed-size cells (default 300px). Each cell: `{ current_x, current_y, light, heat, matter }`.
+- `CellAt(x, y)` — get cell by world coordinates (clamped to grid bounds).
+- `CellFromXY(cx, cy)` — get cell by grid-array indices.
+- `CellIndexAt / CellIndexFromXY` — return the flat array index instead of the cell object.
+- `InterpolatedGridValue(x, y, attr)` — inverse-distance weighted value from the 3×3 neighborhood.
+  Use this for smooth sensor readings; avoids discontinuities at cell edges.
+
+ENVIRONMENT CHANNELS
+- `current_x / current_y` — fluid flow vector; applied to boid physics each frame.
+- `light` (0..1) — drives plant photosynthesis rate.
+- `heat` (0..1) — affects plant/boid metabolism.
+- `matter` — organic matter available for plant growth; depleted by `RequestResources()`.
+
+USAGE
+- `tank.datagrid` is the single instance per session.
+- Sensors of type 'current' and 'datagrid' query this directly.
+- Tank.Update() propagates/diffuses currents, light, and matter each frame.
+</AI> */
+
 
 export default class DataGrid {
 

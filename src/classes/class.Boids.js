@@ -1,3 +1,44 @@
+/* <AI>
+Boid — the main organism class. Extends PhysicsObject.
+
+OVERVIEW
+- A living creature with physics, sensors, brain, endocrine system, lifecycle, and combat.
+- `otype = 1` (numeric type tag for fast hot-path checks instead of instanceof).
+- All heritable traits come from DNA via BodyPlan construction and `FromDNA()`.
+
+KEY SUB-OBJECTS
+- `this.body`       — BodyPlan: shape, mass, size limits, visual geometry.
+- `this.brain`      — Brain: EPANN or SNN wrapper.
+- `this.endocrine`  — Endocrine: hormone system (4 inputs → 4 hormones).
+- `this.motors[]`   — oscillating thrust units (position + timing from DNA).
+- `this.sensors[]`  — Sensor instances; outputs feed brain inputs each frame.
+- `this.metab`      — metabolism state: energy, stomach, bowel.
+- `this.traits`     — plain object of all genetic trait scalars.
+
+PHYSICS LOOP (per frame)
+  1. Brain.Activate(sensor_inputs) → motor command values.
+  2. Motors apply linear/angular impulses (sine-wave oscillator × hormone modulation).
+  3. UpdateVelocity(dt) → drag → StepPosition(dt).
+  4. Collision resolution with rocks, walls, and other boids.
+  5. Sensor sweeps update outputs for the next tick.
+
+LIFECYCLE
+- Born at small scale; grows to `body.mass` over GROWTH_SPEED seconds.
+- Energy drains from base metabolism + motor usage (both mass-scaled).
+- When energy > threshold and mature, splits mass to produce offspring (reproduce).
+- Dies from age (life_credits exhausted), starvation, or combat damage.
+- `Reset()` resets physics/brain/hormones for sim round reuse without re-allocating.
+
+HORMONES
+- Endocrine updated every ENDOCRINE_UPDATE_FREQ seconds.
+- 4 hormones modulate sensor sensitivity (DOPE_SENSORS) and motor power (DOPE_MOTORS).
+
+TUNING CONSTANTS (all static on the class)
+- maxspeed, maxrot, max_boid_linear_impulse, ang_drag_coef, forward_drag_coef, etc.
+- LIFE_DECAY_SPEED: higher = shorter lifespans globally.
+- HEALTH_PENALTY_EXP / COEF: shapes how bad health multiplies death rate.
+</AI> */
+
 import PhysicsObject from '../classes/class.PhysicsObject.js'
 import BodyPlan from '../classes/class.BodyPlan.js'
 import Sensor from '../classes/class.Sensor.js'

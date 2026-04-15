@@ -1,3 +1,31 @@
+/* <AI>
+Tank — world container. Holds all game objects and runs per-frame world updates.
+
+OVERVIEW
+- `boids[]`, `foods[]`, `plants[]`, `obstacles[]` (rocks), `marks[]`, `whirls[]`.
+- `grid` (SpaceGrid) — fast spatial lookups by position/radius.
+- `datagrid` (DataGrid) — per-cell environmental data: current_x/y, light, heat, matter.
+- `collision_system` — Collisions library instance; all boid/food/rock shapes registered here.
+- Width/height define world bounds; boids bounce or wrap at edges.
+
+KEY METHODS
+- `Update(delta, settings)` — runs physics, currents, plants, boids, food, marks, respawning.
+- `MakeBackground()` — generates CSS gradient for the active visual theme.
+- `AddBoid/AddFood/AddPlant/AddRock()` — factory helpers; also register collision shapes.
+- `RemoveDead()` — sweeps expired objects from all arrays each frame.
+- `FindSafeZones()` — locates open spaces for spawning after rocks are placed.
+- `Export() / Import()` — full scene serialization to/from JSON (save/load).
+
+ENVIRONMENT
+- `datagrid` cells: `current_x/y` (fluid flow), `light` (0..1), `heat` (0..1), `matter` (plant fuel).
+- `whirls[]` drive fluid currents applied to Boid physics each frame.
+- `turbulence` scales current strength globally.
+
+BACKGROUND THEMES
+- `Tank.backdrop_themes[]` — CSS class name presets for SVG background styling.
+- `Tank.background_themes{}` — color palette sets for procedural gradient generation.
+</AI> */
+
 import Two from "two.js";
 import Delaunator from 'delaunator';
 import * as utils from '../util/utils.js';

@@ -1,3 +1,25 @@
+/* <AI>
+SimulationLibrary — static registry of named simulation presets.
+
+OVERVIEW
+- Plain JS object exported as default. Keys = simulation names, values = settings objects.
+- Consumed by `SimulationFactory(name)` in class.Simulation.js.
+- Settings objects are structurally cloned before use; safe to mutate the working copy.
+
+PRESET CATEGORIES
+- Training / scored rounds: food_training_sim_easy/medium/hard, turning_training_*,
+  race_track, obstacle_course, treasure_hunt_easy/hard/perpetual.
+- Open-ended lifestyle: natural_tank, peaceful_tank.
+- Combat: combat_*, finishing_*.
+- Debug/sandbox: petri_dish, edge_training.
+
+KEY SETTINGS FIELDS
+- `simtype` — maps to Simulation subclass (e.g. 'FoodChaseSimulation', 'NaturalTankSimulation').
+- `timeout`, `rounds`, `num_boids`, `cullpct`, `max_mutation` — core GA parameters.
+- `ignore_lifecycle` — disables age/energy death for pure neural training.
+- `no_combat`, `no_marks`, `poop` — feature toggles.
+</AI> */
+
 export default {	
 
 	race_track: {

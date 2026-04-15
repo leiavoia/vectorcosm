@@ -1,3 +1,24 @@
+/* <AI>
+BoidLibrary — IndexedDB persistence for saved boid populations.
+
+OVERVIEW
+- Split-table design: `population_index` (metadata) and `population_data` (serialized specimens).
+- `Add(population[])` — serializes each boid with `boid.Export(true)`, stores to DB, returns id.
+- `AddRow(row)` — import from file (row has index fields + `specimens` array).
+- `Get(params)` — queries index table only (no specimen data). Filter by id, label, etc.
+- `GetData(id)` — loads actual boid specimen data for one population.
+- `Delete(id)` — removes both index and data rows.
+- `Update(row)` — updates index fields only; never touches specimen data.
+- `MakeLabel(population)` — auto-generates a display label from genus/species distribution.
+
+EVENTS
+- Publishes 'boid-library-addition' PubSub event on Add/Delete to trigger UI refresh.
+
+RELATIONSHIPS
+- Uses `db.js` (Dexie singleton).
+- UI library panels subscribe to PubSub events to re-render on changes.
+</AI> */
+
 import * as utils from '../util/utils.js'
 import {db} from '../classes/db.js'
 import PubSub from 'pubsub-js'

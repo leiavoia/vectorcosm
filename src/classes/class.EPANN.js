@@ -1,3 +1,30 @@
+/* <AI>
+EPANN — Evolving Plastic Artificial Neural Network. Primary boid brain architecture.
+
+OVERVIEW
+- Feedforward network (optional Hebbian plasticity) with per-node activation functions.
+- Nodes stored as a flat array; index order is critical (inputs first, outputs last).
+- Connections stored as flat interleaved array on each node: `conns = [dest, weight, dest, weight, ...]`.
+- `num_inputs` / `num_outputs` track layer counts; everything in between is 'middle'.
+
+ACTIVATION FUNCTIONS (20+)
+- `ActivationFunctions` object: relu, leaky_relu, sigmoid, tanh, hard_sigmoid, sqnl, softsign, etc.
+- Middle nodes get a random per-node function (biased toward faster ones via cube-root sampling).
+- Input nodes: identity. Output nodes: sigmoid.
+
+KEY METHODS
+- `Lobotomize(inputs, middles, outputs, connectivity)` — create a fresh random network.
+- `Activate(inputs[])` → outputs[] — single forward pass.
+- `Mutate(reps)` — one structural or weight mutation per rep.
+    Ops: add/remove node, add/remove/reassign/reverse connection, perturb weight/bias, swap activation.
+- `Export(asJSON) / Import(json)` — serialization to/from plain object or JSON string.
+- `NormalizeWeights()` — keeps weights in sensible range after mutations.
+- `ScanForOrphans()` — finds nodes with no inbound connections.
+
+PERFORMANCE
+- Flat interleaved conns[] array is cache-friendly and avoids per-connection object overhead.
+- `respect_layers` option enforces strict feedforward topology; off by default for more variety.
+</AI> */
 
 import * as utils from '../util/utils.js'
 

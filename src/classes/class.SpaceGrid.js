@@ -1,3 +1,21 @@
+/* <AI>
+SpaceGrid — uniform spatial hash grid for fast proximity queries.
+
+OVERVIEW
+- Divides world space into fixed-size cells. Objects inserted into all cells they overlap.
+- `Add(o)` — reads `collision.aabb`, `collision.radius`, or `width/height/length` to find the bounding box.
+- `GetObjectsNear(x, y, radius)` — returns all objects from cells overlapping the radius bounding box.
+- `GetCellsByBox(x1, y1, x2, y2)` — returns all cells overlapping the box.
+- `Remove(o)` — removes object from its center cell only (use when an object is destroyed).
+- `Clear()` — resets all cell arrays in place (no re-allocation).
+
+USAGE
+- `tank.grid` is the main SpaceGrid, built at Tank construction.
+- Sensor sweep code calls `GetObjectsNear()` instead of scanning all tank arrays.
+- Must `Clear()` at the start of each frame and re-`Add()` all moving objects.
+- `static qid` — incremented per-query; assigned to objects during insertion to deduplicate batch results.
+</AI> */
+
 
 export default class SpaceGrid {
 	
