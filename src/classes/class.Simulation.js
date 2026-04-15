@@ -186,8 +186,8 @@ export default class Simulation {
 		globalThis.vc.tank.obstacles.length = 0;		
 		globalThis.vc.tank.foods.forEach( x => x.Kill() );
 		globalThis.vc.tank.foods.length = 0;		
-		// resize tank for the new sim	
-		if ( this.settings?.volume ) {
+		// resize tank for the new sim (skip if explicit pixel dimensions were given at init)
+		if ( this.settings?.volume && !globalThis.vc.lock_dimensions ) {
 			globalThis.vc.ResizeTankByVolume( this.settings.volume );
 		}
 		PubSub.publish('sim.new', this);

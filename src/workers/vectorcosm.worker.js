@@ -1,3 +1,24 @@
+/* <AI>
+vectorcosm.worker.js — Simulation Web Worker. All heavy computation runs here.
+
+COMMAND DISPATCH
+- Uses CommandRegistry (class.CommandRegistry.js) for named command dispatch.
+- Message listener extracts functionName, routes to commands.execute().
+- Unhandled errors post { functionName: 'error', data: { command, message, stack } }.
+- Built-in commands: help, describe, ping.
+
+REGISTERED COMMANDS (14 app + 3 built-in)
+  update, pickObject, getTankEnvironmentData, endSim, saveTank, loadTank,
+  exportBoids, loadBoids, smite, randTank, init, updateSimSettings,
+  pushSimQueue, addSavedBoidsToTank, help, describe, ping
+
+PUBSUB EVENTS (forwarded to main thread, not commands)
+  sim.complete, sim.round, sim.new, records.push, boid.records.push, autosave
+
+GLOBALS
+  globalThis.vc — the Vectorcosm instance (authoritative simulation state)
+</AI> */
+
 import Vectorcosm from '../classes/class.Vectorcosm.js'
 import { Boid } from '../classes/class.Boids.js'
 import * as utils from '../util/utils.js'
@@ -7,15 +28,26 @@ import BoidLibrary from '../classes/class.BoidLibrary.js'
 import TankLibrary from '../classes/class.TankLibrary.js'
 import Tank from '../classes/class.Tank.js'
 import TankMaker from '../classes/class.TankMaker.js'
+import CommandRegistry from '../classes/class.CommandRegistry.js'
 
-const function_registry = new Map();
+const commands = new CommandRegistry();
 
 // broker incoming messages to the right handling function
-self.addEventListener('message', (event) => {
+self.addEventListener('message', async (event) => {
 	const eventData = event.data;
 	const functionName = eventData?.functionName ?? eventData?.f;
-	const f = function_registry.get(functionName);
-	if ( f ) { f(eventData); }
+	if ( !commands.has( functionName ) ) { return; }
+	const result = await commands.execute( functionName, eventData );
+	if ( !result.ok ) {
+		globalThis.postMessage( { 
+			functionName: 'error', 
+			data: { 
+				command: functionName, 
+				message: result.error, 
+				stack: result.stack 
+			} 
+		} );
+	}
 });
 
 // this keeps track of which objects that already sent basic rendering info.
@@ -29,7 +61,7 @@ function AutoIncludeGeoData(obj) {
 	return null;
 }
 
-function_registry.set( 'update', params => {
+commands.register( { name: 'update', description: 'Advance simulation and return render data', handler: params => {
 	
 	let delta = params.delta || 1/30;
 	let num_frames = params?.num_frames || 1;
@@ -198,10 +230,10 @@ function_registry.set( 'update', params => {
 			tankStats
 			}
 	} );
-});
+} });
 
 let last_focus_object_id = null;
-function_registry.set( 'pickObject', params => {
+commands.register( { name: 'pickObject', description: 'Select a boid by ID or by proximity to coordinates', handler: params => {
 	let result = null;
 	let obj_id = params.data?.oid || 0;
 	let obj = null;
@@ -275,10 +307,10 @@ function_registry.set( 'pickObject', params => {
 		functionName: 'pickObject',
 		data: result
 	} );
-});
+} });
 
 
-function_registry.set( 'getTankEnvironmentData', params => {
+commands.register( { name: 'getTankEnvironmentData', description: 'Return tank environment grid and whirl data', handler: params => {
 	const grid = globalThis.vc.tank.datagrid;
 	const whirls = globalThis.vc.tank.whirls;
 	const request = params.data?.request || 'current';
@@ -287,43 +319,43 @@ function_registry.set( 'getTankEnvironmentData', params => {
 		whirls,
 		request
 	} } );
-});
+} });
 
-function_registry.set( 'endSim', params => {
+commands.register( { name: 'endSim', description: 'End the current simulation immediately', handler: params => {
 	globalThis.vc.simulation.killme = true;
 	globalThis.postMessage( { functionName: 'endSim', data: null } );
-});
+} });
 
-function_registry.set( 'saveTank', params => {
+commands.register( { name: 'saveTank', description: 'Save current tank state to IndexedDB', handler: params => {
 	globalThis.vc.SaveTank( params?.data?.id ).then(
 		data => globalThis.postMessage( { functionName: 'saveTank', data } )
 	);
-});
+} });
 
-function_registry.set( 'loadTank', params => {
+commands.register( { name: 'loadTank', description: 'Load a tank state from IndexedDB by ID', handler: params => {
 	globalThis.vc.LoadTank( params?.data?.id ?? 0, params.data?.settings );
 	globalThis.postMessage( { functionName: 'loadTank', data: null } );
-});
+} });
 
-function_registry.set( 'exportBoids', async params => {
+commands.register( { name: 'exportBoids', description: 'Export boids as JSON, optionally saving to IndexedDB', handler: async params => {
 	let to_db = !!params.data?.db;
 	let str = await globalThis.vc.SavePopulation( params.data?.species, params.data?.ids, to_db );
 	globalThis.postMessage( { functionName: 'exportBoids', data: str } );
-});
+} });
 
-function_registry.set( 'loadBoids', params => {
+commands.register( { name: 'loadBoids', description: 'Load a population of boids from JSON data', handler: params => {
 	globalThis.vc.LoadPopulation( params.data );
 	globalThis.postMessage( { functionName: 'loadBoids', data: null } );
-});
+} });
 
-function_registry.set( 'smite', params => {
+commands.register( { name: 'smite', description: 'Kill boids by ID', handler: params => {
 	let ids = params.data.ids;
 	let targets = globalThis.vc.tank.boids.filter( b => ids.includes(b.oid) );
 	for ( let t of targets ) { t.Kill(); }
 	globalThis.postMessage( { functionName: 'smite', data: targets.map(t=>t.oid) } );
-});
+} });
 
-function_registry.set( 'randTank', params => {
+commands.register( { name: 'randTank', description: 'Regenerate tank obstacles and environment', handler: params => {
 	// this is really overreaching and we should make something cleaner
 	const w = globalThis.vc.tank.width;
 	const h = globalThis.vc.tank.height;
@@ -335,10 +367,10 @@ function_registry.set( 'randTank', params => {
 	const tm = new TankMaker( globalThis.vc.tank, {} );
 	tm.Make();
 	globalThis.postMessage( { functionName: 'randTank', data: null } );
-});
+} });
 
 
-function_registry.set( 'init', params => {
+commands.register( { name: 'init', description: 'Initialize the simulation with given dimensions', handler: params => {
 	globalThis.vc.Init(params.data);
 	globalThis.postMessage( {
 		functionName: 'init',
@@ -347,10 +379,10 @@ function_registry.set( 'init', params => {
 			height: globalThis.vc.tank.height,
 		}
 	} );
-});
+} });
 
 
-function_registry.set( 'updateSimSettings', params => {
+commands.register( { name: 'updateSimSettings', description: 'Update simulation settings on the fly', handler: params => {
 	// look for meta params separately
 	if ( params.data?.sim_meta_params ) {
 		for ( let k in params.data.sim_meta_params ) {
@@ -396,9 +428,9 @@ function_registry.set( 'updateSimSettings', params => {
 		functionName: 'updateSimSettings',
 		data: Object.assign( { sim_meta_params: globalThis.vc.sim_meta_params }, globalThis.vc.simulation.settings )
 	} );
-});
+} });
 
-function_registry.set( 'pushSimQueue', params => {
+commands.register( { name: 'pushSimQueue', description: 'Add simulations to the queue', handler: params => {
 	// look for meta params
 	let meta_params = params.data?.sim_meta_params;
 	if ( meta_params ) {
@@ -424,9 +456,9 @@ function_registry.set( 'pushSimQueue', params => {
 		functionName: 'pushSimQueue',
 		data: Object.assign( { sim_meta_params: globalThis.vc.sim_meta_params }, globalThis.vc.simulation.settings )
 	} );
-});
+} });
 
-function_registry.set( 'addSavedBoidsToTank', async params => {
+commands.register( { name: 'addSavedBoidsToTank', description: 'Load saved boids from library and add to current tank', handler: async params => {
 	let num_added = 0;
 	const lib = new BoidLibrary;
 	for ( let id of params.data.ids ) {
@@ -444,7 +476,7 @@ function_registry.set( 'addSavedBoidsToTank', async params => {
 		functionName: 'addSavedBoidsToTank',
 		data: { ok: true, num_added }
 	} );
-});
+} });
 
 // listen for critical internal events and report back via API
 let onSimCompleteSubscription = PubSub.subscribe('sim.complete', (msg, sim) => {
@@ -504,6 +536,23 @@ let onBoidRecordsPushSubscription = PubSub.subscribe('boid.records.push', (msg,d
 // set up the main simulation
 let vc = new Vectorcosm;
 globalThis.vc = vc; // handy reference for everyone else
+
+// built-in introspection and health-check commands
+commands.register( { name: 'help', description: 'List all available commands with metadata', handler: () => {
+	const list = commands.list();
+	globalThis.postMessage( { functionName: 'help', data: list } );
+} });
+
+commands.register( { name: 'describe', description: 'Get full metadata for a single command', params: {
+	name: { type: 'string', description: 'Command name to describe' }
+}, handler: params => {
+	const info = commands.describe( params.data?.name );
+	globalThis.postMessage( { functionName: 'describe', data: info } );
+} });
+
+commands.register( { name: 'ping', description: 'Health check — returns pong', handler: () => {
+	globalThis.postMessage( { functionName: 'ping', data: 'pong' } );
+} });
 
 function DescribeBoid( o, inc_sensor_geo=false,  inc_brain=false, inc_stats=0 ) {
 	let data = { 

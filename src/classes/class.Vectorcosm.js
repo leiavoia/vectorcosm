@@ -41,6 +41,7 @@ export default class Vectorcosm {
 		// settings
 		this.boid_sensors_every_frame = false;
 		this.boid_snn_every_frame = false;
+		this.lock_dimensions = false; // prevents volume-based resize when exact dimensions are requested.
 		this.min_time_delta = 1/30;
 		this.max_foods = 400;
 		this.plant_update_freq = 5;
@@ -60,6 +61,8 @@ export default class Vectorcosm {
 		const h = params?.height || 1080;
 		this.tank = new Tank( w, h );
 		this.tank.MakeBackground();
+		// if explicit pixel dimensions were given, prevent simulations from overriding them via volume-based resize
+		this.lock_dimensions = !!params?.lock_dimensions;
 		
 		// set up simulations so we have something to watch
 		this.sim_queue = [
