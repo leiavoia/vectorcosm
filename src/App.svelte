@@ -324,13 +324,21 @@
 				}
 			}
 		}
-		// count SVGs every so often
-		if ( ( gameloop.updates_per_frame <= 1 /* && data.simStats.framenum % 60 == 0 */ ) ) {
-			data.tankStats.SVGs = SVGUtils.CountSVGElements(globalThis.two.scene);
+		// stats are only sent every N frames — skip update when absent
+		if ( data.simStats ) {
+			// count SVGs every so often
+			if ( gameloop.updates_per_frame <= 1 ) {
+				data.tankStats.SVGs = SVGUtils.CountSVGElements(globalThis.two.scene);
+			}
+			tankStats = data.tankStats;
+			// settings field is only sent when dirty — preserve previous value when absent
+			if ( data.simStats.settings ) {
+				simStats = data.simStats;
+			} 
+			else {
+				simStats = { ...data.simStats, settings: simStats.settings };
+			}
 		}
-		// record and update stats
-		tankStats = data.tankStats;
-		simStats = data.simStats;
 		simStats.fps = gameloop.updates_per_frame > 1
 			? (gameloop.fps * gameloop.updates_per_frame).toFixed(0)
 			: gameloop.fps_avg.toFixed(0);

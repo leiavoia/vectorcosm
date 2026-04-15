@@ -166,21 +166,13 @@ commands.register( { name: 'update', description: 'Advance simulation and return
 		}
 		return return_obj;
 	}));
-	renderObjects.push( ... globalThis.vc.tank.obstacles.map( o => ({
-		oid: o.oid,
-		type:'obstacle',
-		x: o.x,
-		y: o.y,
-		geodata: AutoIncludeGeoData(o),
-	}) ));
-	
 	renderObjects.push( ... globalThis.vc.tank.obstacles.map( o => {
 		let return_obj = {
 			oid: o.oid,
 			type:'obstacle',
 			geodata: AutoIncludeGeoData(o),
 		};
-		// rocks don't move
+		// rocks don't move — only send position with the first geodata payload
 		if ( return_obj.geodata ) {
 			return_obj.x = o.x;
 			return_obj.y = o.y;
@@ -190,47 +182,56 @@ commands.register( { name: 'update', description: 'Advance simulation and return
 	
 		
 	// compile simulation stats
-	let simStats = {
-		'best_score': globalThis.vc.simulation.stats.best_score,
-		'best_avg_score': globalThis.vc.simulation.stats.best_avg_score,
-		'framenum': globalThis.vc.simulation.stats.framenum,
-		'round_num': globalThis.vc.simulation.stats.round_num,
-		'round_best_score': globalThis.vc.simulation.stats.round_best_score,
-		'round_avg_score': globalThis.vc.simulation.stats.round_avg_score,
-		'timeout': globalThis.vc.simulation.settings.timeout,
-		'round_time': (globalThis.vc.simulation.stats.round_time || 0),
-		'name': globalThis.vc.simulation.settings.name,
-		'segments': (globalThis.vc.simulation.settings.segments || 1),
-		'sims_in_queue': globalThis.vc.sim_queue.length,
-		'settings': Object.assign( { sim_meta_params: globalThis.vc.sim_meta_params }, globalThis.vc.simulation.settings )
-		// 'stats': globalThis.vc.simulation.stats, // warning: contains graph data
-	};
+	let simStats = null;
+	let tankStats = null;
+	// send stats every 30 frames, or immediately when settings are dirty
+	stats_tick++;
+	const send_stats = ( stats_tick % 30 === 0 ) || settings_dirty;
+	if ( send_stats ) {
+		simStats = {
+			'best_score': globalThis.vc.simulation.stats.best_score,
+			'best_avg_score': globalThis.vc.simulation.stats.best_avg_score,
+			'framenum': globalThis.vc.simulation.stats.framenum,
+			'round_num': globalThis.vc.simulation.stats.round_num,
+			'round_best_score': globalThis.vc.simulation.stats.round_best_score,
+			'round_avg_score': globalThis.vc.simulation.stats.round_avg_score,
+			'timeout': globalThis.vc.simulation.settings.timeout,
+			'round_time': (globalThis.vc.simulation.stats.round_time || 0),
+			'name': globalThis.vc.simulation.settings.name,
+			'segments': (globalThis.vc.simulation.settings.segments || 1),
+			'sims_in_queue': globalThis.vc.sim_queue.length,
+			// 'stats': globalThis.vc.simulation.stats, // warning: contains graph data
+		};
+		// only include the full settings object when it has changed
+		if ( settings_dirty ) {
+			simStats.settings = Object.assign( { sim_meta_params: globalThis.vc.sim_meta_params }, globalThis.vc.simulation.settings );
+			settings_dirty = false;
+		}
+
+		// tank stats
+		let species = new Set();
+		for ( let b of globalThis.vc.tank.boids ) { species.add(b.species); }
+		tankStats = {
+			boids: globalThis.vc.tank.boids.length,
+			species: species.size,
+			rocks: globalThis.vc.tank.obstacles.length,
+			plants: globalThis.vc.tank.plants.length,
+			foods: globalThis.vc.tank.foods.length,
+			marks: globalThis.vc.tank.marks.length,
+			boid_mass: Math.floor( globalThis.vc.tank.boids.reduce( (a,b) => a+b.mass, 0 ) ),
+			food_mass: Math.floor( globalThis.vc.tank.foods.reduce( (a,b) => a+b.value, 0 ) ),
+		};
+	}
 		
-	// tank stats
-	let species = new Set();
-	for ( let b of globalThis.vc.tank.boids ) {
-		species.add(b.species);
-	}
-	let tankStats = {
-		boids: globalThis.vc.tank.boids.length,
-		species: species.size,
-		rocks: globalThis.vc.tank.obstacles.length,
-		plants: globalThis.vc.tank.plants.length,
-		foods: globalThis.vc.tank.foods.length,
-		marks: globalThis.vc.tank.marks.length,
-		boid_mass: Math.floor( globalThis.vc.tank.boids.reduce( (a,b) => a+b.mass, 0 ) ),
-		food_mass: Math.floor( globalThis.vc.tank.foods.reduce( (a,b) => a+b.value, 0 ) ),
-	}
-			
 	globalThis.postMessage( {
 		functionName: 'update',
-		data: { 
-			renderObjects,
-			simStats,
-			tankStats
-			}
+		data: { renderObjects, simStats, tankStats }
 	} );
 } });
+
+// per-frame stats throttle counter and settings dirty flag
+let stats_tick = 0;
+let settings_dirty = true; // true on start so settings are sent on first update
 
 let last_focus_object_id = null;
 commands.register( { name: 'pick_object', description: 'Select a boid by ID or by proximity to coordinates', handler: params => {
@@ -333,6 +334,7 @@ commands.register( { name: 'save_tank', description: 'Save current tank state to
 } });
 
 commands.register( { name: 'load_tank', description: 'Load a tank state from IndexedDB by ID', handler: params => {
+	settings_dirty = true;
 	globalThis.vc.LoadTank( params?.data?.id ?? 0, params.data?.settings );
 	globalThis.postMessage( { functionName: 'load_tank', data: null } );
 } });
@@ -383,6 +385,7 @@ commands.register( { name: 'init', description: 'Initialize the simulation with 
 
 
 commands.register( { name: 'update_sim_settings', description: 'Update simulation settings on the fly', handler: params => {
+	settings_dirty = true;
 	// look for meta params separately
 	if ( params.data?.sim_meta_params ) {
 		for ( let k in params.data.sim_meta_params ) {
@@ -431,6 +434,7 @@ commands.register( { name: 'update_sim_settings', description: 'Update simulatio
 } });
 
 commands.register( { name: 'push_sim_queue', description: 'Add simulations to the queue', handler: params => {
+	settings_dirty = true;
 	// look for meta params
 	let meta_params = params.data?.sim_meta_params;
 	if ( meta_params ) {
@@ -503,6 +507,7 @@ let onSimRoundSubscription = PubSub.subscribe('sim.round', (msg, sim) => {
 let onSimNewSubscription = PubSub.subscribe('sim.new', (msg, sim) => {
 	// force the tank geometry to update
 	globalThis.vc.tank.geodata_sent = false;
+	settings_dirty = true;
 	globalThis.postMessage( {
 		functionName: 'sim_new',
 		data: sim.settings
