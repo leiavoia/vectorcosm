@@ -370,7 +370,10 @@ export default class Vectorcosm {
 			// manually recalculate the volume to make sure UI stays in sync
 			settings.volume = this.tank.width * this.tank.height;
 			this.sim_queue.push( new NaturalTankSimulation(settings) );
+			// lock dimensions so Simulation.Setup() cannot resize the loaded tank via volume
+			this.lock_dimensions = true;
 			this.LoadNextSim();
+			this.lock_dimensions = false;
 			this.tank.boids = scene.boids.map( o => {
 				let b = new Boid( 0, 0, o );
 				b.angle = Math.random() * Math.PI * 2;		

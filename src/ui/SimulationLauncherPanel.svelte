@@ -40,7 +40,7 @@
 		'food_training_sim_hard',
 	]);
 	
-	api.RegisterResponseCallback( 'pushSimQueue', data => {
+	api.RegisterResponseCallback( 'push_sim_queue', data => {
 		 setPanelMode('sim_controls');
 	});
 	

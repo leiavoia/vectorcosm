@@ -324,6 +324,8 @@
 				}
 			}
 		}
+		// round_time always sent — update in place to keep plant animation smooth
+		if ( simStats && data.round_time !== undefined ) { simStats.round_time = data.round_time; }
 		// stats are only sent every N frames — skip update when absent
 		if ( data.simStats ) {
 			// count SVGs every so often

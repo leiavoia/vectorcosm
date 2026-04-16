@@ -225,7 +225,7 @@ commands.register( { name: 'update', description: 'Advance simulation and return
 		
 	globalThis.postMessage( {
 		functionName: 'update',
-		data: { renderObjects, simStats, tankStats }
+		data: { renderObjects, simStats, tankStats, round_time: globalThis.vc.simulation.stats.round_time || 0 }
 	} );
 } });
 
