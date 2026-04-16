@@ -16,6 +16,7 @@
 	import Camera from './classes/class.Camera.js'
 	import Two from "two.js";
 	import * as SVGUtils from './util/svg.js'
+	import { parseSimParams } from './util/url-params.js'
 	import { setContext } from 'svelte';
 	import {StatTracker, CompoundStatTracker} from './classes/class.StatTracker.js'
 
@@ -668,9 +669,11 @@
 		renderLayers['ui'] = globalThis.two.makeGroup(); renderLayers['tank'].add(renderLayers['ui']);
 		
 		// initialize the sim
+		const url_params = parseSimParams( new URLSearchParams(window.location.search) );
 		const params = {
-			width:globalThis.two.width * 2,
-			height:globalThis.two.height * 2
+			width:  url_params.width  ?? globalThis.two.width  * 2,
+			height: url_params.height ?? globalThis.two.height * 2,
+			...url_params
 		};
 		api.SendMessage('init',params);
 		gameloop.Start();		
