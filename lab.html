@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vectorcosm Lab</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0a0a0a; color: #ccc; font-family: monospace; font-size: 13px; }
+  #header {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+    background: #111; border-bottom: 1px solid #333;
+    padding: 6px 12px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  #header h1 { font-size: 14px; color: #88f; letter-spacing: 1px; }
+  #header .hint { color: #666; font-size: 11px; }
+  #log-wrap {
+    position: fixed; top: 36px; bottom: 0; left: 0; right: 0;
+    overflow-y: auto; padding: 8px 12px;
+  }
+  #lab-log div { padding: 1px 0; border-bottom: 1px solid #1a1a1a; word-break: break-all; }
+  #lab-log div:hover { background: #1a1a1a; }
+</style>
+</head>
+<body>
+<div id="header">
+  <h1>VECTORCOSM LAB</h1>
+  <span class="hint">All worker events logged below &bull; <code>window.vectorcosmLab</code> in console</span>
+  <span class="hint">?sim= &nbsp; ?speed=full|throttled|natural &nbsp; ?num_boids= &nbsp; ?stats_interval=</span>
+</div>
+<div id="log-wrap">
+  <div id="lab-log"></div>
+</div>
+<script type="module" src="/src/lab.js"></script>
+</body>
+</html>
