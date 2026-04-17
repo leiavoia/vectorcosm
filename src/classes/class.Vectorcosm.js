@@ -172,11 +172,14 @@ export default class Vectorcosm {
 		if ( !this.simulation ) { 
 			this.simulation = SimulationFactory('natural_tank');
 		}
-		// meta params that carry over from sim to sim; apply any non-null overrides
+		// meta params that carry over from sim to sim; apply any non-null, non-zero overrides.
+		// 0 is the UI sentinel for "use default" (sliders rest at 0 meaning "not set").
+		// segments minimum is 1, so <= 1 means "not set".
 		for ( const k in this.sim_meta_params ) {
-			if ( this.sim_meta_params[k] !== null && this.sim_meta_params[k] !== undefined ) {
-				this.simulation.settings[k] = this.sim_meta_params[k];
-			}
+			const v = this.sim_meta_params[k];
+			if ( v === null || v === undefined || v === 0 ) { continue; }
+			if ( k === 'segments' && v <= 1 ) { continue; }
+			this.simulation.settings[k] = v;
 		}
 		// clean the tank and transplant boids back in
 		this.tank.Kill();
