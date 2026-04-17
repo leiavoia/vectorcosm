@@ -7,13 +7,33 @@ COMMAND DISPATCH
 - Unhandled errors post { functionName: 'error', data: { command, message, stack } }.
 - Built-in commands: help, describe, ping.
 
-REGISTERED COMMANDS (14 app + 3 built-in, all snake_case)
-  update, pick_object, get_tank_env_data, end_sim, save_tank, load_tank,
-  export_boids, load_boids, smite, rand_tank, init, update_sim_settings,
-  push_sim_queue, add_saved_boids, help, describe, ping
+REGISTERED COMMANDS (all snake_case)
+  App commands (14):
+    update, pick_object, get_tank_env_data, end_sim, save_tank, load_tank,
+    export_boids, load_boids, smite, rand_tank, init, update_sim_settings,
+    push_sim_queue, add_saved_boids
+  Autonomous loop (9):
+    start_autonomous, stop_autonomous, resume_autonomous, set_speed, terminate,
+    get_status, get_stats, get_population, export_tank
+  Built-ins (3):
+    help, describe, ping
+
+AUTONOMOUS LOOP (Step 1.2)
+- start_autonomous({ speed, throttle_delay, natural_fps, stats_interval })
+  speed: 'full' (setTimeout 0, fixed 1/30 delta)
+       | 'throttled' (setTimeout N ms, fixed 1/30 delta)
+       | 'natural' (setTimeout remainder, real elapsed delta)
+- In autonomous mode: NO render data sent. Stats posted via autonomous.stats every stats_interval ms.
+- stop_autonomous / resume_autonomous — pause/resume without losing state.
+- terminate — stop + post terminal status.
+- get_status — instant snapshot: running, speed, frame_count, sim_time, round_num, population_size, wall_ms, ticks_per_second.
+- get_stats — full sim + tank snapshot including sim.settings.
+- get_population — compact boid list: oid, species, genus, gen, age, score, mass; opt inc_dna.
+- export_tank — full scene JSON without DB write (same structure as SaveTank but returned directly).
 
 PUBSUB EVENTS (forwarded to main thread, not commands — dot.notation)
   sim_complete, sim_round, sim_new, records_push, boid_records_push, save_tank (autosave)
+  autonomous.stats — periodic stats during autonomous run
 
 GLOBALS
   globalThis.vc — the Vectorcosm instance (authoritative simulation state)
@@ -232,6 +252,22 @@ commands.register( { name: 'update', description: 'Advance simulation and return
 // per-frame stats throttle counter and settings dirty flag
 let stats_tick = 0;
 let settings_dirty = true; // true on start so settings are sent on first update
+
+// autonomous loop state
+let autonomous = false;
+let auto_speed = null;             // 'full' | 'throttled' | 'natural'
+let auto_loop_timer = null;
+let auto_throttle_delay = 10;      // ms delay between ticks in 'throttled' mode
+let auto_natural_fps = 30;         // target fps in 'natural' mode
+let auto_stats_interval = 5000;    // ms between autonomous.stats posts (0 = disabled)
+let auto_last_stats_ms = 0;
+let auto_wall_start_ms = 0;        // performance.now() at loop start
+let auto_frame_count = 0;
+let auto_tps = 0;                  // rolling ticks-per-second
+let auto_tps_window = 0;           // frame tally for current tps window
+let auto_tps_window_start = 0;     // ms when the current tps window started
+let auto_last_natural_ms = 0;      // previous tick time, for real-time delta
+const AUTO_FIXED_DELTA = 1/30;     // fixed timestep used in full and throttled modes
 
 let last_focus_object_id = null;
 commands.register( { name: 'pick_object', description: 'Select a boid by ID or by proximity to coordinates', handler: params => {
@@ -479,6 +515,258 @@ commands.register( { name: 'add_saved_boids', description: 'Load saved boids fro
 	globalThis.postMessage( {
 		functionName: 'add_saved_boids',
 		data: { ok: true, num_added }
+	} );
+} });
+
+// ─── AUTONOMOUS LOOP ──────────────────────────────────────────────────────────
+
+// post a stats snapshot during autonomous operation
+function PostAutonomousStats() {
+	const wall_ms = performance.now() - auto_wall_start_ms;
+	let species = new Set();
+	for ( let b of globalThis.vc.tank.boids ) { species.add(b.species); }
+	globalThis.postMessage( {
+		functionName: 'autonomous.stats',
+		data: {
+			running: autonomous,
+			speed: auto_speed,
+			frame_count: auto_frame_count,
+			sim_time: globalThis.vc.simulation?.stats?.round_time || 0,
+			round_num: globalThis.vc.simulation?.stats?.round_num || 0,
+			population_size: globalThis.vc.tank.boids.length,
+			species: species.size,
+			wall_ms,
+			ticks_per_second: auto_tps,
+		}
+	} );
+}
+
+// single tick: advance the sim, maintain metrics, reschedule itself
+function AutoTick() {
+	if ( !autonomous ) { return; }
+	const tick_start = performance.now();
+
+	// compute delta
+	let delta;
+	if ( auto_speed === 'natural' ) {
+		delta = auto_last_natural_ms ? (tick_start - auto_last_natural_ms) / 1000 : AUTO_FIXED_DELTA;
+		auto_last_natural_ms = tick_start;
+		// clamp: don't let a stall produce a huge time warp
+		delta = Math.min(delta, 0.1);
+	} 
+	else {
+		delta = AUTO_FIXED_DELTA;
+	}
+
+	globalThis.vc.update(delta);
+	auto_frame_count++;
+
+	// rolling tps (1s window)
+	auto_tps_window++;
+	const tps_elapsed = tick_start - auto_tps_window_start;
+	if ( tps_elapsed >= 1000 ) {
+		auto_tps = auto_tps_window / (tps_elapsed / 1000);
+		auto_tps_window = 0;
+		auto_tps_window_start = tick_start;
+	}
+
+	// periodic stats post
+	if ( auto_stats_interval > 0 && (tick_start - auto_last_stats_ms) >= auto_stats_interval ) {
+		auto_last_stats_ms = tick_start;
+		PostAutonomousStats();
+	}
+
+	// schedule next tick
+	const tick_duration = performance.now() - tick_start;
+	if ( auto_speed === 'full' ) {
+		auto_loop_timer = setTimeout(AutoTick, 0);
+	} 
+	else if ( auto_speed === 'throttled' ) {
+		auto_loop_timer = setTimeout(AutoTick, auto_throttle_delay);
+	} 
+	else if ( auto_speed === 'natural' ) {
+		const target_ms = 1000 / auto_natural_fps;
+		auto_loop_timer = setTimeout(AutoTick, Math.max(0, target_ms - tick_duration));
+	}
+}
+
+// Start the autonomous loop. Params: speed (full|throttled|natural), throttle_delay, natural_fps, stats_interval
+commands.register( { name: 'start_autonomous', description: 'Start the autonomous simulation loop. Params: speed (full|throttled|natural), throttle_delay (ms), natural_fps, stats_interval (ms)', handler: params => {
+	if ( autonomous ) {
+		globalThis.postMessage( { functionName: 'start_autonomous', request_id: params?.request_id, data: { ok: false, error: 'already running' } } );
+		return;
+	}
+	auto_speed = params.data?.speed || 'throttled';
+	auto_throttle_delay = params.data?.throttle_delay ?? 10;
+	auto_natural_fps = params.data?.natural_fps ?? 30;
+	auto_stats_interval = params.data?.stats_interval ?? 5000;
+	autonomous = true;
+	const now = performance.now();
+	auto_wall_start_ms = now;
+	auto_last_stats_ms = now;
+	auto_frame_count = 0;
+	auto_tps = 0;
+	auto_tps_window = 0;
+	auto_tps_window_start = now;
+	auto_last_natural_ms = (auto_speed === 'natural') ? now : 0;
+	auto_loop_timer = setTimeout(AutoTick, 0);
+	globalThis.postMessage( { functionName: 'start_autonomous', request_id: params?.request_id, data: { ok: true, speed: auto_speed } } );
+} });
+
+commands.register( { name: 'stop_autonomous', description: 'Stop (pause) the autonomous loop', handler: params => {
+	autonomous = false;
+	if ( auto_loop_timer !== null ) {
+		clearTimeout(auto_loop_timer);
+		auto_loop_timer = null;
+	}
+	globalThis.postMessage( { functionName: 'stop_autonomous', request_id: params?.request_id, data: { ok: true, frame_count: auto_frame_count } } );
+} });
+
+commands.register( { name: 'resume_autonomous', description: 'Resume a paused autonomous loop', handler: params => {
+	if ( autonomous ) {
+		globalThis.postMessage( { functionName: 'resume_autonomous', request_id: params?.request_id, data: { ok: false, error: 'already running' } } );
+		return;
+	}
+	if ( !auto_speed ) {
+		globalThis.postMessage( { functionName: 'resume_autonomous', request_id: params?.request_id, data: { ok: false, error: 'not initialized — call start_autonomous first' } } );
+		return;
+	}
+	autonomous = true;
+	if ( auto_speed === 'natural' ) { auto_last_natural_ms = performance.now(); }
+	auto_loop_timer = setTimeout(AutoTick, 0);
+	globalThis.postMessage( { functionName: 'resume_autonomous', request_id: params?.request_id, data: { ok: true, speed: auto_speed } } );
+} });
+
+commands.register( { name: 'set_speed', description: 'Change autonomous loop speed without stopping. Params: speed (full|throttled|natural), throttle_delay, natural_fps', handler: params => {
+	if ( params.data?.speed ) { auto_speed = params.data.speed; }
+	if ( params.data?.throttle_delay !== undefined ) { auto_throttle_delay = params.data.throttle_delay; }
+	if ( params.data?.natural_fps !== undefined ) { auto_natural_fps = params.data.natural_fps; }
+	globalThis.postMessage( { functionName: 'set_speed', request_id: params?.request_id, data: { ok: true, speed: auto_speed } } );
+} });
+
+commands.register( { name: 'terminate', description: 'Stop the autonomous loop and post a final status report', handler: params => {
+	autonomous = false;
+	if ( auto_loop_timer !== null ) {
+		clearTimeout(auto_loop_timer);
+		auto_loop_timer = null;
+	}
+	const wall_ms = auto_wall_start_ms ? (performance.now() - auto_wall_start_ms) : 0;
+	let species = new Set();
+	for ( let b of globalThis.vc.tank.boids ) { species.add(b.species); }
+	globalThis.postMessage( {
+		functionName: 'terminate',
+		request_id: params?.request_id,
+		data: {
+			ok: true,
+			frame_count: auto_frame_count,
+			sim_time: globalThis.vc.simulation?.stats?.round_time || 0,
+			round_num: globalThis.vc.simulation?.stats?.round_num || 0,
+			population_size: globalThis.vc.tank.boids.length,
+			species: species.size,
+			wall_ms,
+			ticks_per_second: auto_tps,
+		}
+	} );
+} });
+
+commands.register( { name: 'get_status', description: 'Get autonomous loop status and summary simulation stats', handler: params => {
+	const wall_ms = auto_wall_start_ms ? (performance.now() - auto_wall_start_ms) : 0;
+	let species = new Set();
+	for ( let b of globalThis.vc.tank.boids ) { species.add(b.species); }
+	globalThis.postMessage( {
+		functionName: 'get_status',
+		request_id: params?.request_id,
+		data: {
+			running: autonomous,
+			speed: auto_speed,
+			frame_count: auto_frame_count,
+			sim_time: globalThis.vc.simulation?.stats?.round_time || 0,
+			round_num: globalThis.vc.simulation?.stats?.round_num || 0,
+			population_size: globalThis.vc.tank.boids.length,
+			species: species.size,
+			wall_ms,
+			ticks_per_second: auto_tps,
+		}
+	} );
+} });
+
+commands.register( { name: 'get_stats', description: 'Get a full simulation + tank stats snapshot', handler: params => {
+	const wall_ms = auto_wall_start_ms ? (performance.now() - auto_wall_start_ms) : 0;
+	const sim = globalThis.vc.simulation;
+	const tank = globalThis.vc.tank;
+	let species = new Set();
+	for ( let b of tank.boids ) { species.add(b.species); }
+	globalThis.postMessage( {
+		functionName: 'get_stats',
+		request_id: params?.request_id,
+		data: {
+			running: autonomous,
+			speed: auto_speed,
+			frame_count: auto_frame_count,
+			wall_ms,
+			ticks_per_second: auto_tps,
+			sim: {
+				name: sim?.settings?.name,
+				round_num: sim?.stats?.round_num || 0,
+				round_time: sim?.stats?.round_time || 0,
+				best_score: sim?.stats?.best_score || 0,
+				best_avg_score: sim?.stats?.best_avg_score || 0,
+				round_best_score: sim?.stats?.round_best_score || 0,
+				round_avg_score: sim?.stats?.round_avg_score || 0,
+				sims_in_queue: globalThis.vc.sim_queue.length,
+				settings: sim?.settings,
+			},
+			tank: {
+				boids: tank.boids.length,
+				species: species.size,
+				plants: tank.plants.length,
+				foods: tank.foods.length,
+				rocks: tank.obstacles.length,
+				marks: tank.marks.length,
+				boid_mass: Math.floor( tank.boids.reduce( (a,b) => a+b.mass, 0 ) ),
+				food_mass: Math.floor( tank.foods.reduce( (a,b) => a+b.value, 0 ) ),
+			},
+		}
+	} );
+} });
+
+commands.register( { name: 'get_population', description: 'Get compact population list (oid, species, age, score, dna). Params: inc_dna (bool)', handler: params => {
+	const inc_dna = params.data?.inc_dna ?? false;
+	const list = globalThis.vc.tank.boids.map( b => {
+		const entry = {
+			oid: b.oid,
+			species: b.species,
+			genus: b.genus,
+			generation: b.generation,
+			age: Math.round(b.age),
+			score: b.stats?.food || 0,
+			mass: Math.round(b.mass),
+		};
+		if ( inc_dna ) { entry.dna = b.dna?.hex || null; }
+		return entry;
+	});
+	globalThis.postMessage( {
+		functionName: 'get_population',
+		request_id: params?.request_id,
+		data: list,
+	} );
+} });
+
+commands.register( { name: 'export_tank', description: 'Export full tank state as structured JSON without a DB write', handler: params => {
+	const tank = globalThis.vc.tank;
+	const sim = globalThis.vc.simulation;
+	const scene = {
+		tank: tank.Export(),
+		boids: tank.boids.map( x => x.Export() ),
+		obstacles: tank.obstacles.map( x => x.Export() ),
+		foods: tank.foods.map( x => x.Export() ),
+		plants: tank.plants.map( x => x.Export() ),
+		sim_settings: sim?.settings || {},
+	};
+	globalThis.postMessage( {
+		functionName: 'export_tank',
+		request_id: params?.request_id,
+		data: scene,
 	} );
 } });
 
