@@ -55,7 +55,8 @@ All heavy computation (physics, neural nets, collisions, genetics) runs in a **d
 - No typescript.
 - Ignore legacy browser support.
 - Opening braces on same line.
-- if/else/then branches start a new line. Do not keep with preceeding ending bracket.
+- if/else/then branches start a new line. Do not keep with preceding ending bracket.
+- Block-level comments go above the block, not under the opening bracket.
 - Use descriptive variable names.
 - Terse variable names like i, j, k, v ok in tight loops.
 - Inline very short statements with braces and contents on one line.
