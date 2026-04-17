@@ -243,47 +243,42 @@ commands.register( { name: 'update', description: 'Advance simulation and return
 	}));
 	
 		
-	// compile simulation stats
-	let simStats = null;
-	let tankStats = null;
-	// send stats every 30 frames, or immediately when settings are dirty
-	stats_tick++;
-	const send_stats = ( stats_tick % 30 === 0 ) || settings_dirty;
-	if ( send_stats ) {
-		simStats = {
-			'best_score': globalThis.vc.simulation.stats.best_score,
-			'best_avg_score': globalThis.vc.simulation.stats.best_avg_score,
-			'framenum': globalThis.vc.simulation.stats.framenum,
-			'round_num': globalThis.vc.simulation.stats.round_num,
-			'round_best_score': globalThis.vc.simulation.stats.round_best_score,
-			'round_avg_score': globalThis.vc.simulation.stats.round_avg_score,
-			'timeout': globalThis.vc.simulation.settings.timeout,
-			'round_time': (globalThis.vc.simulation.stats.round_time || 0),
-			'name': globalThis.vc.simulation.settings.name,
-			'segments': (globalThis.vc.simulation.settings.segments || 1),
-			'sims_in_queue': globalThis.vc.sim_queue.length,
-			// 'stats': globalThis.vc.simulation.stats, // warning: contains graph data
-		};
-		// only include the full settings object when it has changed
-		if ( settings_dirty ) {
-			simStats.settings = Object.assign( { sim_meta_params: globalThis.vc.sim_meta_params }, globalThis.vc.simulation.settings );
-			settings_dirty = false;
-		}
-
-		// tank stats
-		let species = new Set();
-		for ( let b of globalThis.vc.tank.boids ) { species.add(b.species); }
-		tankStats = {
-			boids: globalThis.vc.tank.boids.length,
-			species: species.size,
-			rocks: globalThis.vc.tank.obstacles.length,
-			plants: globalThis.vc.tank.plants.length,
-			foods: globalThis.vc.tank.foods.length,
-			marks: globalThis.vc.tank.marks.length,
-			boid_mass: Math.floor( globalThis.vc.tank.boids.reduce( (a,b) => a+b.mass, 0 ) ),
-			food_mass: Math.floor( globalThis.vc.tank.foods.reduce( (a,b) => a+b.value, 0 ) ),
-		};
+	// compile simulation stats — sent every frame (no throttle).
+	// throttling by frame count broke in turbo mode; the data is cheap to build.
+	// the settings sub-object is still gated on settings_dirty (it carries the full heavy object).
+	const simStats = {
+		'best_score': globalThis.vc.simulation.stats.best_score,
+		'best_avg_score': globalThis.vc.simulation.stats.best_avg_score,
+		'framenum': globalThis.vc.simulation.stats.framenum,
+		'round_num': globalThis.vc.simulation.stats.round_num,
+		'round_best_score': globalThis.vc.simulation.stats.round_best_score,
+		'round_avg_score': globalThis.vc.simulation.stats.round_avg_score,
+		'timeout': globalThis.vc.simulation.settings.timeout,
+		'round_time': (globalThis.vc.simulation.stats.round_time || 0),
+		'name': globalThis.vc.simulation.settings.name,
+		'segments': (globalThis.vc.simulation.settings.segments || 1),
+		'sims_in_queue': globalThis.vc.sim_queue.length,
+		// 'stats': globalThis.vc.simulation.stats, // warning: contains graph data
+	};
+	// only include the full settings object when it has changed
+	if ( settings_dirty ) {
+		simStats.settings = Object.assign( { sim_meta_params: globalThis.vc.sim_meta_params }, globalThis.vc.simulation.settings );
+		settings_dirty = false;
 	}
+
+	// tank stats — also sent every frame
+	let species = new Set();
+	for ( let b of globalThis.vc.tank.boids ) { species.add(b.species); }
+	const tankStats = {
+		boids: globalThis.vc.tank.boids.length,
+		species: species.size,
+		rocks: globalThis.vc.tank.obstacles.length,
+		plants: globalThis.vc.tank.plants.length,
+		foods: globalThis.vc.tank.foods.length,
+		marks: globalThis.vc.tank.marks.length,
+		boid_mass: Math.floor( globalThis.vc.tank.boids.reduce( (a,b) => a+b.mass, 0 ) ),
+		food_mass: Math.floor( globalThis.vc.tank.foods.reduce( (a,b) => a+b.value, 0 ) ),
+	};
 		
 	globalThis.postMessage( {
 		functionName: 'update',
@@ -291,8 +286,7 @@ commands.register( { name: 'update', description: 'Advance simulation and return
 	} );
 } });
 
-// per-frame stats throttle counter and settings dirty flag
-let stats_tick = 0;
+// settings dirty flag — forces settings sub-object into next simStats payload
 let settings_dirty = true; // true on start so settings are sent on first update
 
 // autonomous loop state

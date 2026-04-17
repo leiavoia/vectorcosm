@@ -325,22 +325,17 @@
 				}
 			}
 		}
-		// round_time always sent — update in place to keep plant animation smooth
-		if ( simStats && data.round_time !== undefined ) { simStats.round_time = data.round_time; }
-		// stats are only sent every N frames — skip update when absent
-		if ( data.simStats ) {
-			// count SVGs every so often
-			if ( gameloop.updates_per_frame <= 1 ) {
-				data.tankStats.SVGs = SVGUtils.CountSVGElements(globalThis.two.scene);
-			}
-			tankStats = data.tankStats;
-			// settings field is only sent when dirty — preserve previous value when absent
-			if ( data.simStats.settings ) {
-				simStats = data.simStats;
-			} 
-			else {
-				simStats = { ...data.simStats, settings: simStats.settings };
-			}
+		// simStats and tankStats are now sent every frame
+		if ( gameloop.updates_per_frame <= 1 ) {
+			data.tankStats.SVGs = SVGUtils.CountSVGElements(globalThis.two.scene);
+		}
+		tankStats = data.tankStats;
+		// settings sub-object only sent when dirty — preserve previous value when absent
+		if ( data.simStats.settings ) {
+			simStats = data.simStats;
+		}
+		else {
+			simStats = { ...data.simStats, settings: simStats.settings };
 		}
 		simStats.fps = gameloop.updates_per_frame > 1
 			? (gameloop.fps * gameloop.updates_per_frame).toFixed(0)
