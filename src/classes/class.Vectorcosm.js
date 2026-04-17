@@ -42,7 +42,6 @@ import TankLibrary from '../classes/class.TankLibrary.js'
 import { SimulationFactory, NaturalTankSimulation } from '../classes/class.Simulation.js'
 import { Boid } from '../classes/class.Boids.js'
 import PubSub from 'pubsub-js'
-import {db} from '../classes/db.js'
 
 export default class Vectorcosm {
 

@@ -1,11 +1,9 @@
 <script>
-	import BoidLibrary from '../classes/class.BoidLibrary.js'
 	import FileSaver from 'file-saver';
 	import PubSub from 'pubsub-js'
 	
 	let { api, open=true } = $props();
 
-	const lib = new BoidLibrary();
 	let rows = $state([]);
 	let order_by = 'date';
 	let ascending = false;
@@ -14,10 +12,10 @@
 	let show_file_upload_controls = $state(false);
 	let files = $state();
 	
-	function DeleteSelectedRows( row ) {
+	async function DeleteSelectedRows() {
 		for ( let i=rows.length-1; i >= 0; i-- ) {
 			if ( rows[i].selected ) {
-				lib.Delete(rows[i].id);
+				await api.call('boid_library_delete', { id: rows[i].id });
 				rows.splice(i,1);
 				num_selected--;
 			}
@@ -36,19 +34,22 @@
 		QueryLibrary( order_by, ascending, star );
 	}
 	
-	function ToggleFavoriteSelectedRows() {
-		rows.filter( _ => _.selected ).forEach( row => {
-			row.star = !row.star;
-			delete(row.selected);
-			lib.Update( $state.snapshot(row) );
+	async function ToggleFavoriteSelectedRows() {
+		const updates = rows.filter( _ => _.selected ).map( row => {
+			row.star = row.star ? 0 : 1;
+			const snapshot = { ...$state.snapshot(row) };
+			delete snapshot.selected;
+			return api.call('boid_library_update', { row: snapshot });
 		});
+		await Promise.all(updates);
 	}
 	
-	function MarkRowAsFavorite(row, event) {
+	async function MarkRowAsFavorite(row, event) {
 		event.stopPropagation();
 		row.star = row.star ? 0 : 1;
-		delete(row.selected);
-		lib.Update($state.snapshot(row));
+		const snapshot = { ...$state.snapshot(row) };
+		delete snapshot.selected;
+		await api.call('boid_library_update', { row: snapshot });
 		return false;
 	}
 	
@@ -58,16 +59,12 @@
 	}
 	
 	function DeselectAll() {
-		for ( let r of rows ) {
-			r.selected = false;
-		}
+		for ( let r of rows ) { r.selected = false; }
 		num_selected = 0;
 	}
 	
 	function SelectAll() {
-		for ( let r of rows ) {
-			r.selected = true;
-		}
+		for ( let r of rows ) { r.selected = true; }
 		num_selected = rows.length;
 	}
 	
@@ -81,14 +78,14 @@
 			if ( rows[i].selected ) {
 				rows[i].selected = false;
 				num_selected--;
-				let full_row = await lib.GetFullRow(rows[i].id);
+				const full_row = await api.call('boid_library_get_row', { id: rows[i].id });
 				if ( !full_row ) { break; }
 				let str = JSON.stringify(full_row);
 				let filename = full_row.label + '_' +
 					+ full_row.count + '_' +
 					+ full_row.date
 					+ '.roe';
-				filename = filename.replace(/( |\s)+/ig,'_')	
+				filename = filename.replace(/( |\s)+/ig,'_');
 				let blob = new Blob([str], {type: "text/plain;charset=utf-8"});
 				saveAs(blob, filename);
 				break;
@@ -110,16 +107,14 @@
 		event.preventDefault();
 		for ( const file of files ) {
 			readFileContent(file)
-			.then( content => {
-				// strip out stuff we dont want.
-				// TODO: once we get a file format better firmed up, just whitelist fields we allow.
+			.then( async content => {
 				let obj = JSON.parse(content);
 				if ( obj ) {
 					if ( obj.id ) { delete(obj.id); }
 					if ( obj.selected ) { delete(obj.selected); }
-					lib.AddRow( obj );
-					// clean up file picker
+					await api.call('boid_library_add_row', { row: obj });
 					files = null;
+					await QueryLibrary( order_by, ascending, star );
 				}
 				show_file_upload_controls = false;
 			} )
@@ -131,16 +126,16 @@
 		show_file_upload_controls = !show_file_upload_controls;
 	}
 		
-	async function QueryLibrary( order_by='date', ascending=false, star=null ) {
+	async function QueryLibrary( _order_by='date', _ascending=false, _star=null ) {
+		const results = await api.call('boid_library_list', { order_by: _order_by, ascending: _ascending, star: _star });
 		rows.length = 0;
-		let results = await lib.Get({ order_by, ascending, star });
-		rows.push( ...results );
+		rows.push( ...(results || []) );
 		num_selected = 0;
 	}
 	
 	QueryLibrary( order_by, ascending, star );
 	
-	// listen for library additions from other components
+	// re-query when the worker reports a library change (e.g. autosave, export_boids)
 	let libraryUpdateSubscription = PubSub.subscribe('boid-library-addition', (msg,data) => {
 		QueryLibrary( order_by, ascending, star );
 	});

@@ -1,32 +1,37 @@
 /* <AI>
-BoidLibrary — IndexedDB persistence for saved boid populations.
+BoidLibrary — Persistence for saved boid populations via a pluggable StorageAdapter.
 
 OVERVIEW
-- Split-table design: `population_index` (metadata) and `population_data` (serialized specimens).
-- `Add(population[])` — serializes each boid with `boid.Export(true)`, stores to DB, returns id.
+- `Add(population[])` — serializes each boid with `boid.Export(true)`, stores, returns id.
 - `AddRow(row)` — import from file (row has index fields + `specimens` array).
-- `Get(params)` — queries index table only (no specimen data). Filter by id, label, etc.
+- `Get(params)` — returns index rows only (no specimen data). Filter by id, label, star.
 - `GetData(id)` — loads actual boid specimen data for one population.
-- `Delete(id)` — removes both index and data rows.
+- `Delete(id)` — removes both index and data.
 - `Update(row)` — updates index fields only; never touches specimen data.
 - `MakeLabel(population)` — auto-generates a display label from genus/species distribution.
 
+ADAPTER
+- Set `BoidLibrary.default_adapter` once at startup (before any instantiation).
+  Browser worker: DexieAdapter. CLI: FileAdapter or MemoryAdapter.
+- Or pass per-instance: `new BoidLibrary(myAdapter)`.
+- `Get(params)` filtering is done in JS (adapter interface is generic — no query DSL).
+
 EVENTS
 - Publishes 'boid-library-addition' PubSub event on Add/Delete to trigger UI refresh.
-
-RELATIONSHIPS
-- Uses `db.js` (Dexie singleton).
-- UI library panels subscribe to PubSub events to re-render on changes.
 </AI> */
 
 import * as utils from '../util/utils.js'
-import {db} from '../classes/db.js'
 import PubSub from 'pubsub-js'
 
 export default class BoidLibrary {
 
-	constructor() {
-	
+	// set once at startup before first instance; fallback null causes errors
+	static default_adapter = null;
+	static collection = 'boids';
+
+	constructor( adapter = null ) {
+		this.adapter = adapter ?? BoidLibrary.default_adapter;
+		this.collection = BoidLibrary.collection;
 	}
 	
 	static MakeLabel( population ) {
@@ -58,11 +63,8 @@ export default class BoidLibrary {
 			num_species: species_set.size,
 			num_genus: genus_set.size,
 		};
-		const id = await db.population_index.put(index_row);
-		await db.population_data.put({
-			id: id,
-			specimens: population.map( _ => _.Export(true) ),
-		});
+		const id = await this.adapter.indexPut(this.collection, index_row);
+		await this.adapter.dataPut( this.collection, id, { id, specimens: population.map( _ => _.Export(true) ) } );
 		PubSub.publish('boid-library-addition', null);
 		return id;
 	}
@@ -79,8 +81,8 @@ export default class BoidLibrary {
 			row.label = row.species;
 			delete row.species;
 		}
-		const id = await db.population_index.put(row);
-		await db.population_data.put({ id, specimens });
+		const id = await this.adapter.indexPut(this.collection, row);
+		await this.adapter.dataPut(this.collection, id, { id, specimens });
 		PubSub.publish('boid-library-addition', null);
 		return id;
 	}
@@ -89,40 +91,43 @@ export default class BoidLibrary {
 		if ( !row.id ) { return false; }
 		// only update index fields, never touch data
 		const { specimens, ...index_row } = row;
-		return await db.population_index.put(index_row);
+		return await this.adapter.indexPut(this.collection, index_row);
 	}
 	
 	async Delete( id ) {
-		await db.population_data.delete(id);
-		return await db.population_index.delete(id);
+		await this.adapter.dataDelete(this.collection, id);
+		return await this.adapter.indexDelete(this.collection, id);
 	}
 	
 	// Get index rows only (lightweight, no specimen data)
 	async Get( params ) {
-		let data = db.population_index;
+		let data;
 		
-		// filtering
 		if ( params.id ) {
-			data = data.where("id").equals(params.id);
+			// single lookup — skip full scan
+			const row = await this.adapter.indexGet(this.collection, params.id);
+			data = row ? [row] : [];
 		}
-		else if ( params.label ) {
-			data = data.where("label").equalsIgnoreCase(params.label);
+		else {
+			data = await this.adapter.indexAll(this.collection);
+			// filtering
+			if ( params.label ) {
+				const l = params.label.toLowerCase();
+				data = data.filter( r => r.label?.toLowerCase() === l );
+			}
+			else if ( params.hasOwnProperty('star') && params.star !== null ) {
+				data = data.filter( r => r.star === params.star );
+			}
 		}
-		else if ( params.hasOwnProperty('star') && params.star !== null ) {
-			data = data.where("star").equals(params.star);
-		}
-		
-		data = await data.toArray();
 		
 		// sorting
 		if ( params.order_by ) {
 			const flip = params.ascending===false ? -1 : 1;
-			let sortfunc = (a,b) => {
-				if ( a[params.order_by] < b[params.order_by] ) return -1 * flip;
-				if ( a[params.order_by] === b[params.order_by] ) return  0;
-				if ( a[params.order_by] > b[params.order_by] ) return  1 * flip;
-			}
-			data.sort(sortfunc);
+			data.sort( (a, b) => {
+				if ( a[params.order_by] < b[params.order_by] ) { return -1 * flip; }
+				if ( a[params.order_by] === b[params.order_by] ) { return 0; }
+				return 1 * flip;
+			});
 		}
 		
 		return data;	
@@ -130,13 +135,13 @@ export default class BoidLibrary {
 	
 	// Get full specimen data for a single record (heavy)
 	async GetData( id ) {
-		return await db.population_data.get(id);
+		return await this.adapter.dataGet(this.collection, id);
 	}
 
 	// Export a full row (index + data merged) for file export
 	async GetFullRow( id ) {
-		const index = await db.population_index.get(id);
-		const data = await db.population_data.get(id);
+		const index = await this.adapter.indexGet(this.collection, id);
+		const data = await this.adapter.dataGet(this.collection, id);
 		if ( !index || !data ) { return null; }
 		return { ...index, specimens: data.specimens };
 	}

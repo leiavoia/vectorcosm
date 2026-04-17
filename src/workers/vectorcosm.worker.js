@@ -35,6 +35,12 @@ PUBSUB EVENTS (forwarded to main thread, not commands — dot.notation)
   sim_complete, sim_round, sim_new, records_push, boid_records_push, save_tank (autosave)
   autonomous.stats — periodic stats during autonomous run
 
+STORAGE (Step 3.1)
+- BoidLibrary and TankLibrary use pluggable adapters (StorageAdapter interface).
+- DexieAdapter is set as the default for both libraries at worker startup (top of this file).
+- CLI / Node.js: set MemoryAdapter or FileAdapter before instantiating any library.
+- Do NOT import DexieAdapter in Node.js — it requires IndexedDB.
+
 GLOBALS
   globalThis.vc — the Vectorcosm instance (authoritative simulation state)
 </AI> */
@@ -46,9 +52,14 @@ import { SimulationFactory } from '../classes/class.Simulation.js'
 import PubSub from 'pubsub-js'
 import BoidLibrary from '../classes/class.BoidLibrary.js'
 import TankLibrary from '../classes/class.TankLibrary.js'
+import DexieAdapter from '../classes/class.DexieAdapter.js'
 import Tank from '../classes/class.Tank.js'
 import TankMaker from '../classes/class.TankMaker.js'
 import CommandRegistry from '../classes/class.CommandRegistry.js'
+
+// wire up the browser-side storage adapters before any library instance is created
+BoidLibrary.default_adapter = new DexieAdapter();
+TankLibrary.default_adapter = new DexieAdapter();
 
 const commands = new CommandRegistry();
 
@@ -522,6 +533,64 @@ commands.register( { name: 'add_saved_boids', description: 'Load saved boids fro
 		request_id: params?.request_id,
 		data: { ok: true, num_added }
 	} );
+} });
+
+// ─── LIBRARY MANAGEMENT ───────────────────────────────────────────────────────
+
+// All library CRUD goes through these commands so the main thread never touches IndexedDB directly.
+
+commands.register( { name: 'boid_library_list', description: 'List boid population index rows', handler: async params => {
+	const lib = new BoidLibrary();
+	const rows = await lib.Get( params.data || {} );
+	globalThis.postMessage( { functionName: 'boid_library_list', request_id: params?.request_id, data: rows } );
+} });
+
+commands.register( { name: 'boid_library_delete', description: 'Delete a saved boid population by id', handler: async params => {
+	const lib = new BoidLibrary();
+	await lib.Delete( params.data.id );
+	globalThis.postMessage( { functionName: 'boid_library_delete', request_id: params?.request_id, data: { ok: true } } );
+} });
+
+commands.register( { name: 'boid_library_update', description: 'Update index fields (label, star, etc.) for a saved population', handler: async params => {
+	const lib = new BoidLibrary();
+	await lib.Update( params.data.row );
+	globalThis.postMessage( { functionName: 'boid_library_update', request_id: params?.request_id, data: { ok: true } } );
+} });
+
+commands.register( { name: 'boid_library_get_row', description: 'Get full row (index + specimens) for a saved population', handler: async params => {
+	const lib = new BoidLibrary();
+	const row = await lib.GetFullRow( params.data.id );
+	globalThis.postMessage( { functionName: 'boid_library_get_row', request_id: params?.request_id, data: row } );
+} });
+
+commands.register( { name: 'boid_library_add_row', description: 'Import a boid population row from external JSON', handler: async params => {
+	const lib = new BoidLibrary();
+	const id = await lib.AddRow( params.data.row );
+	globalThis.postMessage( { functionName: 'boid_library_add_row', request_id: params?.request_id, data: { id } } );
+} });
+
+commands.register( { name: 'tank_library_list', description: 'List tank index rows', handler: async params => {
+	const lib = new TankLibrary();
+	const rows = await lib.Get( params.data || {} );
+	globalThis.postMessage( { functionName: 'tank_library_list', request_id: params?.request_id, data: rows } );
+} });
+
+commands.register( { name: 'tank_library_delete', description: 'Delete a saved tank by id', handler: async params => {
+	const lib = new TankLibrary();
+	await lib.Delete( params.data.id );
+	globalThis.postMessage( { functionName: 'tank_library_delete', request_id: params?.request_id, data: { ok: true } } );
+} });
+
+commands.register( { name: 'tank_library_get_row', description: 'Get full row (index + scene) for a saved tank', handler: async params => {
+	const lib = new TankLibrary();
+	const row = await lib.GetFullRow( params.data.id );
+	globalThis.postMessage( { functionName: 'tank_library_get_row', request_id: params?.request_id, data: row } );
+} });
+
+commands.register( { name: 'tank_library_add_row', description: 'Import a tank row from external JSON (stores only, does not load)', handler: async params => {
+	const lib = new TankLibrary();
+	const id = await lib.AddRow( params.data.row );
+	globalThis.postMessage( { functionName: 'tank_library_add_row', request_id: params?.request_id, data: { id } } );
 } });
 
 // ─── AUTONOMOUS LOOP ──────────────────────────────────────────────────────────

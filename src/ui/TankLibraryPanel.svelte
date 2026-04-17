@@ -1,11 +1,9 @@
 <script>
-	import TankLibrary from '../classes/class.TankLibrary.js'
 	import FileSaver from 'file-saver';
 	import PubSub from 'pubsub-js'
 	
 	let { api, camera, open=true } = $props();
 
-	const lib = new TankLibrary();
 	let rows = $state([]);
 	let order_by = 'date';
 	let ascending = false;
@@ -15,19 +13,18 @@
 	
 	function LoadTank() {
 		if ( !selected_row ) { return; }
-		camera.dramatic_entrance = -1; // evaluates to "true" but resets to false on next action
+		camera.dramatic_entrance = -1;
 		api.SendMessage('load_tank', { id: selected_row.id } );
 	}
 	
 	function SaveTank() {
-		// save over or have existing id?
 		let id = selected_row ? selected_row.id : null;
 		api.SendMessage('save_tank', {id});
 	}
 	
-	function DeleteSelectedRow() {
+	async function DeleteSelectedRow() {
 		if ( !selected_row ) { return; }
-		lib.Delete(selected_row.id);
+		await api.call('tank_library_delete', { id: selected_row.id });
 		let i = rows.indexOf(selected_row);
 		if ( i >= 0 ) { rows.splice(i,1); }
 		selected_row = null;
@@ -45,11 +42,11 @@
 	
 	async function ExportSelectedRowToFile() {
 		if ( !selected_row ) { return; }
-		let full_row = await lib.GetFullRow(selected_row.id);
+		const full_row = await api.call('tank_library_get_row', { id: selected_row.id });
 		if ( !full_row ) { return; }
 		let str = JSON.stringify(full_row);
 		let filename = 'vectorcosm_' + selected_row.id + '_' + selected_row.label + '.tank';
-		filename = filename.replace(/( |\s)+/ig,'_')	
+		filename = filename.replace(/( |\s)+/ig,'_');
 		let blob = new Blob([str], {type: "text/plain;charset=utf-8"});
 		saveAs(blob, filename);
 	}
@@ -68,19 +65,15 @@
 		event.preventDefault();
 		for ( const file of files ) {
 			readFileContent(file)
-			.then( content => {
+			.then( async content => {
 				let obj = JSON.parse(content);
 				if ( obj ) {
-					// strip out stuff we dont want.
-					// TODO: once we get a file format better firmed up, just whitelist fields we allow.
-					// don't let IDs in from the outside
 					if ( obj.id ) { delete(obj.id); }
-					lib.AddRow( obj ); // this will send pubsub signal `tank-library-addition`
-					// clean up file picker
+					await api.call('tank_library_add_row', { row: obj });
 					files = null;
+					await QueryLibrary( order_by, ascending );
 				}
 				show_file_upload_controls = false;
-				// pubsub handles library redraw
 			} )
 			.catch( error => console.error(error) )			
 		}
@@ -90,15 +83,15 @@
 		show_file_upload_controls = !show_file_upload_controls;
 	}
 		
-	async function QueryLibrary( order_by='date', ascending=false ) {
+	async function QueryLibrary( _order_by='date', _ascending=false ) {
+		const results = await api.call('tank_library_list', { order_by: _order_by, ascending: _ascending });
 		rows.length = 0;
-		let results = await lib.Get({ order_by, ascending });
-		rows.push( ...results );
+		rows.push( ...(results || []) );
 	}
 	
 	QueryLibrary( order_by, ascending );
 	
-	// listen for library additions from other components
+	// re-query when the worker reports a library change (e.g. autosave)
 	let libraryUpdateSubscription = PubSub.subscribe('tank-library-addition', (msg,data) => {
 		QueryLibrary( order_by, ascending );
 	});
