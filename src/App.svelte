@@ -835,6 +835,7 @@
 		if ( windowResizeTimeout ) { clearTimeout(windowResizeTimeout); }
 		windowResizeTimeout = setTimeout(function() {
 			globalThis.two.fit();
+			if ( !camera ) { return; }
 			camera.window_width = two.width;
 			camera.window_height = two.height;			
 			camera.RescaleBackground();
@@ -852,6 +853,7 @@
 	let is_idle = $state(false);
 	
 	function onwheel(event) {
+		if ( !camera ) { return; }
 		camera.ZoomAt( event.clientX, event.clientY, event.deltaY > 0 );
 	}
 	

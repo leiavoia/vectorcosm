@@ -37,9 +37,14 @@ PUBSUB EVENTS (forwarded to main thread, not commands — dot.notation)
 
 STORAGE (Step 3.1)
 - BoidLibrary and TankLibrary use pluggable adapters (StorageAdapter interface).
-- DexieAdapter is set as the default for both libraries at worker startup (top of this file).
-- CLI / Node.js: set MemoryAdapter or FileAdapter before instantiating any library.
-- Do NOT import DexieAdapter in Node.js — it requires IndexedDB.
+- Browser: DexieAdapter (IndexedDB) set as default via dynamic import at worker startup.
+- Node.js: MemoryAdapter (in-memory) set as default at worker startup.
+- CLI runner (Step 3.3) may override adapter after startup via a command.
+
+NODE.JS COMPATIBILITY (Step 3.2)
+- IS_NODEJS detection: `typeof WorkerGlobalScope === 'undefined'` — avoids false positives from Vite's process shim.
+- Browser: `self.addEventListener` registered SYNCHRONOUSLY before any async work. The Web Worker event loop continues running during top-level await suspension; messages arriving before addEventListener is called are permanently dropped. DexieAdapter loaded async via .then() after listener is in place.
+- Node.js: await is fine because parentPort buffers messages internally until .on('message') is called.
 
 GLOBALS
   globalThis.vc — the Vectorcosm instance (authoritative simulation state)
@@ -52,20 +57,20 @@ import { SimulationFactory } from '../classes/class.Simulation.js'
 import PubSub from 'pubsub-js'
 import BoidLibrary from '../classes/class.BoidLibrary.js'
 import TankLibrary from '../classes/class.TankLibrary.js'
-import DexieAdapter from '../classes/class.DexieAdapter.js'
 import Tank from '../classes/class.Tank.js'
 import TankMaker from '../classes/class.TankMaker.js'
 import CommandRegistry from '../classes/class.CommandRegistry.js'
 
-// wire up the browser-side storage adapters before any library instance is created
-BoidLibrary.default_adapter = new DexieAdapter();
-TankLibrary.default_adapter = new DexieAdapter();
-
 const commands = new CommandRegistry();
 
+// detect whether we're running as a browser Web Worker or a Node.js worker_threads worker.
+// WorkerGlobalScope is a browser-only global — Vite's process shim pollutes process.versions
+// in the browser bundle so we can't rely on `process` for this check.
+const IS_NODEJS = typeof WorkerGlobalScope === 'undefined';
+
 // broker incoming messages to the right handling function
-self.addEventListener('message', async (event) => {
-	const eventData = event.data;
+// receives raw data (not a DOM Event) — both paths normalize before calling this
+async function handleMessage(eventData) {
 	const functionName = eventData?.functionName ?? eventData?.f;
 	if ( !commands.has( functionName ) ) { return; }
 	const result = await commands.execute( functionName, eventData );
@@ -79,7 +84,33 @@ self.addEventListener('message', async (event) => {
 			} 
 		} );
 	}
-});
+}
+
+// IPC + storage setup — split by environment
+if ( IS_NODEJS ) {
+	// shim globalThis.postMessage so every existing postMessage() call works unchanged
+	const { parentPort } = await import('worker_threads');
+	globalThis.postMessage = parentPort.postMessage.bind(parentPort);
+	// use zero-dep in-memory adapter (no IndexedDB in Node.js)
+	const { default: MemoryAdapter } = await import('../classes/class.MemoryAdapter.js');
+	BoidLibrary.default_adapter = new MemoryAdapter();
+	TankLibrary.default_adapter = new MemoryAdapter();
+	// parentPort delivers raw data objects (not DOM Events)
+	parentPort.on('message', handleMessage);
+}
+
+// browser Web Worker — IndexedDB available via DexieAdapter
+else {
+	// MUST register synchronously before any await — the Web Worker event loop continues
+	// running during top-level await suspension, so messages arriving while the DexieAdapter
+	// import is in-flight are permanently dropped if addEventListener hasn't been called yet.
+	self.addEventListener('message', event => handleMessage(event.data));
+	// adapter load can be async — save/load commands aren't called during startup
+	import('../classes/class.DexieAdapter.js').then(({ default: DexieAdapter }) => {
+		BoidLibrary.default_adapter = new DexieAdapter();
+		TankLibrary.default_adapter = new DexieAdapter();
+	});
+}
 
 // this keeps track of which objects that already sent basic rendering info.
 // we don't need to send all of that every frame, just on the first one.
