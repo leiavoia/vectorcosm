@@ -13,6 +13,20 @@ SIM QUEUE
 - `sim_queue[]` holds Simulation instances to run in order.
 - Subscribed to 'sim.complete' PubSub event → calls `LoadNextSim()`.
 
+INIT PARAMS (all optional)
+- `width`, `height` — tank size in pixels.
+- `sim` — simulation preset name string (e.g. 'peaceful_tank'). Ignored if sim_queue is given.
+- `sim_queue` — array of preset name strings to run in sequence.
+- `sim_meta_params` — { num_boids, segments, rounds, ... } overrides applied to every sim.
+- Direct sim settings: `num_boids`, `num_foods`, `num_plants`, `num_rocks`, `rounds`, `timeout`,
+  `max_mutation`, `cullpct` — applied to sims built at init time ONLY (not sticky).
+  These do NOT write to sim_meta_params. Use `sim_meta_params` block for sticky.
+- `lock_dimensions` — prevent volume-based resize.
+
+SIM META PARAMS (carry over across queue entries)
+- All null by default. Any non-null value is applied to simulation.settings each time LoadNextSim() runs.
+- Keys: num_boids, segments, rounds, num_foods, num_plants, num_rocks, timeout, max_mutation, cullpct.
+
 SETTINGS
 - `boid_sensors_every_frame` — run sensors on every frame (slow, for debugging).
 - `plant_update_freq` — seconds between plant updates.
@@ -47,43 +61,79 @@ export default class Vectorcosm {
 		this.plant_update_freq = 5;
 		this.plant_update_next = 0;
 		this.free_plant_growth = true;
+		// carry-over settings applied to every simulation.settings when LoadNextSim() runs
 		this.sim_meta_params = {
 			num_boids: null,
 			segments: null,
-			rounds: null
+			rounds: null,
+			num_foods: null,
+			num_plants: null,
+			num_rocks: null,
+			timeout: null,
+			max_mutation: null,
+			cullpct: null,
 		};
 	}
 	
 	Init( params ) {
 				
-		// set up tank
+		// SET UP TANK -----------------\/-----------------
+		
 		const w = params?.width || 1920;
 		const h = params?.height || 1080;
 		this.tank = new Tank( w, h );
 		this.tank.MakeBackground();
 		// if explicit pixel dimensions were given, prevent simulations from overriding them via volume-based resize
 		this.lock_dimensions = !!params?.lock_dimensions;
+
+		// DETECT SIMULATION SETTINGS & PARAMS ------------------\/-----------------
 		
-		// set up simulations so we have something to watch
-		this.sim_queue = [
-			// SimulationFactory('turning_training_easy'),
-			// SimulationFactory('turning_training_medium'),
-			// SimulationFactory('turning_training_hard'),
-			// SimulationFactory('turning_training_xhard'),
-			// SimulationFactory('food_training_sim_easy'),
-			// SimulationFactory('food_training_sim_medium'),
-			// SimulationFactory('food_training_sim_hard'),
-			// SimulationFactory('food_training_sim_forever'),
-			// SimulationFactory('edge_training')
-			// SimulationFactory('petri_dish')
-			// SimulationFactory('treasure_hunt_easy'),
-			// SimulationFactory('treasure_hunt_hard'),
-			// SimulationFactory('treasure_hunt_perpetual'),
-			// SimulationFactory('obstacle_course'),
-			// SimulationFactory('race_track'),
-			// SimulationFactory('natural_tank'),
-			SimulationFactory('peaceful_tank'),
-		];
+		// sim settings that carry over across all sims in the queue
+		const SIM_SETTING_KEYS = ['num_boids','segments','rounds','num_foods','num_plants','num_rocks','timeout','max_mutation','cullpct'];
+
+		// merge explicit sim_meta_params block if provided (sticky — carry over to all future sims)
+		if ( params?.sim_meta_params ) {
+			for ( const k of SIM_SETTING_KEYS ) {
+				if ( k in params.sim_meta_params ) {
+					// null explicitly clears a sticky override back to "not set"
+					this.sim_meta_params[k] = params.sim_meta_params[k] !== undefined ? params.sim_meta_params[k] : null;
+				}
+			}
+		}
+		// flat sim settings from params (e.g. from URL) — applied to sims built at init time ONLY, not sticky
+		const setting_overrides = {};
+		for ( const k of SIM_SETTING_KEYS ) {
+			if ( params?.[k] !== undefined ) {
+				setting_overrides[k] = params[k];
+				// deliberately NOT written to sim_meta_params — flat params don't persist beyond init
+			}
+		}
+
+		// BUILD SIMULATION QUEUE -----------------\/------------
+		
+		// build simulation queue from params, or fall back to default.
+		// overrides are applied after factory so the layering is: base_defaults → library_preset → user_overrides.
+		// null override values are skipped (leave the library preset value in place).
+		const buildSim = ( name_or_obj ) => {
+			const sim = SimulationFactory(name_or_obj);
+			for ( const [k, v] of Object.entries(setting_overrides) ) {
+				if ( v !== null && v !== undefined ) { sim.settings[k] = v; }
+			}
+			return sim;
+		};
+
+		// explicit ordered queue of sim names / settings objects
+		if ( params?.sim_queue?.length ) {
+			this.sim_queue = params.sim_queue.map( buildSim );
+		}
+		// single named sim
+		else if ( params?.sim ) {
+			this.sim_queue = [ buildSim(params.sim) ];
+		}
+		// default
+		else {
+			this.sim_queue = [ buildSim('peaceful_tank') ];
+		}
 		
 		// subscribe to critical events
 		let onSimCompleteSubscription = PubSub.subscribe('sim.complete', (msg, data) => {
@@ -123,10 +173,12 @@ export default class Vectorcosm {
 		if ( !this.simulation ) { 
 			this.simulation = SimulationFactory('natural_tank');
 		}
-		// meta params that carry over from sim to sim
-		if ( this.sim_meta_params.num_boids > 0 ) { this.simulation.settings.num_boids = this.sim_meta_params.num_boids; }
-		if ( this.sim_meta_params.segments > 1 ) { this.simulation.settings.segments = this.sim_meta_params.segments; }
-		if ( this.sim_meta_params.rounds > 0 ) { this.simulation.settings.rounds = this.sim_meta_params.rounds; }
+		// meta params that carry over from sim to sim; apply any non-null overrides
+		for ( const k in this.sim_meta_params ) {
+			if ( this.sim_meta_params[k] !== null && this.sim_meta_params[k] !== undefined ) {
+				this.simulation.settings[k] = this.sim_meta_params[k];
+			}
+		}
 		// clean the tank and transplant boids back in
 		this.tank.Kill();
 		this.tank.boids = boids;

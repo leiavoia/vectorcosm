@@ -372,7 +372,7 @@ commands.register( { name: 'rand_tank', description: 'Regenerate tank obstacles 
 } });
 
 
-commands.register( { name: 'init', description: 'Initialize the simulation with given dimensions', handler: params => {
+commands.register( { name: 'init', description: 'Initialize the simulation. Accepts: width, height, sim, sim_queue, sim_meta_params, num_boids, num_foods, num_plants, num_rocks, rounds, timeout, max_mutation, cullpct, lock_dimensions', handler: params => {
 	globalThis.vc.Init(params.data);
 	globalThis.postMessage( {
 		functionName: 'init',
