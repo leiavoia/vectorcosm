@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head><title>Worker Command Registry Test</title></head>
+<body>
+<h2>Worker Command Registry Test</h2>
+<pre id="log"></pre>
+<script type="module">
+const log = document.getElementById('log');
+function print( msg ) {
+	log.textContent += msg + '\n';
+	console.log( msg );
+}
+
+const worker = new Worker( new URL('/src/workers/vectorcosm.worker.js', import.meta.url), { type: 'module' } );
+
+let pending = {};
+
+worker.onmessage = ( event ) => {
+	const name = event.data?.functionName;
+	const data = event.data?.data;
+	if ( pending[name] ) {
+		pending[name]( data );
+		delete pending[name];
+	}
+};
+
+function call( name, data ) {
+	return new Promise( ( resolve ) => {
+		pending[name] = resolve;
+		worker.postMessage( { functionName: name, data } );
+	} );
+}
+
+async function run() {
+	print( '--- init ---' );
+	const initResult = await call( 'init', { width: 600, height: 400 } );
+	print( 'init response: ' + JSON.stringify( initResult ) );
+	const initOk = typeof initResult?.width === 'number' && typeof initResult?.height === 'number';
+	print( initOk ? '✓ init OK' : '✗ init FAILED' );
+
+	print( '\n--- ping ---' );
+	const pong = await call( 'ping' );
+	print( 'ping response: ' + JSON.stringify( pong ) );
+	print( pong === 'pong' ? '✓ ping OK' : '✗ ping FAILED' );
+
+	print( '\n--- help ---' );
+	const helpData = await call( 'help' );
+	print( 'help returned ' + helpData.length + ' commands:' );
+	for ( const cmd of helpData ) {
+		print( '  ' + cmd.name + ' — ' + cmd.description );
+	}
+	print( helpData.length >= 17 ? '✓ help OK' : '✗ help FAILED (expected ≥17 commands)' );
+
+	print( '\n--- describe ---' );
+	const desc = await call( 'describe', { name: 'ping' } );
+	print( 'describe(ping): ' + JSON.stringify( desc ) );
+	print( desc?.name === 'ping' ? '✓ describe OK' : '✗ describe FAILED' );
+
+	print( '\n--- DONE ---' );
+}
+
+run();
+</script>
+</body>
+</html>
