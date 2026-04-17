@@ -402,40 +402,51 @@ export default class Vectorcosm {
 			const data = await lib.GetData(id);
 			if ( !data ) { return null; }
 			const scene = data.scene;
-			this.tank.Kill();
-			this.tank = new Tank( scene.tank );
-			this.tank.MakeBackground();
-			settings = Object.assign( {
-				name: 'Saved Tank',
-				time: 0,
-				num_boids: 0,
-				num_plants: 0,
-				num_rocks: 0,
-				num_foods: 0,
-				food_friction:true,
-				random_boid_pos: true,
-				max_mutation: 0.2,
-				current: 0.1,
-				tide: 600,
-			}, settings ?? {} );
-			settings = Object.assign( settings, scene.sim_settings );
-			// manually recalculate the volume to make sure UI stays in sync
-			settings.volume = this.tank.width * this.tank.height;
-			this.sim_queue.push( new NaturalTankSimulation(settings) );
-			// lock dimensions so Simulation.Setup() cannot resize the loaded tank via volume
-			this.lock_dimensions = true;
-			this.LoadNextSim();
-			this.lock_dimensions = false;
-			this.tank.boids = scene.boids.map( o => {
-				let b = new Boid( 0, 0, o );
-				b.angle = Math.random() * Math.PI * 2;		
-				b.ScaleBoidByMass();
-				return b;
-			});
-			this.tank.obstacles = scene.obstacles.map( x => new Rock(x) );
-			this.tank.foods = scene.foods.map( x => new Food(x) );
-			this.tank.plants = scene.plants.map( x => new Plant.PlantTypes[x.classname](x) );
+			this._ApplyTankScene(scene, settings);
 		}
 	}
-	
+
+	// Load a tank from a plain scene object (no DB). Used by the import_tank worker command.
+	ImportTank( scene, settings=null ) {
+		if ( !scene || !scene.tank ) { return false; }
+		this._ApplyTankScene(scene, settings);
+		return true;
+	}
+
+	// Shared scene-application logic for LoadTank and ImportTank
+	_ApplyTankScene( scene, settings=null ) {
+		this.tank.Kill();
+		this.tank = new Tank( scene.tank );
+		this.tank.MakeBackground();
+		settings = Object.assign( {
+			name: 'Saved Tank',
+			time: 0,
+			num_boids: 0,
+			num_plants: 0,
+			num_rocks: 0,
+			num_foods: 0,
+			food_friction:true,
+			random_boid_pos: true,
+			max_mutation: 0.2,
+			current: 0.1,
+			tide: 600,
+		}, settings ?? {} );
+		settings = Object.assign( settings, scene.sim_settings );
+		// manually recalculate the volume to make sure UI stays in sync
+		settings.volume = this.tank.width * this.tank.height;
+		this.sim_queue.push( new NaturalTankSimulation(settings) );
+		// lock dimensions so Simulation.Setup() cannot resize the loaded tank via volume
+		this.lock_dimensions = true;
+		this.LoadNextSim();
+		this.lock_dimensions = false;
+		this.tank.boids = scene.boids.map( o => {
+			let b = new Boid( 0, 0, o );
+			b.angle = Math.random() * Math.PI * 2;		
+			b.ScaleBoidByMass();
+			return b;
+		});
+		this.tank.obstacles = scene.obstacles.map( x => new Rock(x) );
+		this.tank.foods = scene.foods.map( x => new Food(x) );
+		this.tank.plants = scene.plants.map( x => new Plant.PlantTypes[x.classname](x) );
+	}
 }

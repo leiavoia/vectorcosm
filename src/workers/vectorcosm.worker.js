@@ -776,6 +776,23 @@ commands.register( { name: 'export_tank', description: 'Export full tank state a
 	} );
 } });
 
+commands.register( { name: 'import_tank', description: 'Load a full tank scene from a plain JSON object (no DB required). Accepts same scene format as export_tank.', handler: params => {
+	const scene = params.data?.scene ?? params.data;
+	const settings = params.data?.settings ?? null;
+	const ok = globalThis.vc.ImportTank(scene, settings);
+	settings_dirty = true;
+	globalThis.postMessage( {
+		functionName: 'import_tank',
+		request_id: params?.request_id,
+		data: {
+			ok,
+			boids: globalThis.vc.tank.boids.length,
+			width: globalThis.vc.tank.width,
+			height: globalThis.vc.tank.height,
+		}
+	} );
+} });
+
 // listen for critical internal events and report back via API
 let onSimCompleteSubscription = PubSub.subscribe('sim.complete', (msg, sim) => {
 	let stats = Object.assign({}, sim.stats);
