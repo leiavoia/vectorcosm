@@ -31,6 +31,11 @@ SETTINGS
 - `boid_sensors_every_frame` — run sensors on every frame (slow, for debugging).
 - `plant_update_freq` — seconds between plant updates.
 - `max_foods` — global food cap.
+
+IMPORT/EXPORT
+- `_ApplyTankScene(scene, settings)` — shared logic for LoadTank and ImportTank.
+  Uses `SimulationFactory(settings)` so the original simtype (from scene.sim_settings.simtype) is restored.
+  NaturalTankSimulation was previously hardcoded here — removed in Phase 4 to support experiment resume.
 </AI> */
 
 import Tank from '../classes/class.Tank.js'
@@ -39,7 +44,7 @@ import Food from '../classes/class.Food.js'
 import Plant from '../classes/class.Plant.js'
 import BoidLibrary from '../classes/class.BoidLibrary.js'
 import TankLibrary from '../classes/class.TankLibrary.js'
-import { SimulationFactory, NaturalTankSimulation } from '../classes/class.Simulation.js'
+import { SimulationFactory } from '../classes/class.Simulation.js'
 import { Boid } from '../classes/class.Boids.js'
 import PubSub from 'pubsub-js'
 
@@ -436,7 +441,8 @@ export default class Vectorcosm {
 		settings = Object.assign( settings, scene.sim_settings );
 		// manually recalculate the volume to make sure UI stays in sync
 		settings.volume = this.tank.width * this.tank.height;
-		this.sim_queue.push( new NaturalTankSimulation(settings) );
+		// use simtype from saved settings if present so the original simulation type is preserved
+		this.sim_queue.push( SimulationFactory(settings) );
 		// lock dimensions so Simulation.Setup() cannot resize the loaded tank via volume
 		this.lock_dimensions = true;
 		this.LoadNextSim();

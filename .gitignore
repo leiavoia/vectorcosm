@@ -3,6 +3,9 @@ local/
 .git
 .directory
 
+# saves/ — generated at runtime by CLI scripts, not tracked
+saves/
+
 # Logs
 logs
 *.log
