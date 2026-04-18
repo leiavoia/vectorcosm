@@ -14,7 +14,9 @@
     "test:headless": "node tests/test-headless.js",
     "test:url-params": "node tests/test-url-params.js",
     "test:commands": "node tests/test-command-registry.js",
-    "test": "node tests/test-command-registry.js && node tests/test-url-params.js && node tests/test-headless.js"
+    "test": "node tests/test-command-registry.js && node tests/test-url-params.js && node tests/test-headless.js",
+    "orchestrate": "node cli/tui.js",
+    "tui": "node cli/tui.js"
   },
   "devDependencies": {
     "@picocss/pico": "^2.0.6",
