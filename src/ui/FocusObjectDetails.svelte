@@ -1,6 +1,7 @@
 <script>
 	import { blur, fade } from 'svelte/transition';
 	import { getContext, tick } from 'svelte';
+	import PubSub from 'pubsub-js';
 	import BrainGraph from './BrainGraph.svelte';
 	import FocusObjectChart from './FocusObjectChart.svelte';
 	import {StatTracker, CompoundStatTracker} from '../classes/class.StatTracker.js'
@@ -26,15 +27,15 @@
 	}
 	
 	function SaveBoid() {
-		api.call('export_boids', { db:true, ids: [boid.oid] });
+		api.call('export_boids', { db:true, ids: [boid.oid] }).then(() => PubSub.publish('boid-library-addition', null));
 	}
 	
 	function SaveSpecies() {
-		api.call('export_boids', { db:true, species: [boid.species] });
+		api.call('export_boids', { db:true, species: [boid.species] }).then(() => PubSub.publish('boid-library-addition', null));
 	}
 	
 	function SaveTankPopulation() {
-		api.call('export_boids', { db:true });
+		api.call('export_boids', { db:true }).then(() => PubSub.publish('boid-library-addition', null));
 	}
 	
 	function SmiteBoid() {

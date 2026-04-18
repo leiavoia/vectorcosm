@@ -19,7 +19,7 @@
 	
 	function SaveTank() {
 		let id = selected_row ? selected_row.id : null;
-		api.call('save_tank', {id});
+		api.call('save_tank', {id}).then(() => QueryLibrary(order_by, ascending));
 	}
 	
 	async function DeleteSelectedRow() {
