@@ -18,6 +18,7 @@
 	import * as SVGUtils from './util/svg.js'
 	import { parseSimParams } from './util/url-params.js'
 	import { setContext } from 'svelte';
+	import PubSub from 'pubsub-js';
 	import {StatTracker, CompoundStatTracker} from './classes/class.StatTracker.js'
 
 	let vc_canvas;
@@ -100,7 +101,7 @@
 			inc_food_animation_data: (camera && camera.animate_foods) ? true : false,
 			inc_plant_animation_data: (camera && camera.animate_plants) ? true : false,
 		};
-		api.SendMessage('update', data);
+		api.send('update', data);
 		// update or cancel object tracking
 		if ( camera ) {
 			if ( camera.focus_obj_id > 0 ) {
@@ -113,7 +114,7 @@
 					inc_sensor_geo: needs_sensors,
 					inc_brain: needs_brain
 				}
-				api.SendMessage('pick_object', params); // send back for another round
+				api.call('pick_object', params).then(onPickObjectResponse); // send back for another round
 			}
 			else if ( focus_object_panel ) {
 				focus_object_panel.updateStats(null); // null will make it go away
@@ -141,7 +142,7 @@
 	let simSettings = $state({});
 	
 	// for each type of message we want to send, set up a callback to handle the response
-	api.RegisterResponseCallback( 'update', data => {
+	api.on( 'frame', data => {
 		// End sim phase first (records pure worker roundtrip time), then begin draw phase
 		gameloop.EndSimFrame();
 		gameloop.drawtime_ts = performance.now();
@@ -348,7 +349,7 @@
 	// causing it to re-focus. To detect this situation, take of presence of sensor_geo
 	// which is only sent on the first frame and can be used to understand if this is the
 	// first frame or a repeat request
-	api.RegisterResponseCallback( 'pick_object', data => {
+	function onPickObjectResponse( data ) {
 		const focus_object_id = data ? data.oid : 0;
 		// capture brain in case we want to display braingraph
 		if ( data && data?.brain_struct ) {
@@ -382,7 +383,7 @@
 				focus_object_panel.updateStats(data);
 			}
 		}
-	} );
+	}
 	
 	let simChartData = $state.raw({
 		averages:[],
@@ -390,7 +391,7 @@
 		labels:[]
 	});
 		
-	api.RegisterResponseCallback( 'sim_round', data => {
+	api.on( 'sim_round', data => {
 		simChartData.averages.push( data.round_avg_score );
 		simChartData.highscores.push( data.round_best_score );
 		simChartData.labels.push( data.round_num );
@@ -399,14 +400,14 @@
 		}
 	} );
 	
-	api.RegisterResponseCallback( 'sim_complete', data => {
+	api.on( 'sim_complete', data => {
 		// a series of trainings is completed - halt fast forward
 		if ( !data.in_queue ) {
 			gameloop.updates_per_frame = 1; 	
 		}
 	} );
 	
-	api.RegisterResponseCallback( 'sim_new', data => {
+	api.on( 'sim_new', data => {
 		camera.ResetCameraZoom();	
 		simChartData.averages.length = 0;
 		simChartData.highscores.length = 0;
@@ -420,31 +421,31 @@
 		}
 	} );
 	
-	api.RegisterResponseCallback( 'records_push', msg => {
+	api.on( 'records_push', msg => {
 		if ( msg.layer == 0 ) {
 			recordsTracker.Insert( msg.data );
 		}
 	} );
 	
-	api.RegisterResponseCallback( 'boid_records_push', msg => {
+	api.on( 'boid_records_push', msg => {
 		if ( msg.layer == 0 && focus_object_panel ) {
 			focus_object_panel.AddGraphData( msg.data );
 		}
 	} );
 	
-	api.RegisterResponseCallback( 'save_tank', data => {
+	api.on( 'autosave', data => {
 		// let the tank library widget know we have a new row
 		PubSub.publish('tank-library-addition', data);
 	});
 	
-	api.RegisterResponseCallback( 'export_boids', str => {
+	function onExportBoidsResponse( str ) {
 		if ( str ) {
 			globalThis.localStorage.setItem("population", str);
 		}
 		PubSub.publish('boid-library-addition', null);
-	} );
+	}
 	
-	api.RegisterResponseCallback( 'get_tank_env_data', data => {
+	function onGetTankEnvDataResponse( data ) {
 		const request = data.request || 'current';
 		if ( request == 'current' ) {
 			RenderTankCurrent(data);
@@ -458,7 +459,7 @@
 		else if ( request == 'matter' ) {
 			RenderTankMatterMap(data);
 		}
-	});
+	}
 		
 	let tankEnvGeo = null;
 	let tankEnvOverlayMode = null;
@@ -647,7 +648,7 @@
 		}
 		else {
 			tankEnvOverlayMode = request;
-			api.SendMessage('get_tank_env_data', {request:request});
+			api.call('get_tank_env_data', {request:request}).then(onGetTankEnvDataResponse);
 		}
 	}
 			
@@ -670,7 +671,7 @@
 			height: url_params.height ?? globalThis.two.height * 2,
 			...url_params
 		};
-		api.SendMessage('init',params);
+		api.send('init',params);
 		gameloop.Start();		
 	}
 	
@@ -752,11 +753,11 @@
 			camera.TrackObject( list[i].oid );		
 		},
 		's': _ => {
-			api.SendMessage('save_tank',null);
+			api.call('save_tank').then(data => PubSub.publish('tank-library-addition', data));
 		},
 		'a': _ => {
 			camera.dramatic_entrance = -1; // evaluates to "true" but resets to false on next action
-			api.SendMessage('load_tank', { id:0, settings: $state.snapshot(simSettings) });
+			api.send('load_tank', { id:0, settings: $state.snapshot(simSettings) });
 		},
 		'1': _ => {
 			setPanelMode('tank_stats')
@@ -809,11 +810,11 @@
 			}
 		},
 		'9': _ => {
-			api.SendMessage('export_boids',null);
+			api.call('export_boids').then(onExportBoidsResponse);
 		},
 		'0': _ => {
 			const str = globalThis.localStorage.getItem("population");
-			if ( str ) { api.SendMessage('load_boids', str ); }
+			if ( str ) { api.send('load_boids', str ); }
 		},
 	}
 
@@ -875,7 +876,7 @@
 				inc_brain:true
 			};
 			camera.TrackObject(false); // unselect currently selected object
-			api.SendMessage('pick_object', params);
+			api.call('pick_object', params).then(onPickObjectResponse);
 		}
 	}
 	
@@ -923,7 +924,7 @@
 	};
 	
 	function onSimulatorControlsUpdate(params) {
-		api.SendMessage('update_sim_settings',params);
+		api.send('update_sim_settings',params);
 		// we also need to update the local settings
 		for ( let k in params ) {
 			simSettings[k] = params[k];

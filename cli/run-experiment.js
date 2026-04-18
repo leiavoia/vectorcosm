@@ -291,9 +291,13 @@ async function main() {
 	const workerPath = resolve(__dirname, '../src/workers/vectorcosm.worker.js');
 	const worker     = new Worker(workerPath);
 
-	const pending = new Map();
-	let nextReqId = 1;
-	let exiting   = false;
+	const { WorkerThreadTransport } = await import('../src/protocol/transports.js');
+	const { default: WorkerClient } = await import('../src/protocol/WorkerClient.js');
+
+	const transport = new WorkerThreadTransport( worker );
+	const client    = new WorkerClient( transport, { prefix: 'exp', timeout: 0 } );
+
+	let exiting = false;
 
 	// round-mode tracking
 	let roundCount = resumeRound;
@@ -311,18 +315,10 @@ async function main() {
 	let logEventCount = 0;
 	let statusTimer = null;
 
-	function send(commandName, data = {}) {
-		return new Promise((resolve_fn) => {
-			const request_id = 'exp-' + (nextReqId++);
-			pending.set(request_id, resolve_fn);
-			worker.postMessage({ functionName: commandName, data, request_id });
-		});
-	}
-
 	// ─── Checkpoint ───────────────────────────────────────────────────────────
 
 	async function saveCheckpoint(label) {
-		const scene = await send('export_tank').catch(() => null);
+		const scene = await client.call('export_tank').catch(() => null);
 		if ( !scene ) {
 			process.stderr.write(`[experiment] checkpoint "${label}" failed — export_tank returned null.\n`);
 			return;
@@ -368,7 +364,7 @@ async function main() {
 		}
 		else if ( simMode === 'natural' ) {
 			// use last known sim_time for label; fall back to round-style if we never got any
-			const s = await send('get_status').catch(() => null);
+			const s = await client.call('get_status').catch(() => null);
 			const t = s?.sim_time ? Math.floor(s.sim_time) : Math.floor(resumeSimTime);
 			await saveCheckpoint(`T${t}`);
 		}
@@ -380,7 +376,7 @@ async function main() {
 		let finalStatus = null;
 		try {
 			finalStatus = await Promise.race([
-				send('terminate'),
+				client.call('terminate'),
 				new Promise(r => setTimeout(() => r(null), 2000)),
 			]);
 		}
@@ -405,75 +401,60 @@ async function main() {
 	process.on('SIGINT',  () => shutdown('SIGINT'));
 	process.on('SIGTERM', () => shutdown('SIGTERM'));
 
-	// ─── Worker message routing ───────────────────────────────────────────────
+	// ─── Worker event routing ───────────────────────────────────────────────
 
-	worker.on('message', async (msg) => {
-		const { functionName, data, request_id } = msg;
-
-		// resolve pending call() Promises
-		if ( request_id && pending.has(request_id) ) {
-			pending.get(request_id)(data);
-			pending.delete(request_id);
-			return;
+	// sim_new: detect mode from the first sim that loads
+	client.on('sim_new', (data) => {
+		if ( simMode === null ) {
+			// timeout === 0 (or missing) → natural/perpetual sim; otherwise round-based training
+			simMode = ( !data.timeout ) ? 'natural' : 'round';
+			process.stderr.write(`[experiment] sim mode: ${simMode}  (simtype=${data.simtype ?? 'unknown'})\n`);
 		}
+		emit('sim_new', data);
+	});
 
-		// sim_new: detect mode from the first sim that loads
-		if ( functionName === 'sim_new' ) {
-			if ( simMode === null ) {
-				// timeout === 0 (or missing) → natural/perpetual sim; otherwise round-based training
-				simMode = ( !data.timeout ) ? 'natural' : 'round';
-				process.stderr.write(`[experiment] sim mode: ${simMode}  (simtype=${data.simtype ?? 'unknown'})\n`);
-			}
-			emit('sim_new', data);
-			return;
+	// ── ROUND MODE: sim_round is the heartbeat ────────────────────────────
+	client.on('sim_round', async (data) => {
+		roundCount++;
+		emit('sim_round', data);
+		await appendLog({ event: 'sim_round', exp_round: roundCount, ...data });
+
+		if ( ckptEvery > 0 && roundCount % ckptEvery === 0 ) {
+			await saveCheckpoint(`R${roundCount}`);
 		}
-
-		// ── ROUND MODE: sim_round is the heartbeat ────────────────────────────
-		if ( functionName === 'sim_round' ) {
-			roundCount++;
-			emit('sim_round', data);
-			await appendLog({ event: 'sim_round', exp_round: roundCount, ...data });
-
-			if ( ckptEvery > 0 && roundCount % ckptEvery === 0 ) {
-				await saveCheckpoint(`R${roundCount}`);
-			}
-			// explicit round cap (in addition to sim's own stop conditions)
-			if ( targetRounds > 0 && roundCount >= targetRounds ) {
-				await shutdown('rounds_complete');
-			}
-			return;
+		// explicit round cap (in addition to sim's own stop conditions)
+		if ( targetRounds > 0 && roundCount >= targetRounds ) {
+			await shutdown('rounds_complete');
 		}
+	});
 
-		// ── ROUND MODE: training sim reached its own stop condition ───────────
-		if ( functionName === 'sim_complete' ) {
-			emit('sim_complete', data);
-			// if there is nothing left in the queue, the experiment is done
-			if ( data.in_queue === 0 ) {
-				await shutdown('sim_complete');
-			}
-			return;
+	// ── ROUND MODE: training sim reached its own stop condition ───────────
+	client.on('sim_complete', async (data) => {
+		emit('sim_complete', data);
+		// if there is nothing left in the queue, the experiment is done
+		if ( data.in_queue === 0 ) {
+			await shutdown('sim_complete');
 		}
+	});
 
-		// ── NATURAL MODE: autonomous.stats is the heartbeat ───────────────────
-		if ( functionName === 'autonomous.stats' ) {
-			emit('autonomous.stats', data);
+	// ── NATURAL MODE: autonomous.stats is the heartbeat ───────────────────
+	client.on('autonomous.stats', async (data) => {
+		emit('autonomous.stats', data);
 
-			if ( simMode === 'natural' ) {
-				const sim_time = data.sim_time ?? 0;
-				await appendLog({ event: 'autonomous.stats', ...data });
-				lastLoggedSimTime = sim_time;
+		if ( simMode === 'natural' ) {
+			const sim_time = data.sim_time ?? 0;
+			await appendLog({ event: 'autonomous.stats', ...data });
+			lastLoggedSimTime = sim_time;
 
-				// checkpoint when we cross the next interval threshold
-				if ( sim_time >= nextCheckpointSimTime ) {
-					const label = `T${Math.floor(sim_time)}`;
-					await saveCheckpoint(label);
-					// advance threshold by interval, skip missed intervals
-					while ( nextCheckpointSimTime <= sim_time ) {
-						nextCheckpointSimTime += ckptIntervalSecs;
-					}
+			// checkpoint when we cross the next interval threshold
+			if ( sim_time >= nextCheckpointSimTime ) {
+				const label = `T${Math.floor(sim_time)}`;
+				await saveCheckpoint(label);
+				// advance threshold by interval, skip missed intervals
+				while ( nextCheckpointSimTime <= sim_time ) {
+					nextCheckpointSimTime += ckptIntervalSecs;
 				}
 			}
-			return;
 		}
 	});
 
@@ -493,7 +474,7 @@ async function main() {
 	if ( statusMs > 0 && !quiet ) {
 		statusTimer = setInterval(async () => {
 			if ( exiting ) { return; }
-			const s = await send('get_status').catch(() => null);
+			const s = await client.call('get_status').catch(() => null);
 			if ( !s ) { return; }
 			if ( simMode === 'round' ) {
 				process.stderr.write(
@@ -528,14 +509,14 @@ async function main() {
 
 	emit('exp.start', { name: expName, resume: doResume, resume_round: resumeRound, resume_sim_time: resumeSimTime });
 
-	await send('init', initParams);
+	await client.call('init', initParams);
 
 	if ( checkpointScene ) {
-		await send('import_tank', { scene: checkpointScene });
+		await client.call('import_tank', { scene: checkpointScene });
 		emit('exp.resumed', { round: resumeRound, sim_time: resumeSimTime });
 	}
 
-	await send('start_autonomous', autoParams);
+	await client.call('start_autonomous', autoParams);
 	emit('exp.running', { name: expName, speed, target_rounds: targetRounds, duration });
 
 	if ( duration > 0 ) {

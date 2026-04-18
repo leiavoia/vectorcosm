@@ -14,12 +14,12 @@
 	function LoadTank() {
 		if ( !selected_row ) { return; }
 		camera.dramatic_entrance = -1;
-		api.SendMessage('load_tank', { id: selected_row.id } );
+		api.send('load_tank', { id: selected_row.id } );
 	}
 	
 	function SaveTank() {
 		let id = selected_row ? selected_row.id : null;
-		api.SendMessage('save_tank', {id});
+		api.call('save_tank', {id});
 	}
 	
 	async function DeleteSelectedRow() {

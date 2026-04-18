@@ -40,10 +40,6 @@
 		'food_training_sim_hard',
 	]);
 	
-	api.RegisterResponseCallback( 'push_sim_queue', data => {
-		 setPanelMode('sim_controls');
-	});
-	
 	function RunProgram( program_name ) {
 		let queue = [];
 		switch (program_name) {
@@ -106,7 +102,7 @@
 				break;
 			}
 		}
-		api.SendMessage('push_sim_queue', {
+		api.call('push_sim_queue', {
 			sims: queue,
 			reset: true, // clear queue
 			sim_meta_params: {
@@ -114,7 +110,7 @@
 				segments: meta_num_segments,
 				rounds: meta_num_rounds
 			}
-		});
+		}).then( () => setPanelMode('sim_controls') );
 	}
 	
 </script>

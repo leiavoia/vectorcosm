@@ -48,19 +48,19 @@
 	}
 	
 	function endSim() {
-		api.SendMessage('end_sim',null);
+		api.send('end_sim');
 	}
 	
 	function saveTank() {
-		api.SendMessage('save_tank',null);
+		api.call('save_tank').then(data => { /* saved */ });
 	}
 	
 	function loadTank() {
-		api.SendMessage('load_tank', { id:0, settings: $state.snapshot(settings) });
+		api.send('load_tank', { id:0, settings: $state.snapshot(settings) });
 	}
 	
 	function randTank() {
-		api.SendMessage('rand_tank',null);
+		api.send('rand_tank');
 	}
 	
 </script>

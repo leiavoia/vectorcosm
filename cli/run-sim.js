@@ -1,8 +1,9 @@
 /* <AI>
 cli/run-sim.js — CLI entry point for headless simulation runs.
 
-Spawns vectorcosm.worker.js via Node.js worker_threads, sends init + start_autonomous,
-and streams JSONL stats to stdout until --duration expires, SIGINT, or SIGTERM.
+Spawns vectorcosm.worker.js via Node.js worker_threads, wraps with WorkerClient (protocol v1),
+sends init + start_autonomous, and streams JSONL stats to stdout until --duration expires,
+SIGINT, or SIGTERM. All events are logged via client.onAny().
 
 USAGE
   node cli/run-sim.js [options]
@@ -36,7 +37,7 @@ OPTIONS (forwarded to worker init unless noted)
 
 OUTPUT
   JSONL on stdout — one JSON object per line: { event, data, ts }
-    event: worker functionName or 'cli.*' lifecycle event
+    event: worker event name or 'cli.*' lifecycle event
     data:  payload from worker or CLI state
     ts:    unix timestamp ms
   Errors: stderr
@@ -209,29 +210,16 @@ async function main() {
 	const workerPath = resolve(__dirname, '../src/workers/vectorcosm.worker.js');
 	const worker     = new Worker(workerPath);
 
-	const pending = new Map();
-	let nextReqId = 1;
-	let exiting   = false;
+	const { WorkerThreadTransport } = await import('../src/protocol/transports.js');
+	const { default: WorkerClient } = await import('../src/protocol/WorkerClient.js');
 
-	// Send a command and return a Promise that resolves with the response data.
-	function send(commandName, data = {}) {
-		return new Promise((resolve) => {
-			const request_id = 'cli-' + (nextReqId++);
-			pending.set(request_id, resolve);
-			worker.postMessage({ functionName: commandName, data, request_id });
-		});
-	}
+	const transport = new WorkerThreadTransport( worker );
+	const client    = new WorkerClient( transport, { prefix: 'cli', timeout: 0 } );
 
-	// Route incoming worker messages: resolve pending Promises or emit as JSONL.
-	worker.on('message', (msg) => {
-		const { functionName, data, request_id } = msg;
-		if ( request_id && pending.has(request_id) ) {
-			pending.get(request_id)(data);
-			pending.delete(request_id);
-			return;
-		}
-		emit(functionName, data, quiet);
-	});
+	let exiting = false;
+
+	// log all events as JSONL
+	client.onAny( (data, name) => emit(name, data, quiet) );
 
 	worker.on('error', (err) => {
 		process.stderr.write(`[cli] Worker error: ${err.message}\n${err.stack || ''}\n`);
@@ -252,7 +240,7 @@ async function main() {
 		try {
 			// ask the worker for a final report; fall back after 2s if it doesn't respond
 			const final = await Promise.race([
-				send('terminate'),
+				client.call('terminate'),
 				new Promise(r => setTimeout(() => r(null), 2000)),
 			]);
 			if ( final ) { emit('cli.final_status', final, false); }
@@ -268,7 +256,7 @@ async function main() {
 	// ─── Boot sequence ─────────────────────────────────────────────────────────
 
 	emit('cli.init', initParams, false);
-	await send('init', initParams);
+	await client.call('init', initParams);
 
 	// optionally import a tank scene from a local file
 	if ( tank_file ) {
@@ -283,13 +271,13 @@ async function main() {
 			process.stderr.write(`[cli] Failed to read tank file "${tank_path}": ${e.message}\n`);
 		}
 		if ( scene ) {
-			const result = await send('import_tank', { scene });
+			const result = await client.call('import_tank', { scene });
 			emit('cli.import_tank_result', result, false);
 		}
 	}
 
 	emit('cli.start_autonomous', autoParams, false);
-	await send('start_autonomous', autoParams);
+	await client.call('start_autonomous', autoParams);
 
 	// schedule stop after --duration seconds
 	if ( duration > 0 ) {

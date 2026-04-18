@@ -2,9 +2,10 @@
 lab.js — Browser entry point for headless-style simulation runs without the Svelte UI.
 
 OVERVIEW
-- Creates the Web Worker, sends `init` + `start_autonomous`, logs all events to console as JSON.
+- Creates the Web Worker, wraps it with WorkerClient (protocol v1).
 - URL params are parsed via parseSimParams() and fed directly to the worker's `init` command.
 - After init, sends `start_autonomous` using the `speed` URL param (default: 'throttled').
+- All events are logged to console and an optional #lab-log element via client.onAny().
 - Exposes `window.vectorcosmLab` with `.call()`, `.help()`, `.status()`, `.terminate()`, `.saveTank(filename)`.
 
 URL PARAMS (all optional)
@@ -122,29 +123,19 @@ function logEvent( label, data ) {
 
 // ─── Worker Setup ─────────────────────────────────────────────────────────────
 
+import WorkerClient from './protocol/WorkerClient.js';
+import { PostMessageTransport } from './protocol/transports.js';
+
 const worker = new Worker(
 	new URL('./workers/vectorcosm.worker.js', import.meta.url),
 	{ type: 'module' }
 );
 
-// pending call() Promises keyed by request_id
-const pending = new Map();
-let nextReqId = 1;
+const transport = new PostMessageTransport( worker );
+const client = new WorkerClient( transport, { prefix: 'lab', timeout: 0 } );
 
-worker.addEventListener('message', (e) => {
-	const { functionName, data, request_id } = e.data;
-
-	// resolve pending Promise if this is a reply to a call()
-	if ( request_id && pending.has(request_id) ) {
-		const { resolve } = pending.get(request_id);
-		pending.delete(request_id);
-		resolve(data);
-		return;
-	}
-
-	// log everything else as a structured event
-	logEvent(functionName, data);
-});
+// log all events
+client.onAny( (data, name) => logEvent(name, data) );
 
 worker.addEventListener('error', (e) => {
 	console.error('[lab] Worker error:', e.message, e);
@@ -153,30 +144,22 @@ worker.addEventListener('error', (e) => {
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
-function call( commandName, data = {} ) {
-	return new Promise( (resolve) => {
-		const request_id = 'lab-' + (nextReqId++);
-		pending.set(request_id, { resolve });
-		worker.postMessage( { functionName: commandName, data, request_id } );
-	});
-}
-
 const api = {
-	call,
-	help:        ()            => call('help'),
-	status:      ()            => call('get_status'),
-	stats:       ()            => call('get_stats'),
-	terminate:   ()            => call('terminate'),
-	stop:        ()            => call('stop_autonomous'),
-	resume:      ()            => call('resume_autonomous'),
-	setSpeed:    (s, opts={})  => call('set_speed', { speed: s, ...opts }),
-	importTank:  (scene)       => call('import_tank', { scene }),
-	exportTank:  ()            => call('export_tank'),
+	call:        (cmd, params) => client.call(cmd, params),
+	help:        ()            => client.call('help'),
+	status:      ()            => client.call('get_status'),
+	stats:       ()            => client.call('get_stats'),
+	terminate:   ()            => client.call('terminate'),
+	stop:        ()            => client.call('stop_autonomous'),
+	resume:      ()            => client.call('resume_autonomous'),
+	setSpeed:    (s, opts={})  => client.call('set_speed', { speed: s, ...opts }),
+	importTank:  (scene)       => client.call('import_tank', { scene }),
+	exportTank:  ()            => client.call('export_tank'),
 	// saveTank(name) — exports the current tank and triggers a browser download.
 	// Suggested filename targets saves/tanks/ so the user knows where to drop it.
 	// name: bare name or number, no path, no extension needed.
 	saveTank: async (name='tank') => {
-		const scene = await call('export_tank');
+		const scene = await client.call('export_tank');
 		if (!scene) { return false; }
 		const basename = String(name).trim().replace(/\.json$/i, '').split(/[\/\\]/).pop() || 'tank';
 		const json = JSON.stringify(scene, null, 2);
@@ -201,7 +184,7 @@ async function boot() {
 	}, simParams );
 
 	logEvent('lab.init', initParams);
-	await call('init', initParams);
+	await client.call('init', initParams);
 
 	// optionally load a saved tank before starting the loop
 	if ( tank_file ) {
@@ -210,7 +193,7 @@ async function boot() {
 		// positive integer → load from IndexedDB by ID (no network request)
 		if ( db_id !== null ) {
 			logEvent('lab.load_tank', { id: db_id });
-			const result = await call('load_tank', { id: db_id });
+			const result = await client.call('load_tank', { id: db_id });
 			logEvent('lab.load_tank_result', result);
 		}
 		// name/number — strip to basename and target saves/tanks/<name>.json
@@ -230,7 +213,7 @@ async function boot() {
 					logEvent('lab.import_tank_error', { url: resolved.pathname, error: e.message });
 				}
 				if ( scene ) {
-					const imported = await call('import_tank', { scene });
+					const imported = await client.call('import_tank', { scene });
 					logEvent('lab.import_tank_result', imported);
 				}
 			}
@@ -239,7 +222,7 @@ async function boot() {
 
 	const autoParams = { speed, stats_interval, throttle_delay, natural_fps };
 	logEvent('lab.start_autonomous', autoParams);
-	const result = await call('start_autonomous', autoParams);
+	const result = await client.call('start_autonomous', autoParams);
 	logEvent('lab.started', result);
 }
 

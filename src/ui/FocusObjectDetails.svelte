@@ -26,19 +26,19 @@
 	}
 	
 	function SaveBoid() {
-		api.SendMessage('export_boids', { db:true, ids: [boid.oid] });
+		api.call('export_boids', { db:true, ids: [boid.oid] });
 	}
 	
 	function SaveSpecies() {
-		api.SendMessage('export_boids', { db:true, species: [boid.species] });
+		api.call('export_boids', { db:true, species: [boid.species] });
 	}
 	
 	function SaveTankPopulation() {
-		api.SendMessage('export_boids', { db:true });
+		api.call('export_boids', { db:true });
 	}
 	
 	function SmiteBoid() {
-		api.SendMessage('smite', { ids: [boid.oid] });
+		api.send('smite', { ids: [boid.oid] });
 	}
 	
 	function OpenTab(t) {

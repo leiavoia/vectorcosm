@@ -1,50 +1,55 @@
 /* <AI>
 vectorcosm.worker.js — Simulation Web Worker. All heavy computation runs here.
 
+PROTOCOL v1 (src/protocol/protocol.md)
+- Wire format: 4 message types: request, response, event, frame.
+- handleMessage() accepts both v1 { type:'request', command, params, id } and
+  legacy { functionName, data, request_id }. Normalizes to { command, params, id }.
+- Non-self_post handlers return a value; framework wraps in { type:'response', command, id, ok, result }.
+- self_post handlers (e.g. update) manage own postMessage (type:'frame').
+- Events use { type:'event', name, data }.
+
 COMMAND DISPATCH
 - Uses CommandRegistry (class.CommandRegistry.js) for named command dispatch.
-- Message listener extracts functionName, routes to commands.execute().
-- Unhandled errors post { functionName: 'error', data: { command, message, stack } }.
 - Built-in commands: help, describe, ping.
 
 REGISTERED COMMANDS (all snake_case)
-  App commands (14):
+  App commands (15):
     update, pick_object, get_tank_env_data, end_sim, save_tank, load_tank,
     export_boids, load_boids, smite, rand_tank, init, update_sim_settings,
-    push_sim_queue, add_saved_boids
-  Autonomous loop (9):
+    push_sim_queue, add_saved_boids, import_tank
+  Autonomous loop (8):
     start_autonomous, stop_autonomous, resume_autonomous, set_speed, terminate,
-    get_status, get_stats, get_population, export_tank
-  Built-ins (3):
-    help, describe, ping
+    get_status, get_stats, get_population
+  Export (1): export_tank
+  Built-ins (3): help, describe, ping
 
-AUTONOMOUS LOOP (Step 1.2)
+AUTONOMOUS LOOP
 - start_autonomous({ speed, throttle_delay, natural_fps, stats_interval })
   speed: 'full' (setTimeout 0, fixed 1/30 delta)
        | 'throttled' (setTimeout N ms, fixed 1/30 delta)
        | 'natural' (setTimeout remainder, real elapsed delta)
-- In autonomous mode: NO render data sent. Stats posted via autonomous.stats every stats_interval ms.
+- In autonomous mode: NO render data sent. Stats posted via type:'event', name:'autonomous.stats'.
 - stop_autonomous / resume_autonomous — pause/resume without losing state.
-- terminate — stop + post terminal status.
+- terminate — stop + return terminal status.
 - get_status — instant snapshot: running, speed, frame_count, sim_time, round_num, population_size, wall_ms, ticks_per_second.
 - get_stats — full sim + tank snapshot including sim.settings.
 - get_population — compact boid list: oid, species, genus, gen, age, score, mass; opt inc_dna.
-- export_tank — full scene JSON without DB write (same structure as SaveTank but returned directly).
+- export_tank — full scene JSON without DB write.
 
-PUBSUB EVENTS (forwarded to main thread, not commands — dot.notation)
-  sim_complete, sim_round, sim_new, records_push, boid_records_push, save_tank (autosave)
+PUBSUB EVENTS (forwarded as type:'event')
+  sim_complete, sim_round, sim_new, records_push, boid_records_push, autosave
   autonomous.stats — periodic stats during autonomous run
 
-STORAGE (Step 3.1)
+STORAGE
 - BoidLibrary and TankLibrary use pluggable adapters (StorageAdapter interface).
 - Browser: DexieAdapter (IndexedDB) set as default via dynamic import at worker startup.
 - Node.js: MemoryAdapter (in-memory) set as default at worker startup.
-- CLI runner (Step 3.3) may override adapter after startup via a command.
 
-NODE.JS COMPATIBILITY (Step 3.2)
-- IS_NODEJS detection: `typeof WorkerGlobalScope === 'undefined'` — avoids false positives from Vite's process shim.
-- Browser: `self.addEventListener` registered SYNCHRONOUSLY before any async work. The Web Worker event loop continues running during top-level await suspension; messages arriving before addEventListener is called are permanently dropped. DexieAdapter loaded async via .then() after listener is in place.
-- Node.js: await is fine because parentPort buffers messages internally until .on('message') is called.
+NODE.JS COMPATIBILITY
+- IS_NODEJS detection: `typeof WorkerGlobalScope === 'undefined'`.
+- Browser: `self.addEventListener` registered SYNCHRONOUSLY before any async work.
+- Node.js: parentPort buffers messages internally until .on('message') is called.
 
 GLOBALS
   globalThis.vc — the Vectorcosm instance (authoritative simulation state)
@@ -69,20 +74,44 @@ const commands = new CommandRegistry();
 const IS_NODEJS = typeof WorkerGlobalScope === 'undefined';
 
 // broker incoming messages to the right handling function
-// receives raw data (not a DOM Event) — both paths normalize before calling this
-async function handleMessage(eventData) {
-	const functionName = eventData?.functionName ?? eventData?.f;
-	if ( !commands.has( functionName ) ) { return; }
-	const result = await commands.execute( functionName, eventData );
-	if ( !result.ok ) {
-		globalThis.postMessage( { 
-			functionName: 'error', 
-			data: { 
-				command: functionName, 
-				message: result.error, 
-				stack: result.stack 
-			} 
-		} );
+// receives raw data (not a DOM Event) — both paths normalize before calling this.
+// Supports v1 protocol envelope { type:'request', command, params, id, v }
+// and legacy format { functionName, data, request_id } for backward compat during migration.
+async function handleMessage( eventData ) {
+	let command, params, id;
+
+	// v1 protocol envelope
+	if ( eventData?.type === 'request' ) {
+		command = eventData.command;
+		params = eventData.params ?? {};
+		id = eventData.id ?? null;
+	}
+	// legacy envelope
+	else {
+		command = eventData?.functionName ?? eventData?.f;
+		params = eventData?.data ?? {};
+		id = eventData?.request_id ?? null;
+	}
+
+	if ( !commands.has( command ) ) { return; }
+
+	// self_post commands manage their own response (e.g. update/frame)
+	// they receive { params, id } so they can correlate if needed
+	if ( commands.isSelfPost( command ) ) {
+		const result = await commands.execute( command, { params, id } );
+		if ( !result.ok ) {
+			globalThis.postMessage( { type: 'response', command, id, ok: false, error: result.error } );
+		}
+		return;
+	}
+
+	// normal commands: framework auto-responds
+	const result = await commands.execute( command, params );
+	if ( result.ok ) {
+		globalThis.postMessage( { type: 'response', command, id, ok: true, result: result.result } );
+	}
+	else {
+		globalThis.postMessage( { type: 'response', command, id, ok: false, error: result.error } );
 	}
 }
 
@@ -123,14 +152,14 @@ function AutoIncludeGeoData(obj) {
 	return null;
 }
 
-commands.register( { name: 'update', description: 'Advance simulation and return render data', handler: params => {
+commands.register( { name: 'update', description: 'Advance simulation and return render data', self_post: true, handler: ctx => {
 	
-	let delta = params.data?.delta || 1/30;
-	let num_frames = params.data?.num_frames || 1;
-	let inc_boid_animation_data = params.data?.inc_boid_animation_data ?? false;
-	let inc_mark_animation_data = params.data?.inc_mark_animation_data ?? false;
-	let inc_plant_animation_data = params.data?.inc_plant_animation_data ?? false;
-	let inc_food_animation_data = params.data?.inc_food_animation_data ?? false;
+	let delta = ctx.params?.delta || 1/30;
+	let num_frames = ctx.params?.num_frames || 1;
+	let inc_boid_animation_data = ctx.params?.inc_boid_animation_data ?? false;
+	let inc_mark_animation_data = ctx.params?.inc_mark_animation_data ?? false;
+	let inc_plant_animation_data = ctx.params?.inc_plant_animation_data ?? false;
+	let inc_food_animation_data = ctx.params?.inc_food_animation_data ?? false;
 	for ( let i=0; i < num_frames; i++ ) {
 		globalThis.vc.update(delta);
 	}
@@ -281,7 +310,7 @@ commands.register( { name: 'update', description: 'Advance simulation and return
 	};
 		
 	globalThis.postMessage( {
-		functionName: 'update',
+		type: 'frame',
 		data: { renderObjects, simStats, tankStats, round_time: globalThis.vc.simulation.stats.round_time || 0 }
 	} );
 } });
@@ -308,7 +337,7 @@ const AUTO_FIXED_DELTA = 1/30;     // fixed timestep used in full and throttled 
 let last_focus_object_id = null;
 commands.register( { name: 'pick_object', description: 'Select a boid by ID or by proximity to coordinates', handler: params => {
 	let result = null;
-	let obj_id = params.data?.oid || 0;
+	let obj_id = params?.oid || 0;
 	let obj = null;
 	
 	// if they want a specific object by ID, just get that
@@ -318,18 +347,18 @@ commands.register( { name: 'pick_object', description: 'Select a boid by ID or b
 		if ( obj ) {
 			result = DescribeBoid(
 				obj, 
-				params.data?.inc_sensor_geo, 
-				params.data?.inc_brain, 
-				params.data?.inc_brain // not a typo
+				params?.inc_sensor_geo, 
+				params?.inc_brain, 
+				params?.inc_brain // not a typo
 			); 
 		}
 	}
 	
 	// find the closest object to mouse click
 	else {
-		const x = params.data.x ?? 0;
-		const y = params.data.y ?? 0;
-		const r = params.data.radius ?? 30;
+		const x = params?.x ?? 0;
+		const y = params?.y ?? 0;
+		const r = params?.radius ?? 30;
 		let objs = vc.tank.grid.GetObjectsByBox( x-r, y-r, x+r, y+y, o => o instanceof Boid );
 		// optimization hint: if we are ignoring other boids, they are not in the collision detection grid.
 		if ( vc.simulation.settings?.ignore_other_boids === true ) {
@@ -350,9 +379,9 @@ commands.register( { name: 'pick_object', description: 'Select a boid by ID or b
 			obj_id = obj.oid;
 			result = DescribeBoid(
 				obj, 
-				params.data?.inc_sensor_geo, 
-				params.data?.inc_brain,
-				params.data?.inc_brain, // not a typo
+				params?.inc_sensor_geo, 
+				params?.inc_brain,
+				params?.inc_brain, // not a typo
 			);
 		}
 	}
@@ -375,60 +404,50 @@ commands.register( { name: 'pick_object', description: 'Select a boid by ID or b
 		last_focus_object_id = obj_id;
 	}
 	
-	// send back 
-	globalThis.postMessage( {
-		functionName: 'pick_object',
-		request_id: params?.request_id,
-		data: result
-	} );
+	// send back
+	return result;
 } });
 
 
 commands.register( { name: 'get_tank_env_data', description: 'Return tank environment grid and whirl data', handler: params => {
 	const grid = globalThis.vc.tank.datagrid;
 	const whirls = globalThis.vc.tank.whirls;
-	const request = params.data?.request || 'current';
-	globalThis.postMessage( { functionName: 'get_tank_env_data', request_id: params?.request_id, data: { 
-		grid,
-		whirls,
-		request
-	} } );
+	const request = params?.request || 'current';
+	return { grid, whirls, request };
 } });
 
 commands.register( { name: 'end_sim', description: 'End the current simulation immediately', handler: params => {
 	globalThis.vc.simulation.killme = true;
-	globalThis.postMessage( { functionName: 'end_sim', request_id: params?.request_id, data: null } );
+	return null;
 } });
 
-commands.register( { name: 'save_tank', description: 'Save current tank state to IndexedDB', handler: params => {
-	const req_id = params?.request_id;
-	globalThis.vc.SaveTank( params?.data?.id ).then(
-		data => globalThis.postMessage( { functionName: 'save_tank', request_id: req_id, data } )
-	);
+commands.register( { name: 'save_tank', description: 'Save current tank state to IndexedDB', handler: async params => {
+	const data = await globalThis.vc.SaveTank( params?.id );
+	return data;
 } });
 
 commands.register( { name: 'load_tank', description: 'Load a tank state from IndexedDB by ID', handler: params => {
 	settings_dirty = true;
-	globalThis.vc.LoadTank( params?.data?.id ?? 0, params.data?.settings );
-	globalThis.postMessage( { functionName: 'load_tank', request_id: params?.request_id, data: null } );
+	globalThis.vc.LoadTank( params?.id ?? 0, params?.settings );
+	return null;
 } });
 
 commands.register( { name: 'export_boids', description: 'Export boids as JSON, optionally saving to IndexedDB', handler: async params => {
-	let to_db = !!params.data?.db;
-	let str = await globalThis.vc.SavePopulation( params.data?.species, params.data?.ids, to_db );
-	globalThis.postMessage( { functionName: 'export_boids', request_id: params?.request_id, data: str } );
+	let to_db = !!params?.db;
+	let str = await globalThis.vc.SavePopulation( params?.species, params?.ids, to_db );
+	return str;
 } });
 
 commands.register( { name: 'load_boids', description: 'Load a population of boids from JSON data', handler: params => {
-	globalThis.vc.LoadPopulation( params.data );
-	globalThis.postMessage( { functionName: 'load_boids', request_id: params?.request_id, data: null } );
+	globalThis.vc.LoadPopulation( params );
+	return null;
 } });
 
 commands.register( { name: 'smite', description: 'Kill boids by ID', handler: params => {
-	let ids = params.data.ids;
+	let ids = params.ids;
 	let targets = globalThis.vc.tank.boids.filter( b => ids.includes(b.oid) );
 	for ( let t of targets ) { t.Kill(); }
-	globalThis.postMessage( { functionName: 'smite', request_id: params?.request_id, data: targets.map(t=>t.oid) } );
+	return targets.map(t=>t.oid);
 } });
 
 commands.register( { name: 'rand_tank', description: 'Regenerate tank obstacles and environment', handler: params => {
@@ -442,89 +461,81 @@ commands.register( { name: 'rand_tank', description: 'Regenerate tank obstacles 
 	globalThis.vc.tank.MakeBackground();
 	const tm = new TankMaker( globalThis.vc.tank, {} );
 	tm.Make();
-	globalThis.postMessage( { functionName: 'rand_tank', request_id: params?.request_id, data: null } );
+	return null;
 } });
 
 
 commands.register( { name: 'init', description: 'Initialize the simulation. Accepts: width, height, sim, sim_queue, sim_meta_params, num_boids, num_foods, num_plants, num_rocks, rounds, timeout, max_mutation, cullpct, lock_dimensions', handler: params => {
-	globalThis.vc.Init(params.data);
-	globalThis.postMessage( {
-		functionName: 'init',
-		request_id: params?.request_id,
-		data: {
-			width: globalThis.vc.tank.width,
-			height: globalThis.vc.tank.height,
-		}
-	} );
+	globalThis.vc.Init(params);
+	return {
+		width: globalThis.vc.tank.width,
+		height: globalThis.vc.tank.height,
+	};
 } });
 
 
 commands.register( { name: 'update_sim_settings', description: 'Update simulation settings on the fly', handler: params => {
 	settings_dirty = true;
 	// look for meta params separately
-	if ( params.data?.sim_meta_params ) {
-		for ( let k in params.data.sim_meta_params ) {
-			globalThis.vc.sim_meta_params[k] = params.data.sim_meta_params[k];
+	if ( params?.sim_meta_params ) {
+		for ( let k in params.sim_meta_params ) {
+			globalThis.vc.sim_meta_params[k] = params.sim_meta_params[k];
 		}
 	}
-	for ( let k in params.data ) {
+	for ( let k in params ) {
 		// skip meta params - those are saved in Vectorcosm itself
 		if ( k == 'sim_meta_params' ) { continue; }
 		switch (k) {
 			// special cases for changing number of tank objects
 			case 'num_boids': {
-				if ( params.data.num_boids != globalThis.vc.simulation.settings.num_boids ) {
-					globalThis.vc.simulation.SetNumBoids(params.data.num_boids);
+				if ( params.num_boids != globalThis.vc.simulation.settings.num_boids ) {
+					globalThis.vc.simulation.SetNumBoids(params.num_boids);
 				}
 				break;
 			}
 			case 'num_rocks': {
-				if ( params.data.num_rocks != globalThis.vc.simulation.settings.num_rocks ) {
-					globalThis.vc.simulation.SetNumRocks(params.data.num_rocks);
+				if ( params.num_rocks != globalThis.vc.simulation.settings.num_rocks ) {
+					globalThis.vc.simulation.SetNumRocks(params.num_rocks);
 				}
 				break;
 			}
 			case 'num_plants': {
-				if ( params.data.num_plants != globalThis.vc.simulation.settings.num_plants ) {
-					globalThis.vc.simulation.SetNumPlants(params.data.num_plants);
+				if ( params.num_plants != globalThis.vc.simulation.settings.num_plants ) {
+					globalThis.vc.simulation.SetNumPlants(params.num_plants);
 				}
 				break;
 			}
 			// volume needs to resize the tank itself
 			case 'volume': {
-				globalThis.vc.ResizeTankByVolume(params.data.volume);
+				globalThis.vc.ResizeTankByVolume(params.volume);
 				globalThis.vc.tank.geodata_sent = false;
 				break;
 			}
 			// other settings are just static data
 			default: {
-				globalThis.vc.simulation.settings[k] = params.data[k];
+				globalThis.vc.simulation.settings[k] = params[k];
 			}
 		}
 	}
-	globalThis.postMessage( {
-		functionName: 'update_sim_settings',
-		request_id: params?.request_id,
-		data: Object.assign( { sim_meta_params: globalThis.vc.sim_meta_params }, globalThis.vc.simulation.settings )
-	} );
+	return Object.assign( { sim_meta_params: globalThis.vc.sim_meta_params }, globalThis.vc.simulation.settings );
 } });
 
 commands.register( { name: 'push_sim_queue', description: 'Add simulations to the queue', handler: params => {
 	settings_dirty = true;
 	// look for meta params
-	let meta_params = params.data?.sim_meta_params;
+	let meta_params = params?.sim_meta_params;
 	if ( meta_params ) {
 		for ( let k in meta_params ) {
 			globalThis.vc.sim_meta_params[k] = meta_params[k];
 		}
 	}
 	// purge queue if requested
-	if ( params.data?.reset ) {
+	if ( params?.reset ) {
 		globalThis.vc.simulation.killme = true; // let nature take its course
 		globalThis.vc.sim_queue.length = 0;
 	}
 	// look for named simulations from the library
-	const sims = params.data?.sims;
+	const sims = params?.sims;
 	if ( sims ) {
 		for ( let s of sims ) {
 			globalThis.vc.sim_queue.push( 
@@ -532,17 +543,13 @@ commands.register( { name: 'push_sim_queue', description: 'Add simulations to th
 			);
 		}
 	}
-	globalThis.postMessage( {
-		functionName: 'push_sim_queue',
-		request_id: params?.request_id,
-		data: Object.assign( { sim_meta_params: globalThis.vc.sim_meta_params }, globalThis.vc.simulation.settings )
-	} );
+	return Object.assign( { sim_meta_params: globalThis.vc.sim_meta_params }, globalThis.vc.simulation.settings );
 } });
 
 commands.register( { name: 'add_saved_boids', description: 'Load saved boids from library and add to current tank', handler: async params => {
 	let num_added = 0;
 	const lib = new BoidLibrary;
-	for ( let id of params.data.ids ) {
+	for ( let id of params.ids ) {
 		let data = await lib.GetData(id);
 		if ( data && data.specimens ) {
 			for ( let json of data.specimens ) {
@@ -553,11 +560,7 @@ commands.register( { name: 'add_saved_boids', description: 'Load saved boids fro
 			}
 		}
 	}
-	globalThis.postMessage( {
-		functionName: 'add_saved_boids',
-		request_id: params?.request_id,
-		data: { ok: true, num_added }
-	} );
+	return { ok: true, num_added };
 } });
 
 // ─── LIBRARY MANAGEMENT ───────────────────────────────────────────────────────
@@ -566,56 +569,56 @@ commands.register( { name: 'add_saved_boids', description: 'Load saved boids fro
 
 commands.register( { name: 'boid_library_list', description: 'List boid population index rows', handler: async params => {
 	const lib = new BoidLibrary();
-	const rows = await lib.Get( params.data || {} );
-	globalThis.postMessage( { functionName: 'boid_library_list', request_id: params?.request_id, data: rows } );
+	const rows = await lib.Get( params || {} );
+	return rows;
 } });
 
 commands.register( { name: 'boid_library_delete', description: 'Delete a saved boid population by id', handler: async params => {
 	const lib = new BoidLibrary();
-	await lib.Delete( params.data.id );
-	globalThis.postMessage( { functionName: 'boid_library_delete', request_id: params?.request_id, data: { ok: true } } );
+	await lib.Delete( params.id );
+	return { ok: true };
 } });
 
 commands.register( { name: 'boid_library_update', description: 'Update index fields (label, star, etc.) for a saved population', handler: async params => {
 	const lib = new BoidLibrary();
-	await lib.Update( params.data.row );
-	globalThis.postMessage( { functionName: 'boid_library_update', request_id: params?.request_id, data: { ok: true } } );
+	await lib.Update( params.row );
+	return { ok: true };
 } });
 
 commands.register( { name: 'boid_library_get_row', description: 'Get full row (index + specimens) for a saved population', handler: async params => {
 	const lib = new BoidLibrary();
-	const row = await lib.GetFullRow( params.data.id );
-	globalThis.postMessage( { functionName: 'boid_library_get_row', request_id: params?.request_id, data: row } );
+	const row = await lib.GetFullRow( params.id );
+	return row;
 } });
 
 commands.register( { name: 'boid_library_add_row', description: 'Import a boid population row from external JSON', handler: async params => {
 	const lib = new BoidLibrary();
-	const id = await lib.AddRow( params.data.row );
-	globalThis.postMessage( { functionName: 'boid_library_add_row', request_id: params?.request_id, data: { id } } );
+	const id = await lib.AddRow( params.row );
+	return { id };
 } });
 
 commands.register( { name: 'tank_library_list', description: 'List tank index rows', handler: async params => {
 	const lib = new TankLibrary();
-	const rows = await lib.Get( params.data || {} );
-	globalThis.postMessage( { functionName: 'tank_library_list', request_id: params?.request_id, data: rows } );
+	const rows = await lib.Get( params || {} );
+	return rows;
 } });
 
 commands.register( { name: 'tank_library_delete', description: 'Delete a saved tank by id', handler: async params => {
 	const lib = new TankLibrary();
-	await lib.Delete( params.data.id );
-	globalThis.postMessage( { functionName: 'tank_library_delete', request_id: params?.request_id, data: { ok: true } } );
+	await lib.Delete( params.id );
+	return { ok: true };
 } });
 
 commands.register( { name: 'tank_library_get_row', description: 'Get full row (index + scene) for a saved tank', handler: async params => {
 	const lib = new TankLibrary();
-	const row = await lib.GetFullRow( params.data.id );
-	globalThis.postMessage( { functionName: 'tank_library_get_row', request_id: params?.request_id, data: row } );
+	const row = await lib.GetFullRow( params.id );
+	return row;
 } });
 
 commands.register( { name: 'tank_library_add_row', description: 'Import a tank row from external JSON (stores only, does not load)', handler: async params => {
 	const lib = new TankLibrary();
-	const id = await lib.AddRow( params.data.row );
-	globalThis.postMessage( { functionName: 'tank_library_add_row', request_id: params?.request_id, data: { id } } );
+	const id = await lib.AddRow( params.row );
+	return { id };
 } });
 
 // ─── AUTONOMOUS LOOP ──────────────────────────────────────────────────────────
@@ -626,7 +629,8 @@ function PostAutonomousStats() {
 	let species = new Set();
 	for ( let b of globalThis.vc.tank.boids ) { species.add(b.species); }
 	globalThis.postMessage( {
-		functionName: 'autonomous.stats',
+		type: 'event',
+		name: 'autonomous.stats',
 		data: {
 			running: autonomous,
 			speed: auto_speed,
@@ -693,13 +697,12 @@ function AutoTick() {
 // Start the autonomous loop. Params: speed (full|throttled|natural), throttle_delay, natural_fps, stats_interval
 commands.register( { name: 'start_autonomous', description: 'Start the autonomous simulation loop. Params: speed (full|throttled|natural), throttle_delay (ms), natural_fps, stats_interval (ms)', handler: params => {
 	if ( autonomous ) {
-		globalThis.postMessage( { functionName: 'start_autonomous', request_id: params?.request_id, data: { ok: false, error: 'already running' } } );
-		return;
+		return { ok: false, error: 'already running' };
 	}
-	auto_speed = params.data?.speed || 'throttled';
-	auto_throttle_delay = params.data?.throttle_delay ?? 10;
-	auto_natural_fps = params.data?.natural_fps ?? 30;
-	auto_stats_interval = params.data?.stats_interval ?? 5000;
+	auto_speed = params?.speed || 'throttled';
+	auto_throttle_delay = params?.throttle_delay ?? 10;
+	auto_natural_fps = params?.natural_fps ?? 30;
+	auto_stats_interval = params?.stats_interval ?? 5000;
 	autonomous = true;
 	const now = performance.now();
 	auto_wall_start_ms = now;
@@ -710,7 +713,7 @@ commands.register( { name: 'start_autonomous', description: 'Start the autonomou
 	auto_tps_window_start = now;
 	auto_last_natural_ms = (auto_speed === 'natural') ? now : 0;
 	auto_loop_timer = setTimeout(AutoTick, 0);
-	globalThis.postMessage( { functionName: 'start_autonomous', request_id: params?.request_id, data: { ok: true, speed: auto_speed } } );
+	return { ok: true, speed: auto_speed };
 } });
 
 commands.register( { name: 'stop_autonomous', description: 'Stop (pause) the autonomous loop', handler: params => {
@@ -719,29 +722,27 @@ commands.register( { name: 'stop_autonomous', description: 'Stop (pause) the aut
 		clearTimeout(auto_loop_timer);
 		auto_loop_timer = null;
 	}
-	globalThis.postMessage( { functionName: 'stop_autonomous', request_id: params?.request_id, data: { ok: true, frame_count: auto_frame_count } } );
+	return { ok: true, frame_count: auto_frame_count };
 } });
 
 commands.register( { name: 'resume_autonomous', description: 'Resume a paused autonomous loop', handler: params => {
 	if ( autonomous ) {
-		globalThis.postMessage( { functionName: 'resume_autonomous', request_id: params?.request_id, data: { ok: false, error: 'already running' } } );
-		return;
+		return { ok: false, error: 'already running' };
 	}
 	if ( !auto_speed ) {
-		globalThis.postMessage( { functionName: 'resume_autonomous', request_id: params?.request_id, data: { ok: false, error: 'not initialized — call start_autonomous first' } } );
-		return;
+		return { ok: false, error: 'not initialized — call start_autonomous first' };
 	}
 	autonomous = true;
 	if ( auto_speed === 'natural' ) { auto_last_natural_ms = performance.now(); }
 	auto_loop_timer = setTimeout(AutoTick, 0);
-	globalThis.postMessage( { functionName: 'resume_autonomous', request_id: params?.request_id, data: { ok: true, speed: auto_speed } } );
+	return { ok: true, speed: auto_speed };
 } });
 
 commands.register( { name: 'set_speed', description: 'Change autonomous loop speed without stopping. Params: speed (full|throttled|natural), throttle_delay, natural_fps', handler: params => {
-	if ( params.data?.speed ) { auto_speed = params.data.speed; }
-	if ( params.data?.throttle_delay !== undefined ) { auto_throttle_delay = params.data.throttle_delay; }
-	if ( params.data?.natural_fps !== undefined ) { auto_natural_fps = params.data.natural_fps; }
-	globalThis.postMessage( { functionName: 'set_speed', request_id: params?.request_id, data: { ok: true, speed: auto_speed } } );
+	if ( params?.speed ) { auto_speed = params.speed; }
+	if ( params?.throttle_delay !== undefined ) { auto_throttle_delay = params.throttle_delay; }
+	if ( params?.natural_fps !== undefined ) { auto_natural_fps = params.natural_fps; }
+	return { ok: true, speed: auto_speed };
 } });
 
 commands.register( { name: 'terminate', description: 'Stop the autonomous loop and post a final status report', handler: params => {
@@ -753,41 +754,33 @@ commands.register( { name: 'terminate', description: 'Stop the autonomous loop a
 	const wall_ms = auto_wall_start_ms ? (performance.now() - auto_wall_start_ms) : 0;
 	let species = new Set();
 	for ( let b of globalThis.vc.tank.boids ) { species.add(b.species); }
-	globalThis.postMessage( {
-		functionName: 'terminate',
-		request_id: params?.request_id,
-		data: {
-			ok: true,
-			frame_count: auto_frame_count,
-			sim_time: globalThis.vc.simulation?.stats?.round_time || 0,
-			round_num: globalThis.vc.simulation?.stats?.round_num || 0,
-			population_size: globalThis.vc.tank.boids.length,
-			species: species.size,
-			wall_ms,
-			ticks_per_second: auto_tps,
-		}
-	} );
+	return {
+		ok: true,
+		frame_count: auto_frame_count,
+		sim_time: globalThis.vc.simulation?.stats?.round_time || 0,
+		round_num: globalThis.vc.simulation?.stats?.round_num || 0,
+		population_size: globalThis.vc.tank.boids.length,
+		species: species.size,
+		wall_ms,
+		ticks_per_second: auto_tps,
+	};
 } });
 
 commands.register( { name: 'get_status', description: 'Get autonomous loop status and summary simulation stats', handler: params => {
 	const wall_ms = auto_wall_start_ms ? (performance.now() - auto_wall_start_ms) : 0;
 	let species = new Set();
 	for ( let b of globalThis.vc.tank.boids ) { species.add(b.species); }
-	globalThis.postMessage( {
-		functionName: 'get_status',
-		request_id: params?.request_id,
-		data: {
-			running: autonomous,
-			speed: auto_speed,
-			frame_count: auto_frame_count,
-			sim_time: globalThis.vc.simulation?.stats?.round_time || 0,
-			round_num: globalThis.vc.simulation?.stats?.round_num || 0,
-			population_size: globalThis.vc.tank.boids.length,
-			species: species.size,
-			wall_ms,
-			ticks_per_second: auto_tps,
-		}
-	} );
+	return {
+		running: autonomous,
+		speed: auto_speed,
+		frame_count: auto_frame_count,
+		sim_time: globalThis.vc.simulation?.stats?.round_time || 0,
+		round_num: globalThis.vc.simulation?.stats?.round_num || 0,
+		population_size: globalThis.vc.tank.boids.length,
+		species: species.size,
+		wall_ms,
+		ticks_per_second: auto_tps,
+	};
 } });
 
 commands.register( { name: 'get_stats', description: 'Get a full simulation + tank stats snapshot', handler: params => {
@@ -796,42 +789,38 @@ commands.register( { name: 'get_stats', description: 'Get a full simulation + ta
 	const tank = globalThis.vc.tank;
 	let species = new Set();
 	for ( let b of tank.boids ) { species.add(b.species); }
-	globalThis.postMessage( {
-		functionName: 'get_stats',
-		request_id: params?.request_id,
-		data: {
-			running: autonomous,
-			speed: auto_speed,
-			frame_count: auto_frame_count,
-			wall_ms,
-			ticks_per_second: auto_tps,
-			sim: {
-				name: sim?.settings?.name,
-				round_num: sim?.stats?.round_num || 0,
-				round_time: sim?.stats?.round_time || 0,
-				best_score: sim?.stats?.best_score || 0,
-				best_avg_score: sim?.stats?.best_avg_score || 0,
-				round_best_score: sim?.stats?.round_best_score || 0,
-				round_avg_score: sim?.stats?.round_avg_score || 0,
-				sims_in_queue: globalThis.vc.sim_queue.length,
-				settings: sim?.settings,
-			},
-			tank: {
-				boids: tank.boids.length,
-				species: species.size,
-				plants: tank.plants.length,
-				foods: tank.foods.length,
-				rocks: tank.obstacles.length,
-				marks: tank.marks.length,
-				boid_mass: Math.floor( tank.boids.reduce( (a,b) => a+b.mass, 0 ) ),
-				food_mass: Math.floor( tank.foods.reduce( (a,b) => a+b.value, 0 ) ),
-			},
-		}
-	} );
+	return {
+		running: autonomous,
+		speed: auto_speed,
+		frame_count: auto_frame_count,
+		wall_ms,
+		ticks_per_second: auto_tps,
+		sim: {
+			name: sim?.settings?.name,
+			round_num: sim?.stats?.round_num || 0,
+			round_time: sim?.stats?.round_time || 0,
+			best_score: sim?.stats?.best_score || 0,
+			best_avg_score: sim?.stats?.best_avg_score || 0,
+			round_best_score: sim?.stats?.round_best_score || 0,
+			round_avg_score: sim?.stats?.round_avg_score || 0,
+			sims_in_queue: globalThis.vc.sim_queue.length,
+			settings: sim?.settings,
+		},
+		tank: {
+			boids: tank.boids.length,
+			species: species.size,
+			plants: tank.plants.length,
+			foods: tank.foods.length,
+			rocks: tank.obstacles.length,
+			marks: tank.marks.length,
+			boid_mass: Math.floor( tank.boids.reduce( (a,b) => a+b.mass, 0 ) ),
+			food_mass: Math.floor( tank.foods.reduce( (a,b) => a+b.value, 0 ) ),
+		},
+	};
 } });
 
 commands.register( { name: 'get_population', description: 'Get compact population list (oid, species, age, score, dna). Params: inc_dna (bool)', handler: params => {
-	const inc_dna = params.data?.inc_dna ?? false;
+	const inc_dna = params?.inc_dna ?? false;
 	const list = globalThis.vc.tank.boids.map( b => {
 		const entry = {
 			oid: b.oid,
@@ -845,17 +834,13 @@ commands.register( { name: 'get_population', description: 'Get compact populatio
 		if ( inc_dna ) { entry.dna = b.dna?.hex || null; }
 		return entry;
 	});
-	globalThis.postMessage( {
-		functionName: 'get_population',
-		request_id: params?.request_id,
-		data: list,
-	} );
+	return list;
 } });
 
 commands.register( { name: 'export_tank', description: 'Export full tank state as structured JSON without a DB write', handler: params => {
 	const tank = globalThis.vc.tank;
 	const sim = globalThis.vc.simulation;
-	const scene = {
+	return {
 		tank: tank.Export(),
 		boids: tank.boids.map( x => x.Export() ),
 		obstacles: tank.obstacles.map( x => x.Export() ),
@@ -863,28 +848,19 @@ commands.register( { name: 'export_tank', description: 'Export full tank state a
 		plants: tank.plants.map( x => x.Export() ),
 		sim_settings: sim?.settings || {},
 	};
-	globalThis.postMessage( {
-		functionName: 'export_tank',
-		request_id: params?.request_id,
-		data: scene,
-	} );
 } });
 
 commands.register( { name: 'import_tank', description: 'Load a full tank scene from a plain JSON object (no DB required). Accepts same scene format as export_tank.', handler: params => {
-	const scene = params.data?.scene ?? params.data;
-	const settings = params.data?.settings ?? null;
+	const scene = params?.scene ?? params;
+	const settings = params?.settings ?? null;
 	const ok = globalThis.vc.ImportTank(scene, settings);
 	settings_dirty = true;
-	globalThis.postMessage( {
-		functionName: 'import_tank',
-		request_id: params?.request_id,
-		data: {
-			ok,
-			boids: globalThis.vc.tank.boids.length,
-			width: globalThis.vc.tank.width,
-			height: globalThis.vc.tank.height,
-		}
-	} );
+	return {
+		ok,
+		boids: globalThis.vc.tank.boids.length,
+		width: globalThis.vc.tank.width,
+		height: globalThis.vc.tank.height,
+	};
 } });
 
 // listen for critical internal events and report back via API
@@ -892,7 +868,8 @@ let onSimCompleteSubscription = PubSub.subscribe('sim.complete', (msg, sim) => {
 	let stats = Object.assign({}, sim.stats);
 	delete(stats.records); // don't need records - those are sent separately
 	globalThis.postMessage( {
-		functionName: 'sim_complete',
+		type: 'event',
+		name: 'sim_complete',
 		data: {
 			settings: sim.settings,
 			stats: stats,
@@ -905,7 +882,8 @@ let onSimRoundSubscription = PubSub.subscribe('sim.round', (msg, sim) => {
 	delete(datapacket.chartdata); // don't need all of this every frame
 	delete(datapacket.records); // don't need all of this every frame
 	globalThis.postMessage( {
-		functionName: 'sim_round',
+		type: 'event',
+		name: 'sim_round',
 		data: datapacket
 	} );
 });
@@ -914,13 +892,15 @@ let onSimNewSubscription = PubSub.subscribe('sim.new', (msg, sim) => {
 	globalThis.vc.tank.geodata_sent = false;
 	settings_dirty = true;
 	globalThis.postMessage( {
-		functionName: 'sim_new',
+		type: 'event',
+		name: 'sim_new',
 		data: sim.settings
 	} );
 });
 let onRecordsPushSubscription = PubSub.subscribe('records.push', (msg,data) => {
 	globalThis.postMessage( {
-		functionName: 'records_push',
+		type: 'event',
+		name: 'records_push',
 		data: data
 	} );
 });
@@ -928,7 +908,8 @@ let onRecordsPushSubscription = PubSub.subscribe('records.push', (msg,data) => {
 // simulation autosave
 let onAutosaveSubscription = PubSub.subscribe('autosave', (msg,data) => {
 	globalThis.postMessage( {
-		functionName: 'save_tank',
+		type: 'event',
+		name: 'autosave',
 		data: data
 	} );
 });
@@ -938,7 +919,8 @@ let onAutosaveSubscription = PubSub.subscribe('autosave', (msg,data) => {
 // if the front end needs details it will ask for a specific boid's stats.
 let onBoidRecordsPushSubscription = PubSub.subscribe('boid.records.push', (msg,data) => {
 	globalThis.postMessage( {
-		functionName: 'boid_records_push',
+		type: 'event',
+		name: 'boid_records_push',
 		data: data
 	} );
 });
@@ -949,19 +931,17 @@ globalThis.vc = vc; // handy reference for everyone else
 
 // built-in introspection and health-check commands
 commands.register( { name: 'help', description: 'List all available commands with metadata', handler: (params) => {
-	const list = commands.list();
-	globalThis.postMessage( { functionName: 'help', data: list, request_id: params?.request_id } );
+	return commands.list();
 } });
 
 commands.register( { name: 'describe', description: 'Get full metadata for a single command', params: {
 	name: { type: 'string', description: 'Command name to describe' }
 }, handler: params => {
-	const info = commands.describe( params.data?.name );
-	globalThis.postMessage( { functionName: 'describe', data: info, request_id: params?.request_id } );
+	return commands.describe( params?.name );
 } });
 
 commands.register( { name: 'ping', description: 'Health check — returns pong', handler: (params) => {
-	globalThis.postMessage( { functionName: 'ping', data: 'pong', request_id: params?.request_id } );
+	return 'pong';
 } });
 
 function DescribeBoid( o, inc_sensor_geo=false,  inc_brain=false, inc_stats=0 ) {
