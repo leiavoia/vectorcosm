@@ -14,10 +14,10 @@ COMMAND DISPATCH
 - Built-in commands: help, describe, ping.
 
 REGISTERED COMMANDS (all snake_case)
-  App commands (15):
+  App commands (16):
     update, pick_object, get_tank_env_data, end_sim, save_tank, load_tank,
     export_boids, load_boids, smite, rand_tank, init, update_sim_settings,
-    push_sim_queue, add_saved_boids, import_tank
+    push_sim_queue, add_saved_boids, import_tank, get_records
   Autonomous loop (8):
     start_autonomous, stop_autonomous, resume_autonomous, set_speed, terminate,
     get_status, get_stats, get_population
@@ -835,6 +835,13 @@ commands.register( { name: 'get_population', description: 'Get compact populatio
 		return entry;
 	});
 	return list;
+} });
+
+// stat history for graphs
+commands.register( { name: 'get_records', description: 'Get full stat history from CompoundStatTracker (all layers)', handler: params => {
+	const records = globalThis.vc.simulation?.stats?.records;
+	if ( !records ) { return null; }
+	return records.Export();
 } });
 
 commands.register( { name: 'export_tank', description: 'Export full tank state as structured JSON without a DB write', handler: params => {
