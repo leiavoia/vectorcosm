@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "headless": "node cli/run-sim.js",
     "profile": "node cli/profile-sim.js",
+    "analyze-profile": "node cli/analyze-profile.js",
     "experiment": "node cli/run-experiment.js",
     "test:headless": "node tests/test-headless.js",
     "test:url-params": "node tests/test-url-params.js",

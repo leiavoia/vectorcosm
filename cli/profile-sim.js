@@ -4,12 +4,20 @@ cli/profile-sim.js — Playwright/CDP browser profiler for Vectorcosm.
 Launches headless Chromium, opens lab.html with sim params, warms up,
 then captures:
   - TPS/frame stats via window.vectorcosmLab.status() sampled once per second
-  - Chrome trace (devtools timeline: GC, scripting, rendering, memory) via Playwright tracing API
+  - V8 CPU profile via CDP Tracing (disabled-by-default-v8.cpu_profiler)
+  - Chrome trace (optional, timeline categories, Perfetto-compatible JSON)
+
+When CPU profiling is enabled (default), uses CDP Tracing instead of Playwright
+tracing. Both CPU profile and Chrome trace come from the same capture. Thread
+selection (--thread=worker|main) controls which thread's CPU profile is extracted.
+
+When CPU profiling is disabled (--no-cpuprofile), falls back to Playwright tracing
+for the Chrome trace (.zip format for Playwright Trace Viewer).
 
 Outputs:
-  profile-output/trace-<ts>.zip    — Chrome trace (open in chrome://tracing or https://ui.perfetto.dev)
-  profile-output/summary-<ts>.json — stats summary
-  Summary printed to stdout.
+  profile-output/cpuprofile-<ts>.json — V8 CPU profile (for analyze-profile.js)
+  profile-output/trace-<ts>.json      — Chrome trace (open in https://ui.perfetto.dev)
+  profile-output/summary-<ts>.json    — TPS/stats summary
 
 REQUIRES
   npm install -D playwright
@@ -25,14 +33,18 @@ OPTIONS
   --sim=<name>           Sim preset (default: peaceful_tank)
   --num_boids=<n>        Population size
   --speed=<mode>         throttled | full | natural (default: throttled)
-  --warmup=<s>           Warmup seconds (default: 10)
+  --warmup=<s>           Warmup seconds (default: 60)
   --duration=<s>         Capture seconds (default: 30)
   --url=<url>            Server URL (default: http://localhost:5173)
   --output=<dir>         Output directory (default: ./profile-output)
+  --thread=<t>           worker | main (default: worker)
+  --no-cpuprofile        Skip V8 CPU profile capture
   --no-trace             Skip Chrome trace file
   --headful              Show browser window
   --help                 Print help
   Plus sim_meta_params dot-notation: --sim_meta_params.KEY=value
+
+Default tank size: 3000x4000 (override with --width, --height)
 </AI> */
 
 import { resolve, dirname } from 'path';
@@ -86,10 +98,12 @@ function printHelp() {
 		'  --sim=<name>           Sim preset  (default: peaceful_tank)',
 		'  --num_boids=<n>        Population size',
 		'  --speed=<mode>         throttled | full | natural  (default: throttled)',
-		'  --warmup=<s>           Warmup seconds  (default: 10)',
+		'  --warmup=<s>           Warmup seconds  (default: 60)',
 		'  --duration=<s>         Capture seconds  (default: 30)',
 		'  --url=<url>            Vite server URL  (default: http://localhost:5173)',
 		'  --output=<dir>         Output directory  (default: ./profile-output)',
+		'  --thread=<t>           worker | main  (default: worker)',
+		'  --no-cpuprofile        Skip V8 CPU profile capture',
 		'  --no-trace             Skip Chrome trace file',
 		'  --headful              Show browser window',
 		'  --help                 Print help',
@@ -103,7 +117,7 @@ function printHelp() {
 		'Examples:',
 		'  node cli/profile-sim.js --sim=peaceful_tank --duration=30',
 		'  node cli/profile-sim.js --sim=natural_tank --num_boids=200 --duration=60',
-		'  node cli/profile-sim.js --sim=natural_tank --warmup=5 --no-trace',
+		'  node cli/profile-sim.js --sim=natural_tank --warmup=5 --no-cpuprofile',
 		'',
 	].join('\n'));
 }
@@ -111,7 +125,10 @@ function printHelp() {
 // ─── Build lab URL from args ──────────────────────────────────────────────────
 // Forward all sim-relevant params as URL query string; strip profiler-only keys.
 
-const PROFILER_ONLY = new Set(['url', 'output', 'warmup', 'duration', 'no-trace', 'headful', 'help', 'h']);
+const PROFILER_ONLY = new Set([
+	'url', 'output', 'warmup', 'duration', 'no-trace', 'no-cpuprofile',
+	'thread', 'headful', 'help', 'h',
+]);
 
 function buildLabUrl(base, args) {
 	const params = new URLSearchParams();
@@ -146,6 +163,123 @@ async function loadPlaywright() {
 	}
 }
 
+// ─── CDP Tracing helpers for V8 CPU profiling ─────────────────────────────────
+
+// Start CDP tracing with V8 CPU profiler categories.
+// Returns chunks array — populated as tracing runs.
+async function startCDPTracing( cdp, includeTimeline ) {
+	const chunks = [];
+	cdp.on( 'Tracing.dataCollected', ({ value }) => chunks.push( ...value ) );
+	const categories = [
+		'disabled-by-default-v8.cpu_profiler',
+		'disabled-by-default-v8.cpu_profiler.hires',
+		'__metadata',
+	];
+	if ( includeTimeline ) {
+		categories.push( 'devtools.timeline', 'v8.execute', 'disabled-by-default-devtools.timeline' );
+	}
+	await cdp.send( 'Tracing.start', {
+		traceConfig: {
+			includedCategories: categories,
+			recordMode: 'recordContinuously',
+		},
+	} );
+	return chunks;
+}
+
+// Stop CDP tracing and wait for all data to flush.
+async function stopCDPTracing( cdp ) {
+	const done = new Promise( r => cdp.once( 'Tracing.tracingComplete', r ) );
+	await cdp.send( 'Tracing.end' );
+	await done;
+}
+
+// Extract a V8 CPU profile for a specific thread from CDP trace events.
+// targetThread: 'worker' or 'main'
+function extractCPUProfile( traceEvents, targetThread ) {
+	// build thread name map from metadata
+	const threadNames = {};
+	for ( const ev of traceEvents ) {
+		if ( ev.cat === '__metadata' && ev.name === 'thread_name' && ev.args?.name ) {
+			threadNames[`${ev.pid}:${ev.tid}`] = ev.args.name;
+		}
+	}
+
+	// collect all threads that have ProfileChunk events
+	const threadChunkCounts = {};
+	for ( const ev of traceEvents ) {
+		if ( ev.name === 'ProfileChunk' ) {
+			const k = `${ev.pid}:${ev.tid}`;
+			threadChunkCounts[k] = ( threadChunkCounts[k] || 0 ) + 1;
+		}
+	}
+
+	const threadKeys = Object.keys( threadChunkCounts );
+	if ( !threadKeys.length ) { return null; }
+
+	// match target thread by name
+	let targetKey = null;
+	for ( const key of threadKeys ) {
+		const name = ( threadNames[key] || '' ).toLowerCase();
+		if ( targetThread === 'worker' && name.includes( 'worker' ) ) { targetKey = key; break; }
+		if ( targetThread === 'main' && ( name.includes( 'crrenderer' ) || name.includes( 'main' ) ) ) { targetKey = key; break; }
+	}
+
+	// fallback heuristic: worker = non-main thread with most chunks
+	if ( !targetKey ) {
+		const sorted = threadKeys.sort( (a, b) => threadChunkCounts[b] - threadChunkCounts[a] );
+		if ( targetThread === 'worker' ) {
+			targetKey = sorted.find( k => {
+				const name = ( threadNames[k] || '' ).toLowerCase();
+				return !name.includes( 'crrenderer' ) && !name.includes( 'main' );
+			} ) || sorted[0];
+		}
+		else {
+			targetKey = sorted.find( k => {
+				const name = ( threadNames[k] || '' ).toLowerCase();
+				return name.includes( 'crrenderer' ) || name.includes( 'main' );
+			} ) || sorted[sorted.length - 1];
+		}
+	}
+
+	if ( !targetKey ) { return null; }
+	const [targetPid, targetTid] = targetKey.split( ':' ).map( Number );
+
+	// collect Profile and ProfileChunk events for target thread
+	const nodes = [];
+	const samples = [];
+	const timeDeltas = [];
+	let startTime = 0;
+
+	for ( const ev of traceEvents ) {
+		if ( ev.pid !== targetPid || ev.tid !== targetTid ) { continue; }
+		if ( ev.name === 'Profile' && ev.args?.data?.startTime ) {
+			startTime = ev.args.data.startTime;
+		}
+		if ( ev.name === 'ProfileChunk' && ev.args?.data ) {
+			const d = ev.args.data;
+			if ( d.cpuProfile?.nodes )   { nodes.push( ...d.cpuProfile.nodes ); }
+			if ( d.cpuProfile?.samples ) { samples.push( ...d.cpuProfile.samples ); }
+			if ( d.timeDeltas )          { timeDeltas.push( ...d.timeDeltas ); }
+		}
+	}
+
+	if ( !nodes.length ) { return null; }
+
+	return {
+		nodes,
+		samples,
+		timeDeltas,
+		startTime,
+		endTime: startTime + timeDeltas.reduce( (a, b) => a + b, 0 ),
+		$meta: {
+			pid: targetPid,
+			tid: targetTid,
+			threadName: threadNames[targetKey] || 'unknown',
+		},
+	};
+}
+
 // ─── Stats helpers ────────────────────────────────────────────────────────────
 
 function mean(arr) { return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0; }
@@ -162,16 +296,20 @@ async function main() {
 		process.exit(0);
 	}
 
-	const serverUrl   = typeof args.url      === 'string' ? args.url      : 'http://localhost:5173';
-	const outputDir   = typeof args.output   === 'string' ? args.output   : './profile-output';
-	const warmupSecs  = typeof args.warmup   === 'number' ? args.warmup   : 10;
-	const captureSecs = typeof args.duration === 'number' ? args.duration : 30;
-	const headless    = !(args.headful === 'true' || args.headful === true);
-	const saveTrace   = !(args['no-trace'] === 'true' || args['no-trace'] === true);
+	const serverUrl      = typeof args.url      === 'string' ? args.url      : 'http://localhost:5173';
+	const outputDir      = typeof args.output   === 'string' ? args.output   : './profile-output';
+	const warmupSecs     = typeof args.warmup   === 'number' ? args.warmup   : 60;
+	const captureSecs    = typeof args.duration === 'number' ? args.duration : 30;
+	const headless       = !(args.headful === 'true' || args.headful === true);
+	const saveTrace      = !(args['no-trace'] === 'true' || args['no-trace'] === true);
+	const saveCpuProfile = !(args['no-cpuprofile'] === 'true' || args['no-cpuprofile'] === true);
+	const profileThread  = ( args.thread === 'main' ) ? 'main' : 'worker';
 
-	// default sim and speed
-	if ( !args.sim   ) { args.sim   = 'peaceful_tank'; }
-	if ( !args.speed ) { args.speed = 'throttled'; }
+	// default sim, speed, and tank dimensions
+	if ( !args.sim    ) { args.sim    = 'peaceful_tank'; }
+	if ( !args.speed  ) { args.speed  = 'throttled'; }
+	if ( !args.width  ) { args.width  = 3000; }
+	if ( !args.height ) { args.height = 4000; }
 
 	const labUrl = buildLabUrl(serverUrl, args);
 	const ts     = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
@@ -179,11 +317,13 @@ async function main() {
 	const outDir = resolve(outputDir);
 	await mkdir(outDir, { recursive: true });
 
-	console.log(`[profiler] sim:      ${args.sim}`);
-	console.log(`[profiler] url:      ${labUrl}`);
-	console.log(`[profiler] warmup:   ${warmupSecs}s   capture: ${captureSecs}s`);
-	console.log(`[profiler] trace:    ${saveTrace}`);
-	console.log(`[profiler] output:   ${outDir}`);
+	console.log(`[profiler] sim:       ${args.sim}`);
+	console.log(`[profiler] url:       ${labUrl}`);
+	console.log(`[profiler] warmup:    ${warmupSecs}s   capture: ${captureSecs}s`);
+	console.log(`[profiler] thread:    ${profileThread}`);
+	console.log(`[profiler] cpu prof:  ${saveCpuProfile}`);
+	console.log(`[profiler] trace:     ${saveTrace}`);
+	console.log(`[profiler] output:    ${outDir}`);
 
 	// ─── Launch browser ───────────────────────────────────────────────────────
 
@@ -240,11 +380,21 @@ async function main() {
 	const statusBefore = await page.evaluate(() => window.vectorcosmLab.status()).catch(() => null);
 	console.log(`[profiler] baseline: ${JSON.stringify(statusBefore)}`);
 
-	// ─── Start trace ──────────────────────────────────────────────────────────
+	// ─── Start capture (CDP tracing or Playwright tracing) ────────────────────
 
-	if ( saveTrace ) {
-		await context.tracing.start({ screenshots: false, snapshots: true });
-		console.log('[profiler] trace started.');
+	let cdp = null;
+	let traceChunks = null;
+
+	if ( saveCpuProfile ) {
+		// CDP tracing captures CPU profile + optional timeline in one session
+		cdp = await context.newCDPSession( page );
+		traceChunks = await startCDPTracing( cdp, saveTrace );
+		console.log( '[profiler] CDP tracing started (V8 CPU profiler).' );
+	}
+	else if ( saveTrace ) {
+		// fallback: Playwright tracing (no CPU profile)
+		await context.tracing.start( { screenshots: false, snapshots: true } );
+		console.log( '[profiler] Playwright trace started.' );
 	}
 
 	// ─── Capture phase — sample status() once per second ─────────────────────
@@ -260,16 +410,44 @@ async function main() {
 	}
 	process.stdout.write('\n');
 
-	// ─── Stop trace ───────────────────────────────────────────────────────────
+	// ─── Stop capture ─────────────────────────────────────────────────────────
 
-	const traceFile = resolve(outDir, `trace-${ts}.zip`);
-	if ( saveTrace ) {
-		await context.tracing.stop({ path: traceFile });
-		console.log(`[profiler] trace saved → ${traceFile}`);
+	let cpuProfileFile = null;
+	let traceFile = null;
+
+	if ( saveCpuProfile && cdp ) {
+		await stopCDPTracing( cdp );
+		console.log( `[profiler] CDP tracing stopped. ${traceChunks.length} trace events collected.` );
+
+		// extract CPU profile for target thread
+		const profile = extractCPUProfile( traceChunks, profileThread );
+		if ( profile ) {
+			cpuProfileFile = resolve( outDir, `cpuprofile-${ts}.json` );
+			await writeFile( cpuProfileFile, JSON.stringify( profile ), 'utf8' );
+			console.log( `[profiler] CPU profile (${profile.$meta.threadName}) → ${cpuProfileFile}` );
+			console.log( `[profiler]   ${profile.nodes.length} nodes, ${profile.samples.length} samples` );
+		}
+		else {
+			process.stderr.write( `[profiler] WARNING: no CPU profile data found for ${profileThread} thread.\n` );
+		}
+
+		// save Chrome trace JSON (all events, all threads)
+		if ( saveTrace && traceChunks.length ) {
+			traceFile = resolve( outDir, `trace-${ts}.json` );
+			await writeFile( traceFile, JSON.stringify( traceChunks ), 'utf8' );
+			console.log( `[profiler] Chrome trace → ${traceFile}` );
+		}
+
+		await cdp.detach().catch( () => {} );
+	}
+	else if ( saveTrace ) {
+		traceFile = resolve( outDir, `trace-${ts}.zip` );
+		await context.tracing.stop( { path: traceFile } );
+		console.log( `[profiler] Playwright trace → ${traceFile}` );
 	}
 
 	// final stats snapshot (richer than status)
-	const finalStats = await page.evaluate(() => window.vectorcosmLab.stats()).catch(() => null);
+	const finalStats = await page.evaluate( () => window.vectorcosmLab.stats() ).catch( () => null );
 
 	await browser.close();
 
@@ -278,21 +456,23 @@ async function main() {
 	const tpsValues = samples.map(s => s.ticks_per_second).filter(v => typeof v === 'number' && v > 0);
 	const summary = {
 		ts,
-		sim:          args.sim,
-		speed:        args.speed,
-		num_boids:    statusBefore?.population_size ?? null,
-		warmup_secs:  warmupSecs,
-		capture_secs: captureSecs,
+		sim:             args.sim,
+		speed:           args.speed,
+		num_boids:       statusBefore?.population_size ?? null,
+		warmup_secs:     warmupSecs,
+		capture_secs:    captureSecs,
+		profile_thread:  saveCpuProfile ? profileThread : null,
 		tps: {
 			avg:  Math.round(mean(tpsValues)),
 			peak: Math.round(arrmax(tpsValues)),
 			min:  Math.round(arrmin(tpsValues)),
 		},
-		total_frames:   samples.length ? samples[samples.length - 1].frame_count    : null,
-		total_sim_time: samples.length ? samples[samples.length - 1].sim_time       : null,
-		samples:        samples.length,
-		trace_file:     saveTrace ? traceFile : null,
-		final_stats:    finalStats ?? null,
+		total_frames:    samples.length ? samples[samples.length - 1].frame_count    : null,
+		total_sim_time:  samples.length ? samples[samples.length - 1].sim_time       : null,
+		samples:         samples.length,
+		cpuprofile_file: cpuProfileFile,
+		trace_file:      traceFile,
+		final_stats:     finalStats ?? null,
 	};
 
 	const summaryFile = resolve(outDir, `summary-${ts}.json`);
@@ -307,9 +487,17 @@ async function main() {
 	console.log(`  TPS avg:      ${summary.tps.avg}   peak: ${summary.tps.peak}   min: ${summary.tps.min}`);
 	console.log(`  total frames: ${summary.total_frames ?? 'unknown'}`);
 	console.log(`  sim time:     ${(summary.total_sim_time ?? 0).toFixed(1)}s`);
-	if ( saveTrace ) {
+	if ( cpuProfileFile ) {
+		console.log(`  cpu profile → ${cpuProfileFile}  (${profileThread} thread)`);
+	}
+	if ( traceFile ) {
 		console.log(`  trace →       ${traceFile}`);
-		console.log('  (open in https://ui.perfetto.dev or chrome://tracing)');
+		if ( traceFile.endsWith('.json') ) {
+			console.log('  (open in https://ui.perfetto.dev)');
+		}
+		else {
+			console.log('  (open in https://ui.perfetto.dev or trace.playwright.dev)');
+		}
 	}
 	console.log(`  summary →     ${summaryFile}`);
 	console.log('─────────────────────────────────────────────────────────────');
