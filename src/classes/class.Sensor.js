@@ -5,6 +5,8 @@ SENSOR TYPES
 - 'sense'     — geometric sweep (circle or arc). Integrates `sense[]` channels from nearby objects
                 (boids, food, marks, rocks). `segments` splits arc into directional bands.
                 Labels: "name/seg-channel". Pre-allocated Float64Array `_detection` for hot-path speed.
+                Two optimized paths: `_senseSegmented()` for arc sensors, `_senseSimple()` for omni.
+                Output sigmoid: `x/(1+x)` with `isFinite` guard (Infinity → 1, NaN → 0).
 - 'whisker'   — thin ray probes. N rays at spread angles; returns 1-normalized_dist when near obstacle.
                 Labels: "whiskernameN".
 - 'proprio'   — reads boid's own motor outputs back as inputs. Labels: "motor_0", "motor_1", ...
@@ -21,6 +23,7 @@ KEY METHODS
 
 PERFORMANCE
 - `_detection` (Float64Array) reused each frame for 'sense' type; avoids per-frame allocation.
+- Precomputed constants: `_inv_r`, `_inv_seglength`, `_inv_max_dist`, `_detect_inv_lengths`.
 - Object type checks use `otype` integer, not `instanceof`.
 </AI> */
 
@@ -578,9 +581,10 @@ export default class Sensor {
 		}
 		
 		// fast rational sigmoid: x/(1+x) replaces Math.tanh(Math.log(1+x))
+		// guard: x/(1+x) = Infinity/Infinity = NaN when x=+Infinity; saturate to 1 instead
 		for ( let i=0; i<det_len; i++ ) {
 			const x = detection[i] * sensitivity;
-			outputs[i] = x > 0 ? ( x / (1 + x) ) : 0;
+			outputs[i] = x > 0 ? ( isFinite(x) ? x / (1 + x) : 1 ) : 0;
 		}
 		return outputs;
 	}
@@ -733,9 +737,10 @@ export default class Sensor {
 		}
 		
 		// fast rational sigmoid: x/(1+x) replaces Math.tanh(Math.log(1+x))
+		// guard: x/(1+x) = Infinity/Infinity = NaN when x=+Infinity; saturate to 1 instead
 		for ( let i=0; i<det_len; i++ ) {
 			const x = detection[i] * sensitivity;
-			outputs[i] = x > 0 ? ( x / (1 + x) ) : 0;
+			outputs[i] = x > 0 ? ( isFinite(x) ? x / (1 + x) : 1 ) : 0;
 		}
 		return outputs;
 	}

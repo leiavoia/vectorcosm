@@ -1149,7 +1149,7 @@ export class Boid extends PhysicsObject {
 		// health
 		this.traits.light_tolr = this.dna.shapedNumber( this.dna.genesFor('light_tolr',1,1), 0, 1 );
 		this.traits.light_pref = this.dna.shapedNumber( this.dna.genesFor('light_pref',1,1), 0, 1 );
-		this.traits.hear_tolr = this.dna.shapedNumber( this.dna.genesFor('hear_tolr',1,1), 0, 1 );
+		this.traits.heat_tolr = this.dna.shapedNumber( this.dna.genesFor('heat_tolr',1,1), 0, 1 );
 		this.traits.heat_pref = this.dna.shapedNumber( this.dna.genesFor('heat_pref',1,1), 0, 1 );
 		
 		// nutrition and metabolism:
