@@ -5,7 +5,7 @@ OVERVIEW
 - `boids[]`, `foods[]`, `plants[]`, `obstacles[]` (rocks), `marks[]`, `whirls[]`.
 - `grid` (SpaceGrid) — fast spatial lookups by position/radius.
 - `datagrid` (DataGrid) — per-cell environmental data: current_x/y, light, heat, matter.
-- `collision_system` — Collisions library instance; all boid/food/rock shapes registered here.
+- Collision detection via custom `collision.js` module (SAT-based, no external library).
 - Width/height define world bounds; boids bounce or wrap at edges.
 
 KEY METHODS
@@ -32,7 +32,7 @@ import * as utils from '../util/utils.js';
 import SpaceGrid from '../classes/class.SpaceGrid.js';
 import DataGrid from '../classes/class.DataGrid.js';
 import Rock from '../classes/class.Rock.js';
-import {Circle, Polygon, Result, Collisions} from 'collisions';
+import { createPolygonCollider, testPolygonPolygon, testCirclePolygon, translateCollider, createResult } from './collision.js';
 
 export default class Tank {
 
@@ -266,16 +266,15 @@ export default class Tank {
 						(my_y + cellsize) - 5
 					);
 					// check for actual collisions because datagrid and space grid are not same resolution
-					const result = new Result();
+					const result = createResult();
+					const square = createPolygonCollider( my_x, my_y, [
+						[0,0],
+						[cellsize,0],
+						[cellsize,cellsize],
+						[0,cellsize]
+					]);
 					rocks = rocks.filter( rock => {
-						const square  = new Polygon(my_x, my_y, [
-							[0,0],
-							[cellsize,0],
-							[cellsize,cellsize],
-							[0,cellsize]
-						]);
-						const polygon = new Polygon(rock.x, rock.y, rock.collision.hull);
-						return square.collides(polygon, result);
+						return testPolygonPolygon( square, rock.collision, result );
 					});
 					// light falls off with absolute distance, not relative tank size
 					const depth = my_y - (cellsize * 0.5);
@@ -638,50 +637,53 @@ export default class Tank {
 
 	SeparateRocks( padding=0 ) {
 		if ( !this.obstacles.length ) { return; }
-		const system = new Collisions();
-		const result = system.createResult(); // recycled on each collision check
-		// provide temporary geometry info
-		for ( let i = 0; i < this.obstacles.length; i++ ) {
-			this.obstacles[i].collider = new Polygon(this.obstacles[i].x, this.obstacles[i].y, this.obstacles[i].collision.hull)
-			this.obstacles[i].collider.scale_x = ( this.obstacles[i].x2 + padding ) / this.obstacles[i].x2;
-			this.obstacles[i].collider.scale_y = ( this.obstacles[i].y2 + padding ) / this.obstacles[i].y2;			
-			system.insert(this.obstacles[i].collider);
+		const result = createResult();
+		// create padded colliders for separation testing
+		const n = this.obstacles.length;
+		const padded = new Array( n );
+		for ( let i = 0; i < n; i++ ) {
+			const rock = this.obstacles[i];
+			const sx = rock.x2 ? ( rock.x2 + padding ) / rock.x2 : 1;
+			const sy = rock.y2 ? ( rock.y2 + padding ) / rock.y2 : 1;
+			const s = Math.max( sx, sy ); // uniform scale (SAT needs uniform)
+			padded[i] = createPolygonCollider( rock.x, rock.y, rock.hull, s );
 		}
-		// move them apart
+		// brute-force all-pairs separation
 		let attempts = 10;
 		while ( attempts-- ) {
-			system.update();
 			this.obstacles.shuffle();
 			let num_collisions = 0;
-			for (let i = 0; i < this.obstacles.length; i++) {
-				let rock = this.obstacles[i];
-				let potentials = rock.collider.potentials();
-				for ( const body of potentials ) {
-					if (rock.collider.collides(body, result)) {
+			for ( let i = 0; i < n; i++ ) {
+				const rock = this.obstacles[i];
+				for ( let j = 0; j < n; j++ ) {
+					if ( i === j ) { continue; }
+					if ( testPolygonPolygon( padded[i], padded[j], result ) ) {
 						num_collisions++;
-						rock.x -= ( result.overlap * result.overlap_x );
-						rock.y -= ( result.overlap * result.overlap_y );
-						// stay in bounds. TODO: a rock.Move() function would be helpful. this is messy
-						if (rock.x < 0 + padding) {rock.x = padding;};
-						if (rock.y < 0 + padding) {rock.y = padding;};
-						if (rock.x + rock.x2 > globalThis.vc.tank.width - padding) {
-							rock.x = (globalThis.vc.tank.width - rock.x2) - padding;
-						};
-						if (rock.y + rock.y2 > globalThis.vc.tank.height - padding) {
-							rock.y = (globalThis.vc.tank.height - rock.y2) - padding;
-						};
-						// update dependant info
-						rock.collider.x = rock.x;
-						rock.collider.y = rock.y;
+						const dx = -( result.overlap * result.overlap_x );
+						const dy = -( result.overlap * result.overlap_y );
+						rock.x += dx;
+						rock.y += dy;
+						// stay in bounds
+						if ( rock.x < padding ) { rock.x = padding; }
+						if ( rock.y < padding ) { rock.y = padding; }
+						if ( rock.x + rock.x2 > globalThis.vc.tank.width - padding ) {
+							rock.x = ( globalThis.vc.tank.width - rock.x2 ) - padding;
+						}
+						if ( rock.y + rock.y2 > globalThis.vc.tank.height - padding ) {
+							rock.y = ( globalThis.vc.tank.height - rock.y2 ) - padding;
+						}
+						// shift the padded collider to match new position
+						translateCollider( padded[i], dx, dy );
 					}
 				}
 			}
-			if (!num_collisions) {break;}
+			if ( !num_collisions ) { break; }
 		}
-		// cleanup
-		for ( let i = 0; i < this.obstacles.length; i++ ) {
-			delete this.obstacles[i].collider;
-		}		
+		// rebuild final collision geometry at new positions
+		for ( let i = 0; i < n; i++ ) {
+			const rock = this.obstacles[i];
+			rock.collision = createPolygonCollider( rock.x, rock.y, rock.hull );
+		}
 	}
 	
 	FindSafeZones() {
@@ -692,6 +694,7 @@ export default class Tank {
 		for ( let o of this.obstacles ) { this.grid.Add(o); }
 		// find safe points using a grid pattern
 		this.safe_pts = [];
+		const result = createResult();
 		let steps = 6;
 		let x_step = this.width / steps;
 		let y_step = this.height / steps;
@@ -701,16 +704,13 @@ export default class Tank {
 				let my_x = utils.Clamp( x + ( Math.random() * x_step - x_step/2 ), r, this.width - r );
 				let my_y =  utils.Clamp( y + ( Math.random() * y_step - y_step/2 ), r, this.height - r );
 				// look for collisions
-				const result = new Result();
 				let touching = false;
 				let attempts = 3;
 				do {
 					touching = false;
 					let candidates = this.grid.GetObjectsByBox( my_x - r, my_y - r, my_x + r, my_y + r, o => o instanceof Rock );
 					for ( let o of candidates ) {
-						const circle  = new Circle(my_x, my_y, r);
-						const polygon = new Polygon(o.x, o.y, o.collision.hull);
-						let gotcha = circle.collides(polygon, result);
+						let gotcha = testCirclePolygon( my_x, my_y, r, o.collision, result );
 						// response
 						if ( gotcha ) {
 							my_x -= result.overlap * result.overlap_x;

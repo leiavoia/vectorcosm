@@ -22,6 +22,8 @@ USAGE
 - Sensors of type 'sense' detect marks in range and read their `sense[]` values.
 </AI> */
 
+import { createCircleCollider } from './collision.js';
+
 export default class Mark {
 	constructor(params) {
 		this.oid = ++globalThis.vc.next_object_id;
@@ -35,7 +37,7 @@ export default class Mark {
 		this.type = 'generic';
 		this.dead = false;		
 		Object.assign( this, params );
-		this.collision = { radius: this.r, shape: 'circle' };
+		this.collision = createCircleCollider( this.r );
 		// find the sense with the highest value and just show the corresponding color
 		let highest = 0;
 		this.strongest_sense = 0;
