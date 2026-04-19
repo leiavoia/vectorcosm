@@ -37,6 +37,21 @@ To download and build the app locally, you must have Git and Node/NPM already in
 	npm run build
 	```
 
+## Power User Tools
+
+Vectorcosm includes headless simulation, CPU profiling, and an interactive terminal UI (TUI) for running and managing multiple simulation sessions. These tools require [Playwright](https://playwright.dev/) (a large download) and are not needed for normal use. Optionally install power user tooling after the standard install:
+```bash
+npm run install:power
+```
+
+| Command | Description |
+|---------|-------------|
+| `npm run headless` | Run a headless simulation via CLI |
+| `npm run profile` | CPU-profile a simulation using Playwright + Chromium |
+| `npm run analyze-profile` | Analyze a saved CPU profile |
+| `npm run experiment` | Run an automated training experiment |
+| `npm run tui` | Launch the interactive terminal dashboard |
+
 ## Hotkeys
 
 - **1** - Toggle tank statistics
