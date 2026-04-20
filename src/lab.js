@@ -15,13 +15,14 @@ URL PARAMS (all optional)
   stats_interval  — ms between autonomous.stats posts (default 5000)
   throttle_delay  — ms between ticks in 'throttled' mode (default 10)
   natural_fps     — target fps in 'natural' mode (default 30)
-  tank_file       — integer DB ID (IndexedDB, no network) OR basename / number for saves/tanks/<name>.json
-                    Extension is optional and always .json. Path components are stripped to basename only.
+  tank_file       — integer DB ID (IndexedDB, no network) OR basename / number for saves/tanks/<name>.tank.json
+                    Extension (.tank.json) is optional; any trailing extension is stripped and .tank.json re-added.
+                    Path components are stripped to basename only.
 
 SAVES DIRECTORY
-  saves/tanks/  — tank scene JSON files
-  saves/boids/  — boid population JSON files
-  Browser reads:  fetch from /saves/tanks/<name>.json — same-origin only, basename enforced, no traversal.
+  saves/tanks/  — tank scene files (*.tank.json)
+  saves/boids/  — boid population files (*.roe.json)
+  Browser reads:  fetch from /saves/tanks/<name>.tank.json — same-origin only, basename enforced, no traversal.
   Browser writes: use saveTank(name) to trigger a download. User drops the file into saves/tanks/.
   Node.js CLI (Phase 3): FileAdapter will read/write saves/ directly.
 
@@ -31,10 +32,10 @@ EVENTS LOGGED (console + #log element if present)
 
 USAGE
   http://localhost:5173/lab.html?sim=peaceful_tank&speed=full&num_boids=50
-  http://localhost:5173/lab.html?tank_file=my-tank      (loads /saves/tanks/my-tank.json)
-  http://localhost:5173/lab.html?tank_file=42            (loads /saves/tanks/42.json  OR  DB id 42)
+  http://localhost:5173/lab.html?tank_file=my-tank      (loads /saves/tanks/my-tank.tank.json)
+  http://localhost:5173/lab.html?tank_file=42            (loads /saves/tanks/42.tank.json  OR  DB id 42)
   then: window.vectorcosmLab.call('get_status')
-        window.vectorcosmLab.saveTank('my-tank.json')
+        window.vectorcosmLab.saveTank('my-tank.tank.json')
         window.vectorcosmLab.terminate()
 </AI> */
 
@@ -78,15 +79,19 @@ delete simParams.speed; // speed goes to start_autonomous, not init
 const SAVES_TANKS_DIR = 'saves/tanks/';
 const SAVES_BOIDS_DIR = 'saves/boids/';
 
-// Given a user-supplied name (number, bare word, with or without .json), return
-// a fully-resolved same-origin URL targeting saves/tanks/<basename>.json.
-// Strips all path components to basename — traversal is impossible by construction.
+// Given a user-supplied name (number, bare word, with or without extension), return
+// a fully-resolved same-origin URL targeting saves/tanks/<basename>.tank.json.
+// Strips all path components and any trailing extension — traversal is impossible by construction.
 // Returns null if resolution fails or escapes the origin.
 function tankSavesUrl( input ) {
-	// extract basename, strip any extension, then always append .json
-	const basename = input.trim().replace(/\.json$/i, '').split(/[\/\\]/).pop();
+	// strip any known extension (.tank.json, .json, .tank) then re-add canonical .tank.json
+	const basename = input.trim()
+		.replace(/\.tank\.json$/i, '')
+		.replace(/\.json$/i, '')
+		.replace(/\.tank$/i, '')
+		.split(/[\/\\]/).pop();
 	if ( !basename ) { return null; }
-	const path = SAVES_TANKS_DIR + basename + '.json';
+	const path = SAVES_TANKS_DIR + basename + '.tank.json';
 	let resolved;
 	try { resolved = new URL(path, window.location.href); }
 	catch (e) { return null; }
@@ -161,12 +166,16 @@ const api = {
 	saveTank: async (name='tank') => {
 		const scene = await client.call('export_tank');
 		if (!scene) { return false; }
-		const basename = String(name).trim().replace(/\.json$/i, '').split(/[\/\\]/).pop() || 'tank';
+		const basename = String(name).trim()
+			.replace(/\.tank\.json$/i, '')
+			.replace(/\.json$/i, '')
+			.replace(/\.tank$/i, '')
+			.split(/[\/\\]/).pop() || 'tank';
 		const json = JSON.stringify(scene, null, 2);
 		const blob = new Blob([json], { type: 'application/json' });
 		const a = document.createElement('a');
 		a.href = URL.createObjectURL(blob);
-		a.download = basename + '.json'; // user should drop this into saves/tanks/
+		a.download = basename + '.tank.json'; // user should drop this into saves/tanks/
 		a.click();
 		URL.revokeObjectURL(a.href);
 		return true;
@@ -196,11 +205,11 @@ async function boot() {
 			const result = await client.call('load_tank', { id: db_id });
 			logEvent('lab.load_tank_result', result);
 		}
-		// name/number — strip to basename and target saves/tanks/<name>.json
+		// name/number — strip to basename and target saves/tanks/<name>.tank.json
 		else {
 			const resolved = tankSavesUrl(tank_file);
 			if ( !resolved ) {
-				logEvent('lab.import_tank_error', { input: tank_file, error: 'invalid name — use a DB integer ID or a bare filename for saves/tanks/' });
+				logEvent('lab.import_tank_error', { input: tank_file, error: 'invalid name — use a DB integer ID or a bare filename for saves/tanks/ (e.g. my-tank)' });
 			}
 			else {
 				logEvent('lab.import_tank', { url: resolved.pathname });

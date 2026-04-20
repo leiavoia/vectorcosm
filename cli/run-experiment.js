@@ -8,13 +8,13 @@ TWO OPERATING MODES (auto-detected from first sim_new event):
     - Logs one entry per round to events.jsonl
     - Stops when: sim reaches its built-in termination (rounds exhausted OR min_avg_score met),
       OR when --rounds cap is hit, OR --duration wall-seconds expire
-    - Checkpoint files: checkpoint-R<N>.json
+    - Checkpoint files: checkpoint-R<N>.tank.json
 
   NATURAL MODE (NaturalTankSimulation: timeout = 0, perpetual)
     - Checkpoint every --checkpoint_interval sim-seconds  (default: 300)
     - Logs one entry per autonomous.stats heartbeat to events.jsonl
     - Stops only when: --duration wall-seconds expire, or SIGINT/SIGTERM
-    - Checkpoint files: checkpoint-T<sim_seconds>.json
+    - Checkpoint files: checkpoint-T<sim_seconds>.tank.json
 
 USAGE
   node cli/run-experiment.js --name=<name> [options]
@@ -48,8 +48,8 @@ OPTIONS
 OUTPUT (all written to <output>/<name>/)
   config.json            — experiment config (written/updated at start)
   events.jsonl           — one JSON line per round (round mode) or heartbeat (natural mode)
-  checkpoint-R<N>.json   — round-mode checkpoint after round N
-  checkpoint-T<S>.json   — natural-mode checkpoint at sim-second S
+  checkpoint-R<N>.tank.json  — round-mode checkpoint after round N
+  checkpoint-T<S>.tank.json  — natural-mode checkpoint at sim-second S
   summary.json           — final summary (written on clean shutdown)
 
 RESUME
@@ -146,7 +146,7 @@ function emit(event, data) {
 }
 
 // ─── Find latest checkpoint ───────────────────────────────────────────────────
-// Scans dir for checkpoint-R<N>.json (round mode) and checkpoint-T<S>.json (natural mode).
+// Scans dir for checkpoint-R<N>.tank.json (round mode) and checkpoint-T<S>.tank.json (natural mode).
 // Returns { file, label, type:'round'|'natural', round, sim_time } for the most recent file,
 // where "most recent" is determined by mtime (actual last-written file wins regardless of label).
 
@@ -156,8 +156,8 @@ async function findLatestCheckpoint(dir) {
 	catch (_) { return null; }
 	let best = null;
 	for ( const f of files ) {
-		const mr = f.match(/^checkpoint-R(\d+)\.json$/);
-		const mt = f.match(/^checkpoint-T(\d+)\.json$/);
+		const mr = f.match(/^checkpoint-R(\d+)\.tank\.json$/);
+		const mt = f.match(/^checkpoint-T(\d+)\.tank\.json$/);
 		if ( !mr && !mt ) { continue; }
 		const entry = {
 			file:     join(dir, f),
@@ -174,8 +174,8 @@ async function findLatestCheckpoint(dir) {
 		let latestMtime = 0;
 		let latestEntry = null;
 		for ( const f of files ) {
-			const mr = f.match(/^checkpoint-R(\d+)\.json$/);
-			const mt = f.match(/^checkpoint-T(\d+)\.json$/);
+			const mr = f.match(/^checkpoint-R(\d+)\.tank\.json$/);
+			const mt = f.match(/^checkpoint-T(\d+)\.tank\.json$/);
 			if ( !mr && !mt ) { continue; }
 			try {
 				const s = await stat(join(dir, f));
@@ -323,7 +323,7 @@ async function main() {
 			process.stderr.write(`[experiment] checkpoint "${label}" failed — export_tank returned null.\n`);
 			return;
 		}
-		const file = join(expDir, `checkpoint-${label}.json`);
+		const file = join(expDir, `checkpoint-${label}.tank.json`);
 		await writeFile(file, JSON.stringify(scene), 'utf8').catch(e =>
 			process.stderr.write(`[experiment] checkpoint write error: ${e.message}\n`)
 		);

@@ -28,6 +28,7 @@ USAGE
   node cli/profile-sim.js [options]
   node cli/profile-sim.js --sim=peaceful_tank --duration=30
   node cli/profile-sim.js --sim=natural_tank --num_boids=200 --duration=60 --no-trace
+  node cli/profile-sim.js --tank-id=my-saved-tank --duration=60
 
 OPTIONS
   --sim=<name>           Sim preset (default: peaceful_tank)
@@ -38,13 +39,20 @@ OPTIONS
   --url=<url>            Server URL (default: http://localhost:5173)
   --output=<dir>         Output directory (default: ./profile-output)
   --thread=<t>           worker | main (default: worker)
+  --tank-id=<name>       Load a saved tank from saves/tanks/<name>.tank.json instead of
+                         using a sim preset. Suppresses sim/num_boids/width/height
+                         defaults so the tank file controls those settings.
+                         To obtain a tank file: use the Tank Library "Export" button
+                         in the web UI → place the downloaded .tank.json in saves/tanks/.
+                         NOTE: tanks saved via the browser "Save" button go to IndexedDB
+                         (browser-only) and are NOT accessible here; export to file first.
   --no-cpuprofile        Skip V8 CPU profile capture
   --no-trace             Skip Chrome trace file
   --headful              Show browser window
   --help                 Print help
   Plus sim_meta_params dot-notation: --sim_meta_params.KEY=value
 
-Default tank size: 3000x4000 (override with --width, --height)
+Default tank size: 3000x4000 (override with --width, --height; ignored when --tank-id is used)
 </AI> */
 
 import { resolve, dirname } from 'path';
@@ -103,6 +111,10 @@ function printHelp() {
 		'  --url=<url>            Vite server URL  (default: http://localhost:5173)',
 		'  --output=<dir>         Output directory  (default: ./profile-output)',
 		'  --thread=<t>           worker | main  (default: worker)',
+		'  --tank-id=<name>       Load saves/tanks/<name>.tank.json instead of a sim preset.',
+		'                         Suppresses sim/num_boids/width/height defaults.',
+		'                         Export from the web UI Tank Library → place .tank.json in',
+		'                         saves/tanks/. (IndexedDB saves are NOT accessible here;',
 		'  --no-cpuprofile        Skip V8 CPU profile capture',
 		'  --no-trace             Skip Chrome trace file',
 		'  --headful              Show browser window',
@@ -118,6 +130,7 @@ function printHelp() {
 		'  node cli/profile-sim.js --sim=peaceful_tank --duration=30',
 		'  node cli/profile-sim.js --sim=natural_tank --num_boids=200 --duration=60',
 		'  node cli/profile-sim.js --sim=natural_tank --warmup=5 --no-cpuprofile',
+		'  node cli/profile-sim.js --tank-id=my-saved-tank --duration=60',
 		'',
 	].join('\n'));
 }
@@ -127,7 +140,7 @@ function printHelp() {
 
 const PROFILER_ONLY = new Set([
 	'url', 'output', 'warmup', 'duration', 'no-trace', 'no-cpuprofile',
-	'thread', 'headful', 'help', 'h',
+	'thread', 'headful', 'help', 'h', 'tank-id',
 ]);
 
 function buildLabUrl(base, args) {
@@ -305,11 +318,24 @@ async function main() {
 	const saveCpuProfile = !(args['no-cpuprofile'] === 'true' || args['no-cpuprofile'] === true);
 	const profileThread  = ( args.thread === 'main' ) ? 'main' : 'worker';
 
-	// default sim, speed, and tank dimensions
-	if ( !args.sim    ) { args.sim    = 'peaceful_tank'; }
-	if ( !args.speed  ) { args.speed  = 'throttled'; }
-	if ( !args.width  ) { args.width  = 3000; }
-	if ( !args.height ) { args.height = 4000; }
+	// --tank-id: load a saved tank file instead of a sim preset.
+	// When set, suppress sim/num_boids/width/height defaults so the tank file
+	// controls those settings. tank_file is forwarded to lab.html as a URL param
+	// (it is NOT in PROFILER_ONLY) so lab.js will fetch saves/tanks/<name>.tank.json
+	// and call import_tank, restoring the full scene from the file.
+	const tankId = typeof args['tank-id'] === 'string' ? args['tank-id'] : null;
+	if ( tankId ) {
+		args.tank_file = tankId;
+		// only set speed default — tank file owns sim type, population, and dimensions
+		if ( !args.speed ) { args.speed = 'throttled'; }
+	}
+	else {
+		// default sim, speed, and tank dimensions for preset-based runs
+		if ( !args.sim    ) { args.sim    = 'peaceful_tank'; }
+		if ( !args.speed  ) { args.speed  = 'throttled'; }
+		if ( !args.width  ) { args.width  = 3000; }
+		if ( !args.height ) { args.height = 4000; }
+	}
 
 	const labUrl = buildLabUrl(serverUrl, args);
 	const ts     = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
@@ -317,7 +343,12 @@ async function main() {
 	const outDir = resolve(outputDir);
 	await mkdir(outDir, { recursive: true });
 
-	console.log(`[profiler] sim:       ${args.sim}`);
+	if ( tankId ) {
+		console.log(`[profiler] tank-id:   ${tankId}  (saves/tanks/${tankId}.tank.json)`);
+	}
+	else {
+		console.log(`[profiler] sim:       ${args.sim}`);
+	}
 	console.log(`[profiler] url:       ${labUrl}`);
 	console.log(`[profiler] warmup:    ${warmupSecs}s   capture: ${captureSecs}s`);
 	console.log(`[profiler] thread:    ${profileThread}`);
@@ -456,7 +487,8 @@ async function main() {
 	const tpsValues = samples.map(s => s.ticks_per_second).filter(v => typeof v === 'number' && v > 0);
 	const summary = {
 		ts,
-		sim:             args.sim,
+		sim:             tankId ? null : args.sim,
+		tank_id:         tankId ?? null,
 		speed:           args.speed,
 		num_boids:       statusBefore?.population_size ?? null,
 		warmup_secs:     warmupSecs,
@@ -481,7 +513,12 @@ async function main() {
 	// print summary to stdout
 	console.log('');
 	console.log('─── Profile Summary ─────────────────────────────────────────');
-	console.log(`  sim:          ${summary.sim}`);
+	if ( summary.tank_id ) {
+		console.log(`  tank-id:      ${summary.tank_id}`);
+	}
+	else {
+		console.log(`  sim:          ${summary.sim}`);
+	}
 	console.log(`  speed:        ${summary.speed}`);
 	console.log(`  num_boids:    ${summary.num_boids ?? 'unknown'}`);
 	console.log(`  TPS avg:      ${summary.tps.avg}   peak: ${summary.tps.peak}   min: ${summary.tps.min}`);

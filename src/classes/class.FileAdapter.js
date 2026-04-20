@@ -5,13 +5,16 @@ OVERVIEW
 - Zero browser dependencies. Uses Node.js `fs/promises` and `path`.
 - Collection-parameterized: each collection maps to a subdirectory under saves/.
   e.g. 'boids' → saves/boids/, 'tanks' → saves/tanks/.
-- Each record is ONE self-contained JSON file: `saves/<collection>/<id>.json`.
-- Compatible with the browser fetch path: `saves/tanks/<name>.json` URL params in lab.js
+- Each record is ONE self-contained JSON file whose extension encodes its type:
+    saves/tanks/<id>.tank.json
+    saves/boids/<id>.roe.json
+    saves/<other>/<id>.json  (generic fallback)
+- Compatible with the browser fetch path: saves/tanks/<name>.tank.json in lab.js
   fetch the same files that FileAdapter writes.
 
 FILE FORMAT (opaque — whatever the library class writes)
-  saves/boids/<id>.json:  { id, label, date, count, ..., specimens: [...] }
-  saves/tanks/<id>.json:  { id, label, date, width, ..., scene: {...} }
+  saves/boids/<id>.roe.json:   { id, label, date, count, ..., specimens: [...] }
+  saves/tanks/<id>.tank.json:  { id, label, date, width, ..., scene: {...} }
 
 INDEX vs DATA
   FileAdapter stores everything in one file. `indexPut` merges the row into the file
@@ -21,8 +24,8 @@ INDEX vs DATA
   matching the adapter interface — physically it's one file.
 
 ID ASSIGNMENT
-- FileAdapter only manages integer-named files (e.g. `1.json`, `42.json`).
-- Human-named files (`my_tank.json`, etc.) coexist in the same directory untouched.
+- FileAdapter only manages integer-named files (e.g. `1.tank.json`, `42.roe.json`).
+- Human-named files (`my_tank.tank.json`, etc.) coexist in the same directory untouched.
 - indexAll() scans only integer-named files.
 - New IDs assigned as max(existing integer IDs) + 1 (floor 1 if empty).
 
@@ -117,7 +120,14 @@ export default class FileAdapter extends StorageAdapter {
 
 	_dir(collection) { return path.join( this.saves_path, collection ); }
 
-	_filePath(collection, id) { return path.join( this._dir(collection), `${id}.json` ); }
+	// Collection-specific file extension: tanks → .tank.json, boids → .roe.json
+	_ext(collection) {
+		if ( collection === 'tanks' ) { return '.tank.json'; }
+		if ( collection === 'boids' ) { return '.roe.json'; }
+		return '.json';
+	}
+
+	_filePath(collection, id) { return path.join( this._dir(collection), `${id}${this._ext(collection)}` ); }
 
 	async _ensureDir( dir ) {
 		if ( !existsSync(dir) ) {
@@ -142,10 +152,11 @@ export default class FileAdapter extends StorageAdapter {
 		const dir = this._dir(collection);
 		await this._ensureDir(dir);
 		const entries = await readdir(dir);
+		const ext = this._ext(collection);
 		const ids = [];
 		for ( const name of entries ) {
-			if ( !name.endsWith('.json') ) { continue; }
-			const stem = name.slice(0, -5);
+			if ( !name.endsWith(ext) ) { continue; }
+			const stem = name.slice(0, -ext.length);
 			const n = Number(stem);
 			if ( Number.isInteger(n) && n > 0 && String(n) === stem ) {
 				ids.push(n);

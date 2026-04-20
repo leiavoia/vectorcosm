@@ -84,7 +84,7 @@
 				let filename = full_row.label + '_' +
 					+ full_row.count + '_' +
 					+ full_row.date
-					+ '.roe';
+					+ '.roe.json';
 				filename = filename.replace(/( |\s)+/ig,'_');
 				let blob = new Blob([str], {type: "text/plain;charset=utf-8"});
 				saveAs(blob, filename);
@@ -227,7 +227,7 @@
 		</div>
 		{#if show_file_upload_controls}
 			<form onsubmit={ImportFile} onchange={ImportFile}>
-				<input type="file" bind:files={files} accept=".roe" id="savefileloader" />
+				<input type="file" bind:files={files} accept=".roe.json,.roe" id="savefileloader" />
 			</form>
 		{/if}
 	{/if}

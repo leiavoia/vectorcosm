@@ -45,7 +45,7 @@
 		const full_row = await api.call('tank_library_get_row', { id: selected_row.id });
 		if ( !full_row ) { return; }
 		let str = JSON.stringify(full_row);
-		let filename = 'vectorcosm_' + selected_row.id + '_' + selected_row.label + '.tank';
+		let filename = 'vectorcosm_' + selected_row.id + '_' + selected_row.label + '.tank.json';
 		filename = filename.replace(/( |\s)+/ig,'_');
 		let blob = new Blob([str], {type: "text/plain;charset=utf-8"});
 		saveAs(blob, filename);
@@ -146,7 +146,7 @@
 		</div>
 		{#if show_file_upload_controls}
 			<form onsubmit={ImportFile} onchange={ImportFile}>
-				<input type="file" bind:files={files} accept=".tank" id="savefileloader" />
+				<input type="file" bind:files={files} accept=".tank.json,.tank" id="savefileloader" />
 			</form>
 		{/if}
 		
