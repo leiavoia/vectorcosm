@@ -6,8 +6,9 @@ SENSOR TYPES
                 (boids, food, marks, rocks). `segments` splits arc into directional bands.
                 Labels: "name/seg-channel". Pre-allocated Float64Array `_detection` for hot-path speed.
                 Two optimized paths: `_senseSegmented()` for arc sensors, `_senseSimple()` for omni.
-                Output sigmoid: `x/(1+x)` with `isFinite` guard (Infinity → 1, NaN → 0).
+                Output sigmoid: `x/(1+x)` with threshold guard (x>50 → 1).
 - 'whisker'   — thin ray probes. N rays at spread angles; returns 1-normalized_dist when near obstacle.
+                Pre-computes whisker endpoints once, uses AABB rejection per rock before edge tests.
                 Labels: "whiskernameN".
 - 'proprio'   — reads boid's own motor outputs back as inputs. Labels: "motor_0", "motor_1", ...
 - 'energy'    — boid's own energy level (0..1).
@@ -17,14 +18,19 @@ SENSOR TYPES
 - 'locater'   — legacy directional food finder (deprecated; do not extend).
 
 KEY METHODS
-- `Sense(tank, boid)` — main update; returns `this.outputs[]`.
-- `setupSenseFunction()` — maps `this.type` to the internal sense implementation.
+- `Sense(nearby)` — main update; receives pre-fetched nearby objects from boid's batched grid query.
+                     Uses monomorphic switch dispatch on `_type_code` (avoids megamorphic penalty).
+- `setupSenseFunction()` — maps `this.type` to the internal sense implementation + sets `_type_code`.
 - `setupLabels()` — builds `labels[]` array; must match output array length exactly.
 
 PERFORMANCE
+- Single grid query per boid in class.Boids.js; `nearby` array passed to all sensors.
 - `_detection` (Float64Array) reused each frame for 'sense' type; avoids per-frame allocation.
-- Precomputed constants: `_inv_r`, `_inv_seglength`, `_inv_max_dist`, `_detect_inv_lengths`.
-- Object type checks use `otype` integer, not `instanceof`.
+- Precomputed constants: `_inv_r`, `_inv_seglength`, `_detect_inv_lengths`.
+- _senseSegmented: fast modulo (conditional wrap), hoisted falloff, narrowed segment range, prox*prox.
+- _senseSimple: removed eyestock, linear FOV, binary attenuation, prox*prox falloff.
+- senseWhiskers: pre-computed endpoints, AABB fast-reject per rock.
+- Dispatch via `_type_code` switch in Sense() — each case is a monomorphic call site for V8.
 </AI> */
 
 import * as utils from '../util/utils.js'
@@ -178,9 +184,10 @@ export default class Sensor {
 					this._detect_flat[offset++] = this.detect[d][c];
 				}
 			}
-			// assign the correct optimized function
+			// assign the correct optimized function + type code for monomorphic dispatch
 			if ( this.segments ) {
 				this.senseFunction = this._senseSegmented;
+				this._type_code = 0;
 				// flatten segdata into typed arrays for inner loop
 				this._segdata_lefts = new Float64Array(this.segments);
 				this._segdata_rights = new Float64Array(this.segments);
@@ -193,16 +200,14 @@ export default class Sensor {
 				this._inv_seglength = 1 / this.seglength;
 			} else {
 				this.senseFunction = this._senseSimple;
-				// pre-compute for non-segmented path
-				this._max_dist = this.r + Math.abs(this.x) + Math.abs(this.y);
-				this._inv_max_dist = 1 / this._max_dist;
-				this._sense_pt_factor = 0.1; // eyestock %
+				this._type_code = 1;
 			}
 		}
 		
 		// if this is an old-style vision sensor, it return multiple values and is handled differently
 		else if (  this.type === 'locater' ) {
 			this.senseFunction = this.senseLegacyVision;
+			this._type_code = 2;
 		}
 		
 		// small special purpose sensors
@@ -210,89 +215,133 @@ export default class Sensor {
 			switch (this.detect) {
 				case 'whisker':
 					this.senseFunction = this.senseWhiskers;
+					this._type_code = 3;
 					break;
 				case 'light':
 					this.senseFunction = this.senseLight;
+					this._type_code = 4;
 					break;
 				case 'heat':
 					this.senseFunction = this.senseHeat;
+					this._type_code = 5;
 					break;
 				case 'displacement':
 					this.senseFunction = this.senseDisplacement;
+					this._type_code = 6;
 					break;
 				case 'proprio':
 					this.senseFunction = this.senseProprio;
+					this._type_code = 7;
 					break;
 				case 'food':
 					this.senseFunction = this.senseFood;
+					this._type_code = 8;
 					break;
 				case 'energy':
 					this.senseFunction = this.senseEnergy;
+					this._type_code = 9;
 					break;
 				case 'inertia':
 					this.senseFunction = this.senseInertia;
+					this._type_code = 10;
 					break;
 				case 'spin':
 					this.senseFunction = this.senseSpin;
+					this._type_code = 11;
 					break;
 				case 'angle-cos':
 					this.senseFunction = this.senseAngleCos;
+					this._type_code = 12;
 					break;
 				case 'angle-sin':
 					this.senseFunction = this.senseAngleSin;
+					this._type_code = 13;
 					break;
 				case 'world-x':
 					this.senseFunction = this.senseWorldX;
+					this._type_code = 14;
 					break;
 				case 'world-y':
 					this.senseFunction = this.senseWorldY;
+					this._type_code = 15;
 					break;
 				case 'lifespan':
 					this.senseFunction = this.senseLifespan;
+					this._type_code = 16;
 					break;
 				case 'chaos':
 					this.senseFunction = this.senseChaos;
+					this._type_code = 17;
 					break;
 				case 'pulse':
 					this.senseFunction = this.sensePulse;
+					this._type_code = 18;
 					break;
 				case 'friends':
 					this.senseFunction = this.senseFriends;
+					this._type_code = 19;
 					break;
 				case 'enemies':
 					this.senseFunction = this.senseEnemies;
+					this._type_code = 20;
 					break;
 				case 'obstacles':
 					this.senseFunction = this.senseObstacles;
+					this._type_code = 21;
 					break;
 				case 'hormone':
 					this.senseFunction = this.senseHormones;
+					this._type_code = 22;
 					break;
 				default:
 					this.senseFunction = this.senseDefault;
+					this._type_code = 23;
 					break;
 			}
         }
     }
 
-    Sense() {
-        this.outputs = this.senseFunction();
-        return this.outputs;
+	// monomorphic dispatch via switch — avoids V8 megamorphic penalty on dynamic senseFunction
+    Sense( nearby ) {
+		switch ( this._type_code ) {
+			case 0:  this.outputs = this._senseSegmented( nearby ); return this.outputs;
+			case 1:  this.outputs = this._senseSimple( nearby ); return this.outputs;
+			case 2:  this.outputs = this.senseLegacyVision( nearby ); return this.outputs;
+			case 3:  this.outputs = this.senseWhiskers( nearby ); return this.outputs;
+			case 4:  this.outputs = this.senseLight( nearby ); return this.outputs;
+			case 5:  this.outputs = this.senseHeat( nearby ); return this.outputs;
+			case 6:  this.outputs = this.senseDisplacement( nearby ); return this.outputs;
+			case 7:  this.outputs = this.senseProprio( nearby ); return this.outputs;
+			case 8:  this.outputs = this.senseFood( nearby ); return this.outputs;
+			case 9:  this.outputs = this.senseEnergy( nearby ); return this.outputs;
+			case 10: this.outputs = this.senseInertia( nearby ); return this.outputs;
+			case 11: this.outputs = this.senseSpin( nearby ); return this.outputs;
+			case 12: this.outputs = this.senseAngleCos( nearby ); return this.outputs;
+			case 13: this.outputs = this.senseAngleSin( nearby ); return this.outputs;
+			case 14: this.outputs = this.senseWorldX( nearby ); return this.outputs;
+			case 15: this.outputs = this.senseWorldY( nearby ); return this.outputs;
+			case 16: this.outputs = this.senseLifespan( nearby ); return this.outputs;
+			case 17: this.outputs = this.senseChaos( nearby ); return this.outputs;
+			case 18: this.outputs = this.sensePulse( nearby ); return this.outputs;
+			case 19: this.outputs = this.senseFriends( nearby ); return this.outputs;
+			case 20: this.outputs = this.senseEnemies( nearby ); return this.outputs;
+			case 21: this.outputs = this.senseObstacles( nearby ); return this.outputs;
+			case 22: this.outputs = this.senseHormones( nearby ); return this.outputs;
+			default: this.outputs = this.senseDefault( nearby ); return this.outputs;
+		}
     }
 	
-	senseLegacyVision() {
+	senseLegacyVision( nearby ) {
 		let outputs = [];
 		let sinAngle = Math.sin(this.owner.angle);
 		let cosAngle = Math.cos(this.owner.angle);				
 		// calc sensor x/y coords in world space
 		let sx = this.owner.x + ((this.x * cosAngle) - (this.y * sinAngle));
 		let sy = this.owner.y + ((this.x * sinAngle) + (this.y * cosAngle));
-		// find objects that are detected by this sensor
-		let objs = globalThis.vc.tank.foods; // runs faster on small sets
-		if ( objs.length > 20 ) {
-			const test = o => { return o instanceof Food && o.IsEdibleBy(this.owner) && !( this.owner.ignore_list && this.owner.ignore_list.has(o) ) };
-			objs = globalThis.vc.tank.grid.GetObjectsByBox( sx - this.r, sy - this.r, sx + this.r, sy + this.r, test );				
-		}
+		// filter pre-fetched nearby objects for edible food
+		const objs = nearby
+			? nearby.filter( o => o instanceof Food && o.IsEdibleBy(this.owner) && !( this.owner.ignore_list && this.owner.ignore_list.has(o) ) )
+			: [];
 		let nearest_dist = Infinity;
 		let nearest_angle = 0;
 		let num_edible_foods=0;
@@ -336,45 +385,66 @@ export default class Sensor {
 		return outputs;
 	}
 
-	senseWhiskers() {
+	senseWhiskers( nearby ) {
 		let outputs = [];
-		this.whiskers.forEach( w => w.v=this.r ); // reset collected values
-		// calc sensor x/y coords in world space
-		let sx = this.owner.x; // + ((this.x * cosAngle) - (this.y * sinAngle));
-		let sy = this.owner.y; // + ((this.x * sinAngle) + (this.y * cosAngle));
-		// find objects that are detected by this sensor
-		let candidates = globalThis.vc.tank.grid.GetObjectsByBox( 
-			sx - this.r,
-			sy - this.r,
-			sx + this.r,
-			sy + this.r,
-			o => o instanceof Rock
-		);
+		const whiskers = this.whiskers;
+		const num_whiskers = whiskers.length;
+		const sx = this.owner.x;
+		const sy = this.owner.y;
+		const boid_r = this.owner.collision.radius;
+		const sensor_r = this.r;
+		const boid_angle = this.owner.angle;
+		
+		// pre-compute whisker endpoints and lengths (shared across all rocks)
+		const w_ax2 = new Float64Array(num_whiskers);
+		const w_ay2 = new Float64Array(num_whiskers);
+		const w_len = new Float64Array(num_whiskers);
+		for ( let i=0; i<num_whiskers; i++ ) {
+			const w = whiskers[i];
+			w.v = sensor_r; // reset collected values
+			const wl = Math.max( boid_r * 1.5, sensor_r * (w.l || 1) );
+			const wa = boid_angle + (w.a || 0);
+			w_len[i] = wl;
+			w_ax2[i] = sx + (wl * Math.cos(wa));
+			w_ay2[i] = sy + (wl * Math.sin(wa));
+		}
+		
+		// filter pre-fetched nearby objects for rocks only
+		const candidates = nearby ? nearby.filter( o => o instanceof Rock ) : [];
 		for ( let o of candidates ) {
 			const result = Sensor._coll_result;
-			if ( testCirclePolygon(sx, sy, this.r, o.collision, result) ) {
-				for ( let w of this.whiskers ) {
-					// if we are in immediate contact, break. we can't do better. 
-					if ( !w.v ) { continue; }
-					const whisker_length = Math.max( this.owner.collision.radius * 1.5, this.r * (w?.l || 1) );
-					const whisker_angle = this.owner.angle + (w?.a || 0);
-					const ax1 = sx;
-					const ay1 = sy;
-					const ax2 = sx + (whisker_length * Math.cos(whisker_angle)); 
-					const ay2 = sy + (whisker_length * Math.sin(whisker_angle));
-					const poly_edges = o.collision.edges;
-					const poly_coords = o.collision.coords;
+			if ( testCirclePolygon(sx, sy, sensor_r, o.collision, result) ) {
+				// rock AABB for fast whisker-ray rejection
+				const aabb = o.collision.aabb;
+				const poly_edges = o.collision.edges;
+				const poly_coords = o.collision.coords;
+				
+				for ( let wi=0; wi<num_whiskers; wi++ ) {
+					const w = whiskers[wi];
+					if ( !w.v ) { continue; } // already at contact
+					const ax2 = w_ax2[wi];
+					const ay2 = w_ay2[wi];
+					const wl = w_len[wi];
+					
+					// fast AABB rejection: check if whisker ray bbox overlaps rock bbox
+					const rmin_x = sx < ax2 ? sx : ax2;
+					const rmax_x = sx > ax2 ? sx : ax2;
+					const rmin_y = sy < ay2 ? sy : ay2;
+					const rmax_y = sy > ay2 ? sy : ay2;
+					if ( rmax_x < aabb.x1 || rmin_x > aabb.x2 || rmax_y < aabb.y1 || rmin_y > aabb.y2 ) { continue; }
+					
 					for( let ix = 0, iy = 1; ix < poly_edges.length; ix += 2, iy += 2 ) {
 						const next	= ix + 2 < poly_edges.length ? ix + 2 : 0;
 						const bx1	= poly_coords[ix];
 						const by1	= poly_coords[iy];
 						const bx2	= poly_coords[next];
 						const by2	= poly_coords[next + 1];
-						const intersect = utils.getLineIntersection(ax1, ay1, ax2, ay2, bx1, by1, bx2, by2);
+						const intersect = utils.getLineIntersection(sx, sy, ax2, ay2, bx1, by1, bx2, by2);
 						if ( intersect ) {
-							// calculate distance to intersect point
-							const d = Math.sqrt( (intersect.x - sx) * (intersect.x - sx) + (intersect.y - sy) * (intersect.y - sy) );
-							const v = ( d - this.owner.collision.radius ) / whisker_length;
+							const ddx = intersect.x - sx;
+							const ddy = intersect.y - sy;
+							const d = Math.sqrt( ddx*ddx + ddy*ddy );
+							const v = ( d - boid_r ) / wl;
 							if ( v < w.v ) { 
 								w.v = v; 
 								// can't do better than zero
@@ -387,33 +457,32 @@ export default class Sensor {
 		}
 		// also check tank edges
 		let lines = [];
-		if ( sx - this.r < 0 ) { // left 
+		if ( sx - sensor_r < 0 ) { // left 
 			lines.push([0,0,0,globalThis.vc.tank.height]);
 		}
-		else if ( sx + this.r > globalThis.vc.tank.width ) { // right
+		else if ( sx + sensor_r > globalThis.vc.tank.width ) { // right
 			lines.push([globalThis.vc.tank.width,0,globalThis.vc.tank.width,globalThis.vc.tank.height]);
 		}
-		if ( sy - this.r < 0 ) { // top 
+		if ( sy - sensor_r < 0 ) { // top 
 			lines.push([0,0,globalThis.vc.tank.width,0]);
 		}
-		else if ( sy + this.r > globalThis.vc.tank.height ) { // bottom
+		else if ( sy + sensor_r > globalThis.vc.tank.height ) { // bottom
 			lines.push([0,globalThis.vc.tank.height,globalThis.vc.tank.width,globalThis.vc.tank.height]);
 		}
 		if ( lines.length ) {
-			for ( let w of this.whiskers ) {
-				if ( !w.v ) { continue; } // if we are in immediate contact, break. we can't do better. 
-				const whisker_length = Math.max( this.owner.collision.radius * 1.5, this.r * (w?.l || 1) );
-				const whisker_angle = this.owner.angle + (w?.a || 0);
-				const ax1 = sx;
-				const ay1 = sy;
-				const ax2 = sx + (whisker_length * Math.cos(whisker_angle)); 
-				const ay2 = sy + (whisker_length * Math.sin(whisker_angle));
+			for ( let wi=0; wi<num_whiskers; wi++ ) {
+				const w = whiskers[wi];
+				if ( !w.v ) { continue; }
+				const ax2 = w_ax2[wi];
+				const ay2 = w_ay2[wi];
+				const wl = w_len[wi];
 				for( let l of lines ) {
-					const intersect = utils.getLineIntersection(ax1, ay1, ax2, ay2, ...l);
+					const intersect = utils.getLineIntersection(sx, sy, ax2, ay2, ...l);
 					if ( intersect ) {
-						// calculate distance to intersect point
-						const d = Math.sqrt( (intersect.x - sx) * (intersect.x - sx) + (intersect.y - sy) * (intersect.y - sy) );
-						const v = ( d - this.owner.collision.radius ) / whisker_length;
+						const ddx = intersect.x - sx;
+						const ddy = intersect.y - sy;
+						const d = Math.sqrt( ddx*ddx + ddy*ddy );
+						const v = ( d - boid_r ) / wl;
 						if ( v < w.v ) { 
 							w.v = v; 
 							// can't do better than zero
@@ -436,15 +505,15 @@ export default class Sensor {
 	senseGeneral() {
 		// legacy entry point — dispatches to the optimized variant
 		// NOTE: these are heavily optimized for CPU speed, not friendly reading.
-		return this.senseFunction === this._senseSegmented ? this._senseSegmented() : this._senseSimple();
+		return this._type_code === 0 ? this._senseSegmented() : this._senseSimple();
 	}
 	
 	// ── OPTIMIZED SEGMENTED VISION ──────────────────────────────────────────
-	_senseSegmented() {
+	_senseSegmented( nearby ) {
 		// cache all property accesses as locals
 		const owner = this.owner;
 		const ox = owner.x, oy = owner.y, oa = owner.angle;
-		const r = this.r, r_sq = this._r_sq;
+		const r = this.r;
 		const segments = this.segments;
 		const seglength = this.seglength, inv_seglength = this._inv_seglength;
 		const falloff = this._has_falloff;
@@ -462,6 +531,7 @@ export default class Sensor {
 		const outputs = this._outputs;
 		const TWO_PI = 6.283185307179586; // 2 * Math.PI
 		const PI = 3.141592653589793;
+		const inv_r = this._inv_r;
 		
 		const sinAngle = Math.sin(oa);
 		const cosAngle = Math.cos(oa);
@@ -477,11 +547,9 @@ export default class Sensor {
 		// cache ignore settings
 		const ignore_boids = globalThis.vc.simulation.settings?.ignore_other_boids === true;
 		const ignore_list = owner.ignore_list;
-		const grid = globalThis.vc.tank.grid;
 		
-		// query grid — inline the test function to avoid closure allocation
-		// note: we pass null and do the filtering ourselves to avoid creating a closure per call
-		const objs = grid.GetObjectsByBox( sx - r, sy - r, sx + r, sy + r, null );
+		// use pre-fetched nearby objects from boid's batched grid query
+		const objs = nearby || [];
 		
 		for ( let oi=0, olen=objs.length; oi<olen; oi++ ) {
 			const obj = objs[oi];
@@ -497,7 +565,7 @@ export default class Sensor {
 				objsize = obj.senseSize;
 				objx = obj.senseCenterX !== undefined ? obj.senseCenterX : obj.x;
 				objy = obj.senseCenterY !== undefined ? obj.senseCenterY : obj.y;
-			} 
+			}
 			else {
 				objsize = 0;
 				objx = obj.x;
@@ -521,32 +589,60 @@ export default class Sensor {
 			const threshold = r + objsize * 0.5;
 			if ( dist_sq > threshold * threshold ) { continue; }
 			
-			// calculate angle to object from boid center
+			// distance from boid center for angle calculation
 			const dx = objx - ox;
 			const dy = objy - oy;
 			const d = Math.sqrt(dx*dx + dy*dy);
 			const touchdist = d - (objsize*0.5);
 			// prevent "inside" blinding for large objects (rocks)
 			if ( touchdist <= 0 ) { objsize = d * 0.49; }
-			// angle of view: atan approximation — for small-ish angles, atan(x)≈x which is what Math.tan gives us in reverse
-			const theta = objsize * 0.5 / d; // fast approx of Math.abs(Math.atan(objsize*0.5/d)) — valid for small angles, good enough for sensor simulation
+			// angular half-width: fast approx valid for small angles
+			const theta = objsize * 0.5 / d;
+			
+			// angle to object — fast positive modulo (one % + conditional replaces ((x%m)+m)%m)
 			let a = -Math.atan2( -dy, dx ); // clockwise angle
 			a = a - oa + PI; // align sensor + rotate butt-forward
-			a = ((a % TWO_PI) + TWO_PI) % TWO_PI; // mod to 0..2π
-			const obj_left = ((a - theta) % TWO_PI + TWO_PI) % TWO_PI;
-			const obj_right = ((a + theta) % TWO_PI + TWO_PI) % TWO_PI;
+			a = a % TWO_PI;
+			if ( a < 0 ) { a += TWO_PI; }
+			// object angular extent — conditional wrap instead of double modulo
+			let obj_left = a - theta;
+			if ( obj_left < 0 ) { obj_left += TWO_PI; }
+			let obj_right = a + theta;
+			if ( obj_right >= TWO_PI ) { obj_right -= TWO_PI; }
 			
 			// check if object is in our viewing cone
-			const in_cone = ( obj_right > obj_left )
-				? ( obj_right >= seg0_left && obj_left <= segN_right )
-				: ( obj_right >= seg0_left || obj_left <= segN_right );
+			const wraps = obj_right < obj_left;
+			const in_cone = wraps
+				? ( obj_right >= seg0_left || obj_left <= segN_right )
+				: ( obj_right >= seg0_left && obj_left <= segN_right );
 			if ( !in_cone ) { continue; }
+			
+			// falloff: hoist out of segment loop (same for all segments of this object)
+			let prox_factor = 1;
+			if ( falloff ) {
+				let prox = 1 - ( d * inv_r );
+				if ( prox < 0.01 ) { continue; }
+				prox_factor = prox * prox; // cheap quadratic replaces Math.pow(prox, falloff)
+			}
 			
 			// grab the sense array ref once
 			const sense = obj.sense;
 			
-			// check each segment for overlap
-			for ( let s=0; s<segments; s++ ) {
+			// narrow segment range for non-wrapping objects (most common case)
+			let s_start, s_end;
+			if ( !wraps ) {
+				s_start = ((obj_left - seg0_left) * inv_seglength) | 0;
+				if ( s_start < 0 ) { s_start = 0; }
+				s_end = ((obj_right - seg0_left) * inv_seglength) | 0;
+				if ( s_end >= segments ) { s_end = segments - 1; }
+			}
+			else {
+				s_start = 0;
+				s_end = segments - 1;
+			}
+			
+			// check overlapping segments
+			for ( let s=s_start; s<=s_end; s++ ) {
 				const seg_right = segdata_rights[s];
 				const seg_left = segdata_lefts[s];
 				// inline Clamp: (n < 0 ? 0 : n > max ? max : n)
@@ -554,19 +650,11 @@ export default class Sensor {
 				ov1 = ov1 < 0 ? 0 : ov1 > seglength ? seglength : ov1;
 				let ov2 = obj_right - seg_left;
 				ov2 = ov2 < 0 ? 0 : ov2 > seglength ? seglength : ov2;
-				const overlap = ( obj_right > obj_left )
-					? ( ov1 - ( seglength - ov2 ) )
-					: ( ov1 + ov2 );
+				const overlap = wraps ? ( ov1 + ov2 ) : ( ov1 - ( seglength - ov2 ) );
 				let overlap_pct = overlap * inv_seglength;
 				if ( overlap_pct < 0.001 ) { continue; } // skip negligible overlap
 				
-				// signal falloff
-				if ( falloff ) {
-					let prox = 1 - ( d * this._inv_r );
-					if ( prox < 0.01 ) { continue; }
-					prox = Math.pow( prox, falloff );
-					overlap_pct *= prox;
-				}
+				overlap_pct *= prox_factor;
 				
 				// accumulate signals — flat typed array traversal
 				const base = s * num_detections;
@@ -582,17 +670,16 @@ export default class Sensor {
 			}
 		}
 		
-		// fast rational sigmoid: x/(1+x) replaces Math.tanh(Math.log(1+x))
-		// guard: x/(1+x) = Infinity/Infinity = NaN when x=+Infinity; saturate to 1 instead
+		// fast rational sigmoid: x/(1+x) — threshold guard replaces isFinite
 		for ( let i=0; i<det_len; i++ ) {
 			const x = detection[i] * sensitivity;
-			outputs[i] = x > 0 ? ( isFinite(x) ? x / (1 + x) : 1 ) : 0;
+			outputs[i] = x > 50 ? 1 : x > 0 ? x / (1 + x) : 0;
 		}
 		return outputs;
 	}
 	
 	// ── OPTIMIZED SIMPLE (NON-SEGMENTED) VISION ─────────────────────────────
-	_senseSimple() {
+	_senseSimple( nearby ) {
 		// cache all property accesses as locals
 		const owner = this.owner;
 		const ox = owner.x, oy = owner.y, oa = owner.angle;
@@ -606,10 +693,9 @@ export default class Sensor {
 		const detect_lengths = this._detect_lengths;
 		const detect_inv_lengths = this._detect_inv_lengths;
 		const num_detections = this._num_detections;
-		const inv_max_dist = this._inv_max_dist;
-		const sense_pt_factor = this._sense_pt_factor;
 		const detection = this._detection;
 		const outputs = this._outputs;
+		const inv_r = this._inv_r;
 		const inv_r2 = 1 / (r * 2);
 		
 		const sinAngle = Math.sin(oa);
@@ -619,14 +705,9 @@ export default class Sensor {
 		const sx = ox + ((this.x * cosAngle) - (this.y * sinAngle));
 		const sy = oy + ((this.x * sinAngle) + (this.y * cosAngle));
 		
-		// stereoscopic sense point (eyestock)
-		const sense_pt_x = ox + (sx - ox) * sense_pt_factor;
-		const sense_pt_y = oy + (sy - oy) * sense_pt_factor;
-		
-		// for attenuation: direction vector from owner to sense point
-		const v1x = sense_pt_x - ox;
-		const v1y = sense_pt_y - oy;
-		const mag1 = Math.sqrt(v1x * v1x + v1y * v1y) || 0.001;
+		// for attenuation: direction from boid center to sensor (constant per call)
+		const fwd_x = sx - ox;
+		const fwd_y = sy - oy;
 		
 		// zero out detection buffer (reused allocation)
 		const det_len = detection.length;
@@ -635,10 +716,9 @@ export default class Sensor {
 		// cache ignore settings
 		const ignore_boids = globalThis.vc.simulation.settings?.ignore_other_boids === true;
 		const ignore_list = owner.ignore_list;
-		const grid = globalThis.vc.tank.grid;
 		
-		// query grid — pass null to avoid closure allocation, filter inline
-		const objs = grid.GetObjectsByBox( sx - r, sy - r, sx + r, sy + r, null );
+		// use pre-fetched nearby objects from boid's batched grid query
+		const objs = nearby || [];
 		
 		for ( let oi=0, olen=objs.length; oi<olen; oi++ ) {
 			const obj = objs[oi];
@@ -654,7 +734,7 @@ export default class Sensor {
 				objsize = obj.senseSize;
 				objx = obj.senseCenterX !== undefined ? obj.senseCenterX : obj.x;
 				objy = obj.senseCenterY !== undefined ? obj.senseCenterY : obj.y;
-			} 
+			}
 			else {
 				objsize = 0;
 				objx = obj.x;
@@ -671,56 +751,34 @@ export default class Sensor {
 				}
 			}
 			
-			// squared distance check — avoid sqrt for rejection
+			// squared distance check from sensor center — avoid sqrt for rejection
 			const ddx = objx - sx;
 			const ddy = objy - sy;
 			const dist_sq = ddx*ddx + ddy*ddy;
 			const threshold = r + objsize * 0.5;
 			if ( dist_sq > threshold * threshold ) { continue; }
 			
-			// distance from sense point (eyestock) to object
-			const dx = objx - sense_pt_x;
-			const dy = objy - sense_pt_y;
-			// we can skip the sqrt for percent_nearness if we reformulate the rejection test
-			// but the falloff path needs actual distance, so compute it when there's falloff
-			let d, percent_nearness;
-			if ( falloff || has_fov ) {
-				d = Math.sqrt(dx*dx + dy*dy);
-				percent_nearness = 1 - ( d * inv_max_dist );
-			} else {
-				// fast path: compute percent_nearness from squared distance without sqrt
-				// using: 1 - sqrt(d_sq)/max_dist ≈ approximate with sqrt only when needed
-				d = Math.sqrt(dx*dx + dy*dy);
-				percent_nearness = 1 - ( d * inv_max_dist );
-			}
+			// actual distance from sensor center
+			const d = Math.sqrt(dist_sq);
+			let percent_nearness = 1 - ( d * inv_r );
 			if ( percent_nearness < 0.01 ) { continue; }
 			
-			// signal falloff exponent
-			if ( falloff ) {
-				percent_nearness = Math.pow( percent_nearness, falloff );
-			}
+			// signal falloff: cheap quadratic replaces Math.pow(prox, falloff)
+			if ( falloff ) { percent_nearness = percent_nearness * percent_nearness; }
 			
-			// Field of View: reduce sensation based on physical size and distance
+			// Field of View: linear apparent size replaces Math.pow(virtual_size, 1+prox)
 			let signal_strength = percent_nearness;
-			if ( has_fov ) { 
+			if ( has_fov ) {
 				const virtual_size = objsize > 20 ? objsize : 20;
-				const apparent_size_raw = Math.pow(virtual_size, 1+percent_nearness) * inv_r2;
-				const apparent_size = apparent_size_raw < 4 ? apparent_size_raw : 4;
-				signal_strength = apparent_size * 0.125; // /8
+				signal_strength *= virtual_size * inv_r2;
 			}
 			
-			// Attenuation: peripheral vision curve
-			if ( has_attenuation ) { 
+			// Attenuation: binary front/back penalty (no sqrt needed)
+			if ( has_attenuation ) {
 				const v2x = objx - ox;
 				const v2y = objy - oy;
-				const mag2 = Math.sqrt(v2x * v2x + v2y * v2y) || 0.001;
-				const cosTheta = (v1x * v2x + v1y * v2y) / (mag1 * mag2);
-				// fast approx: original uses 1 - (cos((0.5+0.5*cosTheta)*π)/2 + 0.5)
-				// which is effectively a smoothstep of cosTheta from -1..1 → 0..1
-				// simplification: (1 - cosTheta) * 0.5 gives similar peripheral falloff
-				// even simpler: use cosTheta directly as 0..1 mapping
-				const attenuation = (1 + cosTheta) * 0.5; // maps -1..1 → 0..1 linearly
-				signal_strength *= attenuation;
+				const dot = fwd_x * v2x + fwd_y * v2y;
+				signal_strength *= dot > 0 ? 1 : 0.25;
 			}
 			
 			// grab the sense array ref once
@@ -738,11 +796,10 @@ export default class Sensor {
 			}
 		}
 		
-		// fast rational sigmoid: x/(1+x) replaces Math.tanh(Math.log(1+x))
-		// guard: x/(1+x) = Infinity/Infinity = NaN when x=+Infinity; saturate to 1 instead
+		// fast rational sigmoid: x/(1+x) — threshold guard replaces isFinite
 		for ( let i=0; i<det_len; i++ ) {
 			const x = detection[i] * sensitivity;
-			outputs[i] = x > 0 ? ( isFinite(x) ? x / (1 + x) : 1 ) : 0;
+			outputs[i] = x > 50 ? 1 : x > 0 ? x / (1 + x) : 0;
 		}
 		return outputs;
 	}
@@ -775,26 +832,29 @@ export default class Sensor {
     	return this.owner.motors.map( m => m.this_stroke_time ? m.last_amount : 0 );
     }
 
-    senseFood() {
+    senseFood( nearby ) {
         let val = 0;
-        let sinAngle = Math.sin(this.owner.angle);
-        let cosAngle = Math.cos(this.owner.angle);
-        let sx = this.owner.x + ((this.x * cosAngle) - (this.y * sinAngle));
-        let sy = this.owner.y + ((this.x * sinAngle) + (this.y * cosAngle));
-        let objs = globalThis.vc.tank.foods.length < 20
-            ? globalThis.vc.tank.foods
-            : globalThis.vc.tank.grid.GetObjectsByBox(sx - this.r, sy - this.r, sx + this.r, sy + this.r, 
-				o => o instanceof Food && o.IsEdibleBy(this.owner) && !( this.owner.ignore_list && this.owner.ignore_list.has(o) ) );
-        for (let obj of objs) {
+        if ( !nearby ) { return [val]; }
+        const owner = this.owner;
+        const sinAngle = Math.sin(owner.angle);
+        const cosAngle = Math.cos(owner.angle);
+        const sx = owner.x + ((this.x * cosAngle) - (this.y * sinAngle));
+        const sy = owner.y + ((this.x * sinAngle) + (this.y * cosAngle));
+        const r = this.r;
+        const ignore_list = owner.ignore_list;
+        // iterate nearby objects inline — no intermediate .filter() allocation
+        for ( let i = 0, len = nearby.length; i < len; i++ ) {
+            const obj = nearby[i];
+            if ( obj.otype !== 2 ) { continue; } // 2 = Food
+            if ( !obj.IsEdibleBy(owner) ) { continue; }
+            if ( ignore_list && ignore_list.has(obj) ) { continue; }
             const dx = Math.abs(obj.x - sx);
             const dy = Math.abs(obj.y - sy);
             const d = Math.sqrt(dx * dx + dy * dy);
-            let proximity = utils.clamp(1 - (d / (this.r + obj.r)), 0, 1);
-            if (proximity) {
-                val += proximity;
-            }
+            const proximity = 1 - (d / (r + obj.r));
+            if ( proximity > 0 ) { val += proximity > 1 ? 1 : proximity; }
         }
-        val = utils.clamp(val, 0, 1);
+        if ( val > 1 ) { val = 1; }
         return [val];
     }
 
@@ -933,13 +993,14 @@ export default class Sensor {
 		}
 	}		
 
-    senseObstacles() {
+    senseObstacles( nearby ) {
         let val = 0;
         let sinAngle = Math.sin(this.owner.angle);
         let cosAngle = Math.cos(this.owner.angle);
         let sx = this.owner.x + ((this.x * cosAngle) - (this.y * sinAngle));
         let sy = this.owner.y + ((this.x * sinAngle) + (this.y * cosAngle));
-        let candidates = globalThis.vc.tank.grid.GetObjectsByBox(sx - this.r, sy - this.r, sx + this.r, sy + this.r, o => o instanceof Rock);
+        // filter pre-fetched nearby objects for rocks
+        const candidates = nearby ? nearby.filter( o => o instanceof Rock ) : [];
         for (let o of candidates) {
             const result = Sensor._coll_result;
             if (testCirclePolygon(sx, sy, this.r, o.collision, result)) {

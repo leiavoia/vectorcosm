@@ -23,6 +23,7 @@ export default class SpaceGrid {
 	
 	constructor( width, height, cellsize = 300 ) {
 		this.cellsize = Math.floor(cellsize) // prevents weird float rounding errors;
+		this._inv_cellsize = 1 / this.cellsize;
 		this.cells_x = Math.ceil( (width+1) / this.cellsize );
 		this.cells_y = Math.ceil( (height+1) / this.cellsize );
 		this.cells = [];
@@ -104,14 +105,49 @@ export default class SpaceGrid {
 	
 	GetObjectsByBox( x1, y1, x2, y2, test_func=null ) {
 		SpaceGrid.qid++; // trick to filter unique objects
-		let cells = this.GetCellsByBox( x1, y1, x2, y2 );
-		let objs = [];
-		for ( let cell of cells ) { 
-			for ( let o of cell ) {
-				if ( o.collision.qid < SpaceGrid.qid ) {
-					o.collision.qid = SpaceGrid.qid;
-					if ( !test_func || test_func(o) ) {
-						objs.push(o);
+		const qid = SpaceGrid.qid;
+		const cells = this.cells;
+		const cells_x = this.cells_x;
+		const inv_cs = this._inv_cellsize;
+		// inline GetCellFromCoords with clamped trunc — avoids intermediate array allocation
+		const max_cx = cells_x - 1;
+		const max_cy = this.cells_y - 1;
+		let c1x = (x1 * inv_cs) | 0; // fast trunc for positive values
+		if ( c1x < 0 ) { c1x = 0; } else if ( c1x > max_cx ) { c1x = max_cx; }
+		let c1y = (y1 * inv_cs) | 0;
+		if ( c1y < 0 ) { c1y = 0; } else if ( c1y > max_cy ) { c1y = max_cy; }
+		let c2x = (x2 * inv_cs) | 0;
+		if ( c2x < 0 ) { c2x = 0; } else if ( c2x > max_cx ) { c2x = max_cx; }
+		let c2y = (y2 * inv_cs) | 0;
+		if ( c2y < 0 ) { c2y = 0; } else if ( c2y > max_cy ) { c2y = max_cy; }
+		// iterate cells directly — no GetCellsByBox intermediate array
+		const objs = [];
+		if ( test_func ) {
+			for ( let j = c1y; j <= c2y; j++ ) {
+				const row = j * cells_x;
+				for ( let i = c1x; i <= c2x; i++ ) {
+					const cell = cells[row + i];
+					for ( let k = 0, len = cell.length; k < len; k++ ) {
+						const o = cell[k];
+						if ( o.collision.qid < qid ) {
+							o.collision.qid = qid;
+							if ( test_func(o) ) { objs.push(o); }
+						}
+					}
+				}
+			}
+		}
+		else {
+			for ( let j = c1y; j <= c2y; j++ ) {
+				const row = j * cells_x;
+				for ( let i = c1x; i <= c2x; i++ ) {
+					const cell = cells[row + i];
+					for ( let k = 0, len = cell.length; k < len; k++ ) {
+						const o = cell[k];
+						if ( o.collision.qid < qid ) {
+							o.collision.qid = qid;
+							objs.push(o);
+						}
 					}
 				}
 			}
@@ -119,6 +155,7 @@ export default class SpaceGrid {
 		return objs;
 	}
 	
+	// retained for external callers — sensors no longer use this
 	GetCellsByBox( x1, y1, x2, y2 ) {
 		let tl = this.GetCellFromCoords( x1, y1 );
 		let br = this.GetCellFromCoords( x2, y2 );

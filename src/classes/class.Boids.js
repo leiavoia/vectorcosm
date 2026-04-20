@@ -460,10 +460,13 @@ export class Boid extends PhysicsObject {
 			}
 		}
 		if ( do_sensors ) {
+			// single grid query for all sensors — avoids 6-9 redundant GetObjectsByBox calls per boid
+			const maxR = this._maxSensorRange;
+			const nearby = maxR > 0 ? globalThis.vc.tank.grid.GetObjectsByBox( this.x - maxR, this.y - maxR, this.x + maxR, this.y + maxR, null ) : null;
 			// write sensor outputs into pre-allocated array by offset (avoids spread/push allocation)
 			for ( let si=0, slen=this.sensors.length; si<slen; si++ ) {
 				const s = this.sensors[si];
-				const result = s.Sense();
+				const result = s.Sense( nearby );
 				const offset = this._sensor_output_offsets[si];
 				for ( let j=0, rlen=result.length; j<rlen; j++ ) {
 					this.sensor_outputs[offset + j] = result[j];
@@ -2140,6 +2143,13 @@ export class Boid extends PhysicsObject {
 		else if ( synRoll <= 0.07 ) { this.traits.synesthesia = 2; } // 4%
 		
 		this.MakeSensorLabels();
+		
+		// pre-compute max sensor range for batched grid query
+		let maxR = 0;
+		for ( let s of this.sensors ) {
+			if ( s.r && s.r > maxR ) { maxR = s.r; }
+		}
+		this._maxSensorRange = maxR;
 		
 		this.species_hash = this.CreateSpeciesHash();
 		
