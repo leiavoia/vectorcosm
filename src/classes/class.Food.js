@@ -22,14 +22,13 @@ UPDATE
 
 import Two from "two.js";
 import * as utils from '../util/utils.js'
-import { createCircleCollider, testCirclePolygon, createResult } from './collision.js';
+import {Circle, Polygon, Result} from 'collisions';
 import Rock from '../classes/class.Rock.js'
 import PhysicsObject from '../classes/class.PhysicsObject.js'
 import { DNAPlant } from '../classes/class.Plant.js'
 
 const friction = 0.92; // physics friction when sliding
 const bounce = 0.38; // physics bounce when colliding with rocks and walls
-const _food_coll_result = createResult();
 
 
 export default class Food extends PhysicsObject {
@@ -62,7 +61,7 @@ export default class Food extends PhysicsObject {
 		this.dead = false;		
 		Object.assign( this, params );
 		this.r = Math.sqrt( 2 * this.value / Math.PI ) * 10;
-		this.collision = createCircleCollider( this.r );
+		this.collision = { radius: this.r, shape: 'circle', qid:0 };
 		this.senseSize = this.r * 2; // pre-computed for sensor hot path		
 		
 		// sensory data comes from food flavor unless overridden by creator
@@ -150,12 +149,15 @@ export default class Food extends PhysicsObject {
 		// narrow phase collision detection
 		let touching_rock = false;
 		for ( let o of candidates ) {
-			let gotcha = testCirclePolygon(this.x, this.y, this.r, o.collision, _food_coll_result);
+			const circle  = new Circle(this.x, this.y, this.r);
+			const polygon = new Polygon(o.x, o.y, o.collision.hull);
+			const result  = new Result();
+			let gotcha = circle.collides(polygon, result);
 			// response
 			if ( gotcha ) {
 				// retract from collision object
-				this.x -= _food_coll_result.overlap * _food_coll_result.overlap_x;
-				this.y -= _food_coll_result.overlap * _food_coll_result.overlap_y;
+				this.x -= result.overlap * result.overlap_x;
+				this.y -= result.overlap * result.overlap_y;
 				// just bounce hardcoded foods used in training
 				if ( this.frictionless ) {
 					this.vel_x = -this.vel_x;
@@ -163,7 +165,7 @@ export default class Food extends PhysicsObject {
 				}
 				// slide along walls with slight bounce
 				else {
-					this.SlideAndBounce( _food_coll_result.overlap_x, _food_coll_result.overlap_y, friction, bounce );
+					this.SlideAndBounce( result.overlap_x, result.overlap_y, friction, bounce );
 				}
 			}
 			touching_rock = touching_rock || gotcha;

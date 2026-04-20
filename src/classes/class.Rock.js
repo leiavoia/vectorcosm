@@ -26,7 +26,7 @@ METHODS
 import Two from "two.js";
 import * as utils from '../util/utils.js'
 import Delaunator from 'delaunator';
-import { createPolygonCollider, pointInPolygon } from './collision.js';
+import {Point, Polygon, Result} from 'collisions';
 
 export default class Rock {
 
@@ -66,24 +66,12 @@ export default class Rock {
 		this.sense[0] = 0.2; // dull grey appearance
 		this.sense[1] = 0.2;
 		this.sense[2] = 0.2;
-		// backward compat: old saves had { collision: { hull, aabb }, triangles } with no top-level hull.
-		// Alias into new format before the load-path check below.
-		if ( !params.hull && params.collision?.hull ) {
-			params.hull = params.collision.hull;
-			if ( !params.x2 && params.collision.aabb ) {
-				params.x1 = params.collision.aabb.x1;
-				params.y1 = params.collision.aabb.y1;
-				params.x2 = params.collision.aabb.x2;
-				params.y2 = params.collision.aabb.y2;
-			}
+		// the object can either be a saved object with all data
+		if ( params.collision ) {	
+			Object.assign( this, params );	
+			this.collision.qid = 0; // must reset this on loaded objects
 		}
-		// the object can either be a saved object with all data (hull + triangles both present)
-		if ( params.hull && params.triangles ) {	
-			Object.assign( this, params );
-			// rebuild runtime collision geometry from serialized hull
-			this.collision = createPolygonCollider( this.x, this.y, this.hull );
-		}
-		// or parameters to build a new rock from scratch (hull-only params fall through here too)
+		// or parameters to build a new rock from scratch
 		else {
 			params = Object.assign({
 				// default options if not present:
@@ -159,23 +147,28 @@ export default class Rock {
 				if ( p[1] > this.y2 ) { this.y2 = p[1]; }
 			}
 			// make note of the convex hull for collision detection
-			this.hull = [];
+			this.collision = {
+				shape: 'polygon',
+				fixed: true,
+				hull: [],
+				aabb: { x1: 0, y1: 0, x2:this.x2, y2:this.y2 }, // we already know this and don't need to compute
+				qid: 0
+			};
 			let delaunay = Delaunator.from(this.pts);
 			for ( let i of delaunay.hull ) {
-				this.hull.push( [ 
-					this.pts[i][0],
-					this.pts[i][1],
+				this.collision.hull.push( [ 
+					this.pts[i][0], // + this.x, 
+					this.pts[i][1], // + this.y, 
 				] )
 			}
-			this.hull.reverse(); // reverse for collision compatibility
+			this.collision.hull.reverse(); // reverse for collision compatibility
 			// create random set of points INSIDE the hull
 			let complexity = !params.hasOwnProperty('complexity') ? utils.RandomInt(0,7) : Math.max( 0, params.complexity );
-			this.collision = createPolygonCollider( this.x, this.y, this.hull );
 			for ( let n=0; n < complexity; n++ ) {
 				let attempts = 0;
 				while ( attempts < 10 ) {
 					let p = [ utils.RandomInt(0,this.x2), utils.RandomInt(0,this.y2) ];
-					if ( params.new_points_respect_hull && !this.PointInHull( p[0], p[1], this.hull ) ) { 
+					if ( params.new_points_respect_hull && !this.PointInHull( p[0], p[1], this.collision.hull ) ) { 
 						attempts++; 
 						continue; 
 						}
@@ -185,16 +178,14 @@ export default class Rock {
 			}
 			// refactor triangulation
 			delaunay = Delaunator.from(this.pts);
-			this.hull = [];
+			this.collision.hull = [];
 			for ( let i of delaunay.hull ) {
-				this.hull.push( [ 
-					this.pts[i][0],
-					this.pts[i][1],
+				this.collision.hull.push( [ 
+					this.pts[i][0], // + this.x, 
+					this.pts[i][1], // + this.y, 
 				] )
 			}
-			this.hull.reverse(); // reverse for collision compatibility
-			// rebuild collision geometry with final hull
-			this.collision = createPolygonCollider( this.x, this.y, this.hull );
+			this.collision.hull.reverse(); // reverse for collision compatibility
 			
 			// make triangles, even if we don't use them in the current rendering mode
 			const color_scheme = Rock.color_schemes[params.color_scheme] || Object.values(Rock.color_schemes).pickRandom();
@@ -234,26 +225,23 @@ export default class Rock {
 		this.dead = true;
 	}
 	PointInHull( x, y, hull ) {
-		// hull is in local space — create a temp collider at origin for point test
-		const poly = createPolygonCollider( 0, 0, hull );
-		return pointInPolygon( x, y, poly );
+		const pt  = new Point(x, y);
+		const polygon = new Polygon(0,0,hull);
+		const result  = new Result();
+		return !!pt.collides(polygon, result);
 	}
 	Export( as_JSON=false ) {
 		let output = {};
-		let datakeys = ['x','y','hull','triangles','pts'];		
+		this.collision.qid = 0; // don't save this. ok to reset
+		let datakeys = ['x','y','collision','triangles','pts'];		
 		for ( let k of datakeys ) { output[k] = this[k]; }
-		// include dimensional data needed for reconstruction
-		if ( this.x1 !== undefined ) { output.x1 = this.x1; }
-		if ( this.x2 !== undefined ) { output.x2 = this.x2; }
-		if ( this.y1 !== undefined ) { output.y1 = this.y1; }
-		if ( this.y2 !== undefined ) { output.y2 = this.y2; }
 		if ( as_JSON ) { output = JSON.stringify(output); }
 		return output;
 	}
 	GeoData() {
 		return {
 			triangles: this.triangles,
-			hull: this.hull
+			hull: this.collision.hull
 		}
 	}
 

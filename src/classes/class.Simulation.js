@@ -33,6 +33,7 @@ import Rock from '../classes/class.Rock.js'
 import * as utils from '../util/utils.js'
 import { Boid } from '../classes/class.Boids.js'
 import SimulationLibrary from "./SimulationLibrary.js"
+import {Circle} from 'collisions'
 import { RandomPlant } from '../classes/class.Plant.js'
 import PubSub from 'pubsub-js'
 import {CompoundStatTracker} from '../classes/class.StatTracker.js'
@@ -532,7 +533,7 @@ export default class Simulation {
 					let most_angle = -10000;
 					let most_x = 0;
 					let most_y = 0;
-					for ( let p of rock.hull ) {
+					for ( let p of rock.pts ) {
 						let dx = (rock.x + p[0]) - safe_pt[0]; 
 						let dy = (rock.y + p[1]) - safe_pt[1];
 						const angle = Math.atan2( dy, dx ); // y goes first
@@ -567,12 +568,12 @@ export default class Simulation {
 						const ay1 = safe_pt[1];
 						const ax2 = safe_pt[0] + (length * Math.cos(angle)); 
 						const ay2 = safe_pt[1] + (length * Math.sin(angle));
-						for( let i=0; i < o.hull.length; i++ ) {
-							const next	= i+1 >= o.hull.length ? 0 : i+1;
-							const bx1	= o.x + o.hull[i][0];
-							const by1	= o.y + o.hull[i][1];
-							const bx2	= o.x + o.hull[next][0];
-							const by2	= o.y + o.hull[next][1];
+						for( let i=0; i < o.collision.hull.length; i++ ) {
+							const next	= i+1 >= o.collision.hull.length ? 0 : i+1;
+							const bx1	= o.x + o.collision.hull[i][0];
+							const by1	= o.y + o.collision.hull[i][1];
+							const bx2	= o.x + o.collision.hull[next][0];
+							const by2	= o.y + o.collision.hull[next][1];
 							const intersect = utils.getLineIntersection(ax1, ay1, ax2, ay2, bx1, by1, bx2, by2);
 							if ( intersect ) {
 								// console.log(intersect);
@@ -595,7 +596,7 @@ export default class Simulation {
 				}
 				// no safe spawning
 				else {
-					const p = rock.hull.pickRandom(); 
+					const p = rock.pts.pickRandom(); 
 					const plant = RandomPlant( rock.x+p[0], rock.y+p[1] );
 					if ( 'RandomizeAge' in plant ) { plant.RandomizeAge(); }
 					globalThis.vc.tank.plants.push(plant);
@@ -1295,10 +1296,9 @@ export class AvoidEdgesSimulation extends Simulation {
 				o => o instanceof Food
 			);
 			for ( let o of candidates ) {
-				const dx = o.x - b.x;
-				const dy = o.y - b.y;
-				const rsum = my_radius + o.r;
-				if ( dx * dx + dy * dy <= rsum * rsum ) {
+				const circle  = new Circle(b.x, b.y, my_radius);
+				const circle2  = new Circle(o.x, o.y, o.r);
+				if ( circle.collides(circle2) ) {
 					b.best_goal = Math.max(b.best_goal||0,o.goal||0);
 				}
 			}
