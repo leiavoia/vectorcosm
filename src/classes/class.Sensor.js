@@ -31,9 +31,11 @@ import * as utils from '../util/utils.js'
 import { Boid } from '../classes/class.Boids.js'
 import Rock from '../classes/class.Rock.js'
 import Food from '../classes/class.Food.js'
-import {Circle, Polygon, Result} from 'collisions';
+import { testCirclePolygon, createResult } from './collision.js';
 
 export default class Sensor {
+
+	static _coll_result = createResult();
 
     constructor(data, owner) {
         this.owner = owner;
@@ -349,10 +351,8 @@ export default class Sensor {
 			o => o instanceof Rock
 		);
 		for ( let o of candidates ) {
-			const circle  = new Circle(sx, sy, this.r);
-			const polygon = new Polygon(o.x, o.y, o.collision.hull);
-			const result  = new Result();
-			if ( circle.collides(polygon, result) ) {
+			const result = Sensor._coll_result;
+			if ( testCirclePolygon(sx, sy, this.r, o.collision, result) ) {
 				for ( let w of this.whiskers ) {
 					// if we are in immediate contact, break. we can't do better. 
 					if ( !w.v ) { continue; }
@@ -362,12 +362,14 @@ export default class Sensor {
 					const ay1 = sy;
 					const ax2 = sx + (whisker_length * Math.cos(whisker_angle)); 
 					const ay2 = sy + (whisker_length * Math.sin(whisker_angle));
-					for( let ix = 0, iy = 1; ix < polygon._edges.length; ix += 2, iy += 2 ) {
-						const next	= ix + 2 < polygon._edges.length ? ix + 2 : 0;
-						const bx1	= polygon._coords[ix];
-						const by1	= polygon._coords[iy];
-						const bx2	= polygon._coords[next];
-						const by2	= polygon._coords[next + 1];
+					const poly_edges = o.collision.edges;
+					const poly_coords = o.collision.coords;
+					for( let ix = 0, iy = 1; ix < poly_edges.length; ix += 2, iy += 2 ) {
+						const next	= ix + 2 < poly_edges.length ? ix + 2 : 0;
+						const bx1	= poly_coords[ix];
+						const by1	= poly_coords[iy];
+						const bx2	= poly_coords[next];
+						const by2	= poly_coords[next + 1];
 						const intersect = utils.getLineIntersection(ax1, ay1, ax2, ay2, bx1, by1, bx2, by2);
 						if ( intersect ) {
 							// calculate distance to intersect point
@@ -939,10 +941,8 @@ export default class Sensor {
         let sy = this.owner.y + ((this.x * sinAngle) + (this.y * cosAngle));
         let candidates = globalThis.vc.tank.grid.GetObjectsByBox(sx - this.r, sy - this.r, sx + this.r, sy + this.r, o => o instanceof Rock);
         for (let o of candidates) {
-            const circle = new Circle(sx, sy, this.r);
-            const polygon = new Polygon(o.x, o.y, o.collision.hull);
-            const result = new Result();
-            if (circle.collides(polygon, result)) {
+            const result = Sensor._coll_result;
+            if (testCirclePolygon(sx, sy, this.r, o.collision, result)) {
                 let v = result.overlap / (this.r * 2);
                 val = Math.max(v, val);
             }

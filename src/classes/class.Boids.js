@@ -49,11 +49,14 @@ import Brain from '../classes/class.Brain.js'
 import Endocrine from '../classes/class.Endocrine.js'
 import Mark from '../classes/class.Mark.js'
 import * as utils from '../util/utils.js'
-import {Circle, Polygon, Result} from 'collisions';
+import { createCircleCollider, testCirclePolygon, createResult } from './collision.js';
 import {CompoundStatTracker} from '../classes/class.StatTracker.js'
 			
 // MAGIC NUMBER - tuning number for matter->energy conversion rate
 const MAGIC_ENERGY_MULTIPLIER = 10;
+
+// shared collision result object — reused every frame, never allocated per-test
+const _boid_coll_result = createResult();
 	
 export class Boid extends PhysicsObject {
 
@@ -262,12 +265,7 @@ export class Boid extends PhysicsObject {
 			seed_dna: null					// DNA str of seed swallowed from food
 		};
 		// collision
-		this.collision = {
-			shape: 'circle',
-			fixed: false,
-			radius: 15, // update later
-			qid: 0
-		};
+		this.collision = createCircleCollider(15);
 		
 		this.angle = Math.random()*Math.PI*2;
 		this.linear_impulse = 0; // forward motion power, can be negative
@@ -595,15 +593,12 @@ export class Boid extends PhysicsObject {
 		);
 		for ( let o of candidates ) {
 			// narrow phase collision detection
-			const circle  = new Circle(this.x, this.y, my_radius);
-			const polygon = new Polygon(o.x, o.y, o.collision.hull);
-			const result  = new Result();
-			let gotcha = circle.collides(polygon, result);
+			let gotcha = testCirclePolygon(this.x, this.y, my_radius, o.collision, _boid_coll_result);
 			// response
 			if ( gotcha ) {
-				this.x -= result.overlap * result.overlap_x;
-				this.y -= result.overlap * result.overlap_y;
-				this.Slide( result.overlap_x, result.overlap_y, Boid.wall_slide_friction );
+				this.x -= _boid_coll_result.overlap * _boid_coll_result.overlap_x;
+				this.y -= _boid_coll_result.overlap * _boid_coll_result.overlap_y;
+				this.Slide( _boid_coll_result.overlap_x, _boid_coll_result.overlap_y, Boid.wall_slide_friction );
 				this.collision.contact_obstacle = true;
 			}
 		}
