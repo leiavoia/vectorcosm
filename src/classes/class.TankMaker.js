@@ -37,39 +37,76 @@ export default class TankMaker {
 	constructor( tank, settings ) {
 		this.tank = tank;
 		this.settings = {
-			rock_strat: [/* 'individual', */'voronoi'].pickRandom(),
+			// COMMON settings -------\/------------
+			
+			// rock placement strategy. 'voronoi' for complex (Default), 'individual' for simple scatter. 
+			rock_strat: 'voronoi',
+			// list of rock color schemes use. leave empty for fun randomization! SEE: Rock.color_schemes for list
+			rock_color_schemes: [],
+			// maximum visual complexity of rocks (cosmetic, recommended 0..5). low numbers render faster. 
+			max_cosmetic_complexity: 2,
+			// enable experimental visualization. DEPRECATED
+			visualize: false,
+			
+			// "INDIVIDUAL" strategy settings -------\/------------
+			
+			// number rocks to create
 			individual_num_rocks: utils.RandomInt( 3, 15 ),
+			// chance of creating a blunted rock, per rock (0..1)
 			individual_blunt: (Math.random() > 0.7),
+			// pixels to separate rocks. zero for no separation.
 			individual_margin: 150,
-			individual_separate: (Math.random() > 0.5),
-			individual_max_complexity: 2,
+			
+			// "VORONOI" strategy settings -----------\/-----------
+			
+			// number of points to seed Voronoi diagram
 			voronoi_points: null,
+			// the masking strategy that determines which cells become rocks. Random if not defined.
 			voronoi_mask_strat: ['lines','interference','radial','zone','xzone','random','hole','burg','sine','depth','cave','trench'].pickRandom(),
+			// sine frequency to use if "sine" masking strategy selected. random if not defined.
 			voronoi_sine_freq: utils.RandomFloat(0.5,20),
+			// sine amplitude to use if "sine" masking strategy selected. random if not defined.
 			voronoi_sine_amplitude: utils.RandomFloat(0.05,0.4),
+			// vertical shift to use if "sine" masking strategy selected. random if not defined.
 			voronoi_sine_vshift: utils.RandomFloat(0.0,0.45),
+			// horizontal shift to use if "sine" masking strategy selected. random if not defined.
 			voronoi_sine_hshift: utils.RandomFloat(0,1),
+			// number of modular rays to cast when "radial" masking strategy selected. random if not defined.
 			voronoi_radial_cycles: utils.RandomInt(1,7),
+			// amount of rotation when "radial" masking strategy selected. random if not defined (recommended).
 			voronoi_radial_spin: Math.random(),
+			// X and Y center for the rays when "radial" masking strategy selected. random if not defined (recommended).
 			voronoi_radial_center_x: Math.random(), // 0..1
 			voronoi_radial_center_y: Math.random(), // 0..1
+			// chance that a given cell is a rock when "random" masking strategy selected ( 0..1). Default 0.26 produces good results.
 			voronoi_mask_random_chance: 0.26,
-			voronoi_max_complexity: 2,
+			// strategy for distributing Voronoi seed points. random if not defined.
 			voronoi_point_strategy: ['blotch','random','square','hex'].pickRandom(),
-			voronoi_point_slur: (Math.random() > 0.5), // enables number shaping. it rolls random numbers by itself
-			voronoi_point_jitter: (Math.random() * 0.7), // geometric shapes break down over 0.5
+			// bias point distribution across the field after they are created. random if not defined.
+			voronoi_point_slur_x_center: Math.random(),
+			voronoi_point_slur_y_center: Math.random(),
+			voronoi_point_slur_x_expo: utils.RandomFloat(0.4,2.0),
+			voronoi_point_slur_y_expo: utils.RandomFloat(0.4,2.0),
+			// amount to randomly move a point from its origin.
+			// Warning: geometric shapes break down over 0.5 (moving more than half way)
+			voronoi_point_jitter: (Math.random() * 0.7), 
+			// streatch, skew, and rotation of points after creation. (Voronoi strategy only currently)
 			scale_x: utils.RandomFloat( 0.5, 5 ),
 			scale_y: utils.RandomFloat( 0.5, 5 ),
-			max_rotation: 0.2,
-			crazytown_chance: 0.3,
-			max_crazyness: 0.4,
 			skew_x: (Math.random() > 0.75 ? Math.random()*2 : 0),
-			max_rock_shrinkage: 0.73, // max percentage to reduce. (final_size = 1 - max_shrink)
+			max_rotation: 0.2,
+			// chance of enabling CrazyTown mode. Who even knows what it does!?
+			crazytown_chance: 0.3,
+			// controls craziness when crazytown is active. Default 0.4 is crazy enough for most people.
+			max_crazyness: 0.4,
+			// method of fracturing rocks. random if not defined.
+			rock_shrinkage_pattern: 'lines', // ['random','lines'].pickRandom(),
+			// maximum amount a rock can shrink during fracturing, per rock. zero disables all rock fracturing.
+			max_rock_shrinkage: 0.73, // max percentage to reduce size. (final_size = 1 - max_shrink)
+			// the chance of shrinking a rock, if 'random' shrinkage pattern selected.
 			rock_shrinkage_chance: 0.34,
-			rock_shrinkage_pattern: ['random','lines'].pickRandom(),
-			rock_shrinkage_lines: Math.round(Math.random() * 3),
-			rock_color_schemes: [],
-			visualize: false
+			// the number of lines to use when 'lines' shrinkage pattern is selected. Random 0..3 if not defined.
+			rock_shrinkage_lines: Math.round(Math.random() * 3),			
 		};
 		Object.assign( this.settings, settings );
 	}
@@ -144,7 +181,7 @@ export default class TankMaker {
 					y: utils.RandomInt(margin,this.tank.height-margin)-150, 
 					w: xscale * utils.MapToRange( utils.shapeNumber( Math.random(), 0, 1, 0.75, 1.5 ), 0, 1, min_size, max_size ), 
 					h: yscale * utils.MapToRange( utils.shapeNumber( Math.random(), 0, 1, 0.5, 1.5 ), 0, 1, min_size, max_size ), 
-					complexity: utils.RandomInt(0,this.settings.individual_max_complexity),
+					complexity: utils.RandomInt(0,this.settings.max_cosmetic_complexity),
 					new_points_respect_hull: false,
 					blunt,
 					color_scheme: this.PickRandomRockColor()
@@ -152,7 +189,7 @@ export default class TankMaker {
 				this.tank.obstacles.push(rock);
 			}
 			if ( this.settings.individual_separate ) {
-				this.tank.SeparateRocks(margin); // TODO: move this to TankMaker
+				this.tank.SeparateRocks(margin);
 			}
 		}
 	}
@@ -178,10 +215,10 @@ export default class TankMaker {
 			xmax += this.tank.width * margin;
 			ymax += this.tank.height * margin;
 		}
-		const x_focus = Math.random();
-		const y_focus = Math.random();
-		const x_expo = utils.RandomFloat( 0.4, 2.0 );
-		const y_expo = utils.RandomFloat( 0.4, 2.0 );
+		const x_focus = this.settings.voronoi_point_slur_x_center ?? 0.5;
+		const y_focus = this.settings.voronoi_point_slur_y_center ?? 0.5;
+		const x_expo = this.settings.voronoi_point_slur_x_expo ?? 1;
+		const y_expo = this.settings.voronoi_point_slur_y_expo ?? 1;
 		let pts = [];
 		
 		// random points
@@ -298,7 +335,7 @@ export default class TankMaker {
 		pts = pts.filter( p => p[0] >= xmin && p[0] <= xmax && p[1] >= ymin && p[1] <= ymax );
 		
 		// slur the points
-		if ( this.settings.voronoi_point_slur ) {
+		if ( this.settings.voronoi_point_slur_x_expo != 1 || this.settings.voronoi_point_slur_y_expo != 1 ) {
 			for ( let i=0; i<pts.length; i++ ) {
 				if ( pts[i][0] > xmin && pts[i][0] < xmax ) {
 					pts[i][0] = utils.shapeNumber( pts[i][0], xmin, xmax, x_focus, x_expo );
@@ -559,7 +596,7 @@ export default class TankMaker {
 							t = Math.max(0, Math.min(1, t));
 						}
 						// size of the line also determines its fracturing power, kinda
-						const min_dist = Math.min( min_dim*0.4, min_dim * ( lengthSq / (tankw * tankh) ) );
+						const min_dist = Math.min( min_dim*0.25, min_dim * ( lengthSq / (tankw * tankh) ) );
 						const closestX = l.x1 + t * dx;
 						const closestY = l.y1 + t * dy;
 						const dist = Math.sqrt((px - closestX) ** 2 + (py - closestY) ** 2);
@@ -697,7 +734,7 @@ export default class TankMaker {
 					y: topmost,
 					hull: vertices,
 					force_corners: false,
-					complexity: utils.RandomInt(0,this.settings.voronoi_max_complexity),
+					complexity: utils.RandomInt(0,this.settings.max_cosmetic_complexity),
 					new_points_respect_hull: true,
 					color_scheme: this.PickRandomRockColor()
 				}),
