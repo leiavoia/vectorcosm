@@ -3,7 +3,7 @@ local/
 .git
 .directory
 
-# saves/ — generated at runtime by CLI scripts, not tracked
+# saves files
 saves/
 
 # Logs
@@ -31,3 +31,4 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+copilot-instructions.md
