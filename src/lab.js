@@ -209,6 +209,7 @@ async function boot() {
 		else {
 			const resolved = tankSavesUrl(tank_file);
 			if ( !resolved ) {
+				console.warn(`[lab] import_tank_error: invalid tank_file name — use a bare filename for saves/tanks/ (e.g. my-tank)`);
 				logEvent('lab.import_tank_error', { input: tank_file, error: 'invalid name — use a DB integer ID or a bare filename for saves/tanks/ (e.g. my-tank)' });
 			}
 			else {
@@ -219,9 +220,13 @@ async function boot() {
 					if ( !resp.ok ) { throw new Error(`HTTP ${resp.status}`); }
 					scene = await resp.json();
 				} catch (e) {
+					console.warn(`[lab] import_tank_error: ${resolved.pathname} — ${e.message}`);
 					logEvent('lab.import_tank_error', { url: resolved.pathname, error: e.message });
 				}
 				if ( scene ) {
+					// TankLibraryPanel exports a DB row: { id, label, ..., scene: {...} }
+					// import_tank expects the inner scene object, not the wrapper row.
+					if ( scene.scene && !scene.tank ) { scene = scene.scene; }
 					const imported = await client.call('import_tank', { scene });
 					logEvent('lab.import_tank_result', imported);
 				}

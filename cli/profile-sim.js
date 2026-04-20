@@ -57,7 +57,7 @@ Default tank size: 3000x4000 (override with --width, --height; ignored when --ta
 
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { mkdir, writeFile } from 'fs/promises';
+import { mkdir, writeFile, access } from 'fs/promises';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = dirname(__filename);
@@ -356,6 +356,23 @@ async function main() {
 	console.log(`[profiler] trace:     ${saveTrace}`);
 	console.log(`[profiler] output:    ${outDir}`);
 
+	// ─── Preflight: verify tank file exists ───────────────────────────────────
+
+	if ( tankId ) {
+		const tankFilePath = resolve(__dirname, '..', 'saves', 'tanks', tankId + '.tank.json');
+		try {
+			await access(tankFilePath);
+		} catch {
+			process.stderr.write(
+				`[profiler] ERROR: tank file not found: ${tankFilePath}\n` +
+				`  Export a tank from the web UI (Tank Library → Export button)\n` +
+				`  and place it at that path.\n`
+			);
+			process.exit(1);
+		}
+		console.log(`[profiler] tank file: OK (${tankFilePath})`);
+	}
+
 	// ─── Launch browser ───────────────────────────────────────────────────────
 
 	const { chromium } = await loadPlaywright();
@@ -363,10 +380,10 @@ async function main() {
 	const context = await browser.newContext();
 	const page    = await context.newPage();
 
-	// surface browser console errors to stderr
+	// surface browser console errors and warnings to stderr
 	page.on('console', msg => {
-		if ( msg.type() === 'error' ) {
-			process.stderr.write(`[browser] ${msg.text()}\n`);
+		if ( msg.type() === 'error' || msg.type() === 'warning' ) {
+			process.stderr.write(`[browser:${msg.type()}] ${msg.text()}\n`);
 		}
 	});
 	page.on('pageerror', err => {
