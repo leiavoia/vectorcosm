@@ -1427,13 +1427,9 @@ export class Boid extends PhysicsObject {
 			this.traits.boxfit.push([ 0, cost, `motors.${m.name}`]);
 		}
 			
-		// reproductive motors
-		//
-		// TODO: Biologically, organisms reproduce when there is a surplus in energy.
-		// However, plants often feature hurried reproduction under stress.
-		// Consider how energy level might affect current reproduction triggers.
-		//
+		// REPRODUCTIVE MOTORS
 		const repro_type_roll = this.dna.shapedInt( this.dna.genesFor('repro_type_roll num',3,true), 0, 1);
+		
 		// mitosis
 		if ( repro_type_roll < 0.5 ) {
 			const mitosis_num = this.dna.shapedInt( this.dna.genesFor('mitosis num',2,true), 1,5,1,3);
@@ -1449,16 +1445,19 @@ export class Boid extends PhysicsObject {
 			const mitosis_min_cost = (1/1000) * offspring_tax * stroketime; // cost per per mass second times length of gestation
 			const mitosis_max_cost = (1/500) * offspring_tax * stroketime; // cost per per mass second times length of gestation
 			const mitosis_cost = mitosis_min_cost + ( mitosis_max_cost - mitosis_min_cost ) * this.traits.offspring_investment;
-			const min_act = this.dna.shapedNumber( this.dna.genesFor('mitosis min act',2), 0.4, 0.9, 0.5, 3);
+			const min_act = this.dna.shapedNumber( this.dna.genesFor('mitosis min act',2), 0.2, 0.7, 0.35, 3);
+			// signed weights: positive factors promote reproduction, negative factors inhibit it
+			// biased strongly toward 0 so most random genomes produce weak, mixed signals
 			const hormone_factors = [
-				this.dna.shapedNumber( this.dna.genesFor(`mitosis hfactor 0`,2,1), 0, 1, 0.5, 0.85 ),
-				this.dna.shapedNumber( this.dna.genesFor(`mitosis hfactor 1`,2,1), 0, 1, 0.5, 0.85 ),
-				this.dna.shapedNumber( this.dna.genesFor(`mitosis hfactor 2`,2,1), 0, 1, 0.5, 0.85 ),
-				this.dna.shapedNumber( this.dna.genesFor(`mitosis hfactor 3`,2,1), 0, 1, 0.5, 0.85 )
+				this.dna.shapedNumber( this.dna.genesFor(`mitosis hfactor 0`,2,1), -1, 1, 0, 0.85 ),
+				this.dna.shapedNumber( this.dna.genesFor(`mitosis hfactor 1`,2,1), -1, 1, 0, 0.85 ),
+				this.dna.shapedNumber( this.dna.genesFor(`mitosis hfactor 2`,2,1), -1, 1, 0, 0.85 ),
+				this.dna.shapedNumber( this.dna.genesFor(`mitosis hfactor 3`,2,1), -1, 1, 0, 0.85 )
 			];
-			// normalize hormone signals
-			const hormone_factors_total = hormone_factors.reduce( (a,c) => a + c, 0 );
-			for ( let i=0; i < 4; i++ ) { hormone_factors[i] /= hormone_factors_total; }				
+			// how much current energy fraction boosts the signal
+			const energy_weight = this.dna.shapedNumber( this.dna.genesFor('mitosis energy weight',2,1), 0, 0.5, 0.15, 1 );
+			// minimum energy fraction required before attempting reproduction at all
+			const energy_threshold = this.dna.shapedNumber( this.dna.genesFor('mitosis energy threshold',2,1), 0, 0.7, 0.3, 1 );
 			this.motors.push({
 				mitosis: mitosis_num, // number of new organisms
 				cost: mitosis_cost, 
@@ -1468,6 +1467,8 @@ export class Boid extends PhysicsObject {
 				min_scale: 0.65,
 				min_act: min_act,
 				hormone_factors,
+				energy_weight,
+				energy_threshold,
 				skip_sensor_check:true, // TODO: still need this?
 				AutoInput: ReproductionAutoInput,
 				Do: MitosisMotorDo
@@ -1475,6 +1476,7 @@ export class Boid extends PhysicsObject {
 			// TODO: cost of reproduction depends on variety of factors
 			this.traits.boxfit.push([ 0, 2 * mitosis_num * this.traits.offspring_investment, `motors.mitosis`]);
 		}
+		
 		// budding
 		else {
 			const max_stroketime = this.traits.life_credits * 0.5;
@@ -1482,16 +1484,19 @@ export class Boid extends PhysicsObject {
 			const min_cost = (1/1000) * ( 1 + stroketime / max_stroketime );
 			const max_cost = (1/500) * ( 1 + stroketime / max_stroketime );
 			const cost = min_cost + ( max_cost - min_cost ) * this.traits.offspring_investment;
-			const min_act = this.dna.shapedNumber( this.dna.genesFor('bud min act',2), 0.7, 0.9, 0.77, 2);
+			const min_act = this.dna.shapedNumber( this.dna.genesFor('bud min act',2), 0.2, 0.7, 0.35, 3);
+			// signed weights: positive factors promote reproduction, negative factors inhibit it
+			// biased strongly toward 0 so most random genomes produce weak, mixed signals
 			const hormone_factors = [
-				this.dna.shapedNumber( this.dna.genesFor(`bud hfactor 0`,2,1), 0, 1, 0.5, 0.85 ),
-				this.dna.shapedNumber( this.dna.genesFor(`bud hfactor 1`,2,1), 0, 1, 0.5, 0.85 ),
-				this.dna.shapedNumber( this.dna.genesFor(`bud hfactor 2`,2,1), 0, 1, 0.5, 0.85 ),
-				this.dna.shapedNumber( this.dna.genesFor(`bud hfactor 3`,2,1), 0, 1, 0.5, 0.85 )
+				this.dna.shapedNumber( this.dna.genesFor(`bud hfactor 0`,2,1), -1, 1, 0, 0.85 ),
+				this.dna.shapedNumber( this.dna.genesFor(`bud hfactor 1`,2,1), -1, 1, 0, 0.85 ),
+				this.dna.shapedNumber( this.dna.genesFor(`bud hfactor 2`,2,1), -1, 1, 0, 0.85 ),
+				this.dna.shapedNumber( this.dna.genesFor(`bud hfactor 3`,2,1), -1, 1, 0, 0.85 )
 			];
-			// normalize hormone signals
-			const hormone_factors_total = hormone_factors.reduce( (a,c) => a + c, 0 );
-			for ( let i=0; i < 4; i++ ) { hormone_factors[i] /= hormone_factors_total; }
+			// how much current energy fraction boosts the signal
+			const energy_weight = this.dna.shapedNumber( this.dna.genesFor('bud energy weight',2,1), 0, 0.5, 0.15, 1 );
+			// lower energy floor bias for budding: plant-like organisms try harder with less
+			const energy_threshold = this.dna.shapedNumber( this.dna.genesFor('bud energy threshold',2,1), 0, 0.7, 0.2, 1 );
 			this.motors.push({
 				bud: 1,
 				min_act: min_act,
@@ -1502,6 +1507,8 @@ export class Boid extends PhysicsObject {
 				min_scale: (0.65 + 0.35 * this.traits.offspring_investment), // higher than mitosis!
 				skip_sensor_check:true,
 				hormone_factors,
+				energy_weight,
+				energy_threshold,
 				AutoInput: ReproductionAutoInput,
 				Do: BudMotorDo		
 			});
@@ -2415,31 +2422,27 @@ function ScentMotorAutoInput( boid ) {
 }
 
 function ReproductionAutoInput( boid ) {
-	// no babies for this scenario
-	if ( globalThis.vc.simulation.settings?.ignore_lifecycle ) {
-		return 0; 
-	}
-	// age restricted
-	if ( boid.age < boid.maturity_age ) { 
-		return 0; 
-	}
-	// min scale required
-	if ( this.min_scale && boid.scale < this.min_scale ) { 
-		return 0; 
-	}
-	// get the total hormone value
-	let hormone =
-		boid.endocrine.hormones[0] * this.hormone_factors[0] +
-		boid.endocrine.hormones[1] * this.hormone_factors[1] +
-		boid.endocrine.hormones[2] * this.hormone_factors[2] +
-		boid.endocrine.hormones[3] * this.hormone_factors[3] ;
-	// go ahead with reproduction?	
-	const amount = ( hormone > this.min_act ) 
-		? ( hormone - this.min_act ) / ( 1 - this.min_act )
+	// disabled for training scenarios
+	if ( globalThis.vc.simulation.settings?.ignore_lifecycle ) { return 0; }
+	// not old enough
+	if ( boid.age < boid.maturity_age ) { return 0; }
+	// not big enough
+	if ( this.min_scale && boid.scale < this.min_scale ) { return 0; }
+	// energy hard floor — must have minimum reserves before attempting
+	const energy_pct = boid.metab.energy / boid.metab.max_energy;
+	if ( energy_pct < this.energy_threshold ) { return 0; }
+	// signed hormone signal, normalized by L1 norm of factors so result is in [-1, 1]
+	// positive factors promote; negative factors inhibit; which hormone does what is species-specific
+	// abs_total near zero means no meaningful hormone pathway is wired up → never reproduces
+	const f = this.hormone_factors;
+	const abs_total = Math.abs(f[0]) + Math.abs(f[1]) + Math.abs(f[2]) + Math.abs(f[3]);
+	const h = boid.endocrine.hormones;
+	const hormone_signal = ( abs_total > 0.01 )
+		? ( h[0]*f[0] + h[1]*f[1] + h[2]*f[2] + h[3]*f[3] ) / abs_total
 		: 0;
-	// TODO: figure out how varying hormone levels might have side effects.
-	// reproduction must use the full motor effort, regardless of activation value.
-	return amount ? 1 : 0;
+	// energy adds a positive bias — well-fed organisms are more motivated to reproduce
+	const signal = hormone_signal + this.energy_weight * energy_pct;
+	return ( signal > this.min_act ) ? 1 : 0;
 }
 
 function StandardMarkMotorDo( boid, amount, delta ) {
