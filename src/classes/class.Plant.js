@@ -72,7 +72,6 @@ export default class Plant {
 			germ_distance: 200,
 			light_pref: 0.65, // 0..1
 			light_tolr: 0.5, // 0..1
-			light_health: 0, // 0..1 - zero is a signal it needs to be computed
 			heat_pref: 0.65, // 0..1
 			heat_tolr: 0.5, // 0..1
 			fruit_num: 1,
@@ -124,8 +123,8 @@ export default class Plant {
 	Update( delta ) {
 		if ( this.dead ) { return; }
 		this.age += delta;
+		this.CalcHealth(); // even perma plants need to calculate health - surroundings may vary
 		if ( !this.perma ) {
-			this.CalcHealth();
 			const health_factor = PLANT_MIN_HEALTH_CREDIT + Math.pow( PLANT_HEALTH_PENALTY_COEF * ( 1 - this.health ), PLANT_HEALTH_PENALTY_EXP );
 			this.life_credits -= delta * health_factor * PLANT_DECAY_SPEED;
 			if ( this.life_credits <= 0 ) {
@@ -156,7 +155,9 @@ export default class Plant {
 	Export( as_JSON=false ) {
 		let output = { classname: this.type };
 		let datakeys = ['x','y','fruit_credits','age','life_credits',
-			'mass','health','dna','generation'];		
+			'mass','health','dna','generation'];
+		// legacy plants also save `traits` because they have no DNA to restore from
+		if ( !this.dna ) { datakeys.push('traits'); }			
 		for ( let k of datakeys ) { 
 			if ( this.hasOwnProperty(k) ) { 
 				output[k] = this[k];
@@ -586,13 +587,16 @@ export class VectorGrass extends Plant {
 		this.traits.animation_method ='legacy_sway';
 		this.traits.growth_speed = 0.9;
 		this.traits.growth_curve_exp = 0.01;
-		this.traits.fruit_num = utils.RandomInt(1,5);
-		this.traits.fruit_size = utils.RandomInt(20,50);
-		this.traits.fruit_lifespan = 40 + utils.RandomInt(0,15);
 		this.traits.fruit_complexity = 3;
 		this.traits.fruit_flavor = 0.55;
-		this.traits.fruit_buoy_start = 100 - ( 200 * Math.random() );
-		this.traits.fruit_buoy_end = 100 - ( 200 * Math.random() );
+		// only randomize fruiting traits on fresh creation; preserve saved values on reload
+		if ( !params?.traits ) {
+			this.traits.fruit_num = utils.RandomInt(1,5);
+			this.traits.fruit_size = utils.RandomInt(20,50);
+			this.traits.fruit_lifespan = 40 + utils.RandomInt(0,15);
+			this.traits.fruit_buoy_start = 100 - ( 200 * Math.random() );
+			this.traits.fruit_buoy_end = 100 - ( 200 * Math.random() );
+		}
 		this.CreateBody();
 	}
 	GeoData() {
@@ -646,13 +650,16 @@ export class WaveyVectorGrass extends Plant {
 		this.traits.animation_method ='sway';
 		this.traits.growth_speed = 0.7;
 		this.traits.growth_curve_exp = 0.008;
-		this.traits.fruit_num = utils.RandomInt(1,5);
-		this.traits.fruit_size = utils.RandomInt(40,80);
-		this.traits.fruit_lifespan = 40 + utils.RandomInt(0,15);
 		this.traits.fruit_complexity = 4;
 		this.traits.fruit_flavor = 0.73;
-		this.traits.fruit_buoy_start = 100 - ( 200 * Math.random() );
-		this.traits.fruit_buoy_end = 100 - ( 200 * Math.random() );
+		// only randomize fruiting traits on fresh creation; preserve saved values on reload
+		if ( !params?.traits ) {
+			this.traits.fruit_num = utils.RandomInt(1,5);
+			this.traits.fruit_size = utils.RandomInt(40,80);
+			this.traits.fruit_lifespan = 40 + utils.RandomInt(0,15);
+			this.traits.fruit_buoy_start = 100 - ( 200 * Math.random() );
+			this.traits.fruit_buoy_end = 100 - ( 200 * Math.random() );
+		}
 		this.CreateBody();
 	}
 	GeoData() {
