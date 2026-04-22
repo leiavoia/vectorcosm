@@ -94,10 +94,12 @@ export default class Plant {
 			* Math.max( 0.1, this.light_health )
 			// time interval and internal tuning number
 			* ( time_interval / PLANT_GROWTH_SPEED );
-		this.growth_mass_request = Math.pow( Math.E, -this.traits.growth_curve_exp * this.mass );
-		this.fruit_mass_request = 1 - this.growth_mass_request;
-		this.growth_mass_request *= this.mass * scale;
-		this.fruit_mass_request *= this.mass * scale;
+		// growth_rate = e^(-k*m): near 1 for seedlings, decays toward 0 as mass grows.
+		// fruit_fraction = (1 - growth_rate): monotonically increases with mass. Seedlings barely
+		// fruit; large established plants fruit heavily. This is the intended shape.
+		const growth_rate = Math.pow( Math.E, -this.traits.growth_curve_exp * this.mass );
+		this.growth_mass_request = growth_rate * this.mass * scale;
+		this.fruit_mass_request  = (1 - growth_rate) * this.mass * scale;
 		const total = this.growth_mass_request + this.fruit_mass_request;
 		return total;
 	}
@@ -249,7 +251,9 @@ export default class Plant {
 		const rand = Math.random();
 		this.age = this.traits.life_credits * rand;
 		this.life_credits = this.traits.life_credits - this.age;
-		this.mass = Math.log(rand*rand*rand) / -this.traits.growth_curve_exp;
+		// theoretical mass ceiling: point where growth fraction drops to ~1% (e^-km < 0.01 => m = ln(100)/k)
+		const theoretical_max = Math.log(100) / this.traits.growth_curve_exp;
+		this.mass = Math.max( 1, theoretical_max * rand );
 		// give fruiting a head start so that new tanks dont immediately starve
 		let threshold = this?.traits?.fruit_num * this?.traits?.fruit_size;
 		if ( !threshold ) { threshold = 300; }
@@ -265,6 +269,8 @@ export class DNAPlant extends Plant {
 		this.type = 'DNAPlant'; // avoids JS classname mangling
 		this.dna = new DNA( this.dna ); // will either be number of chars, or full string if rehydrating
 		this.RehydrateFromDNA();
+		// apply DNA-derived lifespan unless a saved value was explicitly provided
+		this.life_credits = params?.life_credits || this.traits.life_credits;
 		this.CreateBody();
 	}
 	

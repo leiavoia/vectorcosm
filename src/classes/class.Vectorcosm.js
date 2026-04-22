@@ -64,7 +64,7 @@ export default class Vectorcosm {
 		this.max_foods = 400;
 		this.plant_update_freq = 5;
 		this.plant_update_next = 0;
-		this.free_plant_growth = true;
+		this.free_plant_growth = false;
 		// carry-over settings applied to every simulation.settings when LoadNextSim() runs
 		this.sim_meta_params = {
 			num_boids: null,

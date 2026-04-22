@@ -438,7 +438,7 @@ export default {
 		no_combat:false,
 		invasives: 5,
 		invasives_freq: 500,
-		matter_diffusion_freq: 33,
+		matter_diffusion_freq: 80,
 		matter_diffusion_strength: 0.1,
 		speciation_rate: 1/30,
 		autosave: 3600
@@ -466,7 +466,7 @@ export default {
 		no_combat:true,
 		invasives: 5,
 		invasives_freq: 500,
-		matter_diffusion_freq: 33,
+		matter_diffusion_freq: 80,
 		matter_diffusion_strength: 0.1,
 		speciation_rate: 1/30,
 		autosave: 3600
