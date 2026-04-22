@@ -67,7 +67,7 @@ export default class Plant {
 			life_credits: 3000,
 			animation_method:'skew',
 			growth_speed: 0.5,
-			growth_curve_exp: utils.RandomFloat( 0.005, 0.1 ),
+			growth_curve_exp: 0.02, // lower numbers -> higher mass ceiling -> higher max fruit throughput
 			max_germ_density: 4,
 			germ_distance: 200,
 			light_pref: 0.65, // 0..1
@@ -344,7 +344,7 @@ export class DNAPlant extends Plant {
 				
 		// determine the other traits
 		this.traits.growth_speed = this.dna.mix( this.dna.genesFor('growth_speed',2), 0.1, 1.0);
-		this.traits.growth_curve_exp = this.dna.mix( this.dna.genesFor('growth_speed',2), 0.005, 0.1 );
+		this.traits.growth_curve_exp = this.dna.mix( this.dna.genesFor('growth_curve_exp',2), 0.01, 0.042 );
 		const total_fruit_mass = Math.round( 0.5 * ( 
 			this.dna.shapedInt( this.dna.genesFor('total_fruit_mass_1',2), 5, 1000, 50, 6 ) +
 			this.dna.shapedInt( this.dna.genesFor('total_fruit_mass_2',2), 5, 200, 50, 2 )
@@ -514,7 +514,7 @@ export class PendantLettuce extends Plant {
 		this.age = 30; // dodges animation effects
 		this.traits.animation_method ='skew';
 		this.traits.growth_speed = 0.4;
-		this.traits.growth_curve_exp = 0.002;
+		this.traits.growth_curve_exp = 0.032;
 		this.traits.fruit_num = 1;
 		this.traits.fruit_size = 120;
 		this.traits.fruit_lifespan = 80;
@@ -586,7 +586,7 @@ export class VectorGrass extends Plant {
 		this.age = 30; // dodges animation effects
 		this.traits.animation_method ='legacy_sway';
 		this.traits.growth_speed = 0.9;
-		this.traits.growth_curve_exp = 0.01;
+		this.traits.growth_curve_exp = 0.023;
 		this.traits.fruit_complexity = 3;
 		this.traits.fruit_flavor = 0.55;
 		// only randomize fruiting traits on fresh creation; preserve saved values on reload
@@ -649,7 +649,7 @@ export class WaveyVectorGrass extends Plant {
 		this.age = 30; // dodges animation effects
 		this.traits.animation_method ='sway';
 		this.traits.growth_speed = 0.7;
-		this.traits.growth_curve_exp = 0.008;
+		this.traits.growth_curve_exp = 0.025;
 		this.traits.fruit_complexity = 4;
 		this.traits.fruit_flavor = 0.73;
 		// only randomize fruiting traits on fresh creation; preserve saved values on reload
