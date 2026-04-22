@@ -92,6 +92,8 @@ export function angleToPoint(x1, y1, x2, y2){
 }
 
 export function clamp( x, min=null, max=null ) {
+	if ( isNaN(x) ) { x = 0; };
+	if ( !isFinite(x) ) { x = 0; };
 	if ( min !== null ) { x = Math.max(x,min); }
 	if ( max !== null ) { x = Math.min(Math.max(x,min),max); }
 	return x;
@@ -148,6 +150,8 @@ Array.prototype.avg = function() {
 	}
 
 export function Clamp( n, min, max ) { 
+	if ( isNaN(n) ) { n = 0; };
+	if ( !isFinite(n) ) { n = 0; };
 	return Math.min(Math.max(n, min), max);
 	}
 	

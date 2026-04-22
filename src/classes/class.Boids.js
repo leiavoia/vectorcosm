@@ -367,16 +367,19 @@ export class Boid extends PhysicsObject {
 				let growth_split = 0;
 				if ( this.mass < this.body.mass ) {
 					// growth is a balance between available energy and current physical size (room to grow)
-					const energy_pct = this.metab.energy / this.metab.max_energy;
+					const energy_pct = this.metab.energy / this.metab.max_energy; // can be zero!
 					// when energy available is low, we can't spend much on growth. sigmoidal growth as there is more to spare.
 					const quarter_k = 0.25 * this.traits.growth_rate;
-					const energy_split = quarter_k / ( quarter_k + Math.exp( -this.traits.growth_rate * ( energy_pct - (2/this.traits.growth_rate) ) ) ); 		
+					// beware of zero division - energy may be zero at this point, 
+					// but we are running digestion step as a last-frame hail-mary
+					const energy_divisor = ( quarter_k + Math.exp( -this.traits.growth_rate * ( energy_pct - (2/this.traits.growth_rate) ) ) );
+					const energy_split = energy_divisor ? ( quarter_k / energy_divisor ) : 0; 
 					// when mass is small, growth potential is big and slows down as organism gets bigger	
 					const growth_potential = Math.pow( 1 - ( this.mass / this.body.mass ), 2 ); // use larger expo for steeper curve
 					growth_split = growth_potential * energy_split;
 					this.RecordStat('growth_split',growth_split);
 				}
-				
+			
 				// calculate bite size and subtract from stomach contents
 				let morsel = Math.min( this.metab.stomach_total, this.metab.digest_rate * digestInterval );
 				this.metab.stomach_total -= morsel;
