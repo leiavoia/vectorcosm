@@ -133,11 +133,6 @@ export class Boid extends PhysicsObject {
 			this.mass = this.body.mass;
 			this.ScaleBoidByMass();	
 		}
-		// random age
-		if ( !globalThis.vc.simulation.settings?.ignore_lifecycle ) {
-			this.age = utils.RandomInt( 0, this.traits.life_credits * 0.5 );
-		}
-		this.endocrine.tick = Math.floor( this.age / Boid.ENDOCRINE_UPDATE_FREQ );
 		this.ResetStats();
 	}
 	
@@ -666,8 +661,8 @@ export class Boid extends PhysicsObject {
 		// ENDOCRINE / HORMONE LEVELS ------------------------\/-----------------------------------
 		// we don't need to update hormone levels every frame. 
 		// we can do this every 5 seconds or so.
-		const endocrine_update = Math.floor( this.age / Boid.ENDOCRINE_UPDATE_FREQ );
-		if ( this.endocrine.tick <= endocrine_update ) {
+		const next_endocrine_update = Math.floor( this.age / Boid.ENDOCRINE_UPDATE_FREQ );
+		if ( this.endocrine.tick <= next_endocrine_update ) {
 			// inputs can be a blend of random stuff, but we roughly segment as:
 			// Self, Environment, Circumstance, Other
 			let self = (
@@ -980,7 +975,6 @@ export class Boid extends PhysicsObject {
 		for ( let n=0; n < num_offspring; n++ ) { 
 			if ( globalThis.vc.tank.boids.length >= tank_max_boids ) { break; }
 			let offspring = this.Copy(true, mutation_rate, mutation_rate, speciation_rate); // reset state and mutate organism
-			offspring.age = 0; // simulation can assign a random age on Copy
 			offspring.x = this.x;
 			offspring.y = this.y;
 			offspring.angle = utils.RandomFloat(0, Math.PI*2);
@@ -1006,7 +1000,6 @@ export class Boid extends PhysicsObject {
 		const mutation_rate = utils.Clamp( globalThis.vc?.simulation?.settings?.max_mutation, 0, 1 );
 		const speciation_rate = utils.Clamp( globalThis.vc?.simulation?.settings?.speciation_rate || 0, 0, 1 );
 		let offspring = this.Copy(true, mutation_rate, mutation_rate, speciation_rate); // reset state and mutate organism
-		offspring.age = 0; // simulation can assign a random age on Copy
 		offspring.x = this.x;
 		offspring.y = this.y;
 		offspring.angle = utils.RandomFloat(0, Math.PI*2);
@@ -1126,12 +1119,13 @@ export class Boid extends PhysicsObject {
 		b.dna = new DNA();
 		b.genus = utils.RandomName(9);
 		b.species = b.genus;
-		b.age = utils.RandomInt( 0, 200 ); // arbitrary
 		b.RehydrateFromDNA();
 		// b.mass = b.body.mass; // random boids start adult size / full grown
 		b.mass = ( 0.5 +Math.random() * 0.5 ) * b.body.mass; // random size
 		b.ScaleBoidByMass();	
 		b.Reset(); // need this to get state values back to default
+		b.age = utils.RandomInt( 0, 200 ); // arbitrary
+		b.endocrine.tick = Math.floor( b.age / Boid.ENDOCRINE_UPDATE_FREQ );	
 		return b;
 	}
 	
@@ -2205,9 +2199,9 @@ export class Boid extends PhysicsObject {
 				this.endocrine.hormones[i] = this.hormones[i];
 			}
 			delete(this.hormones);
-			// set the tick counter according to the age 
-			this.endocrine.tick = Math.floor( this.age / Boid.ENDOCRINE_UPDATE_FREQ );
 		}
+		// set the tick counter according to the age 
+		this.endocrine.tick = Math.floor( this.age / Boid.ENDOCRINE_UPDATE_FREQ );
 		
 		// manually calculate body dimensions to pass to bodyplan
 		const size_ratio_l = this.dna.shapedNumber( this.dna.genesFor('body_size_ratio_l',2,1), 1, 10, 6, 2);

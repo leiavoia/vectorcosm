@@ -129,6 +129,7 @@ export default class Endocrine {
 		for ( let i=0; i < this.hormones.length; i++ ) {
 			this.hormones[i] = HORMONE_BASE_LEVEL;
 		}
+		this.tick = 0;
 	}		
 }
 	
