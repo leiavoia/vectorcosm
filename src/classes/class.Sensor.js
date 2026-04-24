@@ -410,12 +410,17 @@ export default class Sensor {
 		}
 		
 		// filter pre-fetched nearby objects for rocks only
-		const candidates = nearby ? nearby.filter( o => o instanceof Rock ) : [];
+		const candidates = nearby ? nearby.filter( o => o.otype == 3 ) : [];
 		for ( let o of candidates ) {
 			const result = Sensor._coll_result;
 			if ( testCirclePolygon(sx, sy, sensor_r, o.collision, result) ) {
-				// rock AABB for fast whisker-ray rejection
+				// rock AABB for fast whisker-ray rejection.
+				// collision.aabb is in LOCAL space (relative to o.x, o.y) — translate to world space.
 				const aabb = o.collision.aabb;
+				const poly_wx1 = o.x + aabb.x1;
+				const poly_wy1 = o.y + aabb.y1;
+				const poly_wx2 = o.x + aabb.x2;
+				const poly_wy2 = o.y + aabb.y2;
 				const poly_edges = o.collision.edges;
 				const poly_coords = o.collision.coords;
 				
@@ -426,12 +431,12 @@ export default class Sensor {
 					const ay2 = w_ay2[wi];
 					const wl = w_len[wi];
 					
-					// fast AABB rejection: check if whisker ray bbox overlaps rock bbox
+					// fast AABB rejection: check if whisker ray bbox overlaps rock world bbox
 					const rmin_x = sx < ax2 ? sx : ax2;
 					const rmax_x = sx > ax2 ? sx : ax2;
 					const rmin_y = sy < ay2 ? sy : ay2;
 					const rmax_y = sy > ay2 ? sy : ay2;
-					if ( rmax_x < aabb.x1 || rmin_x > aabb.x2 || rmax_y < aabb.y1 || rmin_y > aabb.y2 ) { continue; }
+					if ( rmax_x < poly_wx1 || rmin_x > poly_wx2 || rmax_y < poly_wy1 || rmin_y > poly_wy2 ) { continue; }
 					
 					for( let ix = 0, iy = 1; ix < poly_edges.length; ix += 2, iy += 2 ) {
 						const next	= ix + 2 < poly_edges.length ? ix + 2 : 0;
