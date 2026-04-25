@@ -14,7 +14,18 @@
 </style>
 
 <section>
-	<header onclick={()=>open=!open}>
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+	<header 
+		onclick={()=>open=!open}
+		onkeydown={(event) => {
+			if ( event.key == 'Enter' || event.key == ' ' ) {
+				event.preventDefault();
+				open = !open;
+			}
+		}}
+		tabindex="0"
+	>
 		<h3>Tank
 			{#if !open} 
 				<small class="dim"> | B:{stats.boids}, Sp:{stats.species}, Fd:{stats.foods}</small>

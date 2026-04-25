@@ -84,7 +84,18 @@
 </style>
 
 <section class={{nocontent:!open}}>
-	<header onclick={()=>open=!open}>
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+	<header 
+		onclick={()=>open=!open}
+		onkeydown={(event) => {
+			if ( event.key == 'Enter' || event.key == ' ' ) {
+				event.preventDefault();
+				open = !open;
+			}
+		}}
+		tabindex="0"
+	>
 		<h3>Simulation
 			{#if !open} 
 				<small class="dim">

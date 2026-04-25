@@ -87,7 +87,6 @@
 	
 	// camera needs tank and window data before it can be set up
 	let camera = $state(null);
-	setContext('camera', camera);
 
 	gameloop.onStartFrame = () => {
 		// update all your stats here
@@ -1196,8 +1195,7 @@
 		flex-flow: row wrap; 
 		pointer-events:none;
 	}
-	#pagewrapper main > *,
-	#pagewrapper DIV.focus_object_panel > * { pointer-events:auto; }
+	#pagewrapper main > * { pointer-events:auto; }
 	.hidecursor { cursor: none; }
 </style>
 

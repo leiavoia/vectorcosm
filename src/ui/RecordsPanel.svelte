@@ -265,7 +265,18 @@
 </style>
 
 <section class={{nocontent:!open}}>
-	<header onclick={()=>open=!open}>
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+	<header 
+		onclick={()=>open=!open}
+		onkeydown={(event) => {
+			if ( event.key == 'Enter' || event.key == ' ' ) {
+				event.preventDefault();
+				open = !open;
+			}
+		}}
+		tabindex="0"
+	>
 		<h3>Records</h3>
 	</header>
 	<!-- note: we can't remove this from the dom because the chart needs to remain available for updates even when hidden -->

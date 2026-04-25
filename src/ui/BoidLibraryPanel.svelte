@@ -1,6 +1,6 @@
 <script>
 	import FileSaver from 'file-saver';
-	import { getContext, onDestroy } from 'svelte';
+	import { getContext, onDestroy, onMount } from 'svelte';
 	import PubSub from 'pubsub-js'
 	
 	const api = getContext('api');
@@ -135,7 +135,9 @@
 		num_selected = 0;
 	}
 	
-	QueryLibrary( order_by, ascending, star );
+	onMount(() => {
+		QueryLibrary( order_by, ascending, star );
+	});
 	
 	// re-query when the worker reports a library change (e.g. autosave, export_boids)
 	let libraryUpdateSubscription = PubSub.subscribe('boid-library-addition', (msg,data) => {
@@ -177,7 +179,18 @@
 </style>
 
 <section>
-	<header onclick={()=>open=!open}>
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+	<header 
+		onclick={()=>open=!open}
+		onkeydown={(event) => {
+			if ( event.key == 'Enter' || event.key == ' ' ) {
+				event.preventDefault();
+				open = !open;
+			}
+		}}
+		tabindex="0"
+	>
 		<h3>Boid Library
 			<!-- {#if !open}  -->
 				<small class="dim"> | {rows.length}</small>

@@ -102,16 +102,11 @@
 		border-top-right-radius:50%;	
 		border-bottom-right-radius:50%;	
 	}
-	.brain.micro SPAN {
-		font-size: 70%;
-		color: transparent;
-	}
 
 	.hidecursor {
 		cursor: none;
 	}
 	
-	.sensor_block {  }
 	.sensor_block.compact { width: 50%; display:inline-block; line-height:1.1em;}
 	.sensor_block.compact PROGRESS { width: 4rem; margin-bottom: calc(var(--pico-spacing) * .10); margin-left: 0.25rem; line-height:1.1em;  }
 	.sensor_block.compact SPAN {
@@ -127,14 +122,6 @@
 	.verygood { font-weight:bold; background-color: #3A3 !important; }
 	.bad { background-color: #611 !important; }
 	.verybad { font-weight:bold; background-color: #911 !important; }
-	
-	#nutrition_table TD {
-		text-align:center;
-		vertical-align:middle;
-		padding:0;
-		background-color: transparent;
-		border:none;
-	}
 	
 	details[open] summary .krell { visibility:hidden; }
 	details summary h4 { margin-top: 0.01em; }
