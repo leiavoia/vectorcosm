@@ -1,9 +1,10 @@
 <script>
 	import FileSaver from 'file-saver';
-	import { onDestroy } from 'svelte';
+	import { getContext, onDestroy } from 'svelte';
 	import PubSub from 'pubsub-js'
 	
-	let { api, camera, open=true } = $props();
+	const api = getContext('api');
+	let { camera, open=true } = $props();
 
 	let rows = $state([]);
 	let order_by = 'date';

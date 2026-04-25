@@ -1257,10 +1257,10 @@
 		{:else if panel_mode==='settings'}
 			<CameraSettingsPanel camera={camera}></CameraSettingsPanel>
 		{:else if panel_mode==='object_library'}
-			<BoidLibraryPanel {api} ></BoidLibraryPanel>
-			<TankLibraryPanel {camera} {api} ></TankLibraryPanel>
+			<BoidLibraryPanel></BoidLibraryPanel>
+			<TankLibraryPanel {camera}></TankLibraryPanel>
 		{:else if panel_mode==='sim_launcher'}
-			<SimulationLauncherPanel {api} ></SimulationLauncherPanel>
+			<SimulationLauncherPanel></SimulationLauncherPanel>
 		{/if}
 		
 	</main>

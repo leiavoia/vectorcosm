@@ -3,8 +3,9 @@
 	import { getContext } from 'svelte';
 	
 	const setPanelMode = getContext('setPanelMode'); // allow self closing with setPanelMode()
+	const api = getContext('api');
 	
-	let { api } = $props();
+	let {} = $props();
 	
 	let meta_num_boids = $state(0);
 	let meta_num_segments = $state(1);
