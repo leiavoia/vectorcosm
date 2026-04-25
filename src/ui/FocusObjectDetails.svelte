@@ -1,7 +1,6 @@
 <script>
 	import { blur, fade } from 'svelte/transition';
 	import { getContext, tick } from 'svelte';
-	import PubSub from 'pubsub-js';
 	import BrainGraph from './BrainGraph.svelte';
 	import FocusObjectChart from './FocusObjectChart.svelte';
 	import {StatTracker, CompoundStatTracker} from '../classes/class.StatTracker.js'
@@ -15,6 +14,7 @@
 
 	// general provisions
 	let api = getContext('api');
+	const notifyBoidLibraryChanged = getContext('notifyBoidLibraryChanged') || (() => {});
 	let boid = $derived(boidData);
 	let show_brain_graph = $state(false);
 	let tab = $state('overview');
@@ -38,15 +38,15 @@
 	});
 	
 	function SaveBoid() {
-		api.call('export_boids', { db:true, ids: [boid.oid] }).then(() => PubSub.publish('boid-library-addition', null));
+		api.call('export_boids', { db:true, ids: [boid.oid] }).then(() => notifyBoidLibraryChanged());
 	}
 	
 	function SaveSpecies() {
-		api.call('export_boids', { db:true, species: [boid.species] }).then(() => PubSub.publish('boid-library-addition', null));
+		api.call('export_boids', { db:true, species: [boid.species] }).then(() => notifyBoidLibraryChanged());
 	}
 	
 	function SaveTankPopulation() {
-		api.call('export_boids', { db:true }).then(() => PubSub.publish('boid-library-addition', null));
+		api.call('export_boids', { db:true }).then(() => notifyBoidLibraryChanged());
 	}
 	
 	function SmiteBoid() {

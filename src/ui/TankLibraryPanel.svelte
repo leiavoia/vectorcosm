@@ -1,10 +1,9 @@
 <script>
 	import FileSaver from 'file-saver';
-	import { getContext, onDestroy } from 'svelte';
-	import PubSub from 'pubsub-js'
+	import { getContext } from 'svelte';
 	
 	const api = getContext('api');
-	let { camera, open=true } = $props();
+	let { camera, open=true, refreshToken=0 } = $props();
 
 	let rows = $state([]);
 	let order_by = 'date';
@@ -91,15 +90,9 @@
 		rows.push( ...(results || []) );
 	}
 	
-	QueryLibrary( order_by, ascending );
-	
-	// re-query when the worker reports a library change (e.g. autosave)
-	let libraryUpdateSubscription = PubSub.subscribe('tank-library-addition', (msg,data) => {
+	$effect(() => {
+		refreshToken;
 		QueryLibrary( order_by, ascending );
-	});
-
-	onDestroy(() => {
-		PubSub.unsubscribe(libraryUpdateSubscription);
 	});
 	
 </script>

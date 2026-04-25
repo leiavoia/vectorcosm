@@ -18,7 +18,6 @@
 	import * as SVGUtils from './util/svg.js'
 	import { parseSimParams } from './util/url-params.js'
 	import { setContext } from 'svelte';
-	import PubSub from 'pubsub-js';
 	import {StatTracker, CompoundStatTracker} from './classes/class.StatTracker.js'
 
 	let renderLayers = {};
@@ -28,6 +27,16 @@
 	let focusObjectGraphDataPoint = $state(null);
 	let focusObjectGraphDataToken = $state(0);
 	let focusObjectBrainGraphForce = $state(null);
+	let boidLibraryRefreshToken = $state(0);
+	let tankLibraryRefreshToken = $state(0);
+
+	function NotifyBoidLibraryChanged() {
+		boidLibraryRefreshToken++;
+	}
+
+	function NotifyTankLibraryChanged() {
+		tankLibraryRefreshToken++;
+	}
 
 	function NormalizeBgThemeClass( name ) {
 		if ( !name ) { return 'bg-theme-black'; }
@@ -40,6 +49,8 @@
 		panel_mode = panel_mode == mode ? null : mode;
 	}
 	setContext('setPanelMode', setPanelMode); // allows panels to self-close
+	setContext('notifyBoidLibraryChanged', NotifyBoidLibraryChanged);
+	setContext('notifyTankLibraryChanged', NotifyTankLibraryChanged);
 
 	// performance tracking
 	let performanceTracker = new CompoundStatTracker( { numLayers: 2, base: 10, recordsPerLayer: 60, stats:[
@@ -434,15 +445,14 @@
 	} );
 	
 	api.on( 'autosave', data => {
-		// let the tank library widget know we have a new row
-		PubSub.publish('tank-library-addition', data);
+		NotifyTankLibraryChanged();
 	});
 	
 	function onExportBoidsResponse( str ) {
 		if ( str ) {
 			globalThis.localStorage.setItem("population", str);
 		}
-		PubSub.publish('boid-library-addition', null);
+		NotifyBoidLibraryChanged();
 	}
 	
 	function onGetTankEnvDataResponse( data ) {
@@ -753,7 +763,7 @@
 			camera.TrackObject( list[i].oid );		
 		},
 		's': _ => {
-			api.call('save_tank').then(data => PubSub.publish('tank-library-addition', data));
+			api.call('save_tank').then(() => NotifyTankLibraryChanged());
 		},
 		'a': _ => {
 			camera.dramatic_entrance = -1; // evaluates to "true" but resets to false on next action
@@ -1255,8 +1265,8 @@
 		{:else if panel_mode==='settings'}
 			<CameraSettingsPanel camera={camera}></CameraSettingsPanel>
 		{:else if panel_mode==='object_library'}
-			<BoidLibraryPanel></BoidLibraryPanel>
-			<TankLibraryPanel {camera}></TankLibraryPanel>
+			<BoidLibraryPanel refreshToken={boidLibraryRefreshToken}></BoidLibraryPanel>
+			<TankLibraryPanel {camera} refreshToken={tankLibraryRefreshToken}></TankLibraryPanel>
 		{:else if panel_mode==='sim_launcher'}
 			<SimulationLauncherPanel></SimulationLauncherPanel>
 		{/if}

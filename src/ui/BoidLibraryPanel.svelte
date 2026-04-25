@@ -1,10 +1,9 @@
 <script>
 	import FileSaver from 'file-saver';
-	import { getContext, onDestroy, onMount } from 'svelte';
-	import PubSub from 'pubsub-js'
+	import { getContext } from 'svelte';
 	
 	const api = getContext('api');
-	let { open=true } = $props();
+	let { open=true, refreshToken=0 } = $props();
 
 	let rows = $state([]);
 	let order_by = 'date';
@@ -135,17 +134,9 @@
 		num_selected = 0;
 	}
 	
-	onMount(() => {
+	$effect(() => {
+		refreshToken;
 		QueryLibrary( order_by, ascending, star );
-	});
-	
-	// re-query when the worker reports a library change (e.g. autosave, export_boids)
-	let libraryUpdateSubscription = PubSub.subscribe('boid-library-addition', (msg,data) => {
-		QueryLibrary( order_by, ascending, star );
-	});
-
-	onDestroy(() => {
-		PubSub.unsubscribe(libraryUpdateSubscription);
 	});
 	
 </script>
