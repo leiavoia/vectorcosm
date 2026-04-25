@@ -3,7 +3,7 @@
 	import { onMount } from 'svelte';
 	import Chart from 'chart.js/auto';
 	
-	let {stats, chartdata, open=true} = $props();
+	let { stats, chartdata, open=true, roundCompleteToken=0 } = $props();
 	
 	let chartcanvas;
     let simulatorChart;
@@ -18,10 +18,11 @@
 	onMount(() => {
 		simulatorChart = MakeSimulatorChart(chartcanvas, chartdata.averages, chartdata.highscores, chartdata.labels);	
 	});
-				
-	export function onRoundComplete() {
-		simulatorChart.update();
-	}
+
+	$effect(() => {
+		roundCompleteToken;
+		if ( simulatorChart ) { simulatorChart.update(); }
+	});
 	
 	function MakeSimulatorChart( element, averages, highscores, labels=[] ) {
 

@@ -1,15 +1,9 @@
 <script>
 	import Two from "two.js";
-	import { onMount, setContext, createEventDispatcher } from 'svelte';
+	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
-	
-	const dispatcher = createEventDispatcher();
 
-	let theme_classname = $state('bg-theme-black');
-	
-	export function SetTheme( name ) {
-		theme_classname = 'bg-theme-' + name.replace('bg-theme-','');
-	}
+	let { onDrawingReady = null, themeClass = 'bg-theme-black' } = $props();
 	
 	onMount(() => {
 		// set up Two.js
@@ -19,12 +13,12 @@
 		let elem = globalThis.document.getElementById('vectorcosm_context');
 		two.appendTo(elem);
 		// let parent components know we are ready to rock
-		dispatcher('drawingReady');
+		if ( typeof onDrawingReady == 'function' ) { onDrawingReady(); }
 	})
 	
 </script>
 
-<div id="vectorcosm_drawing_container" style="pointer-events: auto;" class={theme_classname}>
+<div id="vectorcosm_drawing_container" style="pointer-events: auto;" class={themeClass}>
 	<div transition:fade={{duration:700}} id="vectorcosm_context" style="pointer-events: none;"></div>
 </div>
 

@@ -21,10 +21,15 @@
 	import PubSub from 'pubsub-js';
 	import {StatTracker, CompoundStatTracker} from './classes/class.StatTracker.js'
 
-	let vc_canvas;
 	let focus_object_panel;
-	let simStatsPanel;
 	let renderLayers = {};
+	let drawingThemeClass = $state('bg-theme-black');
+	let simRoundCompleteToken = $state(0);
+
+	function NormalizeBgThemeClass( name ) {
+		if ( !name ) { return 'bg-theme-black'; }
+		return 'bg-theme-' + name.replace('bg-theme-','');
+	}
 			
 	// control UI panel display - only one allowed at a time
 	let panel_mode = $state(null);
@@ -217,8 +222,8 @@
 					else if ( o.type=='tank' ) {
 						if ( o.geodata ) {
 							// the theme is an HTML element classname and not part of the drawing context
-							if ( o.geodata.bg_theme_class && vc_canvas ) {
-								vc_canvas.SetTheme(o.geodata.bg_theme_class);
+							if ( o.geodata.bg_theme_class ) {
+								drawingThemeClass = NormalizeBgThemeClass(o.geodata.bg_theme_class);
 							}
 							
 							// tank frame is a fixed size
@@ -395,9 +400,7 @@
 		simChartData.averages.push( data.round_avg_score );
 		simChartData.highscores.push( data.round_best_score );
 		simChartData.labels.push( data.round_num );
-		if ( simStatsPanel ) {
-			simStatsPanel.onRoundComplete();
-		}
+		simRoundCompleteToken++;
 	} );
 	
 	api.on( 'sim_complete', data => {
@@ -416,9 +419,7 @@
 		if ( data ) {
 			simSettings = data;
 		}
-		if ( simStatsPanel ) {
-			simStatsPanel.onRoundComplete();
-		}
+		simRoundCompleteToken++;
 	} );
 	
 	api.on( 'records_push', msg => {
@@ -1213,7 +1214,7 @@
 		this way we can keep the event handler logic up here.
 	-->
 	<div role="none" {onclick} {onwheel} {onmousedown} {onmouseup} {onmousemove} {oncontextmenu}>
-		<VectorcosmDrawingContext bind:this={vc_canvas} on:drawingReady={onDrawingReady} ></VectorcosmDrawingContext>
+		<VectorcosmDrawingContext themeClass={drawingThemeClass} onDrawingReady={onDrawingReady}></VectorcosmDrawingContext>
 	</div>
 	
 	<main>
@@ -1248,12 +1249,12 @@
 		
 		{#if panel_mode==='sim_controls'}
 			<SimulatorControlsPanel settings={simSettings} onupdate={params=>onSimulatorControlsUpdate(params)}></SimulatorControlsPanel>
-			<SimStatsPanel bind:this={simStatsPanel} stats={simStats} chartdata={simChartData}></SimStatsPanel>
+			<SimStatsPanel stats={simStats} chartdata={simChartData} roundCompleteToken={simRoundCompleteToken}></SimStatsPanel>
 			<TankStatsPanel stats={tankStats} open={false}></TankStatsPanel>
 		{:else if panel_mode==='tank_stats'}
 			<TankStatsPanel stats={tankStats} open={true}></TankStatsPanel>
 			<RecordsPanel records={recordsTracker} open={true}></RecordsPanel>
-			<SimStatsPanel bind:this={simStatsPanel} stats={simStats} chartdata={simChartData} open={false}></SimStatsPanel>
+			<SimStatsPanel stats={simStats} chartdata={simChartData} roundCompleteToken={simRoundCompleteToken} open={false}></SimStatsPanel>
 			<PerfStatsPanel tracker={performanceTracker} open={false}></PerfStatsPanel>
 		{:else if panel_mode==='settings'}
 			<CameraSettingsPanel camera={camera}></CameraSettingsPanel>
