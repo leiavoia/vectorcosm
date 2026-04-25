@@ -6,25 +6,36 @@
 	import FocusObjectChart from './FocusObjectChart.svelte';
 	import {StatTracker, CompoundStatTracker} from '../classes/class.StatTracker.js'
 
+	let {
+		boidData = null,
+		graphDataPoint = null,
+		graphDataToken = 0,
+		forceShowBrainGraph = null,
+	} = $props();
+
 	// general provisions
 	let api = getContext('api');
-	let boid = $state(null);
+	let boid = $derived(boidData);
 	let show_brain_graph = $state(false);
 	let tab = $state('overview');
 	let records = $state(null);
+	let lastGraphDataToken = 0;
 		
-	export function updateStats(data) {
-		if ( data === null && boid == null ) { return; }
-		boid = data;
+	$effect(() => {
 		// set up records tracker if we got graph data
-		if ( boid?.records ) {
-			records = CompoundStatTracker.Import( boid.records );
+		if ( boidData?.records ) {
+			records = CompoundStatTracker.Import( boidData.records );
 		}
-	}
-	
-	export function AddGraphData( data ) {
-		if ( records ) records.Insert( data );
-	}
+	});
+
+	$effect(() => {
+		if ( graphDataToken != lastGraphDataToken ) {
+			lastGraphDataToken = graphDataToken;
+			if ( records && graphDataPoint ) {
+				records.Insert( graphDataPoint );
+			}
+		}
+	});
 	
 	function SaveBoid() {
 		api.call('export_boids', { db:true, ids: [boid.oid] }).then(() => PubSub.publish('boid-library-addition', null));
@@ -46,7 +57,7 @@
 		tab = t;
 	}
 	
-	export function ToggleShowBrainGraph( force=null ) {
+	function ToggleShowBrainGraph( force=null ) {
 		if ( force === true || force === false ) {
 			show_brain_graph = force;
 		} 
@@ -54,6 +65,12 @@
 			show_brain_graph = !show_brain_graph;
 		}
 	}
+
+	$effect(() => {
+		if ( forceShowBrainGraph === true || forceShowBrainGraph === false ) {
+			ToggleShowBrainGraph(forceShowBrainGraph);
+		}
+	});
 </script>
 
 <style>

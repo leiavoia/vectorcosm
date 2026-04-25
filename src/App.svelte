@@ -21,10 +21,13 @@
 	import PubSub from 'pubsub-js';
 	import {StatTracker, CompoundStatTracker} from './classes/class.StatTracker.js'
 
-	let focus_object_panel;
 	let renderLayers = {};
 	let drawingThemeClass = $state('bg-theme-black');
 	let simRoundCompleteToken = $state(0);
+	let focusObjectBoidData = $state(null);
+	let focusObjectGraphDataPoint = $state(null);
+	let focusObjectGraphDataToken = $state(0);
+	let focusObjectBrainGraphForce = $state(null);
 
 	function NormalizeBgThemeClass( name ) {
 		if ( !name ) { return 'bg-theme-black'; }
@@ -121,8 +124,8 @@
 				}
 				api.call('pick_object', params).then(onPickObjectResponse); // send back for another round
 			}
-			else if ( focus_object_panel ) {
-				focus_object_panel.updateStats(null); // null will make it go away
+			else {
+				focusObjectBoidData = null;
 			}
 		}
 	}
@@ -372,9 +375,7 @@
 		}
 		// likely a repeat request that came back too late - disregard
 		else if ( camera.focus_obj_id <= 0 ) {
-			if ( focus_object_panel ) {
-				focus_object_panel.updateStats(null); // null will make it go away
-			}
+			focusObjectBoidData = null;
 			return;
 		}
 		// rapid change in target object
@@ -383,10 +384,8 @@
 		}
 		// track objects and update UI
 		camera.TrackObject(focus_object_id);
-		if ( focus_object_panel ) {
-			if ( !data || camera.show_boid_info_on_focus ) { // respect camera settings even though its not actually camera related
-				focus_object_panel.updateStats(data);
-			}
+		if ( !data || camera.show_boid_info_on_focus ) { // respect camera settings even though its not actually camera related
+			focusObjectBoidData = data;
 		}
 	}
 	
@@ -429,8 +428,9 @@
 	} );
 	
 	api.on( 'boid_records_push', msg => {
-		if ( msg.layer == 0 && focus_object_panel ) {
-			focus_object_panel.AddGraphData( msg.data );
+		if ( msg.layer == 0 ) {
+			focusObjectGraphDataPoint = msg.data;
+			focusObjectGraphDataToken++;
 		}
 	} );
 	
@@ -790,7 +790,7 @@
 		'Escape': _ => {
 			if ( camera.focus_obj_id > 0 ) { 
 				camera.TrackObject(false);
-				focus_object_panel.updateStats(null);
+				focusObjectBoidData = null;
 			}
 			else { setPanelMode(null); }
 		},
@@ -806,9 +806,7 @@
 				let boid = Array.from(renderObjects.values()).find(o=>o.type=='boid');
 				if ( boid ) { camera.TrackObject( boid.oid ); }
 			}
-			if ( focus_object_panel ) {
-				focus_object_panel.ToggleShowBrainGraph();
-			}
+			focusObjectBrainGraphForce = !focusObjectBrainGraphForce;
 		},
 		'9': _ => {
 			api.call('export_boids').then(onExportBoidsResponse);
@@ -1268,6 +1266,11 @@
 	</main>
 	
 	<div class="focus_object_panel">
-		<FocusObjectDetails bind:this={focus_object_panel}></FocusObjectDetails>
+		<FocusObjectDetails 
+			boidData={focusObjectBoidData}
+			graphDataPoint={focusObjectGraphDataPoint}
+			graphDataToken={focusObjectGraphDataToken}
+			forceShowBrainGraph={focusObjectBrainGraphForce}
+		></FocusObjectDetails>
 	</div>
 </div>
