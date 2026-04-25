@@ -1,5 +1,6 @@
 <script>
 	import FileSaver from 'file-saver';
+	import { onDestroy } from 'svelte';
 	import PubSub from 'pubsub-js'
 	
 	let { api, camera, open=true } = $props();
@@ -94,6 +95,10 @@
 	// re-query when the worker reports a library change (e.g. autosave)
 	let libraryUpdateSubscription = PubSub.subscribe('tank-library-addition', (msg,data) => {
 		QueryLibrary( order_by, ascending );
+	});
+
+	onDestroy(() => {
+		PubSub.unsubscribe(libraryUpdateSubscription);
 	});
 	
 </script>

@@ -1,5 +1,6 @@
 <script>
 	import FileSaver from 'file-saver';
+	import { onDestroy } from 'svelte';
 	import PubSub from 'pubsub-js'
 	
 	let { api, open=true } = $props();
@@ -138,6 +139,10 @@
 	// re-query when the worker reports a library change (e.g. autosave, export_boids)
 	let libraryUpdateSubscription = PubSub.subscribe('boid-library-addition', (msg,data) => {
 		QueryLibrary( order_by, ascending, star );
+	});
+
+	onDestroy(() => {
+		PubSub.unsubscribe(libraryUpdateSubscription);
 	});
 	
 </script>
