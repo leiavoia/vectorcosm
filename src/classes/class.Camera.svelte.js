@@ -19,6 +19,14 @@ PAN/ZOOM NOTES
 - `z` is the logical zoom; `scale` is derived (1/z * correction factor).
 - `xmin/ymin/xmax/ymax` — world-space view frustum; use for off-screen culling.
 - `background_attachment` — 'tank' (background scrolls with pan) or 'screen' (background stays fixed).
+
+REACTIVITY
+- File is .svelte.js so Svelte 5 runes are processed natively.
+- UI-observable properties are declared as $state class fields below.
+- Rendering/physics properties (x, y, z, scale, xmin/xmax/ymin/ymax, etc.) remain plain — TWEEN.js
+  animates them directly and they do not need Svelte tracking.
+- renderLayers and renderObjects are plain shared references (not reactive) — they are imperative
+  Two.js handles and a shared Map respectively; making them reactive would cause overhead at 60fps.
 </AI> */
 
 import * as utils from '../util/utils.js'
@@ -28,9 +36,31 @@ import Two from "two.js";
 
 export default class Camera {
 
+	// --- Reactive properties ($state) — readable/writable from UI components without mirrors ---
+	// Animation toggles: whether to run per-frame visual animation for each object type
+	animate_boids = $state(false);
+	animate_plants = $state(false);
+	animate_marks = $state(false);
+	animate_foods = $state(false);
+	// Cinema / focus behaviour flags
+	cinema_mode = $state(false);
+	allow_hyperzoom = $state(true);
+	transitions = $state(true);
+	parallax = $state(false);
+	show_boid_indicator_on_focus = $state(true);
+	show_boid_sensors_on_focus = $state(true);
+	show_boid_info_on_focus = $state(true);
+	center_camera_on_focus = $state(true);
+	// Timing values for cinema / focus transitions (ms)
+	focus_time = $state(8000);
+	transition_time = $state(3000);
+
 	constructor( renderLayers, renderObjects ) {
+		// renderLayers: plain object of Two.js groups — imperative rendering, not reactive
+		// renderObjects: shared Map of live game objects — mutated at 60fps, not reactive
 		this.renderLayers = renderLayers;
 		this.renderObjects = renderObjects; // gives camera access to game objects for cinema and interactivity
+		// Physics / pan / zoom — not reactive; TWEEN.js animates x/y/z directly
 		this.x = 0;
 		this.y = 0;
 		this.z = 1;
@@ -47,29 +77,15 @@ export default class Camera {
 		this.tank_height = 100;
 		this.focus_object = null;
 		this.focus_geo = null;
-		this.allow_hyperzoom = true;
 		this.scale = 1;
 		this.easing = TWEEN.Easing.Sinusoidal.InOut; // SEE: https://github.com/tweenjs/tween.js/blob/main/docs/user_guide.md
-		this.transitions = true;
-		this.parallax = false;
-		this.transition_time = 3000; // ms
-		this.focus_time = 8000; // ms
-		this.show_boid_indicator_on_focus = true;
-		this.show_boid_sensors_on_focus = true;
-		this.show_boid_info_on_focus = true;
-		this.center_camera_on_focus = true;
-		this.animate_boids = false;
-		this.animate_plants = false;
-		this.animate_marks = false;
-		this.animate_foods = false;
 		this.dramatic_entrance = false; // might merge this with `transitions`
-		this.animation_min = 0.4 // zoom level beyond which we stop animating
+		this.animation_min = 0.4; // zoom level beyond which we stop animating
 		this.background_attachment = 'screen'; // 'screen' or 'tank'
 		// innards:
 		this.focus_geo = null;
 		this.focus_overlay_geo = null;
 		this.focus_obj_id = 0;
-		this.cinema_mode = false;
 		this.cinema_timeout = null;
 		this.tween = null;
 	}

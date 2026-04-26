@@ -13,7 +13,7 @@
 	import VectorcosmDrawingContext from './ui/VectorcosmDrawingContext.svelte';
 	import GameLoop from './classes/class.GameLoop.js'
 	import VectorcosmAPI from './classes/class.VectorcosmAPI.js'
-	import Camera from './classes/class.Camera.js'
+	import Camera from './classes/class.Camera.svelte.js'
 	import Two from "two.js";
 	import * as SVGUtils from './util/svg.js'
 	import { parseSimParams } from './util/url-params.js'
