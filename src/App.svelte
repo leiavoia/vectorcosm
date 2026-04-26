@@ -51,8 +51,6 @@
 		panel_mode = panel_mode == mode ? null : mode;
 	}
 	setContext('setPanelMode', setPanelMode); // allows panels to self-close
-	setContext('notifyBoidLibraryChanged', NotifyBoidLibraryChanged);
-	setContext('notifyTankLibraryChanged', NotifyTankLibraryChanged);
 
 	// performance tracking
 	let performanceTracker = new CompoundStatTracker( { numLayers: 2, base: 10, recordsPerLayer: 60, stats:[
@@ -902,6 +900,7 @@
 			graphDataPoint={focusObjectGraphDataPoint}
 			graphDataToken={focusObjectGraphDataToken}
 			forceShowBrainGraph={focusObjectBrainGraphForce}
+			onBoidLibraryChanged={NotifyBoidLibraryChanged}
 		></FocusObjectDetails>
 	</div>
 </div>

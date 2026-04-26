@@ -10,11 +10,11 @@
 		graphDataPoint = null,
 		graphDataToken = 0,
 		forceShowBrainGraph = null,
+		onBoidLibraryChanged = null,
 	} = $props();
 
 	// general provisions
 	let api = getContext('api');
-	const notifyBoidLibraryChanged = getContext('notifyBoidLibraryChanged') || (() => {});
 	let boid = $derived(boidData);
 	let show_brain_graph = $state(false);
 	let tab = $state('overview');
@@ -38,15 +38,15 @@
 	});
 	
 	function SaveBoid() {
-		api.call('export_boids', { db:true, ids: [boid.oid] }).then(() => notifyBoidLibraryChanged());
+		api.call('export_boids', { db:true, ids: [boid.oid] }).then(() => onBoidLibraryChanged?.());
 	}
 	
 	function SaveSpecies() {
-		api.call('export_boids', { db:true, species: [boid.species] }).then(() => notifyBoidLibraryChanged());
+		api.call('export_boids', { db:true, species: [boid.species] }).then(() => onBoidLibraryChanged?.());
 	}
 	
 	function SaveTankPopulation() {
-		api.call('export_boids', { db:true }).then(() => notifyBoidLibraryChanged());
+		api.call('export_boids', { db:true }).then(() => onBoidLibraryChanged?.());
 	}
 	
 	function SmiteBoid() {
