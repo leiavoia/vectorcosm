@@ -19,6 +19,8 @@
 	import { parseSimParams } from './util/url-params.js'
 	import { setContext } from 'svelte';
 	import {StatTracker, CompoundStatTracker} from './classes/class.StatTracker.js'
+	import { AnimateFood, AnimatePlant, AnimateMark, AnimateBoid } from './util/animate.js'
+	import { renderTankCurrent, renderTankLightMap, renderTankHeatMap, renderTankMatterMap } from './util/tank-env-overlay.js'
 
 	let renderLayers = {};
 	let drawingThemeClass = $state('bg-theme-black');
@@ -330,16 +332,16 @@
 			if ( gameloop.updates_per_frame === 1 && camera && (camera.animate_boids || camera.animate_plants || camera.animate_foods || camera.animate_marks) ) {
 				for ( let o of renderObjects.values() ) {
 					if ( o.type == 'boid' && o.geo && camera.animate_boids) {
-						AnimateBoid(o);
+						AnimateBoid(o, camera, gameloop);
 					}
 					else if ( o.type == 'mark' && o.geo && camera.animate_marks ) {
 						AnimateMark(o);
 					}
 					else if ( o.type == 'food' && o.geo && camera.animate_foods ) {
-						AnimateFood(o);
+						AnimateFood(o, camera);
 					}
 					else if ( o.type == 'plant' && o.geo && camera.animate_plants ) {
-						AnimatePlant(o);
+						AnimatePlant(o, simStats);
 					}
 				}
 			}
@@ -455,202 +457,26 @@
 		NotifyBoidLibraryChanged();
 	}
 	
+	const tankEnvRenderFunctions = {
+		'current': renderTankCurrent,
+		'light':   renderTankLightMap,
+		'heat':    renderTankHeatMap,
+		'matter':  renderTankMatterMap,
+	};
+
 	function onGetTankEnvDataResponse( data ) {
 		const request = data.request || 'current';
-		if ( request == 'current' ) {
-			RenderTankCurrent(data);
-		}
-		else if ( request == 'light' ) {
-			RenderTankLightMap(data);
-		}
-		else if ( request == 'heat' ) {
-			RenderTankHeatMap(data);
-		}
-		else if ( request == 'matter' ) {
-			RenderTankMatterMap(data);
+		if ( tankEnvGeo ) { tankEnvGeo.remove(); tankEnvGeo = null; }
+		const fn = tankEnvRenderFunctions[request];
+		if ( fn ) {
+			tankEnvGeo = fn(data, globalThis.two);
+			renderLayers['ui'].add(tankEnvGeo);
 		}
 	}
 		
 	let tankEnvGeo = null;
 	let tankEnvOverlayMode = null;
-	
-	function RenderTankCurrent( data ) {
-		if ( tankEnvGeo ) {
-			tankEnvGeo.remove();
-			tankEnvGeo = null;
-		}
-		tankEnvGeo = globalThis.two.makeGroup();
-		renderLayers['ui'].add(tankEnvGeo);
-		// grid data
-		if ( data.grid?.cells?.length ) {
-			const max_line_length = 0.75 * data.grid.cellsize;
-			for ( let x=0; x < data.grid.cells_x; x++ ) {
-				for ( let y=0; y < data.grid.cells_y; y++ ) {
-					const center_x = x * data.grid.cellsize + (data.grid.cellsize * 0.5);
-					const center_y = y * data.grid.cellsize + (data.grid.cellsize * 0.5);
-					const cell_index = x + ( y * data.grid.cells_x );
-					const cell = data.grid.cells[cell_index];
-						
-					// center post
-					const rect_w = data.grid.cellsize / 15;
-					const rect = globalThis.two.makeRectangle(center_x, center_y, rect_w, rect_w);
-					rect.linewidth = 0;
-					rect.rotation = Math.PI / 4; // diamonds are kool
-					rect.stroke = "transparent";
-					rect.fill = 'lime';
-					tankEnvGeo.add( rect );
-					
-					// magnitude line
-					const target_x = center_x + -cell.current_x * max_line_length;
-					const target_y = center_y + -cell.current_y * max_line_length;
-					const line = globalThis.two.makeLine(center_x, center_y, target_x, target_y);
-					line.stroke = "lime";
-					line.linewidth = '4';
-					line.fill = 'transparent';
-					tankEnvGeo.add( line );
-				}
-			}
-		}
-		// whirls
-		if ( data?.whirls?.length ) {
-			for ( let w of data.whirls ) {
-				const c = globalThis.two.makeCircle( w.x, w.y, w.locality*1000 );
-				c.stroke = "orange";
-				c.linewidth = w.strength * 10;
-				c.fill = 'transparent';
-				tankEnvGeo.add( c );
-			}
-		}
-	}
-	
-	function RenderTankLightMap( data ) {
-		if ( tankEnvGeo ) {
-			tankEnvGeo.remove();
-			tankEnvGeo = null;
-		}
-		tankEnvGeo = globalThis.two.makeGroup();
-		renderLayers['ui'].add(tankEnvGeo);
-		// grid data
-		if ( data.grid?.cells?.length ) {
-			const max_line_length = 0.75 * data.grid.cellsize;
-			for ( let x=0; x < data.grid.cells_x; x++ ) {
-				for ( let y=0; y < data.grid.cells_y; y++ ) {
-					const center_x = x * data.grid.cellsize + (data.grid.cellsize * 0.5);
-					const center_y = y * data.grid.cellsize + (data.grid.cellsize * 0.5);
-					const cell_index = x + ( y * data.grid.cells_x );
-					const cell = data.grid.cells[cell_index];
-									
-					// box
-					// const box_w = data.grid.cellsize;
-					// const box = globalThis.two.makeRectangle(center_x, center_y, box_w, box_w);
-					// box.stroke = "lime";
-					// box.linewidth = '2';
-					// box.fill = 'transparent';
-					// tankEnvGeo.add( box );
-					
-					// geometry
-					const rect_w = data.grid.cellsize / 4;
-					const rect = globalThis.two.makeRectangle(center_x, center_y, rect_w, rect_w);
-					rect.linewidth = 2;
-					rect.rotation = Math.PI / 4; // diamonds are kool
-					rect.stroke = "#888";
-					rect.fill = `hsl(0, 0%, ${cell.light*100}%)`;
-					tankEnvGeo.add( rect );
-				}
-			}
-		}
-	}
-	
-	function RenderTankHeatMap( data ) {
-		if ( tankEnvGeo ) {
-			tankEnvGeo.remove();
-			tankEnvGeo = null;
-		}
-		tankEnvGeo = globalThis.two.makeGroup();
-		renderLayers['ui'].add(tankEnvGeo);
-		// grid data
-		if ( data.grid?.cells?.length ) {
-			const max_line_length = 0.75 * data.grid.cellsize;
-			for ( let x=0; x < data.grid.cells_x; x++ ) {
-				for ( let y=0; y < data.grid.cells_y; y++ ) {
-					const center_x = x * data.grid.cellsize + (data.grid.cellsize * 0.5);
-					const center_y = y * data.grid.cellsize + (data.grid.cellsize * 0.5);
-					const cell_index = x + ( y * data.grid.cells_x );
-					const cell = data.grid.cells[cell_index];
-				
-					// heat (stroke) -> gradient: blue (0.0) -> white (0.5) -> red (1.0)
-					let hue, sat;
-					if (cell.heat <= 0.5) {
-						const t = cell.heat / 0.5; // 0..1 from blue -> white
-						hue = 240; // keep blue hue
-						sat = (1 - t) * 100; // 100% -> 0%
-					} 
-					else {
-						const t = (cell.heat - 0.5) / 0.5; // 0..1 from white -> red
-						hue = 0; // red hue
-						sat = t * 100; // 0% -> 100%
-					}
-					const heat_color = `hsl(${Math.round(hue)}, ${Math.round(sat)}%, 60%)`;
 
-					// geometry
-					const rect_w = data.grid.cellsize / 4;
-					const rect = globalThis.two.makeRectangle(center_x, center_y, rect_w, rect_w);
-					rect.linewidth = 0;
-					rect.rotation = Math.PI / 4; // diamonds are kool
-					rect.stroke = "transparent";
-					rect.fill = heat_color;
-					tankEnvGeo.add( rect );
-
-				}
-			}
-		}
-	}
-	
-	function RenderTankMatterMap( data ) {
-		if ( tankEnvGeo ) {
-			tankEnvGeo.remove();
-			tankEnvGeo = null;
-		}
-		tankEnvGeo = globalThis.two.makeGroup();
-		renderLayers['ui'].add(tankEnvGeo);
-		// grid data
-		if ( data.grid?.cells?.length ) {
-			// use logarithmic scaling - matter has no limit
-			const maxlog = 12;
-			const maxval = Math.exp(maxlog);
-			const logshift = 5; // the extreme low end is a bit boring
-			for ( let x=0; x < data.grid.cells_x; x++ ) {
-				for ( let y=0; y < data.grid.cells_y; y++ ) {
-					const center_x = x * data.grid.cellsize + (data.grid.cellsize * 0.5);
-					const center_y = y * data.grid.cellsize + (data.grid.cellsize * 0.5);
-					const cell_index = x + ( y * data.grid.cells_x );
-					const cell = data.grid.cells[cell_index];
-				
-					const logval = Math.log( Math.min(cell.matter, maxval) );
-					const ratio = Math.max( 0, logval - logshift ) / ( maxlog - logshift );
-					const color = `hsl(300, 50%, ${ratio*80}%)`;
-
-					// geometry
-					const rect_w = data.grid.cellsize / 4;
-					const rect = globalThis.two.makeRectangle(center_x, center_y, rect_w, rect_w);
-					rect.linewidth = 2;
-					rect.rotation = Math.PI / 4; // diamonds are kool
-					rect.stroke = "#AAA";
-					rect.fill = color;
-					tankEnvGeo.add( rect );
-					
-					const txt = globalThis.two.makeText( cell.matter.toFixed(), center_x, center_y );
-					txt.linewidth = 0;
-					txt.stroke = "transparent";
-					txt.fill = '#FFF';
-					txt.size = 24;
-					tankEnvGeo.add( txt );
-					
-				}
-			}
-		}
-	}
-	
 	function ToggleTankEnvironmentalData( request='current' ) {
 		if ( tankEnvGeo && tankEnvOverlayMode == request ) {
 			tankEnvGeo.remove();
@@ -937,209 +763,6 @@
 		for ( let k in params ) {
 			simSettings[k] = params[k];
 		}		
-	}
-	
-	function AnimateFood(o) {
-		if ( !o.geo || !o.anim || camera.z < camera.animation_min ) { return; }
-		// resize the food
-		let radius = Math.max(o.anim.r,5) // note: it tracks its own radius instead of calculating from food value
-		if ( radius != o.geo.radius ) { // limit expensive redraws
-			o.geo.radius = radius;
-			let circ = radius * 2 * Math.PI;
-			let points = o.geodata.complexity;
-			if ( o.geodata.complexity==7 ) { points=8 } // unicode doesnt have heptagons ;-( 
-			else if ( o.geodata.complexity==8 ) { points=12; } // getting hard to discern at this point 
-			let segment = circ / ( points * 2 );
-			o.geo.linewidth = radius/2;
-			if ( points > 2 ) { o.geo.dashes = [segment,segment]; }					
-			else if ( points == 2 ) { o.geo.dashes = [segment*0.5,segment*1.5]; }
-		}
-		// fade out
-		if ( !o.geodata.permafood && o.anim.age > o.anim.lifespan - 1 ) {
-			let pct = o.anim.age - (o.anim.lifespan-1);
-			o.geo.opacity = 1-pct;
-		}
-		// fade in
-		else if ( !o.geodata.permafood && o.anim.age < 3 ) {
-			o.geo.opacity = Math.min( o.anim.age / 0.5, 1 );
-			o.geo.scale = Math.min( o.anim.age / 1, 1 );
-			o.geo.rotation = ( 1 - Math.pow(o.anim.age / 3, 0.25) ) * Math.PI + o.geodata.r;
-		}
-	}
-	
-	function AnimatePlant(o) {
-		// note: dynamic animations cause jank unless we track animation cycle time per-plant.
-		// optimization: we can calculate plant-is-in-frame before committing to animation.
-		if ( !o.geo || !o.anim /* || camera.z < camera.animation_min */ ) { return; }
-		// reenable plants turned off on loading. this dodges the first-frame pop.
-		if ( !o.geo.visible ) { o.geo.visible = true; }
-		// historical note: we used to base strength on local tank current,
-		// but this is an unnecessary level of detail to get the effect.
-		// instead, randomly assign a strength level to prevent uniformity.
-		if ( !o.geodata.strength ) { 
-			o.geodata.strength = 0.2 + Math.random() * 0.5; 
-			// exceptionally large plants need lower sway to avoid motion sickness
-			const dims = o.geo.getBoundingClientRect(true);
-			const longest_dim = Math.max( dims.width, dims.height );
-			if ( longest_dim > 600 ) { o.geodata.strength *= 0.5; }
-		}
-		let animation_time = ( simStats?.round_time ?? 0 ) * o.geodata.strength;
-		// sway individual shapes
-		// FIXME: make blades wave from base - need to do rotate-around-point math
-		if ( o.geodata.animation_method == 'sway' ) {		
-			for ( let i=0; i < o.geo.children.length; i++ ) {
-				const child = o.geo.children[i];
-				const radius = (child.vertices[0].y - child.vertices[child.vertices.length-1].y) / 2;
-				const angle = 0.1 * Math.cos( i + animation_time );
-				child.rotation = angle;
-				if ( !child.x_offset ) { // stash for repeated calls
-					const dims = child.getBoundingClientRect(true);
-					child.x_offset = ( dims.right + dims.left ) / 2;
-				}
-				child.position.x = ( Math.sin(angle) * radius ) + child.x_offset;
-			}
-		}
-		// old sway motion for vector grass
-		else if ( o.geodata.animation_method == 'legacy_sway' ) {
-			for ( let i=0; i < o.geo.children.length; i++ ) {
-				const child = o.geo.children[i];
-				child.rotation = 0.2 * Math.cos( i + animation_time );
-			}
-		}
-		// simpler skew animation works for any plant type
-		else {
-			let rad = o.geodata.radius || 200; // not currently supplied by API
-			let mod = 0.35 * ( 1.15-(rad/500) );
-			o.geo.skewX = mod * Math.cos( animation_time );
-			o.geo.skewY = mod * Math.sin( animation_time );			
-		}
-		// fade out
-		if ( !o.anim.perma && o.anim.age > o.anim.lifespan - 8 ) {
-			let diff = o.anim.age - (o.anim.lifespan-8);
-			o.geo.opacity = 8-diff;
-		}
-		// fade in
-		else if ( o.anim.age < 10 ) {
-			o.geo.opacity = 0.5 + Math.min( o.anim.age / 20, 1 );
-			o.geo.scale = Math.min( o.anim.age / 10, 1 );
-		}		
-	}
-	
-	function AnimateMark(o) {
-		// note: marks look good at a distance, so do not turn off animations based on camera zoom
-		if ( !o.geo || !o.anim ) { return; }
-		// fade in/out
-		const max_opacity = 0.5;
-		const fade_in = 0.65;
-		const fade_out = 2;
-		// smells linger
-		if ( o.anim.sense_type >= 3 && o.anim.sense_type < 12 ) {
-			if ( o.anim.age < fade_in ) {
-				o.geo.opacity = max_opacity * ( o.anim.age / fade_in );
-			}
-			else if ( o.anim.age > o.anim.lifespan - fade_out ) {
-				o.geo.opacity = max_opacity * ( (o.anim.lifespan - o.anim.age) / fade_out );
-			}
-		}
-		// sounds and colors flash
-		else {
-			o.geo.opacity = Math.pow( 1 - o.anim.age / o.anim.lifespan, 4 );
-		}
-	}
-	
-	function AnimateBoid(b) {
-		if ( !b.geo || !b.anim ) { return; }
-		
-		// [!]EXPERIMENTAL - Animate geometry - proof of concept
-		// There is just enough here to be amusing, but its not accurate and needs improvement
-		if ( camera.animate_boids && gameloop.updates_per_frame <= 1 ) {
-		
-			const radius = 80; // good enough
-			
-			const do_animation = ( camera.z >= camera.animation_min )
-				&& ( b.x - radius < camera.xmax )
-				&& ( b.x + radius > camera.xmin )
-				&& ( b.y - radius < camera.ymax )
-				&& ( b.y + radius > camera.ymin );
-				// you might also consider switching to pixel pitch method
-				// && ( radius >= ( camera.xmax - camera.xmin ) / 100 )				
-				
-			// dynamic animation - don't animate unless we're on screen and close enough to see
-			if ( do_animation ) {
-				
-				// setup - record original position
-				if ( !b.geo.vertices[0].origin ) {
-					for ( let i=0; i < b.geo.vertices.length; i++ ) {
-						let v = b.geo.vertices[i];
-						v.origin = new Two.Vector().copy(v); 
-						v.a = Math.atan2( v.y, v.x ); // note y normally goes first
-					}
-				}
-				if ( !b.anim.bounds ) {
-					b.anim.bounds = b.geo.getBoundingClientRect(true);
-				}
-				
-				// if we are a "larva", unfold from a sphere
-				if ( b.anim.is_larva ) {
-					// setup: sort vertices in radial order and assign starting positions
-					if ( !( 'xp' in b.geo.vertices[0] ) ) {
-						// the nose point is always at zero degrees
-						for ( let i=0; i < b.geo.vertices.length; i++ ) {
-							b.geo.vertices[i].a = i * ( ( 2*Math.PI ) / b.geo.vertices.length );
-							b.geo.vertices[i].xp = Math.cos(b.geo.vertices[i].a) * Math.min(b.anim.bounds.width, b.anim.bounds.height) * 0.5;
-							b.geo.vertices[i].yp = Math.sin(b.geo.vertices[i].a) * Math.min(b.anim.bounds.width, b.anim.bounds.height) * 0.5;
-						}
-					}
-					// blend larval position and adult position
-					const effect = 1 - b.anim.larva_pct;
-					for ( let i=0; i<b.geo.vertices.length; i++ ) {
-						let v = b.geo.vertices[i];
-						v.x = v.xp + ( v.origin.x - v.xp ) * effect;
-						v.y = v.yp + ( v.origin.y - v.yp ) * effect;
-					}				
-				}
-				
-				// normal adult animation cycle
-				else {
-					for ( let m=0; m < b.anim.motor_fx.length; m++ ) {
-						if ( m >= b.geo.vertices.length ) { break; }
-						const effect = b.anim.motor_fx[m];
-						const effect2 = effect;
-						// other fun options:
-						// const effect2 = Math.max( 0, Math.log(effect)+1 );
-						// const effect2 = 0.5 * Math.sin( 1.5 * Math.PI + 2 * Math.PI * effect ) + 0.5;
-						let v = b.geo.vertices[m];
-						if ( !( 'xoff' in v ) ) { 
-							v.x = v.origin.x
-							v.y = v.origin.y
-							v.xoff = (0.1 + Math.random()) * 0.25 * b.anim.bounds.width * (Math.random() > 0.5 ? 1 : -1 );
-							v.yoff = (0.1 + Math.random()) * 0.25 * b.anim.bounds.height * (Math.random() > 0.5 ? 1 : -1 );
-							delete v.xp; delete v.xy; // larval stuff
-						}
-						v.x = v.origin.x + v.xoff * effect;
-						// do opposing vertex
-						const oppo_index = m==0 ? 0 : (b.geo.vertices.length - m);
-						if ( oppo_index !== m ) { 
-							v.y = v.origin.y + v.yoff * effect2;
-							const v2 = b.geo.vertices[oppo_index]; 
-							if ( !( 'xoff' in v2 ) ) { 
-								v2.x = v2.origin.x
-								v2.y = v2.origin.y
-								v2.xoff = v.xoff;
-								v2.yoff = -v.yoff;
-							}
-							v2.x = v2.origin.x + v2.xoff * effect;
-							v2.y = v2.origin.y + v2.yoff * effect2;
-						}
-					}
-				}
-				
-				// opacity
-				if ( 'opacity' in b.anim ) { b.geo.opacity = b.anim.opacity; }
-				else if ( b.geo.opacity < 1 ) { b.geo.opacity = 1; }
-				
-			}
-		}	
 	}
 	
 	UpdateIdleTime(); // start immediately
