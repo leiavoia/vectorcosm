@@ -1,6 +1,8 @@
 <script>
+	import { LoadUIState, SaveUIState } from '../util/ui-state.js';
 
 	let { settings: settings_raw, onSettingsChanged, open=true } = $props();
+	open = LoadUIState('panel.simulator_controls.open', open, value => typeof value == 'boolean' ? value : open);
 	
 	// get access to the app's innards so buttons can do something useful
 	import { getContext } from 'svelte';
@@ -28,6 +30,10 @@
 	// sync from parent whenever simulation pushes new settings, but not during active drag
 	$effect(() => {
 		if ( !dragging ) { Object.assign(settings, settings_raw); }
+	});
+
+	$effect(() => {
+		SaveUIState('panel.simulator_controls.open', open);
 	});
 
 	// let server know about our settings changes

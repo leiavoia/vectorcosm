@@ -92,6 +92,7 @@ Quick reference for every significant file. Grouped by role.
 |------|---------|-------------|
 | `utils.js` | `clamp`, `random`, color conversions | General math and color utilities |
 | `svg.js` | SVG helpers | Two.js SVG manipulation: gradient rehydration, property updates, cleanup |
+| `ui-state.js` | `LoadUIState`, `SaveUIState` | Safe localStorage-backed persistence for UI-only browser state |
 | `utils.delaunay.js` | Voronoi helpers | Voronoi cell iteration, polygon trimming for rock generation |
 
 ---

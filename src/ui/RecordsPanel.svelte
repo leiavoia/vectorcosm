@@ -2,12 +2,14 @@
 
 	import { onMount, onDestroy } from 'svelte';
 	import Chart from 'chart.js/auto';
+	import { LoadUIState, SaveUIState } from '../util/ui-state.js';
 	
 	let {records, open=true} = $props();
+	open = LoadUIState('panel.records.open', open, value => typeof value == 'boolean' ? value : open);
 	
 	let chartcanvas;
     let simulatorChart;
-	let layerOnDisplay = $state(0); 
+	let layerOnDisplay = $state(LoadUIState('panel.records.layer', 0, value => Number.isInteger(value) && value >= 0 && value <= 3 ? value : 0)); 
 	let recordsPerLayer = 30; 
 	const datasets = []; // used by the chart. data copied from records trackers
 	const chartlabels = []; // used by the chart. "labels" are actually timestamps or turns
@@ -52,6 +54,14 @@
 	onDestroy(() => {
 		records.onInsert = null;
 	})	
+
+	$effect(() => {
+		SaveUIState('panel.records.open', open);
+	});
+
+	$effect(() => {
+		SaveUIState('panel.records.layer', layerOnDisplay);
+	});
 	
 	// use this function to load chart data from the tracker 
 	// when the widget is created in order to present a complete chart		

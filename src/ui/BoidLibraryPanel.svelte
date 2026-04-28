@@ -1,14 +1,16 @@
 <script>
 	import FileSaver from 'file-saver';
 	import { getContext } from 'svelte';
+	import { LoadUIState, SaveUIState } from '../util/ui-state.js';
 	
 	const api = getContext('api');
 	let { open=true, refreshToken=0 } = $props();
+	open = LoadUIState('panel.boid_library.open', open, value => typeof value == 'boolean' ? value : open);
 
 	let rows = $state([]);
 	let order_by = 'date';
 	let ascending = false;
-	let star = $state(null);
+	let star = $state(LoadUIState('panel.boid_library.star', null, value => value === null || value === 0 || value === 1 ? value : null));
 	let num_selected = $state(0);
 	let show_file_upload_controls = $state(false);
 	let files = $state();
@@ -137,6 +139,14 @@
 	$effect(() => {
 		refreshToken;
 		QueryLibrary( order_by, ascending, star );
+	});
+
+	$effect(() => {
+		SaveUIState('panel.boid_library.open', open);
+	});
+
+	$effect(() => {
+		SaveUIState('panel.boid_library.star', star);
 	});
 	
 </script>

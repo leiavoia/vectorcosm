@@ -1,6 +1,12 @@
 <script>
+	import { LoadUIState, SaveUIState } from '../util/ui-state.js';
 
 	let {stats, open=true} = $props();
+	open = LoadUIState('panel.tank_stats.open', open, value => typeof value == 'boolean' ? value : open);
+
+	$effect(() => {
+		SaveUIState('panel.tank_stats.open', open);
+	});
 	 
 	function uppercaseFirstLetter ( str ) {
 		let words = str.split(/[\s_]/);

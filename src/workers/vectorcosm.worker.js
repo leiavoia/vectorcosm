@@ -45,6 +45,7 @@ STORAGE
 - BoidLibrary and TankLibrary use pluggable adapters (StorageAdapter interface).
 - Browser: DexieAdapter (IndexedDB) set as default via dynamic import at worker startup.
 - Node.js: MemoryAdapter (in-memory) set as default at worker startup.
+- Library commands await adapter readiness in the browser so restored UI panels can query at startup safely.
 
 NODE.JS COMPATIBILITY
 - IS_NODEJS detection: `typeof WorkerGlobalScope === 'undefined'`.
@@ -72,6 +73,8 @@ const commands = new CommandRegistry();
 // WorkerGlobalScope is a browser-only global — Vite's process shim pollutes process.versions
 // in the browser bundle so we can't rely on `process` for this check.
 const IS_NODEJS = typeof WorkerGlobalScope === 'undefined';
+let storage_adapter_ready = Promise.resolve();
+let resolve_storage_adapter_ready = null;
 
 // broker incoming messages to the right handling function
 // receives raw data (not a DOM Event) — both paths normalize before calling this.
@@ -130,6 +133,9 @@ if ( IS_NODEJS ) {
 
 // browser Web Worker — IndexedDB available via DexieAdapter
 else {
+	storage_adapter_ready = new Promise(resolve => {
+		resolve_storage_adapter_ready = resolve;
+	});
 	// MUST register synchronously before any await — the Web Worker event loop continues
 	// running during top-level await suspension, so messages arriving while the DexieAdapter
 	// import is in-flight are permanently dropped if addEventListener hasn't been called yet.
@@ -138,7 +144,32 @@ else {
 	import('../classes/class.DexieAdapter.js').then(({ default: DexieAdapter }) => {
 		BoidLibrary.default_adapter = new DexieAdapter();
 		TankLibrary.default_adapter = new DexieAdapter();
+		resolve_storage_adapter_ready?.();
+	})
+	.catch(error => {
+		console.error(error);
+		resolve_storage_adapter_ready?.();
 	});
+}
+
+// fallback: if provided and adapter isn't ready yet, return fallback immediately instead
+// of blocking. Pass no fallback for write/modify ops (they should wait for the adapter).
+async function WithBoidLibrary( fn, fallback = undefined ) {
+	if ( !BoidLibrary.default_adapter ) {
+		if ( fallback !== undefined ) { return fallback; }
+		await storage_adapter_ready;
+	}
+	const lib = new BoidLibrary();
+	return await fn(lib);
+}
+
+async function WithTankLibrary( fn, fallback = undefined ) {
+	if ( !TankLibrary.default_adapter ) {
+		if ( fallback !== undefined ) { return fallback; }
+		await storage_adapter_ready;
+	}
+	const lib = new TankLibrary();
+	return await fn(lib);
 }
 
 // this keeps track of which objects that already sent basic rendering info.
@@ -568,56 +599,43 @@ commands.register( { name: 'add_saved_boids', description: 'Load saved boids fro
 // All library CRUD goes through these commands so the main thread never touches IndexedDB directly.
 
 commands.register( { name: 'boid_library_list', description: 'List boid population index rows', handler: async params => {
-	const lib = new BoidLibrary();
-	const rows = await lib.Get( params || {} );
-	return rows;
+	return await WithBoidLibrary( lib => lib.Get( params || {} ), [] );
 } });
 
 commands.register( { name: 'boid_library_delete', description: 'Delete a saved boid population by id', handler: async params => {
-	const lib = new BoidLibrary();
-	await lib.Delete( params.id );
+	await WithBoidLibrary( lib => lib.Delete( params.id ) );
 	return { ok: true };
 } });
 
 commands.register( { name: 'boid_library_update', description: 'Update index fields (label, star, etc.) for a saved population', handler: async params => {
-	const lib = new BoidLibrary();
-	await lib.Update( params.row );
+	await WithBoidLibrary( lib => lib.Update( params.row ) );
 	return { ok: true };
 } });
 
 commands.register( { name: 'boid_library_get_row', description: 'Get full row (index + specimens) for a saved population', handler: async params => {
-	const lib = new BoidLibrary();
-	const row = await lib.GetFullRow( params.id );
-	return row;
+	return await WithBoidLibrary( lib => lib.GetFullRow( params.id ) );
 } });
 
 commands.register( { name: 'boid_library_add_row', description: 'Import a boid population row from external JSON', handler: async params => {
-	const lib = new BoidLibrary();
-	const id = await lib.AddRow( params.row );
+	const id = await WithBoidLibrary( lib => lib.AddRow( params.row ) );
 	return { id };
 } });
 
 commands.register( { name: 'tank_library_list', description: 'List tank index rows', handler: async params => {
-	const lib = new TankLibrary();
-	const rows = await lib.Get( params || {} );
-	return rows;
+	return await WithTankLibrary( lib => lib.Get( params || {} ), [] );
 } });
 
 commands.register( { name: 'tank_library_delete', description: 'Delete a saved tank by id', handler: async params => {
-	const lib = new TankLibrary();
-	await lib.Delete( params.id );
+	await WithTankLibrary( lib => lib.Delete( params.id ) );
 	return { ok: true };
 } });
 
 commands.register( { name: 'tank_library_get_row', description: 'Get full row (index + scene) for a saved tank', handler: async params => {
-	const lib = new TankLibrary();
-	const row = await lib.GetFullRow( params.id );
-	return row;
+	return await WithTankLibrary( lib => lib.GetFullRow( params.id ) );
 } });
 
 commands.register( { name: 'tank_library_add_row', description: 'Import a tank row from external JSON (stores only, does not load)', handler: async params => {
-	const lib = new TankLibrary();
-	const id = await lib.AddRow( params.row );
+	const id = await WithTankLibrary( lib => lib.AddRow( params.row ) );
 	return { id };
 } });
 

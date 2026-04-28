@@ -17,6 +17,7 @@
 	import Two from "two.js";
 	import * as SVGUtils from './util/svg.js'
 	import { parseSimParams } from './util/url-params.js'
+	import { LoadUIState, SaveUIState } from './util/ui-state.js'
 	import { setContext } from 'svelte';
 	import {StatTracker, CompoundStatTracker} from './classes/class.StatTracker.js'
 	import { AnimateFood, AnimatePlant, AnimateMark, AnimateBoid } from './util/animate.js'
@@ -46,9 +47,79 @@
 		if ( !name ) { return 'bg-theme-black'; }
 		return 'bg-theme-' + name.replace('bg-theme-','');
 	}
+
+	function ClampUIValue( value, min, max, fallback ) {
+		if ( !Number.isFinite(value) ) { return fallback; }
+		return Math.max(min, Math.min(max, value));
+	}
+
+	function LoadCameraUIState() {
+		return LoadUIState('panel.camera_settings', null, value => {
+			if ( !value || typeof value != 'object' || Array.isArray(value) ) { return null; }
+			return value;
+		});
+	}
+
+	function ApplyPersistedCameraUIState( camera ) {
+		const state = LoadCameraUIState();
+		if ( !camera || !state ) { return; }
+		const settings = state.settings && typeof state.settings == 'object' ? state.settings : {};
+		const layers = state.layers && typeof state.layers == 'object' ? state.layers : {};
+		for ( let name of [
+			'animate_boids',
+			'animate_plants',
+			'animate_marks',
+			'animate_foods',
+			'allow_hyperzoom',
+			'transitions',
+			'parallax',
+			'show_boid_indicator_on_focus',
+			'show_boid_info_on_focus',
+			'show_boid_sensors_on_focus',
+			'center_camera_on_focus',
+		] ) {
+			if ( typeof settings[name] == 'boolean' ) {
+				camera[name] = settings[name];
+			}
+		}
+		camera.focus_time = ClampUIValue(settings.focus_time, 1000, 120000, camera.focus_time);
+		camera.transition_time = ClampUIValue(settings.transition_time, 1000, 120000, camera.transition_time);
+		for ( let name of ['bg', 'boids', 'foods', 'plants', 'rocks', 'marks'] ) {
+			const layer = renderLayers[name];
+			const persisted = layers[name];
+			if ( !layer || !persisted || typeof persisted != 'object' ) { continue; }
+			if ( typeof persisted.visible == 'boolean' ) {
+				layer.visible = persisted.visible;
+			}
+			// tank creation will randomize tank opacity. we probably should enforce UI persistence. 
+			// layer.opacity = ClampUIValue(persisted.opacity, 0, 1, layer.opacity);
+		}
+	}
+
+	const panel_modes = new Set([
+		'tank_stats',
+		'sim_controls',
+		'settings',
+		'object_library',
+		'sim_launcher',
+	]);
 			
 	// control UI panel display - only one allowed at a time
 	let panel_mode = $state(null);
+	
+	// /!\ Sticky panel rendering on startup left here as an option. 
+	// Having it switch to a panel automatically causes race problems 
+	// because the first-frame data has not yet arrive. 
+	// Easier to just not do that. Looks cleaner on startup too.
+	
+	// let panel_mode = $state(LoadUIState('app.panel_mode', null, value => {
+	// 	if ( value === null ) { return null; }
+	// 	return panel_modes.has(value) ? value : null;
+	// }));
+	// $effect(() => {
+	// 	SaveUIState('app.panel_mode', panel_mode);
+	// });
+	
 	function setPanelMode( mode ) {
 		panel_mode = panel_mode == mode ? null : mode;
 	}
@@ -366,6 +437,7 @@
 								camera.window_height = two.height;
 								camera.background_attachment = 'screen'; // or 'tank'
 							}
+							ApplyPersistedCameraUIState(camera);
 							camera.tank_width = o.geodata.width;
 							camera.tank_height = o.geodata.height;
 							camera.ResetCameraZoom();

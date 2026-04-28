@@ -1,9 +1,11 @@
 <script>
 	import FileSaver from 'file-saver';
 	import { getContext } from 'svelte';
+	import { LoadUIState, SaveUIState } from '../util/ui-state.js';
 	
 	const api = getContext('api');
 	let { camera, open=true, refreshToken=0 } = $props();
+	open = LoadUIState('panel.tank_library.open', open, value => typeof value == 'boolean' ? value : open);
 
 	let rows = $state([]);
 	let order_by = 'date';
@@ -93,6 +95,10 @@
 	$effect(() => {
 		refreshToken;
 		QueryLibrary( order_by, ascending );
+	});
+
+	$effect(() => {
+		SaveUIState('panel.tank_library.open', open);
 	});
 	
 </script>

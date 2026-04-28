@@ -2,8 +2,10 @@
 
 	import { onMount } from 'svelte';
 	import Chart from 'chart.js/auto';
-	
+	import { LoadUIState, SaveUIState } from '../util/ui-state.js';
+
 	let { stats, chartdata, open=true, roundCompleteToken=0 } = $props();
+	open = LoadUIState('panel.sim_stats.open', open, value => typeof value == 'boolean' ? value : open);
 	
 	let chartcanvas;
     let simulatorChart;
@@ -16,14 +18,15 @@
 	Chart.defaults.elements.point.radius = 0;
 			 
 	onMount(() => {
-		simulatorChart = MakeSimulatorChart(chartcanvas, chartdata.averages, chartdata.highscores, chartdata.labels);	
+		simulatorChart = MakeSimulatorChart(chartcanvas, chartdata.averages, chartdata.highscores, chartdata.labels);
 	});
 
 	$effect(() => {
 		roundCompleteToken;
 		if ( simulatorChart ) { simulatorChart.update(); }
+		SaveUIState('panel.sim_stats.open', open);
 	});
-	
+		
 	function MakeSimulatorChart( element, averages, highscores, labels=[] ) {
 
 		const chartdata = {
@@ -143,8 +146,8 @@
 		FPS: <output id="framenum_output">{stats.fps}</output>
 		
 		<!-- hide but do not disable chart element if this is not a round based simulation -->
-		<div style="display: {stats.settings.timeout ? 'block' : 'none'}">
+		<div style="display: {stats?.settings?.timeout ? 'block' : 'none'}">
 			<canvas bind:this={chartcanvas} style="width: 100%; height: 6em; margin-top:1rem;"></canvas> 
 		</div>
 	</div>
-</section>	
+</section>

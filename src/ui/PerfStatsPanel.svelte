@@ -1,9 +1,11 @@
 <script>
 
 	import { onMount, onDestroy } from 'svelte';
+	import { LoadUIState, SaveUIState } from '../util/ui-state.js';
 	
 	// expect a compound stat tracker as a property of the element
 	let {tracker, open=true} = $props();
+	open = LoadUIState('panel.perf_stats.open', open, value => typeof value == 'boolean' ? value : open);
 	
 	// pick up stats from the tracker and plug them into a dedicated list of display data
 	let stats = $state({});
@@ -21,6 +23,10 @@
 	onDestroy(() => {
 		tracker.onInsert = null;
 	})	
+
+	$effect(() => {
+		SaveUIState('panel.perf_stats.open', open);
+	});
 	 
 	function uppercaseFirstLetter ( str ) {
 		let words = str.split(/[\s_]/);

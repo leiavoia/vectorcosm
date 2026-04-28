@@ -1,15 +1,36 @@
 <script>
 	import * as utils from '../util/utils.js'
 	import { getContext } from 'svelte';
+	import { LoadUIState, SaveUIState } from '../util/ui-state.js';
 	
 	const setPanelMode = getContext('setPanelMode'); // allow self closing with setPanelMode()
 	const api = getContext('api');
 	
 	let {} = $props();
+
+	function ClampLauncherValue( value, min, max, fallback ) {
+		if ( !Number.isFinite(value) ) { return fallback; }
+		return Math.max(min, Math.min(max, Math.round(value)));
+	}
+
+	const launcher_meta = LoadUIState('panel.sim_launcher.meta', {
+		num_boids: 0,
+		segments: 1,
+		rounds: 0,
+	}, value => {
+		if ( !value || typeof value != 'object' || Array.isArray(value) ) {
+			return { num_boids: 0, segments: 1, rounds: 0 };
+		}
+		return {
+			num_boids: ClampLauncherValue(value.num_boids, 0, 250, 0),
+			segments: ClampLauncherValue(value.segments, 0, 16, 1),
+			rounds: ClampLauncherValue(value.rounds, 0, 500, 0),
+		};
+	});
 	
-	let meta_num_boids = $state(0);
-	let meta_num_segments = $state(1);
-	let meta_num_rounds = $state(0);
+	let meta_num_boids = $state(launcher_meta.num_boids);
+	let meta_num_segments = $state(launcher_meta.segments);
+	let meta_num_rounds = $state(launcher_meta.rounds);
 	
 	let selected_sim = $state(null);
 	
@@ -113,6 +134,14 @@
 			}
 		}).then( () => setPanelMode('sim_controls') );
 	}
+
+	$effect(() => {
+		SaveUIState('panel.sim_launcher.meta', {
+			num_boids: meta_num_boids,
+			segments: meta_num_segments,
+			rounds: meta_num_rounds,
+		});
+	});
 	
 </script>
 

@@ -1,7 +1,21 @@
 <script>
 	import * as SVGUtils from '../util/svg.js'
+	import { SaveUIState } from '../util/ui-state.js';
 	
 	let {camera} = $props();
+	const camera_setting_names = [
+		'animate_boids',
+		'animate_plants',
+		'animate_marks',
+		'animate_foods',
+		'allow_hyperzoom',
+		'transitions',
+		'parallax',
+		'show_boid_indicator_on_focus',
+		'show_boid_info_on_focus',
+		'show_boid_sensors_on_focus',
+		'center_camera_on_focus',
+	];
 	
 	// Layer descriptors: geo reference + local UI state (visible/opacity) mirror Two.js group props,
 	// which are not reactive. Local state is the source of truth for UI; we push to geo imperatively.
@@ -84,6 +98,57 @@
 	function ToggleSetting( row ) {
 		camera[row.name] = !camera[row.name];
 	}
+
+	function ClampOpacity( value, fallback ) {
+		if ( !Number.isFinite(value) ) { return fallback; }
+		return Math.max(0, Math.min(1, value));
+	}
+
+	function SaveCameraUIState() {
+		const settings = {};
+		for ( let name of camera_setting_names ) {
+			settings[name] = !!camera[name];
+		}
+		settings.focus_time = camera.focus_time;
+		settings.transition_time = camera.transition_time;
+		SaveUIState('panel.camera_settings', {
+			settings,
+			layers: Object.fromEntries(layers.map(layer => [layer.name, {
+				visible: !!layer.visible,
+				// tank creation will randomize tank opacity. we probably should enforce UI persistence. 
+				// opacity: ClampOpacity(layer.opacity, layer.geo.opacity),
+			}])),
+		});
+	}
+
+	$effect(() => {
+		camera.animate_boids;
+		camera.animate_plants;
+		camera.animate_marks;
+		camera.animate_foods;
+		camera.allow_hyperzoom;
+		camera.transitions;
+		camera.parallax;
+		camera.show_boid_indicator_on_focus;
+		camera.show_boid_info_on_focus;
+		camera.show_boid_sensors_on_focus;
+		camera.center_camera_on_focus;
+		camera.focus_time;
+		camera.transition_time;
+		layers[0].visible;
+		layers[0].opacity;
+		layers[1].visible;
+		layers[1].opacity;
+		layers[2].visible;
+		layers[2].opacity;
+		layers[3].visible;
+		layers[3].opacity;
+		layers[4].visible;
+		layers[4].opacity;
+		layers[5].visible;
+		layers[5].opacity;
+		SaveCameraUIState();
+	});
 	
 </script>
 
