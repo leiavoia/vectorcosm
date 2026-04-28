@@ -970,7 +970,7 @@
 		</div>
 		
 		{#if panel_mode==='sim_controls'}
-			<SimulatorControlsPanel settings={simSettings} onupdate={params=>onSimulatorControlsUpdate(params)}></SimulatorControlsPanel>
+			<SimulatorControlsPanel settings={simSettings} onSettingsChanged={params=>onSimulatorControlsUpdate(params)}></SimulatorControlsPanel>
 			<SimStatsPanel stats={simStats} chartdata={simChartData} roundCompleteToken={simRoundCompleteToken}></SimStatsPanel>
 			<TankStatsPanel stats={tankStats} open={false}></TankStatsPanel>
 		{:else if panel_mode==='tank_stats'}

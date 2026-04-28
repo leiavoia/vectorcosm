@@ -1,6 +1,6 @@
 <script>
 
-	let { settings: settings_raw, onupdate, open=true } = $props();
+	let { settings: settings_raw, onSettingsChanged, open=true } = $props();
 	
 	// get access to the app's innards so buttons can do something useful
 	import { getContext } from 'svelte';
@@ -31,8 +31,8 @@
 	});
 
 	// let server know about our settings changes
-	function onchange(k) {
-		onupdate({ [k]: settings[k] });
+	function CommitSettingChange(k) {
+		onSettingsChanged?.({ [k]: settings[k] });
 	}
 	
 	function togglePause() {
@@ -74,12 +74,12 @@
 <section>
 	<nav>
 		<ul>
-			<li><button class="" onclick={togglePause}>Pause</li>
-			<li><button class="" onclick={toggleFF}>FF</li>
-			<li><button class="" onclick={endSim}>End</li>
-			<li><button class="" onclick={saveTank}>Save</li>
-			<li><button class="" onclick={loadTank}>Load</li>
-			<li><button class="" onclick={randTank}>Rand</li>
+			<li><button class="" onclick={togglePause}>Pause</button></li>
+			<li><button class="" onclick={toggleFF}>FF</button></li>
+			<li><button class="" onclick={endSim}>End</button></li>
+			<li><button class="" onclick={saveTank}>Save</button></li>
+			<li><button class="" onclick={loadTank}>Load</button></li>
+			<li><button class="" onclick={randTank}>Rand</button></li>
 		</ul>
 	</nav>
 </section>
@@ -113,49 +113,49 @@
 	{#if open}
 		<div class="slider_block">
 			<label for="volume_slider">Tank Size:</label>
-			<input bind:value={settings.volume} onpointerdown={()=>dragging=true} onpointerup={()=>dragging=false} onchange={()=>onchange('volume')} type="range" min="1000000" max="100000000" step="500000" id="volume_slider" />
+			<input bind:value={settings.volume} onpointerdown={()=>dragging=true} onpointerup={()=>dragging=false} onchange={()=>CommitSettingChange('volume')} type="range" min="1000000" max="100000000" step="500000" id="volume_slider" />
 			<output>{((settings.volume||0)/1000000).toFixed(1)}K</output>
 		</div>
 		
 		<div class="slider_block">
 			<label for="num_boids_slider">Boids:</label>
-			<input bind:value={settings.num_boids} onpointerdown={()=>dragging=true} onpointerup={()=>dragging=false} onchange={()=>onchange('num_boids')} type="range" min="0" max="300" step="1" id="num_boids_slider" />
+			<input bind:value={settings.num_boids} onpointerdown={()=>dragging=true} onpointerup={()=>dragging=false} onchange={()=>CommitSettingChange('num_boids')} type="range" min="0" max="300" step="1" id="num_boids_slider" />
 			<output>{settings.num_boids||0}</output>
 		</div>
 		
 		<div class="slider_block">
 			<label for="num_plants_slider">Plants:</label>
-			<input bind:value={settings.num_plants} onpointerdown={()=>dragging=true} onpointerup={()=>dragging=false} onchange={()=>onchange('num_plants')} type="range" min="0" max="300" step="1" id="num_plants_slider" />
+			<input bind:value={settings.num_plants} onpointerdown={()=>dragging=true} onpointerup={()=>dragging=false} onchange={()=>CommitSettingChange('num_plants')} type="range" min="0" max="300" step="1" id="num_plants_slider" />
 			<output>{settings.num_plants||0}</output>
 		</div>
 		
 		<div class="slider_block">
 			<label for="num_rocks_slider">Rocks:</label>
-			<input bind:value={settings.num_rocks} onpointerdown={()=>dragging=true} onpointerup={()=>dragging=false} onchange={()=>onchange('num_rocks')} type="range" min="0" max="100" step="1" id="num_rocks_slider" />
+			<input bind:value={settings.num_rocks} onpointerdown={()=>dragging=true} onpointerup={()=>dragging=false} onchange={()=>CommitSettingChange('num_rocks')} type="range" min="0" max="100" step="1" id="num_rocks_slider" />
 			<output>{settings.num_rocks||0}</output>
 		</div>
 		
 		<div class="slider_block">
 			<label for="mutation_rate_slider">Mutation:</label>
-			<input bind:value={settings.max_mutation} onpointerdown={()=>dragging=true} onpointerup={()=>dragging=false} onchange={()=>onchange('max_mutation')} type="range" min="0" max="1" step="0.02" id="mutation_rate_slider" />
+			<input bind:value={settings.max_mutation} onpointerdown={()=>dragging=true} onpointerup={()=>dragging=false} onchange={()=>CommitSettingChange('max_mutation')} type="range" min="0" max="1" step="0.02" id="mutation_rate_slider" />
 			<output>{((settings.max_mutation||0)*100).toFixed()}%</output>
 		</div>									
 		
 		<div class="slider_block">
 			<label for="fruiting_speed_rate_slider">Fruiting:</label>
-			<input bind:value={settings.fruiting_speed} onpointerdown={()=>dragging=true} onpointerup={()=>dragging=false} onchange={()=>onchange('fruiting_speed')} type="range" min="0" max="2" step="0.05" id="fruiting_speed_rate_slider" />
+			<input bind:value={settings.fruiting_speed} onpointerdown={()=>dragging=true} onpointerup={()=>dragging=false} onchange={()=>CommitSettingChange('fruiting_speed')} type="range" min="0" max="2" step="0.05" id="fruiting_speed_rate_slider" />
 			<output>{((settings.fruiting_speed||0)*100).toFixed()}%</output>
 		</div>		
 		
 		<div class="slider_block">
 			<label for="current_rate_slider">Current:</label>
-			<input bind:value={settings.current} onpointerdown={()=>dragging=true} onpointerup={()=>dragging=false} onchange={()=>onchange('current')} type="range" min="0" max="2" step="0.05" id="current_rate_slider" />
+			<input bind:value={settings.current} onpointerdown={()=>dragging=true} onpointerup={()=>dragging=false} onchange={()=>CommitSettingChange('current')} type="range" min="0" max="2" step="0.05" id="current_rate_slider" />
 			<output>{((settings.current||0)*100).toFixed()}%</output>
 		</div>		
 		
 		<div class="slider_block">
 			<label for="viscosity_slider">Viscosity:</label>
-			<input bind:value={settings.viscosity} onpointerdown={()=>dragging=true} onpointerup={()=>dragging=false} onchange={()=>onchange('viscosity')} type="range" min="0" max="1" step="0.01" />
+			<input bind:value={settings.viscosity} onpointerdown={()=>dragging=true} onpointerup={()=>dragging=false} onchange={()=>CommitSettingChange('viscosity')} type="range" min="0" max="1" step="0.01" />
 			<output>{((settings.viscosity||0)*100).toFixed()}%</output>
 		</div>		
 		
@@ -163,25 +163,25 @@
 		{#if settings.timeout!==0}
 			<div class="slider_block">
 				<label for="culling_rate_slider">Culling:</label>
-				<input bind:value={settings.cullpct} onpointerdown={()=>dragging=true} onpointerup={()=>dragging=false} onchange={()=>onchange('cullpct')} type="range" min="0" max="1" step="0.02" id="culling_rate_slider" />
+				<input bind:value={settings.cullpct} onpointerdown={()=>dragging=true} onpointerup={()=>dragging=false} onchange={()=>CommitSettingChange('cullpct')} type="range" min="0" max="1" step="0.02" id="culling_rate_slider" />
 				<output>{((settings.cullpct||0)*100).toFixed()}%</output>
 			</div>
 			
 			<div class="slider_block">
 				<label for="timeout_rate_slider">Timeout:</label>
-				<input bind:value={settings.timeout} onpointerdown={()=>dragging=true} onpointerup={()=>dragging=false} onchange={()=>onchange('timeout')} type="range" min="0" max="200" step="1" id="timeout_rate_slider" />
+				<input bind:value={settings.timeout} onpointerdown={()=>dragging=true} onpointerup={()=>dragging=false} onchange={()=>CommitSettingChange('timeout')} type="range" min="0" max="200" step="1" id="timeout_rate_slider" />
 				<output>{(settings.timeout||0).toFixed()}</output>
 			</div>		
 			
 			<div class="slider_block">
 				<label for="rounds_rate_slider">Rounds:</label>
-				<input bind:value={settings.rounds} onpointerdown={()=>dragging=true} onpointerup={()=>dragging=false} onchange={()=>onchange('rounds')} type="range" min="0" max="500" step="1" id="rounds_rate_slider" />
+				<input bind:value={settings.rounds} onpointerdown={()=>dragging=true} onpointerup={()=>dragging=false} onchange={()=>CommitSettingChange('rounds')} type="range" min="0" max="500" step="1" id="rounds_rate_slider" />
 				<output>{(settings.rounds||0).toFixed()}</output>
 			</div>		
 			
 			<div class="slider_block">
 				<label for="segments_rate_slider">Segments:</label>
-				<input bind:value={settings.segments} onpointerdown={()=>dragging=true} onpointerup={()=>dragging=false} onchange={()=>onchange('segments')} type="range" min="1" max="16" step="1" id="segments_rate_slider" />
+				<input bind:value={settings.segments} onpointerdown={()=>dragging=true} onpointerup={()=>dragging=false} onchange={()=>CommitSettingChange('segments')} type="range" min="1" max="16" step="1" id="segments_rate_slider" />
 				<output>{(settings.segments||0).toFixed()}</output>
 			</div>		
 		{/if}		

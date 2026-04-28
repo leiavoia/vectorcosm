@@ -119,7 +119,7 @@
 				}
 				show_file_upload_controls = false;
 			} )
-			.catch( error => console.log(error) )			
+			.catch( error => console.error(error) )			
 		}
 	}
 	

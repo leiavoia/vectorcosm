@@ -19,7 +19,7 @@
 		simulatorChart = MakeSimulatorChart(chartcanvas, records);
 		preloadChartData(records);
 		simulatorChart.update(); // render manually
-		// subscribe to tracker events if we havent already
+		// attach an insert handler if the tracker does not already have one
 		if ( !records?.onInsert ) {
 			records.onInsert = ( data, layer ) => {
 				// update graph if the layer that got the insert is the layer we are watching
