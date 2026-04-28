@@ -173,7 +173,7 @@ Commands are registered in `CommandRegistry` and discoverable via `help` / `desc
 |---|---|
 | `init` | Initialize simulation. Params: sim, sim_queue, width, height, num_boids, etc. |
 | `update` | Advance simulation, return frame data. Self-post (frame type). |
-| `pick_object` | Select boid by ID or proximity. Returns boid description. |
+| `pick_object` | Select boid by ID or proximity. Returns boid description. Optional flags: `inc_sensor_geo`, `inc_brain`, `inc_records`. |
 | `get_tank_env_data` | Return environment grid and whirl data. |
 | `end_sim` | End current simulation immediately. |
 | `save_tank` | Save tank state to storage. |
@@ -233,7 +233,7 @@ Events use dot.notation for namespacing.
 | `sim_complete` | Simulation lifecycle | Simulation finished |
 | `autonomous.stats` | Autonomous loop | Periodic stats snapshot |
 | `records_push` | Stat tracking | Simulation stat records updated |
-| `boid_records_push` | Stat tracking | Per-boid stat records updated |
+| `boid_records_push` | Stat tracking | Per-boid stat records updated. Payload includes `oid`, `layer`, and `data`. |
 | `save_tank` | Autosave | Tank autosaved |
 
 ---

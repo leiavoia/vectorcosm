@@ -13,25 +13,92 @@
 	Chart.defaults.elements.point.radius = 0;
 	let chartcanvas;
 	let chart;
+	let boundRecords = null;
+	let recordSignature = '';
 	const datasets = []; // used by the chart. data copied from records trackers
 	const chartlabels = []; // used by the chart. "labels" are actually timestamps or turns
 	let recordsPerLayer = 60; 
+
+	function GetRecordSignature( tracker ) {
+		if ( !tracker ) { return ''; }
+		return Object.keys(tracker.trackers).sort().join('|');
+	}
+
+	function ClearChartData() {
+		datasets.length = 0;
+		chartlabels.length = 0;
+	}
+
+	function OnRecordsInsert( data, layer ) {
+		if ( layer != layerOnDisplay ) {
+			return;
+		}
+		for ( let k in data ) {
+			const dataset = datasets.find( d => d.label == k );
+			if ( dataset ) {
+				while ( dataset.data.length >= recordsPerLayer ) {
+					dataset.data.shift();
+				}
+				dataset.data.push( data[k] );
+			}
+		}
+		const next_index = chartlabels.length-1;
+		const next_label = next_index < 0 ? 0 : chartlabels[ next_index ];
+		while ( chartlabels.length >= recordsPerLayer ) {
+			chartlabels.shift();
+		}
+		chartlabels.push( next_label );
+		if ( chart ) {
+			chart.update();
+		}
+	}
+
+	function BindRecords( tracker ) {
+		if ( boundRecords?.onInsert === OnRecordsInsert ) {
+			boundRecords.onInsert = null;
+		}
+		boundRecords = tracker;
+		if ( boundRecords ) {
+			boundRecords.onInsert = OnRecordsInsert;
+		}
+	}
+
+	function SyncChartWithRecords() {
+		if ( !chartcanvas || !records ) {
+			return;
+		}
+		const example = records.FirstTracker();
+		if ( !example ) {
+			return;
+		}
+		recordsPerLayer = example.recordsPerLayer;
+		const next_signature = GetRecordSignature(records);
+		if ( !chart || next_signature != recordSignature ) {
+			if ( chart ) {
+				chart.destroy();
+			}
+			ClearChartData();
+			recordSignature = next_signature;
+			chart = Makechart( chartcanvas, records );
+		}
+		BindRecords(records);
+		resetChartData();
+		if ( chart ) {
+			chart.update('none');
+			if ( !chart.options.animation ) {
+				chart.options.animation = true;
+			}
+		}
+	}
 		
 	// set up the chart
-    onMount(() => {
-        if ( chartcanvas && records ) {
-			// respect the tracker settings
-			const example = records.FirstTracker();
-			recordsPerLayer = example.recordsPerLayer;
-			resetChartData();
-			chart = Makechart( chartcanvas, records ) ;
-			return () => chart.destroy();
-		}
-    });
+	onMount(() => {
+		SyncChartWithRecords();
+	});
 
 	onDestroy(() => {
-		if ( records ) {
-			records.onInsert = null; 
+		if ( boundRecords?.onInsert === OnRecordsInsert ) {
+			boundRecords.onInsert = null; 
 		}
 		if ( chart ) {
 			chart.destroy();
@@ -39,62 +106,21 @@
 	});
 	
 	// records has either been replaced or added to
-    $effect(() => {
-		// if it was recently replaced
-		if ( records && !records?.onInsert ) {
-			// respect the tracker settings
-			const example = records.FirstTracker();
-			recordsPerLayer = example.recordsPerLayer;
-			// hook up a new onInsert
-			records.onInsert = ( data, layer ) => {
-				// update graph if the layer that got the insert is the layer we are watching
-				if ( layer == layerOnDisplay ) {
-					// update each stat - TODO: could be optimized for speed
-					for ( let k in data ) {
-						// find the dataset that matches the record key
-						const dataset = datasets.find( d => d.label == k );
-						if ( dataset ) {
-							while ( dataset.data.length >= recordsPerLayer ) {
-								dataset.data.shift();
-							}
-							dataset.data.push( data[k] );
-						}
-					}
-					// add another label to push the chart forward
-					const next_index = chartlabels.length-1;
-					const next_label = next_index < 0 ? 0 : chartlabels[ next_index ];
-					while ( chartlabels.length >= recordsPerLayer ) {
-						chartlabels.shift();
-					}
-					chartlabels.push( next_label );
-					// trigger the visual update
-					if ( chart ) { chart.update(); }
-				}
-			};
-			// reset the chart data because we have an entirely new dataset
-			resetChartData();
-		}
-		// make sure chart is set up
-		if ( !chart && records && chartcanvas ) {
-			chart = Makechart( chartcanvas, records ) ;
-		}
-		if ( chart ) { chart.update(); }
-		// we want animated updates after unanimated startup
-		if ( !chart.options.animation ) {
-			chart.options.animation = true;
-		}
-    });
+	$effect(() => {
+		SyncChartWithRecords();
+	});
 	
 	// tab through layer epochs				
 	function SwitchLayer(layer) {
 		layerOnDisplay = layer;
 		resetChartData();
-		if ( chart ) chart.update(); 
+		if ( chart ) chart.update('none'); 
 	}
 		
 	// use this function to load chart data from the tracker 
 	// when the widget is created in order to present a complete chart		
 	function resetChartData() {	
+		 if ( !records ) { return; }
 		 chartlabels.length = 0; // reset chart labels
 		 // loop through each chart dataset, find the matching tracker by name,
 		 for ( let ds of datasets ) {
@@ -239,7 +265,6 @@
 				hidden: !visible_datasets.contains(k)
 			};
 			datasets.push(dataset);
-			++next_color;
 		}
 		
 		// define a custom plugin to paint the chart background color

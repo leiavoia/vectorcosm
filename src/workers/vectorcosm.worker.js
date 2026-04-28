@@ -349,7 +349,7 @@ commands.register( { name: 'pick_object', description: 'Select a boid by ID or b
 				obj, 
 				params?.inc_sensor_geo, 
 				params?.inc_brain, 
-				params?.inc_brain // not a typo
+				(params?.inc_records || params?.inc_brain)
 			); 
 		}
 	}
@@ -381,7 +381,7 @@ commands.register( { name: 'pick_object', description: 'Select a boid by ID or b
 				obj, 
 				params?.inc_sensor_geo, 
 				params?.inc_brain,
-				params?.inc_brain, // not a typo
+				(params?.inc_records || params?.inc_brain),
 			);
 		}
 	}
@@ -397,7 +397,7 @@ commands.register( { name: 'pick_object', description: 'Select a boid by ID or b
 			// install new callback
 			if ( obj ) {
 				obj.records.onInsert = ( data, layer ) => {
-					PubSub.publishSync('boid.records.push', {data, layer} );
+					PubSub.publishSync('boid.records.push', { oid: obj.oid, data, layer } );
 				};
 			}
 		}
@@ -921,9 +921,8 @@ let onAutosaveSubscription = PubSub.subscribe('autosave', (msg,data) => {
 	} );
 });
 
-// if stat tracking is enabled for individual boids, an update just occurred. 
-// this just let's the front-end know we have data it might want. no data is passed here.
-// if the front end needs details it will ask for a specific boid's stats.
+// if stat tracking is enabled for individual boids, publish the current boid oid
+// plus the most recent inserted stats layer so the front-end can gate updates explicitly.
 let onBoidRecordsPushSubscription = PubSub.subscribe('boid.records.push', (msg,data) => {
 	globalThis.postMessage( {
 		type: 'event',

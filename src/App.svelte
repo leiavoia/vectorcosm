@@ -26,8 +26,10 @@
 	let drawingThemeClass = $state('bg-theme-black');
 	let simRoundCompleteToken = $state(0);
 	let focusObjectBoidData = $state(null);
-	let focusObjectGraphDataPoint = $state(null);
-	let focusObjectGraphDataToken = $state(0);
+	let focusObjectRecords = $state(null);
+	let focusObjectRecordsOid = $state(0);
+	let focusObjectPendingRequestId = $state(0);
+	let focusObjectPendingOid = $state(0);
 	let focusObjectBrainGraphForce = $state(null);
 	let boidLibraryRefreshToken = $state(0);
 	let tankLibraryRefreshToken = $state(0);
@@ -99,6 +101,104 @@
 	// camera needs tank and window data before it can be set up
 	let camera = $state(null);
 
+	function ResetFocusObjectData() {
+		focusObjectBoidData = null;
+		focusObjectRecords = null;
+		focusObjectRecordsOid = 0;
+		focusObjectPendingRequestId = 0;
+		focusObjectPendingOid = 0;
+	}
+
+	function BuildFocusObjectRequest( oid, overrides={} ) {
+		const obj = oid ? renderObjects.get(oid) : null;
+		const needs_sensors = overrides.inc_sensor_geo ?? !!(obj && obj.geodata && !('sensors' in obj.geodata));
+		const needs_brain = overrides.inc_brain ?? !!(obj && obj.geodata && !('brain_struct' in obj.geodata));
+		const needs_records = overrides.inc_records ?? (!focusObjectRecords || focusObjectRecordsOid != oid);
+		return {
+			oid,
+			inc_sensor_geo: needs_sensors,
+			inc_brain: needs_brain,
+			inc_records: needs_records,
+		};
+	}
+
+	function CacheFocusObjectRenderData( data ) {
+		const focus_object_id = data ? data.oid : 0;
+		if ( data && data?.brain_struct ) {
+			const obj = renderObjects.get(focus_object_id);
+			if ( obj && 'geodata' in obj && !('brain_struct' in obj.geodata) ) {
+				obj.geodata.brain_struct = data.brain_struct;
+			}
+		}
+		if ( data && data?.sensor_geo ) {
+			const obj = renderObjects.get(focus_object_id);
+			if ( obj && 'geodata' in obj && !('sensors' in obj.geodata) ) {
+				obj.geodata.sensors = data.sensor_geo;
+			}
+		}
+	}
+
+	function CommitFocusObjectData( data ) {
+		const focus_object_id = data ? data.oid : 0;
+		if ( !focus_object_id ) {
+			if ( camera ) {
+				camera.TrackObject(false);
+			}
+			ResetFocusObjectData();
+			return;
+		}
+		if ( data?.records ) {
+			focusObjectRecords = CompoundStatTracker.Import( data.records );
+			focusObjectRecordsOid = focus_object_id;
+		}
+		else {
+			focusObjectRecords = null;
+			focusObjectRecordsOid = focus_object_id;
+		}
+		focusObjectPendingRequestId = 0;
+		focusObjectPendingOid = 0;
+		if ( camera ) {
+			camera.TrackObject(focus_object_id);
+		}
+		if ( !data || camera.show_boid_info_on_focus ) {
+			focusObjectBoidData = data;
+		}
+	}
+
+	function ClearFocusObject() {
+		if ( camera ) {
+			camera.TrackObject(false);
+		}
+		ResetFocusObjectData();
+	}
+
+	function RequestFocusObjectByOid( oid ) {
+		if ( !camera || !oid ) { return; }
+		const request_id = focusObjectPendingRequestId + 1;
+		focusObjectPendingRequestId = request_id;
+		focusObjectPendingOid = oid;
+		camera.TrackObject(oid);
+		const params = BuildFocusObjectRequest( oid, { inc_records: true } );
+		api.call('pick_object', params).then( data => onPendingPickObjectResponse(data, request_id, oid) );
+	}
+
+	function RequestFocusObjectAtPoint( params ) {
+		if ( !camera ) { return; }
+		const request_id = focusObjectPendingRequestId + 1;
+		focusObjectPendingRequestId = request_id;
+		focusObjectPendingOid = 0;
+		camera.TrackObject(false);
+		api.call('pick_object', params).then( data => onPendingPickObjectResponse(data, request_id, 0) );
+	}
+
+	function onPendingPickObjectResponse( data, request_id, expected_oid=0 ) {
+		if ( request_id != focusObjectPendingRequestId ) { return; }
+		const focus_object_id = data ? data.oid : 0;
+		if ( expected_oid > 0 && focus_object_id && focus_object_id != expected_oid ) { return; }
+		CacheFocusObjectRenderData(data);
+		CommitFocusObjectData(data);
+	}
+
 	gameloop.onStartFrame = () => {
 		// update all your stats here
 		performanceTracker.Insert({
@@ -122,20 +222,16 @@
 		api.send('update', data);
 		// update or cancel object tracking
 		if ( camera ) {
+			if ( focusObjectPendingRequestId > 0 ) {
+				return;
+			}
 			if ( camera.focus_obj_id > 0 ) {
 				// ask for first-time data if this is a new object we are tracking
-				let obj = renderObjects.get(camera.focus_obj_id);
-				let needs_sensors = obj && obj.geodata && !('sensors' in obj.geodata);
-				let needs_brain = obj && obj.geodata && !('brain_struct' in obj.geodata);
-				const params = {
-					oid: camera.focus_obj_id,
-					inc_sensor_geo: needs_sensors,
-					inc_brain: needs_brain
-				}
-				api.call('pick_object', params).then(onPickObjectResponse); // send back for another round
+				const params = BuildFocusObjectRequest( camera.focus_obj_id );
+				api.call('pick_object', params).then(data => onPickObjectResponse(data, params.oid)); // send back for another round
 			}
 			else {
-				focusObjectBoidData = null;
+				ResetFocusObjectData();
 			}
 		}
 	}
@@ -323,6 +419,9 @@
 						globalThis.two.release(obj.geo);
 					}
 					renderObjects.delete(oid);
+					if ( camera && oid == camera.focus_obj_id ) {
+						ClearFocusObject();
+					}
 				}
 			}
 			// animate objects
@@ -364,36 +463,32 @@
 		
 	// NOTE: this is called every frame while an object is in focus.
 	// It is possible for the callback to respond after user has deselected a focus object,
-	// causing it to re-focus. To detect this situation, take of presence of sensor_geo
+	// causing it to re-focus. To detect this situation, take note of presence of sensor_geo
 	// which is only sent on the first frame and can be used to understand if this is the
 	// first frame or a repeat request
-	function onPickObjectResponse( data ) {
+	function onPickObjectResponse( data, requested_oid=0 ) {
 		const focus_object_id = data ? data.oid : 0;
-		// capture brain in case we want to display braingraph
-		if ( data && data?.brain_struct ) {
-			const obj = renderObjects.get(focus_object_id);
-			if ( obj && 'geodata' in obj && !('brain_struct' in obj.geodata) ) {
-				obj.geodata.brain_struct = data.brain_struct;
-			}
-		}
-		// capture any sensor geometry so we can use it later
-		if ( data && data?.sensor_geo ) {
-			const obj = renderObjects.get(focus_object_id);
-			if ( obj && 'geodata' in obj && !('sensors' in obj.geodata) ) {
-				obj.geodata.sensors = data.sensor_geo;
-			}
-		}
+		CacheFocusObjectRenderData(data);
 		// likely a repeat request that came back too late - disregard
-		else if ( camera.focus_obj_id <= 0 ) {
-			focusObjectBoidData = null;
+		if ( camera.focus_obj_id <= 0 ) {
+			ResetFocusObjectData();
 			return;
 		}
 		// rapid change in target object
-		else if ( camera.focus_obj_id > 0 && focus_object_id && focus_object_id != camera.focus_obj_id ) {
+		if ( camera.focus_obj_id > 0 && focus_object_id && focus_object_id != camera.focus_obj_id ) {
 			return;
 		}
-		// track objects and update UI
-		camera.TrackObject(focus_object_id);
+		if ( !data && requested_oid > 0 && camera.focus_obj_id == requested_oid ) {
+			ClearFocusObject();
+			return;
+		}
+		if ( focusObjectPendingRequestId > 0 ) {
+			return;
+		}
+		if ( data?.records ) {
+			focusObjectRecords = CompoundStatTracker.Import( data.records );
+			focusObjectRecordsOid = focus_object_id;
+		}
 		if ( !data || camera.show_boid_info_on_focus ) { // respect camera settings even though its not actually camera related
 			focusObjectBoidData = data;
 		}
@@ -418,6 +513,14 @@
 			gameloop.updates_per_frame = 1; 	
 		}
 	} );
+
+	api.on( 'boid_records_push', msg => {
+		if ( msg.layer != 0 || !focusObjectRecords ) { return; }
+		if ( focusObjectPendingRequestId > 0 ) { return; }
+		if ( !camera || focusObjectRecordsOid != camera.focus_obj_id ) { return; }
+		if ( msg.oid && msg.oid != focusObjectRecordsOid ) { return; }
+		focusObjectRecords.Insert( msg.data );
+	} );
 	
 	api.on( 'sim_new', data => {
 		camera.ResetCameraZoom();	
@@ -434,13 +537,6 @@
 	api.on( 'records_push', msg => {
 		if ( msg.layer == 0 ) {
 			recordsTracker.Insert( msg.data );
-		}
-	} );
-	
-	api.on( 'boid_records_push', msg => {
-		if ( msg.layer == 0 ) {
-			focusObjectGraphDataPoint = msg.data;
-			focusObjectGraphDataToken++;
 		}
 	} );
 	
@@ -575,7 +671,7 @@
 				i = list.indexOf( renderObjects.get(camera.focus_obj_id) ) ?? -1;
 			}
 			i = (i+1 == list.length) ? 0 : i+1;
-			camera.TrackObject( list[i].oid );
+			RequestFocusObjectByOid( list[i].oid );
 		},
 		'PageDown': _ => {
 			let list = Array.from(renderObjects.values()).filter(o=>o.type=='boid');
@@ -584,7 +680,7 @@
 				i = list.indexOf( renderObjects.get(camera.focus_obj_id) ) ?? -1;
 			}
 			i = (i-1 < 0) ? (list.length-1) : i-1;
-			camera.TrackObject( list[i].oid );		
+			RequestFocusObjectByOid( list[i].oid );		
 		},
 		's': _ => {
 			api.call('save_tank').then(() => NotifyTankLibraryChanged());
@@ -622,8 +718,7 @@
 		},
 		'Escape': _ => {
 			if ( camera.focus_obj_id > 0 ) { 
-				camera.TrackObject(false);
-				focusObjectBoidData = null;
+				ClearFocusObject();
 			}
 			else { setPanelMode(null); }
 		},
@@ -637,7 +732,7 @@
 			// if we don't already have have focus, pick some random boid
 			if ( camera.focus_obj_id <= 0 ) {
 				let boid = Array.from(renderObjects.values()).find(o=>o.type=='boid');
-				if ( boid ) { camera.TrackObject( boid.oid ); }
+				if ( boid ) { RequestFocusObjectByOid( boid.oid ); }
 			}
 			focusObjectBrainGraphForce = !focusObjectBrainGraphForce;
 		},
@@ -705,10 +800,10 @@
 				y: y,
 				radius: Math.min( 60, 60 / camera.scale ), // pixels in world space
 				inc_sensor_geo:true, // get boid sensor visualization on first request only
-				inc_brain:true
+				inc_brain:true,
+				inc_records:true,
 			};
-			camera.TrackObject(false); // unselect currently selected object
-			api.call('pick_object', params).then(onPickObjectResponse);
+			RequestFocusObjectAtPoint(params);
 		}
 	}
 	
@@ -896,9 +991,9 @@
 	
 	<div class="focus_object_panel">
 		<FocusObjectDetails 
-			boidData={focusObjectBoidData}
-			graphDataPoint={focusObjectGraphDataPoint}
-			graphDataToken={focusObjectGraphDataToken}
+			boid={focusObjectBoidData}
+			records={focusObjectRecords}
+
 			forceShowBrainGraph={focusObjectBrainGraphForce}
 			onBoidLibraryChanged={NotifyBoidLibraryChanged}
 		></FocusObjectDetails>

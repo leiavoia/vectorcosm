@@ -1,41 +1,20 @@
 <script>
-	import { blur, fade } from 'svelte/transition';
-	import { getContext, tick } from 'svelte';
+	import { fade } from 'svelte/transition';
+	import { getContext } from 'svelte';
 	import BrainGraph from './BrainGraph.svelte';
 	import FocusObjectChart from './FocusObjectChart.svelte';
-	import {StatTracker, CompoundStatTracker} from '../classes/class.StatTracker.js'
 
 	let {
-		boidData = null,
-		graphDataPoint = null,
-		graphDataToken = 0,
+		boid = null,
+		records = null,
 		forceShowBrainGraph = null,
 		onBoidLibraryChanged = null,
 	} = $props();
 
 	// general provisions
 	let api = getContext('api');
-	let boid = $derived(boidData);
 	let show_brain_graph = $state(false);
 	let tab = $state('overview');
-	let records = $state(null);
-	let lastGraphDataToken = 0;
-		
-	$effect(() => {
-		// set up records tracker if we got graph data
-		if ( boidData?.records ) {
-			records = CompoundStatTracker.Import( boidData.records );
-		}
-	});
-
-	$effect(() => {
-		if ( graphDataToken != lastGraphDataToken ) {
-			lastGraphDataToken = graphDataToken;
-			if ( records && graphDataPoint ) {
-				records.Insert( graphDataPoint );
-			}
-		}
-	});
 	
 	function SaveBoid() {
 		api.call('export_boids', { db:true, ids: [boid.oid] }).then(() => onBoidLibraryChanged?.());
