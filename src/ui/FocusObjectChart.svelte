@@ -1,6 +1,7 @@
 <script>
 	import Chart from "chart.js/auto";
 	import { onMount, onDestroy } from "svelte";
+	import { LoadUIState, SaveUIState } from '../util/ui-state.js';
 
 	// records is a compound stat tracker that the parent maintains
 	let { records } = $props();
@@ -236,6 +237,8 @@
 					
 		// these datasets are on by default. all others must be toggled on
 		const visible_datasets = ['health','life','stomach','scale','energy_pct'];
+		// load persisted label visibility, fall back to visible_datasets defaults
+		const saved_hidden = LoadUIState('panel.focus.chart.hidden', null, v => v && typeof v == 'object' && !Array.isArray(v) ? v : null);
 		
 		// create the data sets based on record trackers.
 		// each tracker tracks a set of named statistics.
@@ -262,7 +265,7 @@
 				fill:false,
 				tension: 0.2,
 				yAxisID: yAxisID,
-				hidden: !visible_datasets.contains(k)
+				hidden: saved_hidden && k in saved_hidden ? saved_hidden[k] : !visible_datasets.contains(k)
 			};
 			datasets.push(dataset);
 		}
@@ -301,6 +304,23 @@
 					legend: {
 						position: 'bottom',
 						display:true,
+						onClick: (e, legendItem, legend) => {
+							// default toggle: show/hide the clicked dataset
+							const ci = legend.chart;
+							const index = legendItem.datasetIndex;
+							if ( ci.isDatasetVisible(index) ) {
+								ci.hide(index);
+								legendItem.hidden = true;
+							}
+							else {
+								ci.show(index);
+								legendItem.hidden = false;
+							}
+							// persist new visibility state for all labels
+							const hidden_state = {};
+							ci.data.datasets.forEach((ds, i) => { hidden_state[ds.label] = !ci.isDatasetVisible(i); });
+							SaveUIState('panel.focus.chart.hidden', hidden_state);
+						},
 						labels: {
 							color: '#FFFFFF',
 							// font: {

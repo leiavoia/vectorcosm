@@ -163,6 +163,8 @@
 		
 		// these datasets are on by default. all others must be toggled on
 		const visible_datasets = [/* 'boids','foods', */'boid_mass','food_mass'];
+		// load persisted label visibility, fall back to visible_datasets defaults
+		const saved_hidden = LoadUIState('panel.records.chart.hidden', null, v => v && typeof v == 'object' && !Array.isArray(v) ? v : null);
 		
 		// create the data sets based on record trackers.
 		// each tracker tracks a set of named statistics.
@@ -189,7 +191,7 @@
 				fill:false,
 				tension: 0.2,
 				yAxisID: yAxisID,
-				hidden: !visible_datasets.contains(k)
+				hidden: saved_hidden && k in saved_hidden ? saved_hidden[k] : !visible_datasets.contains(k)
 			};
 			datasets.push(dataset);
 			++next_color;
@@ -228,6 +230,23 @@
 					legend: {
 						position: 'bottom',
 						display:true,
+						onClick: (e, legendItem, legend) => {
+							// default toggle: show/hide the clicked dataset
+							const ci = legend.chart;
+							const index = legendItem.datasetIndex;
+							if ( ci.isDatasetVisible(index) ) {
+								ci.hide(index);
+								legendItem.hidden = true;
+							}
+							else {
+								ci.show(index);
+								legendItem.hidden = false;
+							}
+							// persist new visibility state for all labels
+							const hidden_state = {};
+							ci.data.datasets.forEach((ds, i) => { hidden_state[ds.label] = !ci.isDatasetVisible(i); });
+							SaveUIState('panel.records.chart.hidden', hidden_state);
+						},
 						labels: {
 							color: '#FFFFFF',
 							// font: {
