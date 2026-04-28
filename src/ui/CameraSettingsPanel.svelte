@@ -10,11 +10,10 @@
 		'animate_foods',
 		'allow_hyperzoom',
 		'transitions',
-		'parallax',
+		'tracking_mode',
 		'show_boid_indicator_on_focus',
 		'show_boid_info_on_focus',
 		'show_boid_sensors_on_focus',
-		'center_camera_on_focus',
 	];
 	
 	// Layer descriptors: geo reference + local UI state (visible/opacity) mirror Two.js group props,
@@ -38,11 +37,9 @@
 		{name: 'animate_foods', label: 'Animate Food', disabled:false},
 		{name: 'allow_hyperzoom', label: 'Allow Hyperzoom', disabled:false},
 		{name: 'transitions', label: 'Cinema Transitions', disabled:false},
-		{name: 'parallax', label: 'Parallax', disabled:true},
 		{name: 'show_boid_indicator_on_focus', label: 'Focus Ring', disabled:false},
 		{name: 'show_boid_info_on_focus', label: 'Boid Info', disabled:false},
 		{name: 'show_boid_sensors_on_focus', label: 'Boid Sensors', disabled:false},
-		{name: 'center_camera_on_focus', label: 'Center on Focus', disabled:false},
 	];
 	
 	function toggleLayer( layer ) {
@@ -99,6 +96,12 @@
 		camera[row.name] = !camera[row.name];
 	}
 
+	const tracking_mode_labels = { none: 'None', soft: 'Soft', hard: 'Hard' };
+	const tracking_mode_cycle = { none: 'soft', soft: 'hard', hard: 'none' };
+	function CycleTrackingMode() {
+		camera.tracking_mode = tracking_mode_cycle[camera.tracking_mode] ?? 'soft';
+	}
+
 	function ClampOpacity( value, fallback ) {
 		if ( !Number.isFinite(value) ) { return fallback; }
 		return Math.max(0, Math.min(1, value));
@@ -107,7 +110,8 @@
 	function SaveCameraUIState() {
 		const settings = {};
 		for ( let name of camera_setting_names ) {
-			settings[name] = !!camera[name];
+			if ( name === 'tracking_mode' ) { settings.tracking_mode = camera.tracking_mode; }
+			else { settings[name] = !!camera[name]; }
 		}
 		settings.focus_time = camera.focus_time;
 		settings.transition_time = camera.transition_time;
@@ -128,11 +132,10 @@
 		camera.animate_foods;
 		camera.allow_hyperzoom;
 		camera.transitions;
-		camera.parallax;
+		camera.tracking_mode;
 		camera.show_boid_indicator_on_focus;
 		camera.show_boid_info_on_focus;
 		camera.show_boid_sensors_on_focus;
-		camera.center_camera_on_focus;
 		camera.focus_time;
 		camera.transition_time;
 		layers[0].visible;
@@ -205,7 +208,8 @@
 	<div class="button_rack options">
 	{#each settings as setting}
 		<button class={{outline:!camera[setting.name]}} onclick={()=>ToggleSetting(setting)} disabled={setting.disabled}>{setting.label}</button> 
-	{/each}	
+	{/each}
+		<button class={{outline: camera.tracking_mode === 'none'}} onclick={CycleTrackingMode}>Tracking: {tracking_mode_labels[camera.tracking_mode] ?? camera.tracking_mode}</button>
 	</div>
 
 	<div class="slider_block">

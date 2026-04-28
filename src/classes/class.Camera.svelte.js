@@ -14,6 +14,9 @@ KEY FEATURES
 - `ApplyRenderData(data)` — called each frame with packed geometry from the worker; updates Two.js transforms.
 - `ZoomIn/Out()`, `ZoomTo()`, `PanTo(x, y)` for UI-driven navigation.
 - Focus ring drawn into the 'ui' layer; removed with `HiliteOff()`.
+- Soft-box tracking: `tracking_mode` ($state) = 'none'|'soft'|'hard'. 'soft' uses a dead zone (no movement inside)
+  + lerp zone + hard snap outer boundary. Constants: soft_box_size (default 0.35), hard_box_ratio (0.75), soft_tracking_lerp (0.05).
+  See `SoftTrackObject(obj)` for implementation. Cinema mode bypasses tracking naturally (focus_obj_id=0 during tweens).
 
 PAN/ZOOM NOTES
 - `z` is the logical zoom; `scale` is derived (1/z * correction factor).
@@ -46,11 +49,11 @@ export default class Camera {
 	cinema_mode = $state(false);
 	allow_hyperzoom = $state(true);
 	transitions = $state(true);
-	parallax = $state(false);
+	// tracking_mode: 'none' = no follow | 'soft' = dead zone + lerp zone + hard snap | 'hard' = pixel-perfect centering
+	tracking_mode = $state('soft');
 	show_boid_indicator_on_focus = $state(true);
 	show_boid_sensors_on_focus = $state(true);
 	show_boid_info_on_focus = $state(true);
-	center_camera_on_focus = $state(true);
 	// Timing values for cinema / focus transitions (ms)
 	focus_time = $state(8000);
 	transition_time = $state(3000);
@@ -88,6 +91,11 @@ export default class Camera {
 		this.focus_obj_id = 0;
 		this.cinema_timeout = null;
 		this.tween = null;
+		this.snap_next_frame = false; // set to true to bypass soft tracking and snap camera to focus object on the next frame
+		// soft-box tracking constants — tweak these to tune feel
+		this.soft_box_size = 0.30; // fraction of screen dimensions that form the dead zone (no camera movement inside)
+		this.hard_box_ratio = 0.15; // space between soft box edge and screen edge the hard zone occupies
+		this.soft_tracking_lerp = 0.08; // lerp factor applied per frame when object is in the smooth follow zone
 	}
 
 	Hilite( x, y, a=0 ) {
@@ -144,9 +152,13 @@ export default class Camera {
 		if ( this.focus_obj_id ) {
 			const obj = this.renderObjects.get(this.focus_obj_id);
 			if ( obj ) {
-				// snap camera to center on object
-				if ( this.center_camera_on_focus ) {
-					this.PointCameraAt( obj.x, obj.y ); 
+				// move camera based on tracking mode
+				if ( this.tracking_mode === 'hard' || this.snap_next_frame ) {
+					this.PointCameraAt( obj.x, obj.y );
+					this.snap_next_frame = false;
+				}
+				else if ( this.tracking_mode === 'soft' ) {
+					this.SoftTrackObject( obj );
 				}
 				
 				// turn the focus ring on and move into position
@@ -177,6 +189,47 @@ export default class Camera {
 		globalThis.two.update(); 
 	}	
 		
+	// Soft-box tracking: dead zone (no movement) + lerp zone (smooth follow) + hard zone (snap to edge).
+	// All math is done in screen-pixel space so it is zoom-independent.
+	SoftTrackObject( obj ) {
+		// half-dimensions of the dead zone (soft box) in screen pixels
+		const dz_hw = this.soft_box_size * this.window_width  * 0.5;
+		const dz_hh = this.soft_box_size * this.window_height * 0.5;
+		// hard zone occupies hard_box_ratio of the space between the soft box edge and the screen edge
+		const hard_box_size = this.soft_box_size + (1 - this.soft_box_size) * this.hard_box_ratio;
+		const hz_hw = hard_box_size * this.window_width  * 0.5;
+		const hz_hh = hard_box_size * this.window_height * 0.5;
+		// offset of the tracked object from camera center, in screen pixels
+		const dx = (obj.x - this.x) * this.scale;
+		const dy = (obj.y - this.y) * this.scale;
+		let new_cx = this.x;
+		let new_cy = this.y;
+		// X axis
+		const adx = Math.abs(dx);
+		if ( adx > hz_hw ) {
+			// hard snap: move camera so object sits exactly at hard zone boundary
+			new_cx = obj.x - Math.sign(dx) * (hz_hw / this.scale);
+		}
+		else if ( adx > dz_hw ) {
+			// smooth zone: lerp camera center toward the dead zone edge
+			const target_cx = obj.x - Math.sign(dx) * (dz_hw / this.scale);
+			new_cx = this.x + (target_cx - this.x) * this.soft_tracking_lerp;
+		}
+		// Y axis
+		const ady = Math.abs(dy);
+		if ( ady > hz_hh ) {
+			new_cy = obj.y - Math.sign(dy) * (hz_hh / this.scale);
+		}
+		else if ( ady > dz_hh ) {
+			const target_cy = obj.y - Math.sign(dy) * (dz_hh / this.scale);
+			new_cy = this.y + (target_cy - this.y) * this.soft_tracking_lerp;
+		}
+		// only call PointCameraAt if camera actually needs to move
+		if ( new_cx !== this.x || new_cy !== this.y ) {
+			this.PointCameraAt( new_cx, new_cy );
+		}
+	}
+
 	TrackObject( oid ) {
 		// stop tracking
 		if ( !oid ) { 
@@ -199,6 +252,7 @@ export default class Camera {
 		// start tracking
 		const obj = this.renderObjects.get(oid);
 		if ( !obj ) { return this.TrackObject(false); } // object has died - stop tracking
+		this.snap_next_frame = oid != this.focus_obj_id; // always snap camera when changing targets
 		this.focus_obj_id = oid;
 	}
 	

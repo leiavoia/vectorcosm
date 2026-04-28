@@ -72,15 +72,17 @@
 			'animate_foods',
 			'allow_hyperzoom',
 			'transitions',
-			'parallax',
 			'show_boid_indicator_on_focus',
 			'show_boid_info_on_focus',
 			'show_boid_sensors_on_focus',
-			'center_camera_on_focus',
 		] ) {
 			if ( typeof settings[name] == 'boolean' ) {
 				camera[name] = settings[name];
 			}
+		}
+		// restore tracking mode (string enum: 'none'|'soft'|'hard')
+		if ( settings.tracking_mode === 'none' || settings.tracking_mode === 'soft' || settings.tracking_mode === 'hard' ) {
+			camera.tracking_mode = settings.tracking_mode;
 		}
 		camera.focus_time = ClampUIValue(settings.focus_time, 1000, 120000, camera.focus_time);
 		camera.transition_time = ClampUIValue(settings.transition_time, 1000, 120000, camera.transition_time);
@@ -897,7 +899,7 @@
 	}
 	
 	function onmousemove(event) {
-		const now_tracking = camera && camera.focus_obj_id > 0 && camera.center_camera_on_focus;
+		const now_tracking = camera && camera.focus_obj_id > 0 && camera.tracking_mode !== 'none';
 		if ( dragging && !now_tracking ) {
 			// camera pan - don't move the camera on fudge clicks
 			const dx = event.clientX - drag_start_x;
