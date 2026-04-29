@@ -10,6 +10,7 @@
 	import BoidLibraryPanel from './ui/BoidLibraryPanel.svelte';
 	import TankLibraryPanel from './ui/TankLibraryPanel.svelte';
 	import CameraSettingsPanel from './ui/CameraSettingsPanel.svelte';
+	import TankMakerPanel from './ui/TankMakerPanel.svelte';
 	import VectorcosmDrawingContext from './ui/VectorcosmDrawingContext.svelte';
 	import GameLoop from './classes/class.GameLoop.js'
 	import VectorcosmAPI from './classes/class.VectorcosmAPI.js'
@@ -104,6 +105,7 @@
 		'settings',
 		'object_library',
 		'sim_launcher',
+		'tank_maker',
 	]);
 			
 	// control UI panel display - only one allowed at a time
@@ -1040,7 +1042,12 @@
 				class:selected={panel_mode=='sim_launcher'} 
 				title="Simulation Launcher"
 				aria-label="Simulation Launcher" 
-				class="icon-cogs"></button>
+				class="icon-cogs"></button>	&nbsp;
+			<button onclick={_ => setPanelMode('tank_maker')}	
+				class:selected={panel_mode=='tank_maker'} 
+				title="Tank Maker"
+				aria-label="Tank Maker" 
+				class="icon-tools"></button>
 		</div>
 		
 		{#if panel_mode==='sim_controls'}
@@ -1059,6 +1066,8 @@
 			<TankLibraryPanel {camera} refreshToken={tankLibraryRefreshToken}></TankLibraryPanel>
 		{:else if panel_mode==='sim_launcher'}
 			<SimulationLauncherPanel></SimulationLauncherPanel>
+		{:else if panel_mode==='tank_maker'}
+			<TankMakerPanel themeClass={drawingThemeClass} onThemeChanged={v => drawingThemeClass = NormalizeBgThemeClass(v)}></TankMakerPanel>
 		{/if}
 		
 	</main>

@@ -49,7 +49,7 @@ export default class Rock {
 		'Tiger Eye': ['#c2b280', '#e1c16e', '#b8860b', '#8b7d6b'],
 		'Pyrite': ['#c0ba68', '#c0b34e', '#d8d084', '#96903b'],
 		'Serpentine': ['#a7c957', '#6a994e', '#386641', '#b7e4c7'],
-		'Hematite': ['#575757', '#7d7d7d', '#a9a9a9', '#434343'],
+		'Hematite': ['#200f0f', '#473232', '#412e2e', '#807171', '#968888', '#2b1d1d', '#ac8686'],
 	};
 		
 	// x, y (position)

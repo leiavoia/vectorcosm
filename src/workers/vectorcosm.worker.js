@@ -495,6 +495,31 @@ commands.register( { name: 'rand_tank', description: 'Regenerate tank obstacles 
 	return null;
 } });
 
+commands.register( { name: 'set_bg_theme', description: 'Update background theme on current tank without rebuilding. Accepts: name (string)', handler: params => {
+	if ( params?.name ) {
+		globalThis.vc.tank.SetBGTheme( params.name, true );
+	}
+	return null;
+} });
+
+commands.register( { name: 'make_tank', description: 'Create a new tank with explicit settings. Accepts: bg_theme (string), tank_maker_settings (object)', handler: params => {
+	const w = globalThis.vc.tank.width;
+	const h = globalThis.vc.tank.height;
+	// preserve existing boids across tank rebuild
+	const boids = globalThis.vc.tank.boids.splice(0, globalThis.vc.tank.boids.length);
+	globalThis.vc.tank.Kill();
+	globalThis.vc.tank = new Tank( w, h );
+	globalThis.vc.tank.boids = boids;
+	// apply background theme before building background triangles
+	if ( params?.bg_theme ) { globalThis.vc.tank.bg_theme = params.bg_theme; }
+	globalThis.vc.tank.MakeBackground();
+	// pass all tank_maker_settings (voronoi or individual strategy both accepted)
+	const tm_settings = Object.assign( {}, params?.tank_maker_settings || {} );
+	const tm = new TankMaker( globalThis.vc.tank, tm_settings );
+	tm.Make();
+	return null;
+} });
+
 
 commands.register( { name: 'init', description: 'Initialize the simulation. Accepts: width, height, sim, sim_queue, sim_meta_params, num_boids, num_foods, num_plants, num_rocks, rounds, timeout, max_mutation, cullpct, lock_dimensions', handler: params => {
 	globalThis.vc.Init(params);
