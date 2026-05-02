@@ -121,6 +121,15 @@
 		return arr[Math.floor(Math.random() * arr.length)];
 	}
 
+	// volume: display with K suffix; < 5 → one decimal, else integer
+	function formatVolume(v) {
+		return (v < 5000000 ? (v/1000000).toFixed(1) : (+v/1000000).toFixed(0)) + 'K';
+	}
+	// tank X/Y: display with comma separator
+	function formatDim(v) {
+		return Math.round(+v).toLocaleString('en-US');
+	}
+
 	function classToName(cls) {
 		return BG_THEMES.find(t => t.cls === cls)?.name ?? "Deepwater";
 	}
@@ -141,6 +150,11 @@
 	// bg_theme initialized from current active theme, not saved state
 	let bg_theme = $state(classToName(themeClass));
 	let bg_theme_rnd = $state(savedValue("bg_theme_rnd", false));
+
+	let fit_screen = $state(savedValue("fit_screen", true));
+	let volume = $state(savedValue("volume", 4000000));
+	let tank_x = $state(savedValue("tank_x", 3000));
+	let tank_y = $state(savedValue("tank_y", 2000));
 
 	let rock_schemes = $state(savedValue("rock_schemes", []));
 	let rock_schemes_rnd = $state(savedValue("rock_schemes_rnd", true));
@@ -285,6 +299,10 @@
 			shrink_lines_rnd,
 			shrink_chance,
 			shrink_chance_rnd,
+			fit_screen,
+			volume,
+			tank_x,
+			tank_y,
 		});
 	});
 
@@ -297,6 +315,19 @@
 
 		if (typeof onThemeChanged === "function") {
 			onThemeChanged(nameToClass(res_bg));
+		}
+
+		// compute tank dimensions from size settings
+		let tank_width, tank_height;
+		if (fit_screen) {
+			const aspect = window.innerWidth / window.innerHeight;
+			const area_px = volume;
+			tank_width = Math.round(Math.sqrt(area_px * aspect));
+			tank_height = Math.round(Math.sqrt(area_px / aspect));
+		}
+		else {
+			tank_width = Number(tank_x);
+			tank_height = Number(tank_y);
 		}
 
 		const settings = {
@@ -376,7 +407,7 @@
 				: +shrink_chance;
 		}
 
-		api.send("make_tank", { bg_theme: res_bg, tank_maker_settings: settings });
+		api.send("make_tank", { bg_theme: res_bg, tank_maker_settings: settings, width: tank_width, height: tank_height });
 	}
 </script>
 
@@ -387,6 +418,35 @@
 
 	<!-- Create button at very top -->
 	<button onclick={Create} class="create_btn">Create Tank</button>
+
+	<!-- Tank Size: fit-screen with volume control, or explicit X/Y dimensions -->
+	<details open>
+		<summary>Tank Size</summary>
+		<div class="ctrl_row">
+			<label>
+				<input type="checkbox" role="switch" bind:checked={fit_screen} />
+				Fit Screen Dimensions
+			</label>
+		</div>
+		{#if fit_screen}
+			<div class="ctrl_row">
+				<label for="volume_range"><span title="Total tank area in thousands of square pixels.">Volume:</span></label>
+				<input id="volume_range" type="range" min="1000000" max="100000000" step="100000" bind:value={volume} />
+				<output>{formatVolume(volume)}</output>
+			</div>
+		{:else}
+			<div class="ctrl_row">
+				<label for="tank_x_range"><span title="Tank width in pixels.">Width:</span></label>
+				<input id="tank_x_range" type="range" min="1000" max="10000" step="1" bind:value={tank_x} />
+				<output>{formatDim(tank_x)}</output>
+			</div>
+			<div class="ctrl_row">
+				<label for="tank_y_range"><span title="Tank height in pixels.">Height:</span></label>
+				<input id="tank_y_range" type="range" min="1000" max="10000" step="1" bind:value={tank_y} />
+				<output>{formatDim(tank_y)}</output>
+			</div>
+		{/if}
+	</details>
 
 	<!-- Theme Settings: background, rock colors, complexity -->
 	<details open>
@@ -939,4 +999,8 @@
 		background-position: center;
 	}
 
+	/* tank size switch: let Pico render its native toggle style */
+	[type="checkbox"][role="switch"]:checked {
+		background-image: none;
+	}
 </style>

@@ -502,9 +502,10 @@ commands.register( { name: 'set_bg_theme', description: 'Update background theme
 	return null;
 } });
 
-commands.register( { name: 'make_tank', description: 'Create a new tank with explicit settings. Accepts: bg_theme (string), tank_maker_settings (object)', handler: params => {
-	const w = globalThis.vc.tank.width;
-	const h = globalThis.vc.tank.height;
+commands.register( { name: 'make_tank', description: 'Create a new tank with explicit settings. Accepts: bg_theme (string), tank_maker_settings (object), width (number, optional), height (number, optional)', handler: params => {
+	// use provided dimensions if given, otherwise preserve current tank size
+	const w = params?.width  ?? globalThis.vc.tank.width;
+	const h = params?.height ?? globalThis.vc.tank.height;
 	// preserve existing boids across tank rebuild
 	const boids = globalThis.vc.tank.boids.splice(0, globalThis.vc.tank.boids.length);
 	globalThis.vc.tank.Kill();
