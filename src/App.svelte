@@ -781,16 +781,22 @@
 			setPanelMode('sim_launcher')
 		},
 		'6': _ => {
-			ToggleTankEnvironmentalData('current');
+			setPanelMode('tank_maker')
 		},
 		'7': _ => {
+			// reserved for future panel mode change
+		},
+		'l': _ => {
 			ToggleTankEnvironmentalData('light');
 		},
-		'8': _ => {
+		'h': _ => {
 			ToggleTankEnvironmentalData('heat');
 		},
 		'm': _ => {
 			ToggleTankEnvironmentalData('matter');
+		},
+		'w': _ => {
+			ToggleTankEnvironmentalData('current');
 		},
 		'Escape': _ => {
 			if ( camera.focus_obj_id > 0 ) { 
