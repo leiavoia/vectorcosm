@@ -227,8 +227,9 @@ export default class Simulation {
 		if ( this.settings?.invasives ) {
 			const num_invasives = Math.min( this.settings.invasives, this.settings?.num_boids );
 			const freq = this.settings?.invasives_freq || 500;
-			const next = this.next_invasive ?? freq;
+			let next = this.next_invasive ?? freq;
 			const t = Math.floor( this.stats.round_time );
+			if ( next > t + freq ) { next = freq; } // automatically handle sim resets
 			if ( t > next ) {
 				for ( let i=0; i < num_invasives; i++ ) { 
 					this.AddNewBoidToTank();
@@ -272,8 +273,9 @@ export default class Simulation {
 		// matter diffusion
 		if ( this.settings?.matter_diffusion_freq ) {
 			const freq = this.settings?.matter_diffusion_freq || 300;
-			const next = this.next_diffusion ?? freq;
+			let next = this.next_diffusion ?? freq;
 			const t = Math.floor( this.stats.round_time );
+			if ( next > t + freq ) { next = freq; } // automatically handle sim resets
 			if ( t > next ) {
 				const strength = this.settings?.matter_diffusion_strength || 0.25;
 				globalThis.vc.tank.DiffuseStat('matter', 1, strength );
