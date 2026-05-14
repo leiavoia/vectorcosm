@@ -4,7 +4,7 @@ Sensor — perception system for boids. Reads the world and outputs floats for b
 SENSOR TYPES
 - 'sense'     — geometric sweep (circle or arc). Integrates `sense[]` channels from nearby objects
                 (boids, food, marks, rocks). `segments` splits arc into directional bands.
-                Labels: "name/seg-channel". Pre-allocated Float64Array `_detection` for hot-path speed.
+                Pre-allocated Float64Array `_detection` for hot-path speed.
                 Two optimized paths: `_senseSegmented()` for arc sensors, `_senseSimple()` for omni.
                 Output sigmoid: `x/(1+x)` with threshold guard (x>50 → 1).
 - 'whisker'   — thin ray probes. N rays at spread angles; returns 1-normalized_dist when near obstacle.
@@ -16,6 +16,19 @@ SENSOR TYPES
 - 'current'   — datagrid fluid current vector at boid position.
 - 'datagrid'  — any datagrid cell attribute (light, heat, matter) at boid position.
 - 'locater'   — legacy directional food finder (deprecated; do not extend).
+
+FOURIER IDENTITY MODEL (sense[] layout — 15 floats)
+- [0,1,2]   v1: visual h1  (cos(hue), sin(hue), amplitude)
+- [3,4,5]   v2: visual h2  (cos(2*hue), sin(2*hue), amplitude*0.5)
+- [6,7,8]   s1: smell h1   (cos(odor), sin(odor), strength)
+- [9,10,11] s2: smell h2   (cos(2*odor), sin(2*odor), strength*0.5)
+- [12,13,14] a1: audio h1  (cos(call), sin(call), amplitude)
+Modality base offsets: [0, 6, 12] for [visual, smell, audio].
+
+DETECT FORMAT (per sensor entry)
+  { modality: 0|1|2, tc1, ts1, tc2, ts2 }
+  Detection: max(0, tc1*sense[b]+ts1*sense[b+1])*sense[b+2] + (has_h2 ? max(0,...)*sense[b+5] : 0)
+  Precomputed into typed arrays: _detect_base, _detect_has_h2, _detect_tc1/ts1/tc2/ts2.
 
 KEY METHODS
 - `Sense(nearby)` — main update; receives pre-fetched nearby objects from boid's batched grid query.
@@ -70,37 +83,23 @@ export default class Sensor {
 		
 		// general purpose geometric sensor for vision, smell, and audio
 		else if ( this.type === 'sense' ) {
-			let channelmap = {
-				0: 'R',
-				1: 'G',
-				2: 'B',
-				3: '1',
-				4: '2',
-				5: '3',
-				6: '4',
-				7: '5',
-				8: '6',
-				9: '7',
-				10: '8',
-				11: '9',
-				12: 'ɑ',
-				13: 'β',
-				14: 'γ',
-				15: 'δ',
-			};
-			let num_segments = this.segments || 1;
+			const TWO_PI = Math.PI * 2;
+			const num_segments = this.segments || 1;
 			for ( let i=0; i < num_segments; i++ ) {
-				for ( let sensation of this.detect ) {
-					let name = ( this.name || 'sense' ) + '/' + i + '-';
-					if ( Array.isArray(sensation) ) {
-						for ( let channel of sensation ) {
-							name += channelmap[channel];
-						}
+				for ( let di=0; di < this.detect.length; di++ ) {
+					const d = this.detect[di];
+					// 2-digit frequency: tuning angle mapped to 00-99
+					const angle = (Math.atan2(d.ts1, d.tc1) + TWO_PI) % TWO_PI;
+					const freq = String( Math.round(angle / TWO_PI * 99) ).padStart(2, '0');
+					let label = ( this.name || 'sense' );
+					if ( this.detect.length > 1 ) {
+						label += '.' + di;
 					}
-					else {
-						name += channelmap[sensation];
-					}
-					this.labels.push( name );
+					if ( num_segments > 1 ) {
+						label += '/' + i;
+					}	
+					label += '@' + freq;
+					this.labels.push( label );
 				}
 			}
 		}
@@ -110,7 +109,7 @@ export default class Sensor {
 			// /!\ KLUNKY - specific order matters
 			let look_for = ['food_cos', 'food_sine', 'food_angle', 'food_dist', 'food_density'];
 			for ( let x of look_for ) {
-				if ( this.detect.contains(x) ) { this.labels.push(x); }
+				if ( this.detect.includes(x) ) { this.labels.push(x); }
 			}
 		}
 		
@@ -156,10 +155,6 @@ export default class Sensor {
 					});
 				}
 			}
-			// force all detections into array format
-			for ( let i=0; i<this.detect.length; i++ ) {
-				this.detect[i] = this.detect[i]?.length ? this.detect[i] : [this.detect[i]]; 
-			}
 			// --- PRE-COMPUTE CONSTANTS FOR HOT PATH ---
 			this._r_sq = this.r * this.r;
 			this._inv_r = 1 / this.r;
@@ -167,22 +162,27 @@ export default class Sensor {
 			this._has_falloff = this.falloff ? this.falloff : 0; // 0 = no falloff, else the exponent
 			this._has_fov = !!this.fov;
 			this._has_attenuation = !!(this.attenuation && (this.x || this.y));
-			// flatten detect structure: array-of-arrays → typed flat arrays
-			let total_channels = 0;
-			for ( let d of this.detect ) { total_channels += d.length; }
+			// flatten Fourier tuning vectors into typed arrays for hot-path speed
+			// modality base offsets in sense[]: visual=0, smell=6, audio=12
+			const _MODALITY_BASE   = [0, 6, 12];
+			// visual and smell have 2 harmonics; audio has 1
+			const _MODALITY_HAS_H2 = [1, 1, 0];
 			this._num_detections = this.detect.length;
-			this._detect_flat = new Uint8Array(total_channels);
-			this._detect_starts = new Uint8Array(this._num_detections);
-			this._detect_lengths = new Uint8Array(this._num_detections);
-			this._detect_inv_lengths = new Float64Array(this._num_detections);
-			let offset = 0;
+			this._detect_base   = new Uint8Array(this._num_detections);
+			this._detect_has_h2 = new Uint8Array(this._num_detections);
+			this._detect_tc1 = new Float64Array(this._num_detections);
+			this._detect_ts1 = new Float64Array(this._num_detections);
+			this._detect_tc2 = new Float64Array(this._num_detections);
+			this._detect_ts2 = new Float64Array(this._num_detections);
 			for ( let d=0; d<this.detect.length; d++ ) {
-				this._detect_starts[d] = offset;
-				this._detect_lengths[d] = this.detect[d].length;
-				this._detect_inv_lengths[d] = 1 / this.detect[d].length;
-				for ( let c=0; c<this.detect[d].length; c++ ) {
-					this._detect_flat[offset++] = this.detect[d][c];
-				}
+				const det = this.detect[d];
+				const mod = det.modality;
+				this._detect_base[d]   = _MODALITY_BASE[mod];
+				this._detect_has_h2[d] = _MODALITY_HAS_H2[mod];
+				this._detect_tc1[d]    = det.tc1;
+				this._detect_ts1[d]    = det.ts1;
+				this._detect_tc2[d]    = det.tc2 || 0;
+				this._detect_ts2[d]    = det.ts2 || 0;
 			}
 			// assign the correct optimized function + type code for monomorphic dispatch
 			if ( this.segments ) {
@@ -523,10 +523,12 @@ export default class Sensor {
 		const seglength = this.seglength, inv_seglength = this._inv_seglength;
 		const falloff = this._has_falloff;
 		const sensitivity = this._sensitivity;
-		const detect_flat = this._detect_flat;
-		const detect_starts = this._detect_starts;
-		const detect_lengths = this._detect_lengths;
-		const detect_inv_lengths = this._detect_inv_lengths;
+		const detect_base   = this._detect_base;
+		const detect_has_h2 = this._detect_has_h2;
+		const detect_tc1    = this._detect_tc1;
+		const detect_ts1    = this._detect_ts1;
+		const detect_tc2    = this._detect_tc2;
+		const detect_ts2    = this._detect_ts2;
 		const num_detections = this._num_detections;
 		const segdata_lefts = this._segdata_lefts;
 		const segdata_rights = this._segdata_rights;
@@ -661,16 +663,15 @@ export default class Sensor {
 				
 				overlap_pct *= prox_factor;
 				
-				// accumulate signals — flat typed array traversal
-				const base = s * num_detections;
+				// dot product per modality — Fourier identity matching
+				const out_base = s * num_detections;
 				for ( let di=0; di<num_detections; di++ ) {
-					const start = detect_starts[di];
-					const len = detect_lengths[di];
-					let value = 0;
-					for ( let c=start, end=start+len; c<end; c++ ) {
-						value += sense[detect_flat[c]] || 0;
-					}
-					detection[base + di] += value * detect_inv_lengths[di] * overlap_pct;
+					const b = detect_base[di];
+					const v1 = Math.max( 0, detect_tc1[di] * sense[b]   + detect_ts1[di] * sense[b+1] ) * sense[b+2];
+					const v2 = detect_has_h2[di]
+						? Math.max( 0, detect_tc2[di] * sense[b+3] + detect_ts2[di] * sense[b+4] ) * sense[b+5]
+						: 0;
+					detection[out_base + di] += ( v1 + v2 ) * overlap_pct;
 				}
 			}
 		}
@@ -693,10 +694,12 @@ export default class Sensor {
 		const falloff = this._has_falloff;
 		const has_fov = this._has_fov;
 		const has_attenuation = this._has_attenuation;
-		const detect_flat = this._detect_flat;
-		const detect_starts = this._detect_starts;
-		const detect_lengths = this._detect_lengths;
-		const detect_inv_lengths = this._detect_inv_lengths;
+		const detect_base   = this._detect_base;
+		const detect_has_h2 = this._detect_has_h2;
+		const detect_tc1    = this._detect_tc1;
+		const detect_ts1    = this._detect_ts1;
+		const detect_tc2    = this._detect_tc2;
+		const detect_ts2    = this._detect_ts2;
 		const num_detections = this._num_detections;
 		const detection = this._detection;
 		const outputs = this._outputs;
@@ -789,15 +792,14 @@ export default class Sensor {
 			// grab the sense array ref once
 			const sense = obj.sense;
 			
-			// accumulate signals — flat typed array traversal
+			// dot product per modality — Fourier identity matching
 			for ( let di=0; di<num_detections; di++ ) {
-				const start = detect_starts[di];
-				const len = detect_lengths[di];
-				let value = 0;
-				for ( let c=start, end=start+len; c<end; c++ ) {
-					value += sense[detect_flat[c]] || 0;
-				}
-				detection[di] += value * detect_inv_lengths[di] * signal_strength;
+				const b = detect_base[di];
+				const v1 = Math.max( 0, detect_tc1[di] * sense[b]   + detect_ts1[di] * sense[b+1] ) * sense[b+2];
+				const v2 = detect_has_h2[di]
+					? Math.max( 0, detect_tc2[di] * sense[b+3] + detect_ts2[di] * sense[b+4] ) * sense[b+5]
+					: 0;
+				detection[di] += ( v1 + v2 ) * signal_strength;
 			}
 		}
 		

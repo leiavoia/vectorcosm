@@ -62,10 +62,11 @@ export default class Rock {
 	constructor( params ) {
 		this.oid = ++globalThis.vc.next_object_id;
 		this.otype = 3; // numeric type tag for fast checks (1=Boid, 2=Food, 3=Rock)
-		this.sense = new Array(16).fill(0);
-		this.sense[0] = 0.2; // dull grey appearance
-		this.sense[1] = 0.2;
-		this.sense[2] = 0.2;
+		this.sense = new Array(15).fill(0);
+		// visual harmonic 1: neutral hue (angle=0), low amplitude
+		this.sense[0] = 1.0; // cos(0)
+		this.sense[1] = 0.0; // sin(0)
+		this.sense[2] = 0.2; // low amplitude
 		// backward compat: old saves had { collision: { hull, aabb }, triangles } with no top-level hull.
 		// Alias into new format before the load-path check below.
 		if ( !params.hull && params.collision?.hull ) {

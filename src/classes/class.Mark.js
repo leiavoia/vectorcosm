@@ -33,7 +33,7 @@ export default class Mark {
 		this.r = 100;
 		this.age = 0;
 		this.lifespan = 10;
-		this.sense = new Array(16).fill(0);
+		this.sense = new Array(15).fill(0);
 		this.type = 'generic';
 		this.dead = false;		
 		Object.assign( this, params );
@@ -81,7 +81,6 @@ export default class Mark {
 			'#C42452',
 			'#5DD94D',
 			'#1F4BE3',
-			// smells
 			'#C42452',
 			'#EB9223',
 			'#EBE313',
@@ -92,7 +91,6 @@ export default class Mark {
 			'#FF70E5',
 			'#FFFFFF',
 			'#666666',
-			// audio
 			'#6565ce',
 			'#18b691',
 			'#D5B000',

@@ -33,6 +33,15 @@ HORMONES
 - Endocrine updated every ENDOCRINE_UPDATE_FREQ seconds.
 - 4 hormones modulate sensor sensitivity (DOPE_SENSORS) and motor power (DOPE_MOTORS).
 
+SENSES & SENSATION: FOURIER IDENTITY MODEL (sense[] — 15 floats)
+- Boid body sense encoded from DNA: visual=RGB→HSL→hue_angle Fourier, smell=2 angle+amp genes,
+  audio=1 angle+amp gene. All use 2-harmonic (h1+h2) layout except audio (1 harmonic).
+- Motor mark builders: scent1/scent2 emit smell h1+h2 at evolved theta_s; call1 emits audio h1;
+  signal1 emits visual h1+h2 at evolved theta_v. Attack marks hardcode audio=[1,0,1].
+- Vision sensor builder: detect=[{modality:0,tc1,ts1,tc2,ts2}]; optional dichromat adds 2nd entry.
+- Smell sensor builder: detect=[{modality:1,tc1,ts1,tc2,ts2}] from evolved theta_s angle.
+- Audio sensor builder: detect=[{modality:2,tc1,ts1,tc2:0,ts2:0}] from evolved theta_a angle.
+
 TUNING CONSTANTS (all static on the class)
 - maxspeed, maxrot, max_boid_linear_impulse, ang_drag_coef, forward_drag_coef, etc.
 - LIFE_DECAY_SPEED: higher = shorter lifespans globally.
@@ -200,7 +209,7 @@ export class Boid extends PhysicsObject {
 		this.oid = ++globalThis.vc.next_object_id;
 		this.otype = 1; // numeric type tag for fast checks (1=Boid, 2=Food, 3=Rock)
 		this.ResetStats();
-		this.sense = new Array(16).fill(0);
+		this.sense = new Array(15).fill(0);
 		this.id = utils.RandomInt();
 		this.dna = '';
 		this.generation = 1;
@@ -948,7 +957,7 @@ export class Boid extends PhysicsObject {
 			x: victim.x,
 			y: victim.y,
 			r: Math.sqrt( attack_force * 10 * (killed?2:1) ),
-			sense: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1], // TODO: room for variety
+			sense: [0,0,0, 0,0,0, 0,0,0, 0,0,0, 1,0,1], // attack audio: a_cos=1, a_sin=0, a_amp=1
 			lifespan: 2 + 2 * (attack_force / 600),
 			type: 'attack'
 		}) );
@@ -1554,22 +1563,23 @@ export class Boid extends PhysicsObject {
 		// mark motors (calls, scents, "pheromones", flashes of light, etc...)
 		const hasScent1 = this.dna.shapedNumber( 0x08000000 | this.dna.genesFor(`hasScent1`,1,1) );
 		if ( hasScent1 > 0.42 ) { 
-			let g1 = 0x08000000 | this.dna.genesFor(`scent1 index 1`,1,1); // this needs full length number spread
-			let g2 = 0x08000000 | this.dna.genesFor(`scent1 index 2`,1,1); // this needs full length number spread
-			let g3 = 0x08000000 | this.dna.genesFor(`scent1 index 3`,1,1); // this needs full length number spread
-			const i1 = this.dna.shapedInt( g1, 3, 11 );
-			const i2 = this.dna.shapedInt( g2, 3, 11 );
-			const i3 = this.dna.shapedInt( g3, 3, 11 );
-			let sense = new Array(16).fill(0);
+			// Fourier smell: evolve a single angle (odor identity)
+			const theta1 = this.dna.shapedNumber( this.dna.genesFor(`scent1 angle 1`,2,1), 0, Math.PI*2, Math.PI, 1 );
+			const theta2 = this.dna.shapedNumber( this.dna.genesFor(`scent1 angle 2`,2,1), 0, Math.PI*2, Math.PI, 1 );
+			let sense = new Array(15).fill(0);
 			const strength = this.dna.shapedNumber( this.dna.genesFor(`scent1 strength`,2,1), 1, 10, 2, 3 );
 			const radius = this.dna.shapedNumber( this.dna.genesFor(`scent1 radius`,2,1), 50, 650, 125, 3 );
 			const time = this.dna.shapedNumber( this.dna.genesFor(`scent1 time`,2,1), 5, 30, 10, 3 );
 			const lifespan = this.dna.shapedNumber( this.dna.genesFor(`scent1 lifespan`,2,1), 5, 20, 10, 3 );
 			const act = this.dna.shapedNumber( this.dna.genesFor(`scent1 act`,2,1), 0.5, 1.0, 0.65, 3 );
 			const cost = (1/500) / time;
-			sense[i1] += strength;
-			sense[i2] += strength * 0.5;
-			sense[i3] += strength * 0.25;
+			// encode at evolved smell angle: h1 + h2 harmonics
+			sense[6]  = Math.cos(theta1);
+			sense[7]  = Math.sin(theta1);
+			sense[8]  = strength; // main signal
+			sense[9]  = Math.cos(2 * theta2);
+			sense[10] = Math.sin(2 * theta2);
+			sense[11] = strength * 0.5; // hint signal / overtones
 			const hormone_factors = [
 				this.dna.shapedNumber( this.dna.genesFor(`scent1 hfactor 0`,2,1), 0, 1, 0.5, 0.75 ),
 				this.dna.shapedNumber( this.dna.genesFor(`scent1 hfactor 1`,2,1), 0, 1, 0.5, 0.75 ),
@@ -1585,7 +1595,7 @@ export class Boid extends PhysicsObject {
 				cost: cost,
 				stroketime: time, 
 				strokefunc: 'linear_down', 
-				name: `scent-${i1}${i2}${i3}`,
+				name: `scent1-${(100*theta1/(Math.PI*2)).toFixed()}-${(100*theta2/(Math.PI*2)).toFixed()}`,
 				min_age: this.larval_age * 2,
 				lifespan,
 				r: radius,
@@ -1600,16 +1610,23 @@ export class Boid extends PhysicsObject {
 		
 		const hasScent2 = this.dna.shapedNumber( 0x08000000 | this.dna.genesFor(`hasScent2`,1,1) );
 		if ( hasScent2 > 0.9 ) { 
-			let g1 = 0x08000000 | this.dna.genesFor(`scent2 index`,1,1); // this needs full length number spread
-			const i = this.dna.shapedInt( g1, 3, 11 );
-			let sense = new Array(16).fill(0);
+			// Fourier smell: evolve angle + amplitude
+			const theta1 = this.dna.shapedNumber( this.dna.genesFor(`scent1 angle 1`,2,1), 0, Math.PI*2, Math.PI, 1 );
+			const theta2 = this.dna.shapedNumber( this.dna.genesFor(`scent1 angle 2`,2,1), 0, Math.PI*2, Math.PI, 1 );
+			let sense = new Array(15).fill(0);
 			const strength = this.dna.shapedNumber( this.dna.genesFor(`scent2 strength`,2,1), 1, 10, 2, 4 );
 			const radius = this.dna.shapedNumber( this.dna.genesFor(`scent2 radius`,2,1), 50, 850, 125, 3 );
 			const time = this.dna.shapedNumber( this.dna.genesFor(`scent2 time`,2,1), 5, 30, 10, 3 );
 			const lifespan = this.dna.shapedNumber( this.dna.genesFor(`scent2 lifespan`,2,1), 2, 12, 5, 3 );
 			const act = this.dna.shapedNumber( this.dna.genesFor(`scent2 act`,2,1), 0.68, 1.0, 0.78, 3 );
 			const cost = (1/550) / time;
-			sense[i] = strength;
+			// encode at evolved smell angle: h1 + h2
+			sense[6]  = Math.cos(theta1);
+			sense[7]  = Math.sin(theta1);
+			sense[8]  = strength;
+			sense[9]  = Math.cos(2 * theta2);
+			sense[10] = Math.sin(2 * theta2);
+			sense[11] = strength * 0.5;
 			const hormone_factors = [
 				this.dna.shapedNumber( this.dna.genesFor(`scent2 hfactor 0`,2,1), 0, 1, 0.5, 0.65 ),
 				this.dna.shapedNumber( this.dna.genesFor(`scent2 hfactor 1`,2,1), 0, 1, 0.5, 0.65 ),
@@ -1625,7 +1642,7 @@ export class Boid extends PhysicsObject {
 				cost: cost,
 				stroketime: time, 
 				strokefunc: 'linear_down', 
-				name: `scent-${i}`,
+				name: `scent2-${(100*theta1/(Math.PI*2)).toFixed()}-${(100*theta2/(Math.PI*2)).toFixed()}`,
 				min_age: this.larval_age * 2,
 				lifespan,
 				r: radius,
@@ -1640,23 +1657,26 @@ export class Boid extends PhysicsObject {
 		
 		const hasCall1 = this.dna.shapedNumber( 0x08000000 | this.dna.genesFor(`hasCall1`,1,1) );
 		if ( hasCall1 > 0.77 ) { 
-			let g1 = 0x08000000 | this.dna.genesFor(`call1 index`,1,1); // this needs full length number spread
-			const i = this.dna.shapedInt( g1, 12, 15 );
-			let sense = new Array(16).fill(0);
+			// Fourier audio: evolve call angle + amplitude instead of picking a channel index
+			const theta1 = this.dna.shapedNumber( this.dna.genesFor(`call1 angle 1`,2,1), 0, Math.PI*2, Math.PI, 1 );
+			let sense = new Array(15).fill(0);
 			const strength = this.dna.shapedNumber( this.dna.genesFor(`call1 strength`,2,1), 5, 20, 5, 3 );
 			const radius = this.dna.shapedNumber( this.dna.genesFor(`call1 radius`,2,1), 125, 1000, 300, 3 );
 			const time = this.dna.shapedNumber( this.dna.genesFor(`call1 time`,2,1), 5, 12, 7, 3 );
 			const lifespan = this.dna.shapedNumber( this.dna.genesFor(`call1 lifespan`,2,1), 2, 5, 2, 3 );
 			const act = this.dna.shapedNumber( this.dna.genesFor(`call1 act`,2,1), 0.55, 1.0, 0.68, 3 );
 			const cost = (1/450) / time;
-			sense[i] = strength;
+			// encode at evolved audio angle: [a_cos, a_sin, a_amp]
+			sense[12] = Math.cos(theta1);
+			sense[13] = Math.sin(theta1);
+			sense[14] = strength;
 			this.motors.push({
 				sense,
 				min_act: act,
 				cost: cost,
 				stroketime: time, 
 				strokefunc: 'linear_down', 
-				name: `call-${i}`,
+				name: `call-${(100*theta1/(Math.PI*2)).toFixed()}`,
 				min_age: this.larval_age * 2,
 				lifespan,
 				r: radius,
@@ -1670,29 +1690,30 @@ export class Boid extends PhysicsObject {
 		
 		const hasSignal1 = this.dna.shapedNumber( 0x08000000 | this.dna.genesFor(`hasSignal1`,1,1) );
 		if ( hasSignal1 > 0.86 ) { 
-			let g1 = 0x08000000 | this.dna.genesFor(`call1 index 1`,1,1); // this needs full length number spread
-			let g2 = 0x08000000 | this.dna.genesFor(`call1 index 2`,1,1); // this needs full length number spread
-			let g3 = 0x08000000 | this.dna.genesFor(`call1 index 3`,1,1); // this needs full length number spread
-			const i1 = this.dna.shapedInt( g1, 0, 2 );
-			const i2 = this.dna.shapedInt( g2, 0, 2 );
-			const i3 = this.dna.shapedInt( g3, 0, 2 );
-			let sense = new Array(16).fill(0);
+			// Fourier visual signal: evolve hue angle + amplitude
+			const theta1 = this.dna.shapedNumber( this.dna.genesFor(`signal1 angle 1`,2,1), 0, Math.PI*2, Math.PI, 1 );
+			const theta2 = this.dna.shapedNumber( this.dna.genesFor(`signal1 angle 2`,2,1), 0, Math.PI*2, Math.PI, 1 );
+			let sense = new Array(15).fill(0);
 			const strength = this.dna.shapedNumber( this.dna.genesFor(`signal1 strength`,2,1), 5, 10, 5, 3 );
 			const radius = this.dna.shapedNumber( this.dna.genesFor(`signal1 radius`,2,1), 150, 1000, 250, 3 );
 			const time = this.dna.shapedNumber( this.dna.genesFor(`signal1 time`,2,1), 3, 10, 5, 3 );
 			const lifespan = this.dna.shapedNumber( this.dna.genesFor(`signal1 lifespan`,2,1), 2, 5, 2, 3 );
 			const act = this.dna.shapedNumber( this.dna.genesFor(`signal1 act`,2,1), 0.6, 0.9, 0.7, 3 );
 			const cost = (1/300) / time;
-			sense[i1] += strength;
-			sense[i2] += strength;
-			sense[i3] += strength;
+			// visual signal at evolved hue angle: h1 + h2
+			sense[0] = Math.cos(theta1);
+			sense[1] = Math.sin(theta1);
+			sense[2] = strength;
+			sense[3] = Math.cos(2 * theta2);
+			sense[4] = Math.sin(2 * theta2);
+			sense[5] = strength * 0.5;
 			this.motors.push({
 				sense,
 				min_act: act,
 				cost: cost,
 				stroketime: time, 
 				strokefunc: 'linear_down', 
-				name: `signal-${i1}${i2}${i3}`,
+				name: `signal-${(100*theta1/(Math.PI*2)).toFixed()}-${(100*theta2/(Math.PI*2)).toFixed()}`,
 				min_age: this.larval_age * 2,
 				lifespan,
 				r: radius,
@@ -1803,33 +1824,27 @@ export class Boid extends PhysicsObject {
 			const radius = this.dna.shapedNumber(this.dna.genesFor('vision radius',3,2), 100, 800, 350, 1.5 );
 			const xoff = this.dna.shapedNumber(this.dna.genesFor('vision xoff',3,2), -radius*0.5, radius, radius*0.5, 1.5 );
 			const yoff = this.dna.shapedNumber(this.dna.genesFor('vision yoff',3,2), 0, radius, radius*0.5, 1.5 );
-			const chance_r = this.dna.shapedNumber(this.dna.genesFor('vision chance r',3,true), 0, 1 );
-			const chance_g = this.dna.shapedNumber(this.dna.genesFor('vision chance g',3,true), 0, 1 );
-			const chance_b = this.dna.shapedNumber(this.dna.genesFor('vision chance b',3,true), 0, 1 );
-			const chance_i = this.dna.shapedNumber(this.dna.genesFor('vision chance i',3,true), 0, 1 );
-			const detect = [];
-			if ( chance_i < 0.20 ) { detect.push([0,1,2]); } // blended intensity
-			else {
-				if ( chance_r > 0.20 ) { detect.push([0]); }
-				if ( chance_g > 0.20 ) { detect.push([1]); }
-				if ( chance_b > 0.20 ) { detect.push([2]); }
-			}
-			if ( !detect.length ) { detect.push([0,1,2]); }
 			const sensitivity = this.dna.shapedNumber(this.dna.genesFor('vision sensitivity',2,1), 0.5, 10, 2, 3 );
-			
-			// segmented vision
+			// Fourier visual: evolve hue tuning angle; optional 2nd spectral preference (dichromat)
+			const theta_v = this.dna.shapedNumber(this.dna.genesFor('vision tuning angle',2,1), 0, Math.PI*2, Math.PI, 1);
+			const detect = [{ modality: 0, tc1: Math.cos(theta_v), ts1: Math.sin(theta_v), tc2: Math.cos(2*theta_v), ts2: Math.sin(2*theta_v) }];
+			const chance_dichromat = this.dna.shapedNumber(this.dna.genesFor('vision dichromat',2,true), 0, 1);
+			if ( chance_dichromat > 0.5 ) {
+				const theta_v2 = this.dna.shapedNumber(this.dna.genesFor('vision tuning angle 2',2,1), 0, Math.PI*2, Math.PI, 1);
+				detect.push({ modality: 0, tc1: Math.cos(theta_v2), ts1: Math.sin(theta_v2), tc2: Math.cos(2*theta_v2), ts2: Math.sin(2*theta_v2) });
+			}
 			const segmented_vision = this.dna.shapedNumber(this.dna.genesFor('segmented_vision',2,true));
 			if ( segmented_vision ) {
 				const segments = this.dna.shapedInt(this.dna.genesFor('vision num segments',2,true), 2, 18, 6, 5 );
 				const cone = this.dna.shapedNumber(this.dna.genesFor('vision cone',2,true), Math.PI*0.5, Math.PI*2, Math.PI, 2 );
-				this.sensors.push( new Sensor({ type:'sense', name: 'v1', segments, cone, color: '#FFFFFFBB', sensitivity:sensitivity/2, detect: detect, x: 0, y: 0, r: radius*1.25, falloff:1.2 }, this ) );
+				this.sensors.push( new Sensor({ type:'sense', name: 'vis1', segments, cone, color: '#FFFFFFBB', sensitivity:sensitivity/2, detect: detect, x: 0, y: 0, r: radius*1.25, falloff:1.2 }, this ) );
 				const cost = segments * cone * radius * 0.0002;
 				this.traits.boxfit.push([ cost, cost, `sensors.seg_vision`]);
 			}
 			// binary vision
 			else {
-				this.sensors.push( new Sensor({ type:'sense', name: 'v1', color: '#AAEEFFBB', sensitivity, fov:true, attenuation:true, detect: detect, x: xoff, y: yoff, r: radius, }, this ) );2
-				this.sensors.push( new Sensor({ type:'sense', name: 'v2', color: '#AAEEFFBB', sensitivity, fov:true, attenuation:true, detect: detect, x: xoff, y: -yoff, r: radius, }, this ) );
+				this.sensors.push( new Sensor({ type:'sense', name: 'vis1', color: '#AAEEFFBB', sensitivity, fov:true, attenuation:true, detect: detect, x: xoff, y: yoff, r: radius, }, this ) );2
+				this.sensors.push( new Sensor({ type:'sense', name: 'vis2', color: '#AAEEFFBB', sensitivity, fov:true, attenuation:true, detect: detect, x: xoff, y: -yoff, r: radius, }, this ) );
 				const cost = 2 * radius * 0.0005;
 				this.traits.boxfit.push([ cost, cost, `sensors.bin_vision`]);
 			}
@@ -1841,27 +1856,10 @@ export class Boid extends PhysicsObject {
 			const radius = this.dna.shapedNumber( this.dna.genesFor('smell sense radius',3,2), 200, 750, 350, 1.5 );
 			const xoff = this.dna.shapedNumber( this.dna.genesFor('smell sense xoff',3,2), -radius*0.5, radius, radius*0.5, 1.5 );
 			const yoff = this.dna.shapedNumber( this.dna.genesFor('smell sense yoff',3,2), 0, radius, radius*0.5, 1.5 );
-			const detect = [];
-			const rejects = [];
-			// chance to detect indv channels
-			for ( let i=0; i<9; i++ ) {
-				const g1 = this.dna.genesFor('smell chance ' + i, 1, true);
-				const chance = this.dna.mix(g1, 0, 1);
-				if ( chance > 0.65 ) { detect.push(i+3); } // first three indexes are vision
-				else { rejects.push(i+3); }
-			}
-			// random chance to have blended channel detection
-			if ( rejects.length ) {
-				while ( rejects.length ) {
-					let num = this.dna.shapedInt( this.dna.genesFor('smell merge ' + rejects.length, 1, true), 2, 3);
-					num = utils.Clamp( num, 1, rejects.length );
-					const chance = this.dna.mix(this.dna.genesFor('smell merge chance ' + rejects.length, 1, true), 0, 1);
-					const my_rejects = rejects.splice(0,num);
-					if ( chance > 0.65 ) { 
-						detect.push(my_rejects);
-					}
-				}
-			}
+			// Fourier smell: evolve tuning angle (odor preference)
+			const theta1 = this.dna.shapedNumber(this.dna.genesFor('smell tuning angle',2,1), 0, Math.PI*2, Math.PI, 1);
+			const theta2 = this.dna.shapedNumber(this.dna.genesFor('smell tuning angle',2,1), 0, Math.PI*2, Math.PI, 1);
+			const detect = [{ modality: 1, tc1: Math.cos(theta1), ts1: Math.sin(theta1), tc2: Math.cos(2*theta2), ts2: Math.sin(2*theta2) }];
 			if ( detect.length ) {
 				let sensitivity = this.dna.shapedNumber(this.dna.genesFor('smell sensitivity',2,1), 0.1, 3, 0.5, 3 );
 				const chance = this.dna.shapedNumber(this.dna.genesFor('stereo smell',3,true));
@@ -1888,27 +1886,9 @@ export class Boid extends PhysicsObject {
 			const radius = this.dna.shapedNumber( this.dna.genesFor('audio sense radius',3,2), 200, 750, 350, 1.5 );
 			const xoff = this.dna.shapedNumber( this.dna.genesFor('audio sense xoff',3,2), -radius*0.5, radius, radius*0.5, 1.5 );
 			const yoff = this.dna.shapedNumber( this.dna.genesFor('audio sense yoff',3,2), 0, radius, radius*0.5, 1.5 );
-			const detect = [];
-			const rejects = [];
-			// chance to detect indv channels
-			for ( let i=0; i<4; i++ ) {
-				const g1 = this.dna.genesFor('audio chance ' + i, 1, true);
-				const chance = this.dna.mix(g1, 0, 1);
-				if ( chance > 0.65 ) { detect.push(i+12); } // indexes 12,13,14,15 are audio channels
-				else { rejects.push(i+12); }
-			}
-			// random chance to have blended channel detection
-			if ( rejects.length ) {
-				while ( rejects.length ) {
-					let num = this.dna.shapedInt( this.dna.genesFor('audio merge ' + rejects.length, 1, true), 2, 3);
-					num = utils.Clamp( num, 1, rejects.length );
-					const chance = this.dna.mix(this.dna.genesFor('audio merge chance ' + rejects.length, 1, true), 0, 1);
-					const my_rejects = rejects.splice(0,num);
-					if ( chance > 0.65 ) { 
-						detect.push(my_rejects);
-					}
-				}
-			}
+			// Fourier audio: evolve tuning angle (call type preference), 1 harmonic
+			const theta1 = this.dna.shapedNumber(this.dna.genesFor('audio tuning angle',2,1), 0, Math.PI*2, Math.PI, 1);
+			const detect = [{ modality: 2, tc1: Math.cos(theta1), ts1: Math.sin(theta1), tc2: 0, ts2: 0 }];
 			if ( detect.length ) {
 				let sensitivity = this.dna.shapedNumber(this.dna.genesFor('audio sensitivity',2,1), 0.1, 3, 0.5, 3 );
 				const chance = this.dna.shapedNumber(this.dna.genesFor('stereo audio',3,true));
@@ -2215,18 +2195,39 @@ export class Boid extends PhysicsObject {
 
 		// now create the body shape
 		this.body = new BodyPlan( this.dna, new_length, new_width );
-		this.sense[0] = this.body.sensor_colors[0];
-		this.sense[1] = this.body.sensor_colors[1];
-		this.sense[2] = this.body.sensor_colors[2];
-		this.sense[3] =  Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 1',2,1), -0.25, 1, 0.2, 2 ) );
-		this.sense[4] =  Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 2',2,1), -0.25, 1, 0.4, 2 ) );
-		this.sense[5] =  Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 3',2,1), -0.25, 1, 0.6, 2 ) );
-		this.sense[6] =  Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 4',2,1), -0.25, 1, 0.8, 2 ) );
-		this.sense[7] =  Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 5',2,1), -0.25, 1, 0.7, 2 ) );
-		this.sense[8] =  Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 6',2,1), -0.25, 1, 0.5, 2 ) );
-		this.sense[9] =  Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 7',2,1), -0.25, 1, 0.3, 2 ) );
-		this.sense[10] = Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 8',2,1), -0.25, 1, 0.1, 2 ) );
-		this.sense[11] = Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 9',2,1), -0.25, 1, 0.05, 2 ) );
+		// Fourier sense encoding — [v1c,v1s,v1a, v2c,v2s,v2a, s1c,s1s,s1a, s2c,s2s,s2a, ac,as,aa]
+		// visual (what i look like)
+		// derive hue from body color (RGB→HSL), encode as Fourier harmonics
+		const _hsl = utils.rgb2hsl( this.body.sensor_colors[0], this.body.sensor_colors[1], this.body.sensor_colors[2] );
+		const _hue_angle = _hsl[0] * Math.PI * 2;
+		const _v_amp = Math.max( 0.05, _hsl[2] );
+		this.sense[0] = Math.cos( _hue_angle );       // v1 cos
+		this.sense[1] = Math.sin( _hue_angle );       // v1 sin
+		this.sense[2] = _v_amp;                       // v1 amplitude
+		// visual harmonic 2 (texture/spots/stripes) - DNA trait, not from body plan
+		const _hue_angle2 = this.dna.shapedNumber( this.dna.genesFor('vision tuning angle 2',2,1), 0, Math.PI*2, Math.PI, 1);
+		const _hue_amp2   = this.dna.shapedNumber( this.dna.genesFor('vision tuning amp 2',2,1), 0, 1, 0.5, 2 );
+		this.sense[3] = Math.cos( _hue_angle2 );   // v2 cos
+		this.sense[4] = Math.sin( _hue_angle2 );   // v2 sin
+		this.sense[5] = _v_amp;                 // v2 amplitude
+		// smell harmonic 1 (what i smell like)
+		const _s1_angle = this.dna.shapedNumber( this.dna.genesFor('body odor 1 angle',2,1), 0, Math.PI*2, Math.PI, 1 );
+		const _s1_amp   = Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 1 amp',2,1), -0.25, 1, 0.3, 2 ) );
+		this.sense[6] = Math.cos( _s1_angle );        // s1 cos
+		this.sense[7] = Math.sin( _s1_angle );        // s1 sin
+		this.sense[8] = _s1_amp;                      // s1 amplitude
+		// smell harmonic 2 (hints of lavendar)
+		const _s2_angle = this.dna.shapedNumber( this.dna.genesFor('body odor 2 angle',2,1), 0, Math.PI*2, Math.PI, 1 );
+		const _s2_amp   = Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('body odor 2 amp',2,1), -0.25, 1, 0.1, 2 ) );
+		this.sense[9]  = Math.cos( _s2_angle );       // s2 cos
+		this.sense[10] = Math.sin( _s2_angle );       // s2 sin
+		this.sense[11] = _s2_amp;                     // s2 amplitude
+		// audio (what i sound like)
+		const _a1_angle = this.dna.shapedNumber( this.dna.genesFor('boid call angle',2,1), 0, Math.PI*2, Math.PI, 1 );
+		const _a1_amp   = Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('boid call amp',2,1), -0.25, 1, 0.0, 2 ) );
+		this.sense[12] = Math.cos( _a1_angle );       // audio cos
+		this.sense[13] = Math.sin( _a1_angle );       // audio sin
+		this.sense[14] = _a1_amp;                     // audio amplitude
 
 		// effective length term influences how effective length is calculated in ScaleBoidByMass
 		this.traits.effective_length_term = this.dna.shapedNumber( this.dna.genesFor('effective_length_term',1,true), -2, 2, 1, 2);

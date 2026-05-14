@@ -7,7 +7,7 @@ OVERVIEW
 - `value` — energy content; determines radius `r = sqrt(2*value/PI) * 10`.
 - `flavor` (0..1) — determines color and smell channels auto-filled in `sense[]`.
 - `complexity` (1..8) — encoded in `sense[11]`; matched against boid food preference.
-- `sense[]` (16 channels) — [0..2] RGB visual, [3..10] 8 smell values (cosine-encoded flavor), [11] complexity.
+- `sense[]` (15 channels) — Fourier identity layout: [0..2] v1 (visual h1: cos,sin,amp), [3..5] v2 (visual h2), [6..8] s1 (smell h1), [9..11] s2 (smell h2; amp=complexity), [12..14] audio (silent).
 - `lifespan` — seconds before expiry; `dead` = true when killed.
 - `frictionless` — if true, ignores surface friction (useful for wall-hugging spawn patterns).
 
@@ -55,7 +55,7 @@ export default class Food extends PhysicsObject {
 		this.flavor = Math.random(); // 0..1
 		this.complexity = utils.RandomInt(1,Food.FOOD_COMPLEXITY_LEVELS);
 		this.frictionless = false;
-		this.sense = new Array(16).fill(0);
+		this.sense = new Array(15).fill(0);
 		this.buoy = 0;
 		this.buoy_start = 0;
 		this.buoy_end = 0;
@@ -67,24 +67,31 @@ export default class Food extends PhysicsObject {
 		
 		// sensory data comes from food flavor unless overridden by creator
 		if ( !params || !params?.sense ) {
-			// visual color
-			const rgb = utils.hsl2rgb(this.flavor,1,0.6);
-			const visual_buff = 10; // buff to help boids see food
-			this.sense[0] = rgb[0] * visual_buff;
-			this.sense[1] = rgb[1] * visual_buff;
-			this.sense[2] = rgb[2] * visual_buff;
-			// smell
-			let smell_scale = utils.Clamp( Math.pow(this.value,0.5) * 0.2, 0, 3 ); // arbitrary
-			const calcScent = i => smell_scale * Math.max( 0, Math.cos( this.flavor + Math.PI * 2 * (i/8) ) );
-			this.sense[3] =  calcScent(0); 
-			this.sense[4] =  calcScent(1); 
-			this.sense[5] =  calcScent(2); 
-			this.sense[6] =  calcScent(3); 
-			this.sense[7] =  calcScent(4); 
-			this.sense[8] =  calcScent(5); 
-			this.sense[9] =  calcScent(6); 
-			this.sense[10] = calcScent(7); 
+			// Fourier identity encoding: flavor angle maps to spectral fingerprint.
+			// sense[] layout: [v1c,v1s,v1a, v2c,v2s,v2a, s1c,s1s,s1a, s2c,s2s,s2a, ac,as,aa]
+			const hue_angle = this.flavor * 2 * Math.PI;
+			const visual_buff = 10; // amplitude multiplier to help boids see food
+			let smell_scale = utils.Clamp( Math.pow(this.value,0.5) * 0.2, 0, 3 );
+			// visual harmonic 1 [0,1,2]: cos/sin unit vector + amplitude
+			this.sense[0] = Math.cos(hue_angle);
+			this.sense[1] = Math.sin(hue_angle);
+			this.sense[2] = visual_buff;
+			// visual harmonic 2 [3,4,5]: 2nd spectral peak (iridescence)
+			this.sense[3] = Math.cos(2 * hue_angle);
+			this.sense[4] = Math.sin(2 * hue_angle);
+			this.sense[5] = visual_buff * 0.5;
+			// smell harmonic 1 [6,7,8]: odor identity + strength
+			this.sense[6] = Math.cos(hue_angle);
+			this.sense[7] = Math.sin(hue_angle);
+			this.sense[8] = smell_scale;
+			// smell harmonic 2 [9,10,11]: 2nd odor overtone; amplitude encodes complexity
+			this.sense[9]  = Math.cos(2 * hue_angle);
+			this.sense[10] = Math.sin(2 * hue_angle);
 			this.sense[11] = smell_scale * (this.complexity || 0) / Food.FOOD_COMPLEXITY_LEVELS;
+			// audio [12,13,14]: food is silent
+			this.sense[12] = 0;
+			this.sense[13] = 0;
+			this.sense[14] = 0;
 		}
 
 	}
