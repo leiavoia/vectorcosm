@@ -304,10 +304,6 @@
 					<output>{((boid.health||0)*100).toFixed()}%</output>
 				<progress value={(boid.health||0)}></progress>
 				
-				Bite <output>{(boid.metab.bite_size||0).toFixed(1)}</output>
-					@ <output>{(boid.traits.bite_speed||0).toFixed(1)}s</output>
-				<progress value={((boid.metab.bite_time / boid.traits.bite_speed)||0)}></progress>
-				
 				Bowel <output>{(boid.metab.bowel_total||0).toFixed(1)}</output>
 					@ <output>{(boid.metab.bowel_size||0).toFixed(1)}s</output>
 				<progress value={((boid.metab.bowel_total / boid.metab.bowel_size)||0)}></progress>

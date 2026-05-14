@@ -264,8 +264,7 @@ export class Boid extends PhysicsObject {
 			bowel_total: 0,					// total mass of bowel contents
 			max_energy: 1,					// maximum value of energy meter
 			energy: 0,						// current energy value
-			bite_size: 1,					// amount of food per bite attempt
-			bite_time: 0,					// countdown timer. zero if ready to bite. resets to bite_speed on bite.
+			bite_size: 1,					// amount of food per bite attempt (mass-scaled in CalcMetab)
 			seed_dna: null					// DNA str of seed swallowed from food
 		};
 		// collision
@@ -619,57 +618,6 @@ export class Boid extends PhysicsObject {
 		}		
 			
 			
-		// EATING FOOD ----------------------------\/---------------------------------------
-		
-		// still chewing
-		if ( this.metab.bite_time > 0 ) {
-			this.metab.bite_time = Math.max( 0, this.metab.bite_time - delta );
-		}
-		
-		// mouth is available to take a bite
-		if ( this.metab.bite_time === 0 ) {
-			// already full. stop eating
-			if ( this.metab.stomach_total / this.metab.stomach_size < 0.95 || globalThis.vc.simulation.settings?.ignore_lifecycle ) { 
-				const grace = 4; // MAGIC NUMBER
-				const r = this.collision.radius + grace;
-				// get a list of collision candidates
-				const test = o => { return o instanceof Food && o.IsEdibleBy(this) && !( this.ignore_list && this.ignore_list.has(o) ) };
-				let foods = globalThis.vc.tank.grid.GetObjectsByBox( this.x - r, this.y - r, this.x + r, this.y + r, test );				
-				// check for collision + edibility
-				for ( let food of foods ) { 
-					const dx = Math.abs(food.x - this.x);
-					const dy = Math.abs(food.y - this.y);
-					const d = Math.sqrt(dx*dx + dy*dy);
-					if ( d > this.collision.radius + food.r ) { continue; }
-					// take a bite - reset bite, regardless of morsel size
-					if ( !globalThis.vc.simulation.settings?.ignore_lifecycle ) {
-						this.metab.bite_time = this.traits.bite_speed;
-					}
-					const space_left = this.metab.stomach_size - this.metab.stomach_total;
-					const bitesize = Math.min( space_left, this.metab.bite_size );
-					const morsel = food.Eat( bitesize );
-					this.metab.stomach_color = utils.modularWeightedAverage( this.metab.stomach_color, this.metab.stomach_total, food.flavor, morsel );
-					this.metab.stomach_total += morsel;
-					this.stats.food.bites++;
-					this.RecordStat('bites',1);
-					globalThis.vc.simulation.RecordStat('bites',1);
-					globalThis.vc.simulation.RecordStat('food_eaten',morsel);
-					// if the food has a seed, save the seed for excretion.
-					if ( food.seed ) { this.metab.seed_dna = food.seed; }
-					// certain simulations use food for sequential target practice
-					if ( globalThis.vc.simulation.settings?.on_bite_ignore ) {
-						if ( !this.ignore_list ) {
-							this.ignore_list = new WeakSet;
-						}
-						this.ignore_list.add(food);
-					}
-					// reward signal for brain training.
-					this.Experience( 1.0 );
-					break; // one bite only!
-				}
-			}		
-		}
-		
 		// ENDOCRINE / HORMONE LEVELS ------------------------\/-----------------------------------
 		// we don't need to update hormone levels every frame. 
 		// we can do this every 5 seconds or so.
@@ -1725,6 +1673,65 @@ export class Boid extends PhysicsObject {
 			this.traits.boxfit.push([ boxcost * 0.2, boxcost, `motors.signal1`]);
 		}
 		
+		// bite motor
+		this.motors.push({
+			stroketime: this.traits.bite_speed,
+			strokefunc: 'linear_down',
+			name: 'bite',
+			cost: 0,
+			target: null,
+			skip_sensor_check: true,
+			// returns 1 if ready to eat (full bite), 0 if refusing to bite
+			AutoInput: function( boid ) {
+				// hungry?
+				if ( !globalThis.vc.simulation.settings?.ignore_lifecycle &&
+					boid.metab.stomach_total / boid.metab.stomach_size >= 0.95 ) { return 0; }
+				// anything to eat?
+				const grace = 4;
+				const r = boid.collision.radius + grace;
+				// look for foods in range
+				const test = o => o instanceof Food && o.IsEdibleBy(boid) && !( boid.ignore_list && boid.ignore_list.has(o) );
+				const foods = globalThis.vc.tank.grid.GetObjectsByBox( boid.x - r, boid.y - r, boid.x + r, boid.y + r, test );
+				for ( let food of foods ) {
+					const dx = Math.abs(food.x - boid.x);
+					const dy = Math.abs(food.y - boid.y);
+					const d = Math.sqrt(dx*dx + dy*dy);
+					if ( d <= boid.collision.radius + food.r ) {
+						// save the target for the Do() function
+						this.target = food;
+						return 1;
+					}
+				}
+				// TODO: look for victims to attack!				
+				return 0; // nothing to eat - motor does nothing
+			},
+			// performs a single bite on the first frame of the stroke.
+			Do: function ( boid, amount, delta ) {
+				if ( !this.target ) { return false; }
+				// if ( this.t !== 0 ) { return; } // bite fires once at stroke start
+				const space_left = boid.metab.stomach_size - boid.metab.stomach_total;
+				const bitesize = Math.min( space_left, boid.metab.bite_size );
+				const morsel = this.target.Eat( bitesize );
+				boid.metab.stomach_color = utils.modularWeightedAverage( boid.metab.stomach_color, boid.metab.stomach_total, this.target.flavor, morsel );
+				boid.metab.stomach_total += morsel;
+				boid.stats.food.bites++;
+				boid.RecordStat('bites', 1);
+				globalThis.vc.simulation.RecordStat('bites', 1);
+				globalThis.vc.simulation.RecordStat('food_eaten', morsel);
+				if ( this.target.seed ) { boid.metab.seed_dna = this.target.seed; }
+				if ( globalThis.vc.simulation.settings?.on_bite_ignore ) {
+					if ( !boid.ignore_list ) { boid.ignore_list = new WeakSet; }
+					boid.ignore_list.add(this.target);
+				}
+				boid.Experience( 1.0 );
+				this.target = null;
+				// finish stroke time so bite can fire again immediately on training runs
+				if ( globalThis.vc.simulation.settings?.ignore_lifecycle ) {
+					this.t = this.this_stroke_time;
+				}
+			}
+		});
+
 		// this function gets activation values from the brain for each neuro motor.
 		// built in filters cut the value to zero when motor should not fire.
 		// it takes a boid (the owner) as a param, returns motor activation value.
@@ -1825,13 +1832,20 @@ export class Boid extends PhysicsObject {
 			const xoff = this.dna.shapedNumber(this.dna.genesFor('vision xoff',3,2), -radius*0.5, radius, radius*0.5, 1.5 );
 			const yoff = this.dna.shapedNumber(this.dna.genesFor('vision yoff',3,2), 0, radius, radius*0.5, 1.5 );
 			const sensitivity = this.dna.shapedNumber(this.dna.genesFor('vision sensitivity',2,1), 0.5, 10, 2, 3 );
-			// Fourier visual: evolve hue tuning angle; optional 2nd spectral preference (dichromat)
-			const theta_v = this.dna.shapedNumber(this.dna.genesFor('vision tuning angle',2,1), 0, Math.PI*2, Math.PI, 1);
-			const detect = [{ modality: 0, tc1: Math.cos(theta_v), ts1: Math.sin(theta_v), tc2: Math.cos(2*theta_v), ts2: Math.sin(2*theta_v) }];
-			const chance_dichromat = this.dna.shapedNumber(this.dna.genesFor('vision dichromat',2,true), 0, 1);
-			if ( chance_dichromat > 0.5 ) {
-				const theta_v2 = this.dna.shapedNumber(this.dna.genesFor('vision tuning angle 2',2,1), 0, Math.PI*2, Math.PI, 1);
-				detect.push({ modality: 0, tc1: Math.cos(theta_v2), ts1: Math.sin(theta_v2), tc2: Math.cos(2*theta_v2), ts2: Math.sin(2*theta_v2) });
+			// Broadband vision (tc1=0, ts1=0) - uses raw intensity instead of sensing color
+			const chance_broadband = this.dna.shapedNumber(this.dna.genesFor('vision broadband',2,true), 0, 1);
+			const is_broadband = chance_broadband > 0.82;
+			const theta = is_broadband ? 0 : this.dna.shapedNumber(this.dna.genesFor('vision tuning angle',2,1), 0, Math.PI*2, Math.PI, 1);
+			const v_tc = is_broadband ? 0 : Math.cos(theta);
+			const v_ts = is_broadband ? 0 : Math.sin(theta);
+			const detect = [{ modality: 0, tc1: v_tc, ts1: v_ts, tc2: is_broadband ? 0 : Math.cos(2*theta), ts2: is_broadband ? 0 : Math.sin(2*theta) }];
+			// color-spectrum vision: can be 1 or 2 channel
+			if ( !is_broadband ) {
+				const chance_dichromat = this.dna.shapedNumber(this.dna.genesFor('vision dichromat',2,true), 0, 1);
+				if ( chance_dichromat > 0.5 ) {
+					const theta2 = this.dna.shapedNumber(this.dna.genesFor('vision tuning angle 2',2,1), 0, Math.PI*2, Math.PI, 1);
+					detect.push({ modality: 0, tc1: Math.cos(theta2), ts1: Math.sin(theta2), tc2: Math.cos(2*theta2), ts2: Math.sin(2*theta2) });
+				}
 			}
 			const segmented_vision = this.dna.shapedNumber(this.dna.genesFor('segmented_vision',2,true));
 			if ( segmented_vision ) {
@@ -1886,9 +1900,11 @@ export class Boid extends PhysicsObject {
 			const radius = this.dna.shapedNumber( this.dna.genesFor('audio sense radius',3,2), 200, 750, 350, 1.5 );
 			const xoff = this.dna.shapedNumber( this.dna.genesFor('audio sense xoff',3,2), -radius*0.5, radius, radius*0.5, 1.5 );
 			const yoff = this.dna.shapedNumber( this.dna.genesFor('audio sense yoff',3,2), 0, radius, radius*0.5, 1.5 );
-			// Fourier audio: evolve tuning angle (call type preference), 1 harmonic
-			const theta1 = this.dna.shapedNumber(this.dna.genesFor('audio tuning angle',2,1), 0, Math.PI*2, Math.PI, 1);
-			const detect = [{ modality: 2, tc1: Math.cos(theta1), ts1: Math.sin(theta1), tc2: 0, ts2: 0 }];
+			// Fourier audio: broadband generalist (tc1=ts1=0) OR tuned call angle, 1 harmonic
+			const chance_broadband_a = this.dna.shapedNumber(this.dna.genesFor('audio broadband',2,true), 0, 1);
+			const broadband_a = chance_broadband_a > 0.7;
+			const theta_a = broadband_a ? 0 : this.dna.shapedNumber(this.dna.genesFor('audio tuning angle',2,1), 0, Math.PI*2, Math.PI, 1);
+			const detect = [{ modality: 2, tc1: broadband_a ? 0 : Math.cos(theta_a), ts1: broadband_a ? 0 : Math.sin(theta_a), tc2: 0, ts2: 0 }];
 			if ( detect.length ) {
 				let sensitivity = this.dna.shapedNumber(this.dna.genesFor('audio sensitivity',2,1), 0.1, 3, 0.5, 3 );
 				const chance = this.dna.shapedNumber(this.dna.genesFor('stereo audio',3,true));

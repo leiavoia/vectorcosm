@@ -97,8 +97,11 @@ export default class Sensor {
 					}
 					if ( num_segments > 1 ) {
 						label += '/' + i;
-					}	
-					label += '@' + freq;
+					}
+					// ignore broadband visual detections for labeling purposes (they don't have a tuning angle)
+					if ( !(d.tc1 === 0 && d.ts1 === 0) ) {	
+						label += '@' + freq;
+					}
 					this.labels.push( label );
 				}
 			}
@@ -168,8 +171,9 @@ export default class Sensor {
 			// visual and smell have 2 harmonics; audio has 1
 			const _MODALITY_HAS_H2 = [1, 1, 0];
 			this._num_detections = this.detect.length;
-			this._detect_base   = new Uint8Array(this._num_detections);
-			this._detect_has_h2 = new Uint8Array(this._num_detections);
+			this._detect_base      = new Uint8Array(this._num_detections);
+			this._detect_has_h2    = new Uint8Array(this._num_detections);
+			this._detect_broadband = new Uint8Array(this._num_detections);
 			this._detect_tc1 = new Float64Array(this._num_detections);
 			this._detect_ts1 = new Float64Array(this._num_detections);
 			this._detect_tc2 = new Float64Array(this._num_detections);
@@ -177,12 +181,13 @@ export default class Sensor {
 			for ( let d=0; d<this.detect.length; d++ ) {
 				const det = this.detect[d];
 				const mod = det.modality;
-				this._detect_base[d]   = _MODALITY_BASE[mod];
-				this._detect_has_h2[d] = _MODALITY_HAS_H2[mod];
-				this._detect_tc1[d]    = det.tc1;
-				this._detect_ts1[d]    = det.ts1;
-				this._detect_tc2[d]    = det.tc2 || 0;
-				this._detect_ts2[d]    = det.ts2 || 0;
+				this._detect_base[d]      = _MODALITY_BASE[mod];
+				this._detect_has_h2[d]    = _MODALITY_HAS_H2[mod];
+				this._detect_broadband[d] = (det.tc1 === 0 && det.ts1 === 0) ? 1 : 0;
+				this._detect_tc1[d]       = det.tc1;
+				this._detect_ts1[d]       = det.ts1;
+				this._detect_tc2[d]       = det.tc2 || 0;
+				this._detect_ts2[d]       = det.ts2 || 0;
 			}
 			// assign the correct optimized function + type code for monomorphic dispatch
 			if ( this.segments ) {
@@ -523,12 +528,13 @@ export default class Sensor {
 		const seglength = this.seglength, inv_seglength = this._inv_seglength;
 		const falloff = this._has_falloff;
 		const sensitivity = this._sensitivity;
-		const detect_base   = this._detect_base;
-		const detect_has_h2 = this._detect_has_h2;
-		const detect_tc1    = this._detect_tc1;
-		const detect_ts1    = this._detect_ts1;
-		const detect_tc2    = this._detect_tc2;
-		const detect_ts2    = this._detect_ts2;
+		const detect_base      = this._detect_base;
+		const detect_has_h2    = this._detect_has_h2;
+		const detect_broadband = this._detect_broadband;
+		const detect_tc1       = this._detect_tc1;
+		const detect_ts1       = this._detect_ts1;
+		const detect_tc2       = this._detect_tc2;
+		const detect_ts2       = this._detect_ts2;
 		const num_detections = this._num_detections;
 		const segdata_lefts = this._segdata_lefts;
 		const segdata_rights = this._segdata_rights;
@@ -663,14 +669,23 @@ export default class Sensor {
 				
 				overlap_pct *= prox_factor;
 				
-				// dot product per modality — Fourier identity matching
+				// dot product per modality — Fourier identity matching; broadband = raw amplitude
 				const out_base = s * num_detections;
 				for ( let di=0; di<num_detections; di++ ) {
 					const b = detect_base[di];
-					const v1 = Math.max( 0, detect_tc1[di] * sense[b]   + detect_ts1[di] * sense[b+1] ) * sense[b+2];
-					const v2 = detect_has_h2[di]
-						? Math.max( 0, detect_tc2[di] * sense[b+3] + detect_ts2[di] * sense[b+4] ) * sense[b+5]
-						: 0;
+					let v1, v2;
+					// broadband
+					if ( detect_broadband[di] ) {
+						v1 = sense[b+2];
+						v2 = detect_has_h2[di] ? sense[b+5] : 0;
+					}
+					// spectrum
+					else {
+						v1 = Math.max( 0, detect_tc1[di] * sense[b]   + detect_ts1[di] * sense[b+1] ) * sense[b+2];
+						v2 = detect_has_h2[di]
+							? Math.max( 0, detect_tc2[di] * sense[b+3] + detect_ts2[di] * sense[b+4] ) * sense[b+5]
+							: 0;
+					}
 					detection[out_base + di] += ( v1 + v2 ) * overlap_pct;
 				}
 			}
@@ -694,12 +709,13 @@ export default class Sensor {
 		const falloff = this._has_falloff;
 		const has_fov = this._has_fov;
 		const has_attenuation = this._has_attenuation;
-		const detect_base   = this._detect_base;
-		const detect_has_h2 = this._detect_has_h2;
-		const detect_tc1    = this._detect_tc1;
-		const detect_ts1    = this._detect_ts1;
-		const detect_tc2    = this._detect_tc2;
-		const detect_ts2    = this._detect_ts2;
+		const detect_base      = this._detect_base;
+		const detect_has_h2    = this._detect_has_h2;
+		const detect_broadband = this._detect_broadband;
+		const detect_tc1       = this._detect_tc1;
+		const detect_ts1       = this._detect_ts1;
+		const detect_tc2       = this._detect_tc2;
+		const detect_ts2       = this._detect_ts2;
 		const num_detections = this._num_detections;
 		const detection = this._detection;
 		const outputs = this._outputs;
@@ -792,13 +808,22 @@ export default class Sensor {
 			// grab the sense array ref once
 			const sense = obj.sense;
 			
-			// dot product per modality — Fourier identity matching
+			// dot product per modality — Fourier identity matching; broadband = raw amplitude
 			for ( let di=0; di<num_detections; di++ ) {
 				const b = detect_base[di];
-				const v1 = Math.max( 0, detect_tc1[di] * sense[b]   + detect_ts1[di] * sense[b+1] ) * sense[b+2];
-				const v2 = detect_has_h2[di]
-					? Math.max( 0, detect_tc2[di] * sense[b+3] + detect_ts2[di] * sense[b+4] ) * sense[b+5]
-					: 0;
+				let v1, v2;
+				// broadband
+				if ( detect_broadband[di] ) {
+					v1 = sense[b+2];
+					v2 = detect_has_h2[di] ? sense[b+5] : 0;
+				}
+				// spectrum
+				else {
+					v1 = Math.max( 0, detect_tc1[di] * sense[b]   + detect_ts1[di] * sense[b+1] ) * sense[b+2];
+					v2 = detect_has_h2[di]
+						? Math.max( 0, detect_tc2[di] * sense[b+3] + detect_ts2[di] * sense[b+4] ) * sense[b+5]
+						: 0;
+				}
 				detection[di] += ( v1 + v2 ) * signal_strength;
 			}
 		}
