@@ -866,21 +866,8 @@ export class Boid extends PhysicsObject {
 	}
 	
 	// true on success, false on whiff
-	AttemptAttack( attack_force /* this.mass * m.attack * amount */ ) {
-		// find boids in the local area
-		let victim = globalThis.vc.tank.grid.GetObjectsByBox( 
-			this.x - this.collision.radius, 
-			this.y - this.collision.radius,
-			this.x + this.collision.radius,
-			this.y + this.collision.radius,
-			o => o instanceof Boid && o.genus != this.genus && o != this )
-		.find( b => {
-			let dx = b.x - this.x;
-			let dy = b.y - this.y;
-			let d = Math.sqrt( dx * dx + dy * dy );
-			return d < this.collision.radius + b.collision.radius;
-		} );
-		if ( !victim ) { return false; }
+	AttemptAttack( victim, attack_force /* this.mass * attack_pow * amount */ ) {
+		if ( !victim || !attack_force ) { return false; }
 		// let was = victim.metab.energy;
 		victim.metab.energy -= attack_force;
 		// console.log(`attacking @ ${attack_force.toFixed()} : ${was.toFixed()} -> ${victim.metab.energy.toFixed()}`);
@@ -1469,45 +1456,7 @@ export class Boid extends PhysicsObject {
 			// requiring a large body for budding differentiates this from mitosis method
 			this.traits.boxfit.push([ 1 * this.traits.offspring_investment, 20 * this.traits.offspring_investment, `motors.bud`]);
 		}
-		
-		// combat
-		// const canAttack = this.dna.shapedNumber( this.dna.genesFor(`attack motor chance`,1,1) );
-		// if ( canAttack > 0.5 ) {
-		// 	const attackValue = this.dna.shapedNumber( this.dna.genesFor(`attack motor value`,1,1), 0.2, 2.0, 2, 3 ); 
-		// 	const max_stroketime = 10;
-		// 	let stroketime = max_stroketime * ( attackValue / 2 );
-		// 	const cost = ( Math.sqrt(1 + (max_stroketime - stroketime)) * (1/250) ) / stroketime; // discount for infrequent violence
-		// 	this.motors.push({
-		// 		attack: attackValue,
-		// 		min_act: this.dna.shapedNumber( this.dna.genesFor('attack motor min act',2), 0.25, 0.9, 0.5, 3),
-		// 		cost: cost,
-		// 		stroketime: stroketime, 
-		// 		strokefunc: 'linear_down', 
-		// 		name: `attack${attackValue.toFixed(1)}`,
-		// 		min_age: this.larval_age * 3,
-		// 		skip_sensor_check:true,
-		// 		neuro:true,
-		// 		// AutoInput: ( boid ) => {
-		// 		// 	// TODO: combat detection - collision detection to find victim makes this super awkward.
-		// 		// },				
-		// 		Do: function (boid,amount) {
-		// 			// // attack executes only on the first frame and only if there is a victim
-		// 			// if ( m.hasOwnProperty('attack') && !globalThis.vc.simulation.settings?.no_combat ) {
-		// 			// 	const power = this.mass * m.attack * amount;
-		// 			// 	const gotcha = this.AttemptAttack(power);
-		// 			// 	if ( !gotcha ) { 
-		// 			// 		m.last_amount = 0;
-		// 			// 		m.this_stroke_time = 0;
-		// 			// 		return 0; 
-		// 			// 	}
-		// 			// }						
-		// 		} 				
-		// 		// TODO: throttle
-		// 	});
-		// 	this.traits.boxfit.push([ attackValue, attackValue * 3, `motors.attack`]);
-		// }
 
-						
 		// mark motors (calls, scents, "pheromones", flashes of light, etc...)
 		const hasScent1 = this.dna.shapedNumber( 0x08000000 | this.dna.genesFor(`hasScent1`,1,1) );
 		if ( hasScent1 > 0.42 ) { 
@@ -1688,9 +1637,9 @@ export class Boid extends PhysicsObject {
 					boid.metab.stomach_total / boid.metab.stomach_size >= 0.95 ) { return 0; }
 				// anything to eat?
 				const grace = 4;
-				const r = boid.collision.radius + grace;
+				let r = boid.collision.radius + grace;
 				// look for foods in range
-				const test = o => o instanceof Food && o.IsEdibleBy(boid) && !( boid.ignore_list && boid.ignore_list.has(o) );
+				let test = o => o instanceof Food && o.IsEdibleBy(boid) && !( boid.ignore_list && boid.ignore_list.has(o) );
 				const foods = globalThis.vc.tank.grid.GetObjectsByBox( boid.x - r, boid.y - r, boid.x + r, boid.y + r, test );
 				for ( let food of foods ) {
 					const dx = Math.abs(food.x - boid.x);
@@ -1702,28 +1651,57 @@ export class Boid extends PhysicsObject {
 						return 1;
 					}
 				}
-				// TODO: look for victims to attack!				
+				// look for victims to attack!
+				// TODO: can attack?
+				if ( !globalThis.vc.simulation.settings?.no_combat ) {
+					r = boid.collision.radius; // no grace here - be precise!		
+					test = o => 
+						o instanceof Boid 
+						&& o !== boid // cant attack self
+						&& boid.species != o.species // don't attack same species (yet!)
+						/* && o.IsEdibleBy(boid) */ 
+						;
+					const boids = globalThis.vc.tank.grid.GetObjectsByBox( boid.x - r, boid.y - r, boid.x + r, boid.y + r, test );
+					for ( let target of boids ) {
+						const dx = Math.abs(target.x - boid.x);
+						const dy = Math.abs(target.y - boid.y);
+						const d = Math.sqrt(dx*dx + dy*dy);
+						if ( d <= boid.collision.radius + target.collision.radius ) {
+							// save the target for the Do() function
+							this.target = target;
+							return 1;
+						}
+					}
+				}
 				return 0; // nothing to eat - motor does nothing
 			},
 			// performs a single bite on the first frame of the stroke.
 			Do: function ( boid, amount, delta ) {
 				if ( !this.target ) { return false; }
 				// if ( this.t !== 0 ) { return; } // bite fires once at stroke start
-				const space_left = boid.metab.stomach_size - boid.metab.stomach_total;
-				const bitesize = Math.min( space_left, boid.metab.bite_size );
-				const morsel = this.target.Eat( bitesize );
-				boid.metab.stomach_color = utils.modularWeightedAverage( boid.metab.stomach_color, boid.metab.stomach_total, this.target.flavor, morsel );
-				boid.metab.stomach_total += morsel;
-				boid.stats.food.bites++;
-				boid.RecordStat('bites', 1);
-				globalThis.vc.simulation.RecordStat('bites', 1);
-				globalThis.vc.simulation.RecordStat('food_eaten', morsel);
-				if ( this.target.seed ) { boid.metab.seed_dna = this.target.seed; }
-				if ( globalThis.vc.simulation.settings?.on_bite_ignore ) {
-					if ( !boid.ignore_list ) { boid.ignore_list = new WeakSet; }
-					boid.ignore_list.add(this.target);
+				if ( this.target instanceof Food ) {
+					const space_left = boid.metab.stomach_size - boid.metab.stomach_total;
+					const bitesize = Math.min( space_left, boid.metab.bite_size );
+					const morsel = this.target.Eat( bitesize );
+					boid.metab.stomach_color = utils.modularWeightedAverage( boid.metab.stomach_color, boid.metab.stomach_total, this.target.flavor, morsel );
+					boid.metab.stomach_total += morsel;
+					boid.stats.food.bites++;
+					boid.RecordStat('bites', 1);
+					globalThis.vc.simulation.RecordStat('bites', 1);
+					globalThis.vc.simulation.RecordStat('food_eaten', morsel);
+					if ( this.target.seed ) { boid.metab.seed_dna = this.target.seed; }
+					if ( globalThis.vc.simulation.settings?.on_bite_ignore ) {
+						if ( !boid.ignore_list ) { boid.ignore_list = new WeakSet; }
+						boid.ignore_list.add(this.target);
+					}
+					boid.Experience( 1.0 );
 				}
-				boid.Experience( 1.0 );
+				else if ( this.target instanceof Boid ) {
+					console.log("Attack!");
+					const attack_pow = 1; // TODO: need attack value
+					const power = boid.mass * attack_pow * amount; 
+					boid.AttemptAttack( this.target, power );
+				}
 				this.target = null;
 				// finish stroke time so bite can fire again immediately on training runs
 				if ( globalThis.vc.simulation.settings?.ignore_lifecycle ) {
