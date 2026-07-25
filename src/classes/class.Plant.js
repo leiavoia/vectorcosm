@@ -11,10 +11,8 @@ RESOURCE SYSTEM (driven by Tank each frame)
 - `GrantResources(matter)` → tank allocates a share; plant converts it to growth or new fruit.
 - Fruiting: when `fruit_credits` exceeds threshold, `Fruit()` spawns Food objects.
 
-SUBCLASSES / TYPES
-- `Plant.PlantTypes` Map — registry of plant subtype classes.
-- `DNAPlant` — reads all traits from a DNA object; fruit carries seed DNA for germination.
-- `RandomPlant(x, y)` — factory picks a random registered subtype.
+GENERATORS
+- `RandomPlant(x, y)` — factory creates plants with related DNA
 
 KEY TRAITS
 - `growth_speed`, `fruit_num`, `fruit_size`, `fruit_flavor`, `fruit_complexity`, `germ_distance`, etc.
@@ -37,12 +35,9 @@ const PLANT_MIN_HEALTH_CREDIT = 0.25; // minimum amount of life credit to use if
 
 export default class Plant {
 	
-	static PlantTypes = new Map;
-	
 	constructor(params) {
 		// defaults
 		this.oid = ++globalThis.vc.next_object_id;
-		this.type = 'Plant'; // avoids JS classname mangling
 		this.x = 0;
 		this.y = 0;
 		this.dna = 128; // random chars
@@ -82,6 +77,12 @@ export default class Plant {
 			fruit_complexity: 3,
 			fruit_flavor: 0.0, // 0..1
 		};
+		// begin rehydration from DNA
+		this.dna = new DNA( this.dna ); // will either be number of chars, or full string if rehydrating
+		this.RehydrateFromDNA();
+		// apply DNA-derived lifespan unless a saved value was explicitly provided
+		this.life_credits = params?.life_credits || this.traits.life_credits;
+		this.CreateBody();
 	}
 	
 	RequestResources( time_interval ) {
@@ -169,15 +170,7 @@ export default class Plant {
 	}
 	
 	GeoData() {
-		return {
-			type:'rect',
-			fill: 'transparent',
-			stroke: 'lime',
-			linewidth: 2,
-			w:100,
-			h:100,
-			rotation: Math.PI/4
-		};
+		return this.geo;
 	}
 
 	MakeFruit() {
@@ -259,20 +252,6 @@ export default class Plant {
 		if ( !threshold ) { threshold = 300; }
 		this.fruit_credits = utils.RandomFloat( threshold * 0.96, threshold );
 	}	
-	
-}
-
-export class DNAPlant extends Plant {
-	
-	constructor(params) {
-		super(params);
-		this.type = 'DNAPlant'; // avoids JS classname mangling
-		this.dna = new DNA( this.dna ); // will either be number of chars, or full string if rehydrating
-		this.RehydrateFromDNA();
-		// apply DNA-derived lifespan unless a saved value was explicitly provided
-		this.life_credits = params?.life_credits || this.traits.life_credits;
-		this.CreateBody();
-	}
 	
 	MakeGeneticColor( whatfor, colors ) {
 		let num_colors = Math.round( this.dna.mix( this.dna.genesFor(`plant ${whatfor} num colors gene 2`,2,1), 0, colors.length ) );
@@ -413,11 +392,20 @@ export class DNAPlant extends Plant {
 			const multiplier = Math.round( this.dna.mix( this.dna.genesFor('LWM'), 2, 6 ) );
 			this.traits.linewidth *= multiplier;
 		}
-	}	
-	GeoData() {
-		return this.geo;
 	}		
+	
 	CreateBody() {
+	
+		this.geo = {
+			type:'circle',
+			fill: 'transparent',
+			stroke: 'lime',
+			linewidth: 2,
+			r: 200 //Math.sqrt( this.mass / Math.PI ),
+			// rotation: Math.PI/4
+		};
+		return; // TEMPORARY
+		
 		const t = this.traits; // alias for cleanliness
 		
 		// if ( this.geo ) { this.geo.remove( this.geo.children ); }
@@ -510,247 +498,31 @@ export class DNAPlant extends Plant {
 	SortByX(a,b) { return b[0] - a[0]; }
 	SortByAngle(a,b) { return Math.atan2(b[1],b[0]) - Math.atan2(a[1],a[0]); }
 }
-Plant.PlantTypes.DNAPlant = DNAPlant;
-
-export class PendantLettuce extends Plant {
-	constructor(params) {
-		super(params);
-		this.type = 'PendantLettuce'; // avoids JS classname mangling
-		this.perma = true; // ignore lifecycle
-		this.age = 30; // dodges animation effects
-		this.traits.animation_method ='skew';
-		this.traits.growth_speed = 0.4;
-		this.traits.growth_curve_exp = 0.032;
-		this.traits.fruit_num = 1;
-		this.traits.fruit_size = 120;
-		this.traits.fruit_lifespan = 80;
-		this.traits.fruit_complexity = 5;
-		this.traits.fruit_flavor = 0.11;
-		this.CreateBody();
-	}
-	GeoData() {
-		return this.geo;
-	}	
-	CreateBody() {
-		this.geo = { type:'group', children: [], animation_method: this.traits.animation_method };
-		const n = utils.BiasedRandInt( 3, 16, 8, 0.8 );
-		const r = utils.BiasedRandInt( 50, 200, 100, 0.6);
-		const max_variance = r*0.3; 
-		const seglength = (2*Math.PI) / n;
-		const pts = [];
-		for ( let i=0; i < n; i++ ) {
-			const l = r + utils.RandomInt( -max_variance, max_variance );
-			const a = i * seglength + utils.BiasedRand( -seglength/2, seglength/2, 0, 0.8 ) ;
-			pts.push([ l * Math.cos(a), l * Math.sin(a) ]);
-		}
-		// make the main body shape
-		const linewidth = utils.BiasedRandInt( 1, 6, 2, 0.95 );
-		const tip_hue = utils.RandomFloat(0.25,0.85);
-		const tip_color = `hsl(${tip_hue*255},50%,40%)`; // 255 not a typo
-		const stops = [ [0, '#174D1F'], [1, tip_color] ];		
-		const grad = { type:'radial', xoff:0, yoff:1, r, stops, units:'userSpaceOnUse' };
-		this.geo.children.push({ 
-			type: 'path',
-			points:pts,
-			fill: grad,
-			linewidth: linewidth,
-			stroke: 'transparent',
-			closed:true
-		});
-		// make the veins
-		const dashes = [];
-		let num_dashes = utils.RandomInt(0,3);
-		for ( let i=0; i < num_dashes; i++ ) {
-			dashes.push( utils.RandomInt(linewidth*0,linewidth*10) );
-			dashes.push( utils.RandomInt(linewidth*0,linewidth*10) );
-		}			
-		const vein_stops = [ [0, tip_color], [1, '#66997799'] ];
-		const vein_grad = { type:'radial', xoff:0, yoff:1, r, stops:vein_stops, units:'userSpaceOnUse' };
-		for ( let p of pts ) { 
-			this.geo.children.push({ 
-				type: 'line',
-				x1:0,
-				y1:0,
-				x2:p[0],
-				y2:p[1],
-				fill: 'transparent',
-				linewidth: linewidth,
-				stroke: vein_grad,
-				dashes: dashes,
-			});		
-		}
-		return this.geo;
-	}
-} 
-Plant.PlantTypes.PendantLettuce = PendantLettuce;
-
-export class VectorGrass extends Plant {
-	constructor(params) {
-		super(params);
-		this.type = 'VectorGrass'; // avoids JS classname mangling
-		this.perma = true; // ignore lifecycle
-		this.age = 30; // dodges animation effects
-		this.traits.animation_method ='legacy_sway';
-		this.traits.growth_speed = 0.9;
-		this.traits.growth_curve_exp = 0.023;
-		this.traits.fruit_complexity = 3;
-		this.traits.fruit_flavor = 0.55;
-		// only randomize fruiting traits on fresh creation; preserve saved values on reload
-		if ( !params?.traits ) {
-			this.traits.fruit_num = utils.RandomInt(1,5);
-			this.traits.fruit_size = utils.RandomInt(20,50);
-			this.traits.fruit_lifespan = 40 + utils.RandomInt(0,15);
-			this.traits.fruit_buoy_start = 100 - ( 200 * Math.random() );
-			this.traits.fruit_buoy_end = 100 - ( 200 * Math.random() );
-		}
-		this.CreateBody();
-	}
-	GeoData() {
-		return this.geo;
-	}	
-	CreateBody() {
-		const tip_hue = utils.RandomFloat(0.55,0.8);
-		const tip_color = `hsl(${tip_hue*255},85%,75%)`; // 255 not a typo
-		const stops = [ [0, '#697'], [0.68, '#697'], [1, tip_color] ];		
-		const grad = { xoff:0, yoff:1, xoff2:0, yoff2:0, stops, units:'objectBoundingBox' };
-		const dashes = [2,2];
-		// make the unique shapes		
-		const n = utils.BiasedRandInt( 1, 5, 3, 0.8 );
-		const r = utils.BiasedRandInt( 100, 500, 180, 0.6);
-		const max_variance = r*0.3; 
-		const spread = 0.25 * Math.PI; 
-		const blades = [];
-		for ( let i=0; i < n; i++ ) {
-			const l = r + utils.RandomInt( -max_variance, max_variance );
-			const a = 1.5*Math.PI + utils.BiasedRand( -spread, spread, 0, 0.65 ) ;
-			const blade = { 
-				type: 'line',
-				x1: 0, 
-				y1: 0, 
-				x2: l * Math.cos(a), 
-				y2: l * Math.sin(a), 
-				r,
-				stroke: grad,
-				linewidth: r * utils.BiasedRand( 0.04, 0.2, 0.08, 0.5 ),
-				fill: 'transparent',
-				dashes: dashes,
-			};
-			blades.push(blade);
-		}
-		this.geo = {
-			type:'group',
-			children: blades,
-			animation_method: this.traits.animation_method
-		};
-		return this.geo;
-	}
-} 
-Plant.PlantTypes.VectorGrass = VectorGrass;
-
-export class WaveyVectorGrass extends Plant {
-	constructor(params) {
-		super(params);
-		this.type = 'WaveyVectorGrass'; // avoids JS classname mangling
-		this.perma = true; // ignore lifecycle
-		this.age = 30; // dodges animation effects
-		this.traits.animation_method ='sway';
-		this.traits.growth_speed = 0.7;
-		this.traits.growth_curve_exp = 0.025;
-		this.traits.fruit_complexity = 4;
-		this.traits.fruit_flavor = 0.73;
-		// only randomize fruiting traits on fresh creation; preserve saved values on reload
-		if ( !params?.traits ) {
-			this.traits.fruit_num = utils.RandomInt(1,5);
-			this.traits.fruit_size = utils.RandomInt(40,80);
-			this.traits.fruit_lifespan = 40 + utils.RandomInt(0,15);
-			this.traits.fruit_buoy_start = 100 - ( 200 * Math.random() );
-			this.traits.fruit_buoy_end = 100 - ( 200 * Math.random() );
-		}
-		this.CreateBody();
-	}
-	GeoData() {
-		return this.geo;
-	}		
-	CreateBody() {
-		const tip_hue = utils.RandomFloat(0.05,0.20);
-		const tip_color = `hsl(${tip_hue*255},85%,75%)`; // 255 not a typo
-		const stops = [ [0, '#243'], [0.68, '#726'], [1, tip_color] ];		
-		const grad = { xoff:0, yoff:1, xoff2:0, yoff2:0, stops, units:'objectBoundingBox' };
-		const dashes = [2,2];	
-		const n = utils.BiasedRandInt( 1, 5, 3, 0.8 );
-		const r = utils.BiasedRandInt( 500, 2000, 900, 0.6 );
-		const max_variance = r*0.3; 
-		const spread = 0.25 * Math.PI; 
-		const blades = [];
-		for ( let i=0; i < n; i++ ) {
-			const l = r + utils.RandomInt( -max_variance, max_variance );
-			const a = 1.5*Math.PI + utils.BiasedRand( -spread, spread, 0, 0.65 ) ;
-			// create points
-			const num_points = utils.RandomInt(3,5);
-			const points = [];
-			for ( let n=0; n<num_points; n++ ) {
-				let l2 = (l/num_points) * n;
-				let a2 = 1.5*Math.PI + utils.BiasedRand( -spread/(n||1), spread/(n||1), 0, 0.65 ) ;
-				points.push([ l2 * Math.cos(a2), l2 * Math.sin(a2) ]);
-			}
-			blades.push({ 
-				type: 'path',
-				points: points,
-				stroke: grad,
-				linewidth: r * utils.BiasedRand( 0.02, 0.1, 0.03, 0.5 ),
-				fill: 'transparent',
-				dashes: dashes,
-				closed: false,
-				curved: true,
-			});
-		}
-		this.geo = {
-			type:'group',
-			children: blades,
-			animation_method: this.traits.animation_method
-		};
-		return this.geo;
-	}
-} 
-Plant.PlantTypes.WaveyVectorGrass = WaveyVectorGrass;
-
-const plantPicker = new utils.RandomPicker( [
-	[ PendantLettuce, 	50 ],
-	[ VectorGrass, 		150 ],
-	[ WaveyVectorGrass, 50 ],
-	[ DNAPlant, 250 ],
-] );
 
 // buffer that holds plants for random remixing to create samey-looking plantscapes
 const motherplants = [];
 
 export function RandomPlant(x=0,y=0) {
-	const type = plantPicker.Pick();
-	// legacy hardcoded plants are like you know whatever
-	if ( Plant.PlantTypes.DNAPlant !== type ) { return new type({x,y}); }
-	// fun! if we choose DNAPlant, try to make variations on a theme instead of completely random ones
-	else {
-		let plant;
-		let reuse = 0.65;
-		// grab a used plant
-		if ( motherplants.length && Math.random() < reuse ) { 
-			let mother = motherplants.pickRandom();
-			let dna = new DNA( mother.dna.str );
-			dna.mutate( 2, false );
-			plant = new type({dna, x, y}); 
-		}
-		// create a new plant from scratch
-		else {
-			plant = new type({x,y}); 
-		}
-		// cache the plant for reuse
-		if ( !motherplants.length || Math.random() > reuse ) { // note inverted comparison
-			motherplants.push(plant);
-			if ( motherplants.length > 10 ) {
-				motherplants.unshift();
-			}
-		}
-		return plant;
+	let plant;
+	let reuse = 0.65;
+	// grab a used plant
+	if ( motherplants.length && Math.random() < reuse ) { 
+		let mother = motherplants.pickRandom();
+		let dna = new DNA( mother.dna.str );
+		dna.mutate( 2, false );
+		plant = new Plant({dna, x, y}); 
 	}
+	// create a new plant from scratch
+	else {
+		plant = new Plant({x,y}); 
+	}
+	// cache the plant for reuse
+	if ( !motherplants.length || Math.random() > reuse ) { // note inverted comparison
+		motherplants.push(plant);
+		if ( motherplants.length > 10 ) {
+			motherplants.unshift();
+		}
+	}
+	return plant;
 }
 	

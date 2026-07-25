@@ -241,11 +241,14 @@ commands.register( { name: 'update', description: 'Advance simulation and return
 		if ( return_obj.geodata ) {
 			return_obj.x = o.x;
 			return_obj.y = o.y;
+			return_obj.s = 1; // TODO: scale based on plant mass
 		}
 		if ( inc_plant_animation_data ) {
 			return_obj.anim = {
 				age: o.age,
 				lifespan: o.lifespan,
+				mass: o.mass,
+				r: Math.sqrt( o.mass / Math.PI ),
 				perma: o.perma // support for plants that don't die or have natural life cycle
 			}
 		}

@@ -12,7 +12,7 @@ OVERVIEW
 - `frictionless` — if true, ignores surface friction (useful for wall-hugging spawn patterns).
 
 PLANT SEEDS
-- If spawned from a DNAPlant, carries `seed` DNA string for germination on contact.
+- If spawned from a Plant, carries `seed` DNA string for germination on contact.
 - `max_germ_density` and `germ_distance` control when new plants can sprout.
 
 UPDATE
@@ -25,7 +25,7 @@ import * as utils from '../util/utils.js'
 import { createCircleCollider, testCirclePolygon, createResult } from './collision.js';
 import Rock from '../classes/class.Rock.js'
 import PhysicsObject from '../classes/class.PhysicsObject.js'
-import { DNAPlant } from '../classes/class.Plant.js'
+import Plant from '../classes/class.Plant.js'
 
 const friction = 0.92; // physics friction when sliding
 const bounce = 0.38; // physics bounce when colliding with rocks and walls
@@ -208,7 +208,7 @@ export default class Food extends PhysicsObject {
 				}				
 			}
 			if ( plant_the_seed ) {
-				const plant = new DNAPlant( {dna:this.seed} );
+				const plant = new Plant( {dna:this.seed} );
 				plant.x = this.x;
 				plant.y = this.y;
 				plant.age = 0; // shim

@@ -59,35 +59,11 @@ export function AnimatePlant( o, simStats ) {
 		if ( longest_dim > 600 ) { o.geodata.strength *= 0.5; }
 	}
 	let animation_time = ( simStats?.round_time ?? 0 ) * o.geodata.strength;
-	// sway individual shapes
-	// FIXME: make blades wave from base - need to do rotate-around-point math
-	if ( o.geodata.animation_method == 'sway' ) {
-		for ( let i=0; i < o.geo.children.length; i++ ) {
-			const child = o.geo.children[i];
-			const radius = (child.vertices[0].y - child.vertices[child.vertices.length-1].y) / 2;
-			const angle = 0.1 * Math.cos( i + animation_time );
-			child.rotation = angle;
-			if ( !child.x_offset ) { // stash for repeated calls
-				const dims = child.getBoundingClientRect(true);
-				child.x_offset = ( dims.right + dims.left ) / 2;
-			}
-			child.position.x = ( Math.sin(angle) * radius ) + child.x_offset;
-		}
-	}
-	// old sway motion for vector grass
-	else if ( o.geodata.animation_method == 'legacy_sway' ) {
-		for ( let i=0; i < o.geo.children.length; i++ ) {
-			const child = o.geo.children[i];
-			child.rotation = 0.2 * Math.cos( i + animation_time );
-		}
-	}
-	// simpler skew animation works for any plant type
-	else {
-		let rad = o.geodata.radius || 200; // not currently supplied by API
-		let mod = 0.35 * ( 1.15-(rad/500) );
-		o.geo.skewX = mod * Math.cos( animation_time );
-		o.geo.skewY = mod * Math.sin( animation_time );
-	}
+	// simple skew animation works for any plant type
+	let rad = o.geodata.r || o.geodata.radius || 200; // not currently supplied by API
+	let mod = 0.35 * ( 1.15-(rad/500) );
+	o.geo.skewX = mod * Math.cos( animation_time );
+	o.geo.skewY = mod * Math.sin( animation_time );
 	// fade out
 	if ( !o.anim.perma && o.anim.age > o.anim.lifespan - 8 ) {
 		let diff = o.anim.age - (o.anim.lifespan-8);
