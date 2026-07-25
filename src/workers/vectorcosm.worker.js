@@ -235,20 +235,21 @@ commands.register( { name: 'update', description: 'Advance simulation and return
 		let return_obj = {
 			oid: o.oid,
 			type:'plant',
-			geodata: AutoIncludeGeoData(o)
+			geodata: AutoIncludeGeoData(o),
+			// if radius changed from growth, update the object even if animation is disabled
+			r: o.r,
 		};
 		// plants don't move - that's kinda their whole thing
 		if ( return_obj.geodata ) {
 			return_obj.x = o.x;
 			return_obj.y = o.y;
-			return_obj.s = 1; // TODO: scale based on plant mass
 		}
 		if ( inc_plant_animation_data ) {
 			return_obj.anim = {
 				age: o.age,
 				lifespan: o.lifespan,
 				mass: o.mass,
-				r: Math.sqrt( o.mass / Math.PI ),
+				//r: o.r,
 				perma: o.perma // support for plants that don't die or have natural life cycle
 			}
 		}

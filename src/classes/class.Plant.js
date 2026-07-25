@@ -32,6 +32,7 @@ const PLANT_DECAY_SPEED = 1; // death clock. higher number shortens all lifespan
 const PLANT_HEALTH_PENALTY_EXP = 3; // high number makes bad health drastically more bad.
 const PLANT_HEALTH_PENALTY_COEF = 2; // high number makes bad health drastically more bad.
 const PLANT_MIN_HEALTH_CREDIT = 0.25; // minimum amount of life credit to use if plant in perfect health.
+const PLANT_GROWTH_RADIUS_SCALE = 40; // scale factor for visual radius based on mass
 
 export default class Plant {
 	
@@ -40,6 +41,7 @@ export default class Plant {
 		this.oid = ++globalThis.vc.next_object_id;
 		this.x = 0;
 		this.y = 0;
+		this.r = 1;
 		this.dna = 128; // random chars
 		this.generation = 1;
 		this.dead = false;
@@ -112,6 +114,7 @@ export default class Plant {
 		if ( !matter ) { return; }
 		// growth
 		this.mass += this.growth_mass_request * ratio;
+		this.r = Math.sqrt( 2 * this.mass / Math.PI ) * PLANT_GROWTH_RADIUS_SCALE;
 		// fruit
 		this.fruit_credits += this.fruit_mass_request * ratio;
 		// actual fruiting occurs in the Update() function
@@ -243,6 +246,7 @@ export default class Plant {
 		// theoretical mass ceiling: point where growth fraction drops to ~1% (e^-km < 0.01 => m = ln(100)/k)
 		const theoretical_max = Math.log(100) / this.traits.growth_curve_exp;
 		this.mass = Math.max( 1, theoretical_max * rand );
+		this.r = Math.sqrt( 2 * this.mass / Math.PI ) * PLANT_GROWTH_RADIUS_SCALE;
 		// give fruiting a head start so that new tanks dont immediately starve
 		let threshold = this?.traits?.fruit_num * this?.traits?.fruit_size;
 		if ( !threshold ) { threshold = 300; }
@@ -394,11 +398,13 @@ export default class Plant {
 			type:'circle',
 			fill: 'transparent',
 			stroke: 'lime',
-			linewidth: 2,
-			r: 200 //Math.sqrt( this.mass / Math.PI ),
-			// rotation: Math.PI/4
+			linewidth: 4,
+			r: Math.sqrt( 2 * this.mass / Math.PI ) * PLANT_GROWTH_RADIUS_SCALE,
+			rotation: utils.RandomFloat( 0, Math.PI * 2 ),
 		};
 		return; // TEMPORARY
+		
+		// TODO: REPLACE CODE BELOW WITH NEW FLOWERS
 		
 		const t = this.traits; // alias for cleanliness
 		
