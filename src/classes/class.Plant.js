@@ -59,6 +59,7 @@ export default class Plant {
 		this.last_matter_grant_pct = 1;
 		this.light_health = 0; // 0..1 - zero is a signal it needs to be computed
 		this.heat_health = 0; // 0..1
+		this.sense = new Array(15).fill(0);
 		if ( typeof params === 'object' ) {
 			Object.assign(this,params);
 		}
@@ -397,6 +398,36 @@ export default class Plant {
 			const multiplier = Math.round( this.dna.mix( this.dna.genesFor('LWM'), 2, 6 ) );
 			this.traits.linewidth *= multiplier;
 		}
+		
+		// SENSORY INFO ---------------------\/-------------------------
+
+		// visual color
+		let primary_color = this.traits.colors.find( c => c !== 'transparent' ) || '#FFFFFF';
+		primary_color = utils.HexColorToRGBArray( primary_color );
+		const _hsl = utils.rgb2hsl( primary_color[0], primary_color[1], primary_color[2] );
+		const _hue_angle = _hsl[0] * Math.PI * 2;
+		const _v_amp = Math.max( 0.05, _hsl[2] );
+		this.sense[0] = Math.cos( _hue_angle ); // v1 cos
+		this.sense[1] = Math.sin( _hue_angle ); // v1 sin
+		this.sense[2] = 0.5 * _v_amp; // v1 amplitude
+		// visual texture
+		const _hue_angle2 = this.dna.shapedNumber( this.dna.genesFor('plant texture',2,1), 0, Math.PI*2, Math.PI, 1);
+		const _v2_amp   = this.dna.shapedNumber( this.dna.genesFor('plant texture amp',2,1), 0, 1, 0.5, 2 );
+		this.sense[3] = Math.cos( _hue_angle2 ); // v2 cos
+		this.sense[4] = Math.sin( _hue_angle2 ); // v2 sin
+		this.sense[5] = _v2_amp; // v2 amplitude
+		// primary smell
+		const _s1_angle = this.dna.shapedNumber( this.dna.genesFor('plant smell',2,1), 0, Math.PI*2, Math.PI, 1 );
+		const _s1_amp   = Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('plant smell amp',2,1), 0, 1, 0.5, 2 ) );
+		this.sense[6] = Math.cos( _s1_angle ); // s1 cos
+		this.sense[7] = Math.sin( _s1_angle ); // s1 sin
+		this.sense[8] = _s1_amp; // s1 amplitude
+		// secondary smell
+		const _s2_angle = this.dna.shapedNumber( this.dna.genesFor('plant smell 2',2,1), 0, Math.PI*2, Math.PI, 1 );
+		const _s2_amp   = Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('plant smell 2 amp',2,1), 0, 1, 0.5, 2 ) );
+		this.sense[9]  = Math.cos( _s2_angle ); // s2 cos
+		this.sense[10] = Math.sin( _s2_angle ); // s2 sin
+		this.sense[11] = _s2_amp; // s2 amplitude
 	}		
 	
 	CreateBody() {
