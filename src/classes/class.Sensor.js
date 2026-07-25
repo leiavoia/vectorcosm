@@ -50,7 +50,8 @@ import * as utils from '../util/utils.js'
 import { Boid } from '../classes/class.Boids.js'
 import Rock from '../classes/class.Rock.js'
 import Food from '../classes/class.Food.js'
-import { testCirclePolygon, createResult } from './collision.js';
+import Plant from '../classes/class.Plant.js'
+import { testCirclePolygon, createResult, SHAPE_CIRCLE, SHAPE_POLYGON } from './collision.js';
 
 export default class Sensor {
 
@@ -585,8 +586,10 @@ export default class Sensor {
 				objy = obj.y;
 				const coll = obj.collision;
 				if ( coll ) {
-					if ( coll.shape === 'circle' ) { objsize = coll.radius * 2; }
-					else if ( coll.shape === 'polygon' ) {
+					if ( coll.type === SHAPE_CIRCLE ) { 
+						objsize = coll.radius * 2; 
+					}
+					else if ( coll.type === SHAPE_POLYGON ) {
 						const aabb = coll.aabb;
 						objsize = ( Math.abs(aabb.x2 - aabb.x1) + Math.abs(aabb.y2 - aabb.y1) ) * 0.5;
 						objx += objsize * 0.5;
@@ -765,8 +768,10 @@ export default class Sensor {
 				objy = obj.y;
 				const coll = obj.collision;
 				if ( coll ) {
-					if ( coll.shape === 'circle' ) { objsize = coll.radius * 2; }
-					else if ( coll.shape === 'polygon' ) {
+					if ( coll.type === SHAPE_CIRCLE ) { 
+						objsize = coll.radius * 2; 
+					}
+					else if ( coll.type === SHAPE_POLYGON ) {
 						const aabb = coll.aabb;
 						objsize = ( Math.abs(aabb.x2 - aabb.x1) + Math.abs(aabb.y2 - aabb.y1) ) * 0.5;
 						objx += objsize * 0.5;
@@ -786,6 +791,8 @@ export default class Sensor {
 			const d = Math.sqrt(dist_sq);
 			let percent_nearness = 1 - ( d * inv_r );
 			if ( percent_nearness < 0.01 ) { continue; }
+			
+			
 			
 			// signal falloff: cheap quadratic replaces Math.pow(prox, falloff)
 			if ( falloff ) { percent_nearness = percent_nearness * percent_nearness; }
