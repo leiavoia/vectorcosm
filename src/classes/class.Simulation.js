@@ -590,6 +590,9 @@ export default class Simulation {
 							}
 						}
 					}
+					// pick a random point from here to there
+					target_x = utils.RandomFloat( safe_pt[0], target_x );
+					target_y = utils.RandomFloat( safe_pt[1], target_y );
 					// now make the actual plant
 					const plant = RandomPlant( target_x, target_y );
 					if ( 'RandomizeAge' in plant ) { plant.RandomizeAge(); }

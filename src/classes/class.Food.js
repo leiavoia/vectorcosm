@@ -13,7 +13,6 @@ OVERVIEW
 
 PLANT SEEDS
 - If spawned from a Plant, carries `seed` DNA string for germination on contact.
-- `max_germ_density` and `germ_distance` control when new plants can sprout.
 
 UPDATE
 - `Update(delta)` — moves, applies buoyancy, ages, kills when expired.
@@ -97,7 +96,7 @@ export default class Food extends PhysicsObject {
 	}
 	Export( as_JSON=false ) {
 		let output = {};
-		let datakeys = ['x','y','value','age','lifespan','seed','max_germ_density','germ_distance','frictionless','sense','flavor','complexity'];		
+		let datakeys = ['x','y','value','age','lifespan','seed','frictionless','sense','flavor','complexity'];		
 		for ( let k of datakeys ) { 
 			if ( k in this ) {
 				output[k] = this[k]; 
@@ -181,29 +180,26 @@ export default class Food extends PhysicsObject {
 			if ( this.y < -0.01 || this.y > globalThis.vc.tank.height + 0.01 ) { this.Kill(); return; };
 		}
 		// plant a seed
-		if ( touching_rock && this.seed && this.age > 5 && Math.random() > 0.9992 && 
+		if ( this.seed && this.age > 5 && Math.random() > 0.9992 && 
 			globalThis.vc.tank.plants.length < globalThis.vc.simulation.settings.num_plants ) {
 			// check for local light and heat to be in reasonable range
 			const cell = globalThis.vc.tank.datagrid.CellAt( this.x, this.y );
 			const light_ok = Math.abs( cell.light - this.light_pref ) <= 0.5; // magic - you could make 0.5 a setting
 			const heat_ok = Math.abs( cell.heat - this.heat_pref ) <= 0.5; 
-			// only plant the seed under teh right conditions
+			// only plant the seed under the right conditions
 			let plant_the_seed = light_ok && heat_ok;
 			// check if there are not too many other plants in the local area
-			if ( plant_the_seed && this.max_germ_density && this.germ_distance ) {
-				// [1] plants are not in the collision detection space, so we need to check all of them for now ;-(
-				let found = 0;
-				const csqrd = this.germ_distance * this.germ_distance;
+			if ( plant_the_seed ) {
+				// plants are not in the collision detection space, so we need to check all of them for now ;-(
+				const csqrd = 200*200; // TODO: replace when we have circles later
 				for ( let p of globalThis.vc.tank.plants ) {
 					const xdiff = p.x - this.x;
 					const ydiff = p.y - this.y;
 					const absqrd = xdiff * xdiff + ydiff * ydiff; // dont need to sqrt here
+					// inside another plant circle, cant germinate here
 					if ( absqrd < csqrd ) {
-						found++;
-						if ( found >= this.max_germ_density ) {
-							plant_the_seed = false;
-							break; // too many plants in the local area - stop here
-						}
+						plant_the_seed = false;
+						break;
 					}
 				}				
 			}

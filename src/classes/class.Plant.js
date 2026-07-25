@@ -15,7 +15,7 @@ GENERATORS
 - `RandomPlant(x, y)` — factory creates plants with related DNA
 
 KEY TRAITS
-- `growth_speed`, `fruit_num`, `fruit_size`, `fruit_flavor`, `fruit_complexity`, `germ_distance`, etc.
+- `growth_speed`, `fruit_num`, `fruit_size`, `fruit_flavor`, `fruit_complexity`, etc.
 - Light/heat preferences: `light_pref`, `light_tolr`, `heat_pref`, `heat_tolr`.
 
 VISUAL
@@ -63,8 +63,6 @@ export default class Plant {
 			animation_method:'skew',
 			growth_speed: 0.5,
 			growth_curve_exp: 0.02, // lower numbers -> higher mass ceiling -> higher max fruit throughput
-			max_germ_density: 4,
-			germ_distance: 200,
 			light_pref: 0.65, // 0..1
 			light_tolr: 0.5, // 0..1
 			heat_pref: 0.65, // 0..1
@@ -205,8 +203,6 @@ export default class Plant {
 								let seed = new DNA(	this.dna.str );
 								seed.mutate( 2, false );
 								f.seed = seed.str;
-								f.max_germ_density = this.traits.max_germ_density;
-								f.germ_distance = this.traits.germ_distance;
 								f.light_pref = this.traits.light_pref;
 								f.heat_pref = this.traits.heat_pref;
 							}
@@ -344,8 +340,6 @@ export default class Plant {
 		this.traits.fruit_complexity = 2 + Math.ceil( this.dna.shapedInt( fruit_complexity_gene, 0, 599, 150, 1.5 ) / 100 );
 		this.traits.fruit_flavor = this.dna.mix( this.dna.genesFor('fruit flavor',2,1), 0, 1, 0.5, 2 ); // create slight rarity
 		this.traits.life_credits = this.dna.shapedInt( this.dna.genesFor('life_credits',3,1), 1000, 10000, 3000, 2.2 );
-		this.traits.max_germ_density = this.dna.shapedNumber( this.dna.genesFor('max_germ_density',2,1), 0, 10, 4, 2 );
-		this.traits.germ_distance = this.dna.shapedNumber( this.dna.genesFor('germ_distance',2,1), 10, 1000, 200, 2 );
 		this.traits.light_pref = this.dna.shapedNumber( this.dna.genesFor('light_pref',2,1), 0, 1 );
 		this.traits.light_tolr = this.dna.shapedNumber( this.dna.genesFor('light_tolr',2,1), 0, 1 );
 		this.traits.heat_pref = this.dna.shapedNumber( this.dna.genesFor('heat_pref',2,1), 0, 1 );
