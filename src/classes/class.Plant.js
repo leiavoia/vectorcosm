@@ -41,6 +41,7 @@ export default class Plant {
 	
 	constructor(params) {
 		// defaults
+		this.otype = 4; // numeric type tag for fast checks (1=Boid, 2=Food, 3=Rock, 4=Plant)
 		this.oid = ++globalThis.vc.next_object_id;
 		this.x = 0;
 		this.y = 0;

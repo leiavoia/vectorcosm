@@ -151,12 +151,12 @@ export default class Food extends PhysicsObject {
 			this.y - this.r,
 			this.x + this.r,
 			this.y + this.r,
-			o => ( o instanceof Rock || o instanceof Plant )
+			o => ( o.otype === 3 || o.otype === 4 ) // rocks and plants
 		);
 		// narrow phase collision detection
 		let touching_rock = false;
 		for ( let o of candidates ) {
-			if ( o instanceof Rock ) {
+			if ( o.otype === 3 ) { // rock
 				let gotcha = testCirclePolygon(this.x, this.y, this.r, o.collision, _food_coll_result);
 				// response
 					if ( gotcha ) {
@@ -176,7 +176,7 @@ export default class Food extends PhysicsObject {
 				touching_rock = touching_rock || gotcha;
 			}
 			// largely copied form Boid collision detection
-			else if ( o instanceof Plant ) {
+			else if ( o.otype === 4 ) { // plant
 				// narrow phase collision detection:
 				// skip the built in test because we only care about distance to center, not overlap
 				const dist_x = this.x - o.x;

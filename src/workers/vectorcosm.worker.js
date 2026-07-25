@@ -394,7 +394,7 @@ commands.register( { name: 'pick_object', description: 'Select a boid by ID or b
 		const x = params?.x ?? 0;
 		const y = params?.y ?? 0;
 		const r = params?.radius ?? 30;
-		let objs = vc.tank.grid.GetObjectsByBox( x-r, y-r, x+r, y+y, o => o instanceof Boid );
+		let objs = vc.tank.grid.GetObjectsByBox( x-r, y-r, x+r, y+y, o => o.otype === 1 );
 		// optimization hint: if we are ignoring other boids, they are not in the collision detection grid.
 		if ( vc.simulation.settings?.ignore_other_boids === true ) {
 			objs = vc.tank.boids; // do them all brute force instead

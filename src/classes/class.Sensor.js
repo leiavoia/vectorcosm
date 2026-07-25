@@ -346,7 +346,7 @@ export default class Sensor {
 		let sy = this.owner.y + ((this.x * sinAngle) + (this.y * cosAngle));
 		// filter pre-fetched nearby objects for edible food
 		const objs = nearby
-			? nearby.filter( o => o instanceof Food && o.IsEdibleBy(this.owner) && !( this.owner.ignore_list && this.owner.ignore_list.has(o) ) )
+			? nearby.filter( o => o && o.otype === 2 && o.IsEdibleBy(this.owner) && !( this.owner.ignore_list && this.owner.ignore_list.has(o) ) )
 			: [];
 		let nearest_dist = Infinity;
 		let nearest_angle = 0;
@@ -956,10 +956,10 @@ export default class Sensor {
     senseFriends() {
         let val = 0;
         if (globalThis.vc.simulation.settings?.ignore_other_boids === true) return [val];
-        let friends = globalThis.vc.tank.grid.GetObjectsByCoords(this.owner.x, this.owner.y);
-        if (friends) {
-            friends = friends.filter(x => (x instanceof Boid) && x.species == this.owner.species);
-            val = Math.max(friends.length - 1, 0);
+        let objs = globalThis.vc.tank.grid.GetObjectsByCoords(this.owner.x, this.owner.y);
+        if (objs) {
+            objs = objs.filter(x => (x.otype === 1) && x.species == this.owner.species);
+            val = Math.max(objs.length - 1, 0);
             val = Math.min(1.0, Math.log10(val + 1));
         }
         return [val];
@@ -968,10 +968,10 @@ export default class Sensor {
     senseEnemies() {
         let val = 0;
         if (globalThis.vc.simulation.settings?.ignore_other_boids === true) return [val];
-        let friends = globalThis.vc.tank.grid.GetObjectsByCoords(this.owner.x, this.owner.y);
-        if (friends) {
-            friends = friends.filter(x => (x instanceof Boid) && x.species != this.owner.species);
-            val = Math.max(friends.length - 1, 0);
+        let objs = globalThis.vc.tank.grid.GetObjectsByCoords(this.owner.x, this.owner.y);
+        if (objs) {
+            objs = objs.filter(x => (x.otype === 1) && x.species != this.owner.species);
+            val = Math.max(objs.length - 1, 0);
             val = Math.min(1.0, Math.log10(val + 1));
         }
         return [val];
@@ -1039,7 +1039,7 @@ export default class Sensor {
         let sx = this.owner.x + ((this.x * cosAngle) - (this.y * sinAngle));
         let sy = this.owner.y + ((this.x * sinAngle) + (this.y * cosAngle));
         // filter pre-fetched nearby objects for rocks
-        const candidates = nearby ? nearby.filter( o => o instanceof Rock ) : [];
+        const candidates = nearby ? nearby.filter( o => o.otype === 3 ) : [];
         for (let o of candidates) {
             const result = Sensor._coll_result;
             if (testCirclePolygon(sx, sy, this.r, o.collision, result)) {

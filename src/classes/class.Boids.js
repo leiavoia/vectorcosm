@@ -599,11 +599,11 @@ export class Boid extends PhysicsObject {
 			this.y - my_radius,
 			this.x + my_radius,
 			this.y + my_radius,
-			o => ( o instanceof Rock || o instanceof Plant )
+			o => ( o.otype === 3 || o.otype === 4 ) // only rocks and plants
 		);
 		for ( let o of candidates ) {
 			// hard collisions with rocks
-			if ( o instanceof Rock ) {
+			if ( o.otype === 3 ) { // rocks
 				// narrow phase collision detection
 				let gotcha = testCirclePolygon(this.x, this.y, my_radius, o.collision, _boid_coll_result);
 				// response
@@ -615,7 +615,7 @@ export class Boid extends PhysicsObject {
 				}
 			}
 			// soft collisions with plants
-			else if ( o instanceof Plant ) {
+			else if ( o.otype === 4 ) { // plants
 				// narrow phase collision detection:
 				// skip the built in test because we only care about distance to center, not overlap
 				const dist_x = this.x - o.x;
@@ -1672,7 +1672,7 @@ export class Boid extends PhysicsObject {
 				const grace = 4;
 				let r = boid.collision.radius + grace;
 				// look for foods in range
-				let test = o => o instanceof Food && o.IsEdibleBy(boid) && !( boid.ignore_list && boid.ignore_list.has(o) );
+				let test = o => o.otype === 2 && o.IsEdibleBy(boid) && !( boid.ignore_list && boid.ignore_list.has(o) );
 				const foods = globalThis.vc.tank.grid.GetObjectsByBox( boid.x - r, boid.y - r, boid.x + r, boid.y + r, test );
 				for ( let food of foods ) {
 					const dx = Math.abs(food.x - boid.x);
@@ -1689,7 +1689,7 @@ export class Boid extends PhysicsObject {
 				if ( !globalThis.vc.simulation.settings?.no_combat ) {
 					r = boid.collision.radius; // no grace here - be precise!		
 					test = o => 
-						o instanceof Boid 
+						o.otype === 1
 						&& o !== boid // cant attack self
 						&& boid.species != o.species // don't attack same species (yet!)
 						/* && o.IsEdibleBy(boid) */ 
@@ -1712,7 +1712,7 @@ export class Boid extends PhysicsObject {
 			Do: function ( boid, amount, delta ) {
 				if ( !this.target ) { return false; }
 				// if ( this.t !== 0 ) { return; } // bite fires once at stroke start
-				if ( this.target instanceof Food ) {
+				if ( this.target.otype === 2 ) {
 					const space_left = boid.metab.stomach_size - boid.metab.stomach_total;
 					const bitesize = Math.min( space_left, boid.metab.bite_size );
 					const morsel = this.target.Eat( bitesize );
@@ -1729,7 +1729,7 @@ export class Boid extends PhysicsObject {
 					}
 					boid.Experience( 1.0 );
 				}
-				else if ( this.target instanceof Boid ) {
+				else if ( this.target.otype === 1 ) {
 					console.log("Attack!");
 					const attack_pow = 1; // TODO: need attack value
 					const power = boid.mass * attack_pow * amount; 
