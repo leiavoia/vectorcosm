@@ -545,7 +545,6 @@ export default class Sensor {
 		const outputs = this._outputs;
 		const TWO_PI = 6.283185307179586; // 2 * Math.PI
 		const PI = 3.141592653589793;
-		const inv_r = this._inv_r;
 		
 		const sinAngle = Math.sin(oa);
 		const cosAngle = Math.cos(oa);
@@ -636,7 +635,8 @@ export default class Sensor {
 			// falloff: hoist out of segment loop (same for all segments of this object)
 			let prox_factor = 1;
 			if ( falloff ) {
-				let prox = 1 - ( d * inv_r );
+				const d_sensor = Math.sqrt(dist_sq);
+				let prox = 1 - ( d_sensor / threshold );
 				if ( prox < 0.01 ) { continue; }
 				prox_factor = prox * prox; // cheap quadratic replaces Math.pow(prox, falloff)
 			}
@@ -784,21 +784,21 @@ export default class Sensor {
 			const ddx = objx - sx;
 			const ddy = objy - sy;
 			const dist_sq = ddx*ddx + ddy*ddy;
-			const threshold = r + objsize * 0.5;
-			if ( dist_sq > threshold * threshold ) { continue; }
+			const obj_r = objsize * 0.5;
+			const max_dist = r + obj_r;
+			if ( dist_sq > max_dist * max_dist ) { continue; }
 			
 			// actual distance from sensor center
 			const d = Math.sqrt(dist_sq);
-			let percent_nearness = 1 - ( d * inv_r );
-			if ( percent_nearness < 0.01 ) { continue; }
-			
-			
-			
+			let signal_strength = 1 - ( d / max_dist );
+
+			// too small to care
+			if ( signal_strength < 0.01 ) { continue; }
+
 			// signal falloff: cheap quadratic replaces Math.pow(prox, falloff)
-			if ( falloff ) { percent_nearness = percent_nearness * percent_nearness; }
-			
+			if ( falloff ) { signal_strength = signal_strength * signal_strength; }
+						
 			// Field of View: linear apparent size replaces Math.pow(virtual_size, 1+prox)
-			let signal_strength = percent_nearness;
 			if ( has_fov ) {
 				const virtual_size = objsize > 20 ? objsize : 20;
 				signal_strength *= virtual_size * inv_r2;
@@ -826,7 +826,7 @@ export default class Sensor {
 				}
 				// spectrum
 				else {
-					v1 = Math.max( 0, detect_tc1[di] * sense[b]   + detect_ts1[di] * sense[b+1] ) * sense[b+2];
+					v1 = Math.max( 0, detect_tc1[di] * sense[b] + detect_ts1[di] * sense[b+1] ) * sense[b+2];
 					v2 = detect_has_h2[di]
 						? Math.max( 0, detect_tc2[di] * sense[b+3] + detect_ts2[di] * sense[b+4] ) * sense[b+5]
 						: 0;
