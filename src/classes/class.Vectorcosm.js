@@ -229,12 +229,12 @@ export default class Vectorcosm {
 		for ( let o of this.tank.obstacles ) { this.tank.grid.Add(o); }
 		for ( let f of this.tank.foods ) { this.tank.grid.Add(f); }
 		for ( let m of this.tank.marks ) { this.tank.grid.Add(m); }
+		for ( let p of this.tank.plants ) { this.tank.grid.Add(p); }
 		
 		// update all boids
 		for ( let i = this.tank.boids.length-1; i >= 0; i-- ) {
 			const b = this.tank.boids[i];
 			b.Update(delta);
-			// b.collision.contact_obstacle = false;
 			if ( b.dead ) {
 				this.tank.boids.splice(i,1);
 			}

@@ -26,6 +26,7 @@ VISUAL
 import * as utils from '../util/utils.js'
 import Food from '../classes/class.Food.js'
 import DNA from '../classes/class.DNA.js'
+import { createCircleCollider, createResult } from './collision.js';
 
 const PLANT_GROWTH_SPEED = 20; // internal tuning number, in seconds
 const PLANT_DECAY_SPEED = 1; // death clock. higher number shortens all lifespans
@@ -35,6 +36,8 @@ const PLANT_MIN_HEALTH_CREDIT = 0.25; // minimum amount of life credit to use if
 const PLANT_GROWTH_RADIUS_SCALE = 40; // scale factor for visual radius based on mass
 
 export default class Plant {
+	
+	static STIFFNESS = 20;
 	
 	constructor(params) {
 		// defaults
@@ -83,6 +86,8 @@ export default class Plant {
 		// apply DNA-derived lifespan unless a saved value was explicitly provided
 		this.life_credits = params?.life_credits || this.traits.life_credits;
 		this.CreateBody();
+		// collision detection geometry
+		this.collision = createCircleCollider( this.r );
 	}
 	
 	RequestResources( time_interval ) {
@@ -115,6 +120,7 @@ export default class Plant {
 		// growth
 		this.mass += this.growth_mass_request * ratio;
 		this.r = Math.sqrt( 2 * this.mass / Math.PI ) * PLANT_GROWTH_RADIUS_SCALE;
+		this.collision.radius = this.r;
 		// fruit
 		this.fruit_credits += this.fruit_mass_request * ratio;
 		// actual fruiting occurs in the Update() function
@@ -247,6 +253,7 @@ export default class Plant {
 		const theoretical_max = Math.log(100) / this.traits.growth_curve_exp;
 		this.mass = Math.max( 1, theoretical_max * rand );
 		this.r = Math.sqrt( 2 * this.mass / Math.PI ) * PLANT_GROWTH_RADIUS_SCALE;
+		this.collision.radius = this.r;
 		// give fruiting a head start so that new tanks dont immediately starve
 		let threshold = this?.traits?.fruit_num * this?.traits?.fruit_size;
 		if ( !threshold ) { threshold = 300; }

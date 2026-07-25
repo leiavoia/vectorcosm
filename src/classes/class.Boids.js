@@ -57,8 +57,9 @@ import DNA from '../classes/class.DNA.js'
 import Brain from '../classes/class.Brain.js'
 import Endocrine from '../classes/class.Endocrine.js'
 import Mark from '../classes/class.Mark.js'
+import Plant from '../classes/class.Plant.js'
 import * as utils from '../util/utils.js'
-import { createCircleCollider, testCirclePolygon, createResult } from './collision.js';
+import { createCircleCollider, testCirclePolygon, testCircleCircle, createResult } from './collision.js';
 import {CompoundStatTracker} from '../classes/class.StatTracker.js'
 			
 // MAGIC NUMBER - tuning number for matter->energy conversion rate
@@ -598,17 +599,49 @@ export class Boid extends PhysicsObject {
 			this.y - my_radius,
 			this.x + my_radius,
 			this.y + my_radius,
-			o => o instanceof Rock
+			o => ( o instanceof Rock || o instanceof Plant )
 		);
 		for ( let o of candidates ) {
-			// narrow phase collision detection
-			let gotcha = testCirclePolygon(this.x, this.y, my_radius, o.collision, _boid_coll_result);
-			// response
-			if ( gotcha ) {
-				this.x -= _boid_coll_result.overlap * _boid_coll_result.overlap_x;
-				this.y -= _boid_coll_result.overlap * _boid_coll_result.overlap_y;
-				this.Slide( _boid_coll_result.overlap_x, _boid_coll_result.overlap_y, Boid.wall_slide_friction );
-				this.collision.contact_obstacle = true;
+			// hard collisions with rocks
+			if ( o instanceof Rock ) {
+				// narrow phase collision detection
+				let gotcha = testCirclePolygon(this.x, this.y, my_radius, o.collision, _boid_coll_result);
+				// response
+				if ( gotcha ) {
+					this.x -= _boid_coll_result.overlap * _boid_coll_result.overlap_x;
+					this.y -= _boid_coll_result.overlap * _boid_coll_result.overlap_y;
+					this.Slide( _boid_coll_result.overlap_x, _boid_coll_result.overlap_y, Boid.wall_slide_friction );
+					this.collision.contact_obstacle = true;
+				}
+			}
+			// soft collisions with plants
+			else if ( o instanceof Plant ) {
+				// narrow phase collision detection:
+				// skip the built in test because we only care about distance to center, not overlap
+				const dist_x = this.x - o.x;
+				const dist_y = this.y - o.y;
+				const x_sq = dist_x * dist_x;
+				const y_sq = dist_y * dist_y;
+				const dist_sq = x_sq + y_sq;
+				// we are inside the plant
+				// response: plants use a "soft push" from center to simulate foliage density.
+				// this applies a force to the object instead of hard relocation.
+				if ( dist_sq < o.r * o.r ) {
+					const dist = Math.sqrt( dist_sq );
+					// repelling force scales with plant mass: seedlings get trampled, shrubs fight back
+					let intensity = o.mass * Plant.STIFFNESS;
+					// repelling force also scales with boid width: thin boids can slip through, wide boids get stuck.
+					// cheap nonlinear ramp (squared, normalized against average adult width) - narrow boids
+					// barely get pushed, wide boids get hit hard. avoids pow()/exp() in a hot per-frame loop.
+					// TODO: Ideally this affects local viscosity and turning for boids, not a repulsive force.
+					const width_ratio = this.width * 0.04;
+					intensity *= width_ratio * width_ratio;
+					// force increases with penetration depth
+					const pen = o.r - dist;
+					const impulse_x = intensity * pen * ( dist_x / dist );
+					const impulse_y = intensity * pen * ( dist_y / dist );
+					this.ApplyForce(impulse_x, impulse_y);
+				}
 			}
 		}
 		// if an object pushed us out of bounds and we get stuck outside tank, remove

@@ -13,7 +13,7 @@ EXPORTS:
 
 COLLIDER SHAPE (monomorphic hidden class for V8 IC optimization):
   All collidable objects share the same property layout regardless of shape.
-  { type, qid, radius, fixed, coords, edges, normals, vertex_count, aabb }
+  { type, qid, radius, coords, edges, normals, vertex_count, aabb }
   Circles set polygon fields to null/0.
 
 PERFORMANCE:
@@ -32,7 +32,6 @@ export function createCircleCollider( radius ) {
 		type: SHAPE_CIRCLE,
 		qid: 0,
 		radius: radius,
-		fixed: false,
 	};
 }
 
@@ -83,7 +82,6 @@ export function createPolygonCollider( x, y, points, scale ) {
 		type: SHAPE_POLYGON,
 		qid: 0,
 		radius: Math.sqrt( max_r_sq ), // bounding circle radius for cheap rejection
-		fixed: true,
 		coords: coords,
 		edges: edges,
 		normals: normals,

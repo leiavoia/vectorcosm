@@ -21,7 +21,7 @@ UPDATE
 
 import Two from "two.js";
 import * as utils from '../util/utils.js'
-import { createCircleCollider, testCirclePolygon, createResult } from './collision.js';
+import { createCircleCollider, testCirclePolygon, testCircleCircle, createResult } from './collision.js';
 import Rock from '../classes/class.Rock.js'
 import PhysicsObject from '../classes/class.PhysicsObject.js'
 import Plant from '../classes/class.Plant.js'
@@ -151,28 +151,57 @@ export default class Food extends PhysicsObject {
 			this.y - this.r,
 			this.x + this.r,
 			this.y + this.r,
-			o => o instanceof Rock
+			o => ( o instanceof Rock || o instanceof Plant )
 		);
 		// narrow phase collision detection
 		let touching_rock = false;
 		for ( let o of candidates ) {
-			let gotcha = testCirclePolygon(this.x, this.y, this.r, o.collision, _food_coll_result);
-			// response
-			if ( gotcha ) {
-				// retract from collision object
-				this.x -= _food_coll_result.overlap * _food_coll_result.overlap_x;
-				this.y -= _food_coll_result.overlap * _food_coll_result.overlap_y;
-				// just bounce hardcoded foods used in training
-				if ( this.frictionless ) {
-					this.vel_x = -this.vel_x;
-					this.vel_y = -this.vel_y;
+			if ( o instanceof Rock ) {
+				let gotcha = testCirclePolygon(this.x, this.y, this.r, o.collision, _food_coll_result);
+				// response
+					if ( gotcha ) {
+					// retract from collision object
+					this.x -= _food_coll_result.overlap * _food_coll_result.overlap_x;
+					this.y -= _food_coll_result.overlap * _food_coll_result.overlap_y;
+					// just bounce hardcoded foods used in training
+					if ( this.frictionless ) {
+						this.vel_x = -this.vel_x;
+						this.vel_y = -this.vel_y;
+					}
+					// slide along walls with slight bounce
+					else {
+						this.SlideAndBounce( _food_coll_result.overlap_x, _food_coll_result.overlap_y, friction, bounce );
+					}
 				}
-				// slide along walls with slight bounce
-				else {
-					this.SlideAndBounce( _food_coll_result.overlap_x, _food_coll_result.overlap_y, friction, bounce );
-				}
+				touching_rock = touching_rock || gotcha;
 			}
-			touching_rock = touching_rock || gotcha;
+			// largely copied form Boid collision detection
+			else if ( o instanceof Plant ) {
+				// narrow phase collision detection:
+				// skip the built in test because we only care about distance to center, not overlap
+				const dist_x = this.x - o.x;
+				const dist_y = this.y - o.y;
+				const x_sq = dist_x * dist_x;
+				const y_sq = dist_y * dist_y;
+				const dist_sq = x_sq + y_sq;
+				// we are inside the plant
+				// response: plants use a "soft push" from center to simulate foliage density.
+				// this applies a force to the object instead of hard relocation.
+				if ( dist_sq < o.r * o.r ) {
+					const dist = Math.sqrt( dist_sq );
+					// repelling force scales with plant mass: seedlings get trampled, shrubs fight back
+					let intensity = o.mass * Plant.STIFFNESS;
+					// repelling force also scales with object width.
+					// TODO: Ideally this affects local viscosity, not a repulsive force.
+					const width_ratio = this.r * 0.04;
+					intensity *= width_ratio * width_ratio;
+					// force increases with penetration depth
+					const pen = o.r - dist;
+					const impulse_x = intensity * pen * ( dist_x / dist );
+					const impulse_y = intensity * pen * ( dist_y / dist );
+					this.ApplyForce(impulse_x, impulse_y);
+				}		
+			}
 		}
 		// if an object pushed us out of bounds and gets stuck outside tank, remove
 		if ( touching_rock ) {
