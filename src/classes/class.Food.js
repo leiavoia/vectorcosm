@@ -203,11 +203,12 @@ export default class Food extends PhysicsObject {
 				}		
 			}
 		}
-		// if an object pushed us out of bounds and gets stuck outside tank, remove
-		if ( touching_rock ) {
-			if ( this.x < -0.01 || this.x > globalThis.vc.tank.width + 0.01 ) { this.Kill(); return; };
-			if ( this.y < -0.01 || this.y > globalThis.vc.tank.height + 0.01 ) { this.Kill(); return; };
-		}
+		// stay in the tank
+		if ( this.x < 0 ) { this.x = 0; }
+		if ( this.x > globalThis.vc.tank.width ) { this.x = globalThis.vc.tank.width; }
+		if ( this.y < 0 ) { this.y = 0; }
+		if ( this.y > globalThis.vc.tank.height ) { this.y = globalThis.vc.tank.height; }
+		
 		// plant a seed
 		if ( this.seed && this.age > 5 && Math.random() > 0.9992 && 
 			globalThis.vc.tank.plants.length < globalThis.vc.simulation.settings.num_plants ) {
