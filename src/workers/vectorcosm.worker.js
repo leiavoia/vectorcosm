@@ -58,6 +58,7 @@ GLOBALS
 
 import Vectorcosm from '../classes/class.Vectorcosm.js'
 import { Boid } from '../classes/class.Boids.js'
+import Plant from '../classes/class.Plant.js'
 import * as utils from '../util/utils.js'
 import { SimulationFactory } from '../classes/class.Simulation.js'
 import PubSub from 'pubsub-js'
@@ -232,12 +233,14 @@ commands.register( { name: 'update', description: 'Advance simulation and return
 		return return_obj;
 	}));
 	renderObjects.push( ... globalThis.vc.tank.plants.map( o => {
+		const linewidth = Math.sqrt( 2 * o.foliage / Math.PI ) * Plant.GROWTH_RADIUS_SCALE;
 		let return_obj = {
 			oid: o.oid,
 			type:'plant',
 			geodata: AutoIncludeGeoData(o),
 			// if radius changed from growth, update the object even if animation is disabled
 			r: o.r,
+			lw: linewidth,
 		};
 		// plants don't move - that's kinda their whole thing
 		if ( return_obj.geodata ) {
@@ -249,8 +252,6 @@ commands.register( { name: 'update', description: 'Advance simulation and return
 				age: o.age,
 				lifespan: o.lifespan,
 				mass: o.mass,
-				//r: o.r,
-				perma: o.perma // support for plants that don't die or have natural life cycle
 			}
 		}
 		return return_obj;

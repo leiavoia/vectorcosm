@@ -212,7 +212,7 @@ export default class Simulation {
 			const pushObject = o => {	 
 				if ( o?.frictionless ) { return; }
 				const cell = globalThis.vc.tank.datagrid.CellAt(o.x,o.y);
-				if ( cell === null ) { return; }
+				if ( !cell ) { return; }
 				// we multiply by the mass to fake a wave action and get all objects moving roughly the same.
 				// actual physics of waves is beyond this simulation.
 				o.ApplyForce(

@@ -62,7 +62,7 @@ export default class Vectorcosm {
 		this.lock_dimensions = false; // prevents volume-based resize when exact dimensions are requested.
 		this.min_time_delta = 1/30;
 		this.max_foods = 400;
-		this.plant_update_freq = 5;
+		this.plant_update_freq = 10;
 		this.plant_update_next = 0;
 		this.free_plant_growth = false;
 		// carry-over settings applied to every simulation.settings when LoadNextSim() runs
@@ -245,53 +245,10 @@ export default class Vectorcosm {
 		if ( this.plant_update_next <= this.simulation.stats.round_time || !this.simulation.stats.round_time ) {
 			// schedule the next update
 			this.plant_update_next = this.simulation.stats.round_time + this.plant_update_freq;
-			
-			// all plants ask for matter from the local background tank matter stat.
-			// we need to keep track of which plants are asking for how much matter from which grid cell.
-			// in cases where there isnt enough for everyone, restrict matter being granted.
-			const requests_per_cell = {};
-			const requests_per_plant = new Map();
-			for ( let p of this.tank.plants ) {
-				const request = p.RequestResources( this.plant_update_freq );
-				if ( this.free_plant_growth ) {
-					p.GrantResources( request );
-				}
-				else {
-					const cell_index = this.tank.datagrid.CellIndexAt( p.x, p.y );
-					if ( !( cell_index in requests_per_cell ) ) {
-						requests_per_cell[cell_index] = request;
-					}
-					else {
-						requests_per_cell[cell_index] += request;
-					}
-					requests_per_plant.set(p, [request,cell_index]);
-				}
-			}
-			
-			if ( !this.free_plant_growth ) {
-				// convert the requested matter to a ratio of availability and
-				// subtract the requested matter from the cell.
-				for ( let cell_index in requests_per_cell ) {
-					const avail = this.tank.datagrid.cells[cell_index].matter;
-					const request = requests_per_cell[cell_index];
-					const ratio = avail > 0 ? Math.min( avail / request, 1 ) : 0;
-					requests_per_cell[cell_index] = ratio;
-					if ( ratio ) {
-						const amount = Math.min( request * ratio, avail );
-						this.tank.datagrid.cells[cell_index].matter -= amount;
-					}
-				}
-				
-				// grant all plant requests 
-				requests_per_plant.forEach( (v,p) => {
-					const cell_index = v[1];
-					const ratio = requests_per_cell[cell_index];
-					const matter = v[0] * ratio;
-					p.GrantResources( matter );
-				} );
-			}
-			
 			// update all plants ( fruit, death, etc )
+			// attempt to grow all plants. plants grow on a first come first served basis. 
+			// there may not be enough for everyone. to make it fair, we randomize the order of growth each update.
+			this.tank.plants.shuffle(); // may have unknown side effects on iteration
 			for ( let i = this.tank.plants.length-1; i >= 0; i-- ) {
 				const plant = this.tank.plants[i];
 				plant.Update(this.plant_update_freq); // NOTE: not the normal delta!
@@ -299,7 +256,6 @@ export default class Vectorcosm {
 					this.tank.plants.splice(i,1);
 				}
 			}
-			
 		}
 		
 		// update food

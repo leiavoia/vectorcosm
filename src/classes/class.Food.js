@@ -138,9 +138,6 @@ export default class Food extends PhysicsObject {
 			this.DampLinearVelocity( this.r, globalThis.vc.simulation.settings.viscosity, 60, delta );
 		}
 		this.StepPosition(delta);
-				
-		// stay in tank
- 		this.Constrain(bounce);
 		
 		// update the object in space
 		this.collision.radius = this.r;
@@ -203,11 +200,9 @@ export default class Food extends PhysicsObject {
 				}		
 			}
 		}
-		// stay in the tank
-		if ( this.x < 0 ) { this.x = 0; }
-		if ( this.x > globalThis.vc.tank.width ) { this.x = globalThis.vc.tank.width; }
-		if ( this.y < 0 ) { this.y = 0; }
-		if ( this.y > globalThis.vc.tank.height ) { this.y = globalThis.vc.tank.height; }
+
+		// stay in tank
+ 		this.Constrain(bounce);
 		
 		// plant a seed
 		if ( this.seed && this.age > 5 && Math.random() > 0.9992 && 

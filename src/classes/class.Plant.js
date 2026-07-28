@@ -2,25 +2,62 @@
 Plant — sessile photosynthetic organism. Grows in place, produces Food fruit, and seeds offspring.
 
 OVERVIEW
-- Not a PhysicsObject; no velocity or collision registration. Position is fixed.
-- `mass` grows over time. `life_credits` counts down. `health` (0..1) gates growth.
-- `light_health` / `heat_health` computed from datagrid cell; affect growth rate.
+- Not a PhysicsObject; no velocity. Position is fixed; only a static circle collider is kept.
+- Two mass pools: `core` (roots/trunk - drives matter uptake and storage capacity) and `foliage`
+  (leaves - drives photosynthesis, also edible by boids). `reserve` is banked matter, spent on
+  maintenance then growth. `mass` = core + foliage (display/UI only).
+- `life_credits` counts down to death; `health` (0..1, from `CalcHealth()`) speeds or slows decay.
 
-RESOURCE SYSTEM (driven by Tank each frame)
-- `RequestResources(dt)` → returns total matter requested (split between growth + fruiting).
-- `GrantResources(matter)` → tank allocates a share; plant converts it to growth or new fruit.
-- Fruiting: when `fruit_credits` exceeds threshold, `Fruit()` spawns Food objects.
+UPDATE LOOP (`Update(delta)`)
+1. AGING: `age` advances, `CalcHealth()` runs, `life_credits` drops by
+   `delta * health_factor * PLANT_DECAY_SPEED` (poor health drastically accelerates decay via
+   `PLANT_HEALTH_PENALTY_COEF`/`_EXP`). `life_credits <= 0` -> `Kill()`.
+2. ENVIRONMENT: reads `datagrid.CellAt(x,y)` for `light`/`heat`/`matter`. `LightEfficiency()` and
+   `HeatTolerance()` turn these into 0..1 performance multipliers against the plant's genetic
+   preferences (`light_pref/tolr`, `heat_pref/tolr`).
+3. CAPACITY: `photosyntheticCapacity = sqrt(foliage) * lightEfficiency` (diminishing returns on
+   foliage income). `uptakeCapacity = core * soilFactor * heatTolerance`, where `soilFactor`
+   (`SoilAbsorptionCurve`) saturates toward 1 as local `cell.matter` grows.
+4. ASSIMILATION: `matterAssimilated = min(cell.matter, delta*uptakeCapacity, delta*photosyntheticCapacity)`
+   (Liebig's law - light and matter both bottleneck growth) moves from `cell.matter` into `reserve`.
+5. MAINTENANCE: `(coreMaint + foliageMaint)^0.75 * cell.heat * delta` (Kleiber's law - upkeep scales
+   sublinearly with size) is spent from `reserve` and returned to `cell.matter`.
+6. STARVATION: if `reserve < 0`, the shortfall is made up by cannibalizing `foliage` (70% priority)
+   then `core` (30% priority), returning lost mass to `cell.matter`. `core <= 0.1` -> `Kill()`.
+7. GROWTH: `growthBudget` is a saturating fraction of `reserve` (`saving_pct`, tuned by
+   `risk_tolerance` - conservative plants bank more before investing). `CalcGrowthPriorities()`
+   softmaxes 8 env/state signals into core/foliage/fruit shares; the foliage share is additionally
+   capped at `max_foliage = core^0.75`. The budget is split into `core`/`foliage`/`fruit_credits`;
+   any `reserve` left over `core` (storage capacity) spills back to `cell.matter`.
+8. FRUIT: `MakeFruit()` runs every tick, spawning `Food` (carrying a DNA seed for viable offspring)
+   once `fruit_credits` clears a health-scaled threshold.
+9. `RecalcMassAndSize()` updates `mass`/`r`/collision radius from `core + foliage`.
 
-GENERATORS
-- `RandomPlant(x, y)` — factory creates plants with related DNA
+KEY METHODS
+- `CalcHealth()` — averages `light_health`/`heat_health` (each computed once from datagrid
+  distance-to-preference, then cached) into a smoothed `health` value.
+- `CalcGrowthPriorities()` — softmax over 8 signals (heat/light closeness, foliage:core ratio,
+  life-credit phase, age, plant crowding, boid predation pressure, core development) weighted by
+  DNA-derived `growth_weights`; returns `{core, foliage, fruit}` percentages.
+- `RandomizeAge()` — fast-forwards a newborn to a random target age. Not a realistic simulation.
+- `RehydrateFromDNA()` — derives all genetic traits, colors, and the `sense` vector (visual/smell
+  signature read by boid senses) from `this.dna`.
+- `MakeGeneticColor()` — builds a solid color or radial gradient from the DNA color palette.
+- `Kill()` — single choke point for death; returns remaining core+foliage+fruit mass to the tank.
+- `CreateBody()` / `GeoData()` — render geometry (currently a simple stroke-width-as-foliage circle;
+  the shape-generation code below the early `return;` is dead/unused).
 
 KEY TRAITS
-- `growth_speed`, `fruit_num`, `fruit_size`, `fruit_flavor`, `fruit_complexity`, etc.
-- Light/heat preferences: `light_pref`, `light_tolr`, `heat_pref`, `heat_tolr`.
+- `risk_tolerance` (0..1, reserve-saving aggressiveness), `light_pref/tolr`, `heat_pref/tolr`,
+  `fruit_num`, `fruit_size`, `fruit_lifespan`, `fruit_buoy_start/end`, `fruit_complexity`,
+  `fruit_flavor`, `growth_weights` (24 values: 8 env factors x 3 growth targets).
+
+GENERATORS
+- `RandomPlant(x, y)` — factory creates plants with related DNA.
 
 VISUAL
 - `GeoData()` — returns geometry info for the renderer.
-- `animation_method` ('skew', 'wave', etc.) controls per-frame visual wiggle driven by Camera.
+- `animation_method` ('skew'/'sway') controls per-frame visual wiggle driven by Camera.
 </AI> */
 
 import * as utils from '../util/utils.js'
@@ -28,16 +65,15 @@ import Food from '../classes/class.Food.js'
 import DNA from '../classes/class.DNA.js'
 import { createCircleCollider, createResult } from './collision.js';
 
-const PLANT_GROWTH_SPEED = 20; // internal tuning number, in seconds
 const PLANT_DECAY_SPEED = 1; // death clock. higher number shortens all lifespans
 const PLANT_HEALTH_PENALTY_EXP = 3; // high number makes bad health drastically more bad.
 const PLANT_HEALTH_PENALTY_COEF = 2; // high number makes bad health drastically more bad.
 const PLANT_MIN_HEALTH_CREDIT = 0.25; // minimum amount of life credit to use if plant in perfect health.
-const PLANT_GROWTH_RADIUS_SCALE = 40; // scale factor for visual radius based on mass
 
 export default class Plant {
 	
 	static STIFFNESS = 20;
+	static GROWTH_RADIUS_SCALE = 5; // scale factor for visual radius based on mass
 	
 	constructor(params) {
 		// defaults
@@ -50,14 +86,13 @@ export default class Plant {
 		this.generation = 1;
 		this.dead = false;
 		this.age = 0;
-		this.perma = false;
-		this.mass = 1;
 		this.life_credits = 3000; // counts down from
-		this.fruit_credits = 0; // counts up from
+		this.reserve = 10; // matter stored in core. currency for growth.
+		this.mass = 10; // total mass (core + foliage) - mostly for UI, could be factored out?
+		this.core = 5; // core mass (roots, branches, trunk, etc)
+		this.foliage = 5; // foliage mass. edible. not counted as core mass.
+		this.fruit_credits = 0; // counts up from zero
 		this.health = 1;
-		this.growth_mass_request = 1;
-		this.fruit_mass_request = 1;
-		this.last_matter_grant_pct = 1;
 		this.light_health = 0; // 0..1 - zero is a signal it needs to be computed
 		this.heat_health = 0; // 0..1
 		this.sense = new Array(15).fill(0);
@@ -68,12 +103,11 @@ export default class Plant {
 		this.traits = {
 			life_credits: 3000,
 			animation_method:'skew',
-			growth_speed: 0.5,
-			growth_curve_exp: 0.02, // lower numbers -> higher mass ceiling -> higher max fruit throughput
 			light_pref: 0.65, // 0..1
 			light_tolr: 0.5, // 0..1
 			heat_pref: 0.65, // 0..1
 			heat_tolr: 0.5, // 0..1
+			risk_tolerance: 0.5, // 0..1 - 0=conservative ("sweet potato"), 1=reckless ("surface weed"). rehydrated by DNA.
 			fruit_num: 1,
 			fruit_size: 100,
 			fruit_lifespan: 6,
@@ -81,6 +115,7 @@ export default class Plant {
 			fruit_buoy_end: -10,
 			fruit_complexity: 3,
 			fruit_flavor: 0.0, // 0..1
+			growth_weights: [], // rehydrated by DNA. controls growth focus based on env factors
 		};
 		// begin rehydration from DNA
 		this.dna = new DNA( this.dna ); // will either be number of chars, or full string if rehydrating
@@ -90,84 +125,282 @@ export default class Plant {
 		this.CreateBody();
 		// collision detection geometry
 		this.collision = createCircleCollider( this.r );
-	}
-	
-	RequestResources( time_interval ) {
-		const scale = 
-			// adjustable slider for user interaction
-			( globalThis.vc.simulation.settings?.fruiting_speed || 1 )
-			// plant's native growth speed
-			* this.traits.growth_speed
-			// light makes it grow!
-			* Math.max( 0.1, this.light_health )
-			// time interval and internal tuning number
-			* ( time_interval / PLANT_GROWTH_SPEED );
-		// growth_rate = e^(-k*m): near 1 for seedlings, decays toward 0 as mass grows.
-		// fruit_fraction = (1 - growth_rate): monotonically increases with mass. Seedlings barely
-		// fruit; large established plants fruit heavily. This is the intended shape.
-		const growth_rate = Math.pow( Math.E, -this.traits.growth_curve_exp * this.mass );
-		this.growth_mass_request = growth_rate * this.mass * scale;
-		this.fruit_mass_request  = (1 - growth_rate) * this.mass * scale;
-		const total = this.growth_mass_request + this.fruit_mass_request;
-		return total;
-	}
-	
-	GrantResources( matter ) {
-		// how much did we originally request?
-		const total = this.growth_mass_request + this.fruit_mass_request;
-		if ( !total ) { return; }
-		const ratio = matter / total;
-		this.last_matter_grant_pct = ratio;
-		if ( !matter ) { return; }
-		// growth
-		this.mass += this.growth_mass_request * ratio;
-		this.r = Math.sqrt( 2 * this.mass / Math.PI ) * PLANT_GROWTH_RADIUS_SCALE;
-		this.collision.radius = this.r;
-		// fruit
-		this.fruit_credits += this.fruit_mass_request * ratio;
-		// actual fruiting occurs in the Update() function
+		this.RecalcMassAndSize();
 	}
 	
 	Kill() {
+		// return any remaining structural biomass to the environment instead of letting
+		// it silently vanish - this is the single choke point every death path funnels through
+		// (life credit expiry, core<=0.1, external/predation kills, tank resets).
+		const leftover_mass = this.core + this.foliage + this.fruit_credits;
+		if ( leftover_mass > 0 ) {
+			globalThis.vc.tank.AddMatterAt( this.x, this.y, leftover_mass );
+		}
 		this.dead = true;
 	}	
 	
+	// light response is a saturating function that approaches 1.0 when near preferred light conditions.
+	LightEfficiency( light, pref ) {
+		const k = pref * 0.5; // half-saturation point
+		const peak = 1.0; // TODO: peak performance; genetic tradeoffs
+		return ( peak * light ) / ( light + k );
+	}
+	
+	// returns 0..1
+	// heat tolerance is a bell curve that crashes when beyond the plant's preferred temperature.
+	// plants can shift their preferred temperature and tolerance.
+	HeatTolerance( heat, pref ) {
+		const peak = 1.0 // TODO: peak performance; genetic tradeoffs
+		// biology note: plant performance degrades rapidly when ABOVE preferred temperature.
+		// the real life curve is asymetric. use this piecewise hack for cheap compute.
+		let tolerance = (heat > pref) ? ( 0.5 * this.traits.heat_tolr ) : this.traits.heat_tolr;
+		return peak * Math.exp( -Math.pow( heat - pref, 2 ) / ( 2 * Math.pow( tolerance, 2 ) ) );
+	}
+	
+	// returns 0..1
+	SoilAbsorptionCurve( matter, constant=100 ) {
+		return matter / ( matter + constant );
+	}
+		
+	/*
+	This growth model generally works and gives good-enough results. 
+	TODO: Major areas of improvement include adding genetic levers for various specializations.
+	TODO: waste cycle to avoid discarded matter from immediately being picked up again.
+	TODO: health calculation currently makes no sense and plays no role. reintegrate.
+	TODO: light efficiency curve is not really what we want. not sure if cell.light should be in growth calc.
+	*/		
 	Update( delta ) {
+	
 		if ( this.dead ) { return; }
+		
+		//====================================================
+		// Aging and death
+		//====================================================
+			
 		this.age += delta;
-		this.CalcHealth(); // even perma plants need to calculate health - surroundings may vary
-		if ( !this.perma ) {
-			const health_factor = PLANT_MIN_HEALTH_CREDIT + Math.pow( PLANT_HEALTH_PENALTY_COEF * ( 1 - this.health ), PLANT_HEALTH_PENALTY_EXP );
-			this.life_credits -= delta * health_factor * PLANT_DECAY_SPEED;
-			if ( this.life_credits <= 0 ) {
-				// leave behind food bits for scavengers
-				const bits = utils.RandomInt( 1, 4 );
-				const mass_per_bit = this.mass / bits;
-				for ( let i=0; i < bits; i++ ) {
-					const f = new Food( 
-						this.x + utils.RandomFloat( -50, 50 ), 
-						this.y + utils.RandomFloat( -50, 50 ), 
-						{ 
-						value: mass_per_bit, 
-						lifespan: utils.RandomFloat( 20, 60 ),
-						buoy_start: utils.RandomFloat( -100, 100 ),
-						buoy_end: utils.RandomFloat( -200, 0 ),
-						flavor: this.traits.fruit_flavor,
-						complexity: 1,
-						} );
-				
-				}
-				this.Kill();
-				return false;
-			}
+		this.CalcHealth();
+		// deplete life credits / end of life
+		const health_factor = PLANT_MIN_HEALTH_CREDIT + Math.pow( PLANT_HEALTH_PENALTY_COEF * ( 1 - this.health ), PLANT_HEALTH_PENALTY_EXP );
+		this.life_credits -= delta * health_factor * PLANT_DECAY_SPEED;
+		if ( this.life_credits <= 0 ) {
+			// console.log('life credits expired');
+			this.Kill(); // returns remaining biomass to the grid - single choke point for all death paths
+			return false;
 		}
+		
+		//====================================================
+		// DEBUG: random periodic grazing knocks down foliage
+		//====================================================
+				
+		// if ( Math.random() < 0.05 ) { 
+		// 	const lost = Math.min( this.foliage, Math.random() * 0.4 * this.foliage );
+		// 	this.foliage -= lost;
+		// 	cell.matter += lost;
+		// 	// console.log(`Grazing: ${lost.toFixed(1)}`);
+		// }
+		
+		
+		//====================================================
+		// Growth phase setup / Environmental performance
+		//====================================================		
+		
+		// record keeping
+		const starting_reserve = this.reserve;
+		
+		// Environmental Grid Data access
+		const cell = globalThis.vc.tank.datagrid.CellAt( this.x, this.y );
+
+		// light response curve - typically a saturating function approaching. 0..1, higher is better
+		const lightEfficiency = this.LightEfficiency(cell.light, this.traits.light_pref);
+		
+		// heat tolerance affects metabolic efficiency. 0..1, higher is better
+		const heatTolerance  = this.HeatTolerance(cell.heat, this.traits.heat_pref); 
+
+
+		//====================================================
+		// Plant capacities
+		//====================================================
+
+		// Leaves collect energy. Represents a max cap on matter we can uptake.
+		// light intensity has diminishing returns on photosynthesis.
+		// eventually, maintenance outpaces ability to photosynthesize, even with kleiber's discount.
+		const photosyntheticCapacity = Math.pow( this.foliage, 0.5 ) * lightEfficiency;
+
+		// soil absorption: increasingly difficult for roots to find matter.
+		// NOTE: using a constant for tuning here, but we could make 
+		// poor-soil absorption a genetic trait with fun tradeoffs.
+		const soilFactor = this.SoilAbsorptionCurve(cell.matter, 100);
+		
+		// Roots/trunk acquire environmental matter.
+		const uptakeCapacity = this.core * soilFactor * heatTolerance;
+
+		// Available matter nearby.
+		const availableMatter = cell.matter;
+
+		// core size limits our storage capacity; this may change with genetic traits.
+		const max_reserve = this.core;
+		
+
+		//====================================================
+		// Matter assimilation
+		//====================================================
+
+		// draw and store matter from the environment.
+		// NOTE: we can ignore max capacity here because we handle 
+		// income and expenses as a combined step before capping later.
+		const matterAssimilated = Math.min( 
+			availableMatter, // do NOT apply delta to raw stock
+			delta * uptakeCapacity, 
+			delta * photosyntheticCapacity,
+		);
+		cell.matter -= matterAssimilated;
+		this.reserve += matterAssimilated;
+
+
+		//====================================================
+		// Maintenance costs
+		//====================================================
+
+		// Living tissue continually consumes stored reserve.
+		// Larger plants cost more.
+		// Hotter environments increase metabolism, regardless of heat preference. (use env heat stat)
+
+		const CoreMaintenanceRate = 0.02;
+		const FoliageMaintenanceRate = 0.05;
+		const coreMaint = CoreMaintenanceRate * this.core;
+		const foliageMaint = FoliageMaintenanceRate * this.foliage;
+		const maint_exponent = 0.75; // kleiber's law - maintenance gets cheaper as plant gets larger
+		let maintenance = Math.pow( coreMaint + foliageMaint, maint_exponent ) * cell.heat * delta;
+
+		// Respiration and decay returns matter to environment
+		this.reserve -= maintenance; // this can go negative! make up shortfall afterwards
+		cell.matter += maintenance;
+
+
+		//====================================================
+		// Tissue starvation - reserve is negative; make up deficit via cannibalization
+		//====================================================
+
+		if ( this.reserve < 0 ) {
+			// TODO: how plants prioritize sacrifice can be genetic.
+			// for now, hardcoded priorities.
+			// NOTE: intentionally ignoring fruit for now
+			const demand = Math.abs(this.reserve);
+			const foliage_priority = 0.7;
+			const core_priority = 0.3;
+			const foliage_loss = Math.min(this.foliage, demand * foliage_priority + Math.max(0, demand * core_priority - this.core));
+			const core_loss = Math.min(this.core, demand * core_priority + Math.max(0, demand * foliage_priority - this.foliage));
+			this.foliage -= foliage_loss;
+			this.core -= core_loss;
+			this.reserve += foliage_loss + core_loss;
+			cell.matter += foliage_loss + core_loss;
+			// shrank to nothing - you died
+			if ( this.core <= 0.1 ) {
+				this.Kill();
+				return;
+			}
+			// update geometry and bail out early. there will be no growth.
+			this.RecalcMassAndSize();
+			return;		
+		}
+
+		//====================================================
+		// Growth investment
+		//====================================================
+
+		// figure out growth budget based on risk tolerance and reserve savings
+		// const min_invest_pct = 0.05; // even a fully conservative plant still grows a little
+		// const max_invest_pct = 0.95; // even a fully reckless plant keeps a sliver in reserve
+		// const invest_pct = min_invest_pct + ( max_invest_pct - min_invest_pct ) * this.traits.risk_tolerance;
+		// const growthBudget = this.reserve * invest_pct;
+
+		// use this alternative saturating formula if above linear formula is too simplistic
+		const saving_target = 100;
+		const saving_buffer = 0.05;
+		const saving_mod = saving_target * ( saving_buffer + (1 - saving_buffer) * this.traits.risk_tolerance );
+		const saving_pct = saving_mod / ( saving_mod + this.reserve );
+		const growthBudget = this.reserve * saving_pct;
+		
+		// maximum foliage we can support is based on core.
+		// it take proportionally more core to support more foliage.
+		// TODO: could be genetic trait for higher maintenance tradeoff.
+		const max_foliage_scaler = 1.0;
+		const max_foliage = max_foliage_scaler * Math.pow( this.core, 0.75 );
+		
+		// Allocation growth priorities - blend of genetic factors, environment, and situational necessity
+		const priorities = this.CalcGrowthPriorities();
+		const idealCore = this.core * priorities.core;
+		const idealFoliage = Math.min(this.foliage * priorities.foliage, max_foliage);
+		priorities.foliage = idealFoliage / ( idealFoliage + this.foliage );
+		priorities.core = idealCore / ( idealCore + this.core );
+		
+		// normalize to 1.0
+		const total = priorities.core + priorities.foliage + priorities.fruit;
+		priorities.core /= total;
+		priorities.foliage /= total;
+		priorities.fruit /= total;
+					
+		// commit growth to all categories
+		const growCore = growthBudget * priorities.core;
+		const growLeaves = growthBudget * priorities.foliage;
+		const growFruit = growthBudget * priorities.fruit;
+		this.core     += growCore;
+		this.foliage  += growLeaves;
+		this.fruit_credits += growFruit;
+		this.reserve -= growCore + growLeaves + growFruit;
+		
+		// reserve cannot end over capacity
+		if ( this.reserve > max_reserve ) {
+			const extra = this.reserve - max_reserve;
+			this.reserve -= extra;
+			cell.matter += extra; // return excess to the environment
+		}
+		
+		// make the fruit with credits we stores up
 		this.MakeFruit();
+
+
+		//====================================================
+		// Geometry update
+		//====================================================
+
+		this.RecalcMassAndSize();
+
+
+		// debug
+		// const life_pct = Math.max( 0, Math.min( 1, this.life_credits / this.traits.life_credits ) );
+		// console.log(
+		// 	`life=${life_pct.toFixed(2)}, ` +
+		// 	// `health=${this.health.toFixed(2)}, ` +
+		// 	`Rsv=${starting_reserve.toFixed(1)}→${this.reserve.toFixed(1)}, ` +
+		// 	`mass=${this.mass.toFixed(1)}, ` +
+		// 	`coreM=${this.core.toFixed(1)}, ` +
+		// 	`foliageM=${this.foliage.toFixed(1)}, ` +
+		// 	`fruitM=${this.fruit_credits.toFixed(1)}, ` +
+		// 	`pUptake=${uptakeCapacity.toFixed(1)}, ` +
+		// 	`photoCap=${photosyntheticCapacity.toFixed(1)}, ` +
+		// 	`Mtr=${matterAssimilated.toFixed(1)}, ` +
+		// 	`Cost=${maintenance.toFixed(1)}, ` +
+		// 	`gB=${growthBudget.toFixed(2)}, ` + 
+		// 	`savePct=${saving_pct.toFixed(2)}, ` +
+		// 	`heatTol=${heatTolerance.toFixed(2)}, ` +
+		// 	`lightEf=${lightEfficiency.toFixed(2)}, ` +
+		// 	`soil=${soilFactor.toFixed(2)}`
+		// );
+		
+	}
+	
+	// updates combined mass and the collision radius.
+	RecalcMassAndSize() {
+		this.mass = this.core + this.foliage;
+		this.r = Math.sqrt( 2 * this.mass / Math.PI ) * Plant.GROWTH_RADIUS_SCALE;
+		this.collision.radius = this.r;			
 	}
 	
 	Export( as_JSON=false ) {
-		let output = { classname: this.type };
+		let output = { classname: 'Plant' };
 		let datakeys = ['x','y','fruit_credits','age','life_credits',
-			'mass','health','dna','generation'];
+			'mass','health','dna','generation','foliage', 'core', 'reserve'];
 		// legacy plants also save `traits` because they have no DNA to restore from
 		if ( !this.dna ) { datakeys.push('traits'); }			
 		for ( let k of datakeys ) { 
@@ -195,17 +428,16 @@ export default class Plant {
 				if ( globalThis.vc.tank.foods.length < globalThis.vc.max_foods ) {
 					const size = fruit_size * ( 1 + overage );
 					for ( let n=0; n < this.traits.fruit_num; n++ ) {
-						// let vertex = this.geo.children.pickRandom().vertices.pickRandom();
-						// const f = new Food( this.x + ( vertex.x * 0.35 ) , this.y + ( vertex.y * 0.35 ) , { 
-						const f = new Food( this.x, this.y, { 
+						const f = new Food( 
+							this.x + (Math.random() * 20 - 10), 
+							this.y + (Math.random() * 20 - 10), 
+							{ 
 							value: size, 
 							lifespan: ( this.traits.fruit_lifespan * ( 1 - (Math.random() * 0.2 ) ) ),
 							buoy_start: this.traits.fruit_buoy_start + ( 100 - (200 * Math.random()) ),
 							buoy_end: this.traits.fruit_buoy_end + ( 100 - (200 * Math.random()) ),
 							flavor: this.traits.fruit_flavor,
 							complexity: this.traits.fruit_complexity,
-							// vx: utils.RandomFloat(100,1000), // boing!
-							// vy: utils.RandomFloat(100,1000),
 							} );
 						// if there is room for more plants in the tank, make it a viable seed
 						if ( globalThis.vc.tank.plants.length < globalThis.vc.simulation.settings.num_plants ) {
@@ -229,10 +461,15 @@ export default class Plant {
 				this.life_credits -= this.fruit_credits * 0.1;
 				// reset fruiting cycle
 				this.fruit_credits = 0; 
+				// console.log('fruit!');
 			}
 		}
 	}
 	
+	// health calculation is currently out of date with actual plant growth mechanisms. 
+	// works but major room for improvement.
+	// TODO: sync with new growth model. focus on nutrition and starvation. plants
+	// can still be healthy in less than ideal situations.
 	CalcHealth() {
 		// these things never change (yet), so can be precomputed
 		if ( !this.light_health ) {
@@ -242,24 +479,28 @@ export default class Plant {
 			const heat_diff = Math.abs( cell.heat - this.traits.heat_pref );
 			this.heat_health = 1 - utils.Clamp( heat_diff / this.traits.heat_tolr, 0, 1 );
 		}
-		let health = ( this.last_matter_grant_pct + this.light_health + this.heat_health ) / 3;
+		let health = ( this.light_health + this.heat_health ) / 2;
 		// average health over time to avoid wild swings
 		this.health = ( this.health + this.health + health ) / 3;
 	}
 	
+	// stages a plant at a future point in its lifespan. 
+	// not based on actual growth patterns, just spitballed to get things moving.
 	RandomizeAge() {
-		const rand = Math.random();
-		this.age = this.traits.life_credits * rand;
-		this.life_credits = this.traits.life_credits - this.age;
-		// theoretical mass ceiling: point where growth fraction drops to ~1% (e^-km < 0.01 => m = ln(100)/k)
-		const theoretical_max = Math.log(100) / this.traits.growth_curve_exp;
-		this.mass = Math.max( 1, theoretical_max * rand );
-		this.r = Math.sqrt( 2 * this.mass / Math.PI ) * PLANT_GROWTH_RADIUS_SCALE;
-		this.collision.radius = this.r;
-		// give fruiting a head start so that new tanks dont immediately starve
-		let threshold = this?.traits?.fruit_num * this?.traits?.fruit_size;
-		if ( !threshold ) { threshold = 300; }
-		this.fruit_credits = utils.RandomFloat( threshold * 0.96, threshold );
+		// reset to newborn state before fast-forwarding
+		this.age = utils.RandomFloat( 0, this.traits.life_credits );
+		this.life_credits = this.age;
+		this.core = utils.RandomFloat( 10, 300 );
+		this.foliage = this.core * utils.RandomFloat( 0.5, 1.5 );
+		this.reserve = utils.RandomFloat( 0, this.core );
+		this.health = 1;
+		this.light_health = 0;
+		this.heat_health = 0;
+		// head start on fruit cycle
+		const fruit_size = this.traits.fruit_size * this.health;
+		const fruit_threshold = this.traits.fruit_num * fruit_size;
+		this.fruit_credits = utils.RandomFloat( 0.5 * fruit_threshold, fruit_threshold );
+		this.RecalcMassAndSize();
 	}	
 	
 	MakeGeneticColor( whatfor, colors ) {
@@ -336,9 +577,19 @@ export default class Plant {
 			this.traits.stroke = this.traits.colors[1];
 		}
 				
+		// growth weights:
+		// there are a number of environmental factors that influence growth of core, foliage, and fruit. 
+		// Foreach growth priority, create a set of weights for each env factor, range -1..1.
+		// Softmax will handle normalization during the growth function.
+		// Data structure is a 1-dim array for CPU simplicity. Step by threes on iteration. 
+		const num_env_factors = 8;
+		for ( let i=0; i < num_env_factors; i++ ) {
+			this.traits.growth_weights.push( this.dna.mix( this.dna.genesFor(`growth weight ${i}-0`,1,1), -1, 1 ) );
+			this.traits.growth_weights.push( this.dna.mix( this.dna.genesFor(`growth weight ${i}-1`,1,1), -1, 1 ) );
+			this.traits.growth_weights.push( this.dna.mix( this.dna.genesFor(`growth weight ${i}-2`,1,1), -1, 1 ) );
+		}
+		
 		// determine the other traits
-		this.traits.growth_speed = this.dna.mix( this.dna.genesFor('growth_speed',2), 0.1, 1.0);
-		this.traits.growth_curve_exp = this.dna.mix( this.dna.genesFor('growth_curve_exp',2), 0.01, 0.042 );
 		const total_fruit_mass = Math.round( 0.5 * ( 
 			this.dna.shapedInt( this.dna.genesFor('total_fruit_mass_1',2), 5, 1000, 50, 6 ) +
 			this.dna.shapedInt( this.dna.genesFor('total_fruit_mass_2',2), 5, 200, 50, 2 )
@@ -357,6 +608,7 @@ export default class Plant {
 		this.traits.light_tolr = this.dna.shapedNumber( this.dna.genesFor('light_tolr',2,1), 0, 1 );
 		this.traits.heat_pref = this.dna.shapedNumber( this.dna.genesFor('heat_pref',2,1), 0, 1 );
 		this.traits.heat_tolr = this.dna.shapedNumber( this.dna.genesFor('heat_tolr',2,1), 0, 1 );
+		this.traits.risk_tolerance = this.dna.shapedNumber( this.dna.genesFor('risk_tolerance',2,1), 0, 1 );
 		this.traits.linewidth = this.dna.shapedInt( this.dna.genesFor('linewidth',2,1), 0, 10 );
 		this.traits.radius = this.dna.shapedInt( this.dna.genesFor('radius',2,1), 100, 350 );
 		this.traits.num_points = this.dna.shapedInt( this.dna.genesFor('num_points',2,1), 5, 12 );
@@ -431,14 +683,107 @@ export default class Plant {
 		this.sense[11] = _s2_amp; // s2 amplitude
 	}		
 	
+	// Returns object with named percentages: { core: 0.5, foliage: 0.3, fruit: 0.2 }
+	CalcGrowthPriorities() {
+		// ENVIRONMENTAL DATA COLLECTION ----------------\/-------------------
+		const cell = globalThis.vc.tank.datagrid.CellAt( this.x, this.y );
+		
+		// Heat: how close are we to preference? 1=near, 0=far
+		const heat = 1 - Math.abs( cell.heat - this.traits.heat_pref );
+		
+		// Light: how close are we to preference? 1=near, 0=far
+		const light = 1 - Math.abs( cell.light - this.traits.light_pref );
+		
+		// current foliage to core ratio
+		const foliage_ratio = 1 - this.foliage / this.core;
+		
+		// current life credits - use cosine to put 1 in the middle
+		const life_credits = 0.5 + 0.5 * Math.cos( ( this.life_credits / this.traits.life_credits ) * Math.PI * 2 + Math.PI );
+		
+		// age: we dont have a max age, so use a saturating function based on spitball number
+		const age = 1 - ( this.age * 0.001 ) / ( this.age * 0.001 + 1 );
+		
+		// friends: nearby plants competing for the same light/matter (crowding pressure).
+		// no hard upper limit, so curve to 1.
+		let friends = globalThis.vc.tank.grid.GetObjectsByCoords(this.x, this.y)
+			.filter(x => x.otype === 4 && x !== this)
+			.length;
+		friends = ( friends * 0.25 ) / ( ( friends * 0.25 ) + 1 );
+		
+		// enemies: nearby boids that may graze on foliage/fruit (predation pressure).
+		// no hard upper limit, so curve to 1.
+		let enemies = globalThis.vc.tank.grid.GetObjectsByCoords(this.x, this.y)
+			.filter(x => x.otype === 1)
+			.length;
+		enemies = ( enemies * 0.25 ) / ( ( enemies * 0.25 ) + 1 );
+		
+		// core development: how big are we?
+		const core_dev = 1 - ( this.core * 0.02 ) / ( this.core * 0.02 + 1 );
+		
+		// CALCULATE WEIGHTS AND SOFTMAX ----------------\/-------------------
+		const weights = this.traits.growth_weights;
+		const inputs = [ heat, light, foliage_ratio, life_credits, age, friends, enemies, core_dev ];
+		const rawScores = [0, 0, 0];
+
+		// Step 1: Accumulate raw scores
+		for (let i = 0; i < inputs.length; i++) {
+			const signal = inputs[i];
+			rawScores[0] += signal * weights[i*3];   // Core
+			rawScores[1] += signal * weights[i*3+1]; // Foliage
+			rawScores[2] += signal * weights[i*3+2]; // Fruit
+		}
+	
+		// Step 2: Numerical Stability Trick
+		// Find the maximum raw score and subtract it from all scores.
+		// This prevents JavaScript from hitting "Infinity" if raw scores get large.
+		const maxScore = Math.max(...rawScores);	
+				
+		// Step 3: Compute exponentials (e^x) and their sum
+		const expScores = rawScores.map(score => Math.exp(score - maxScore));
+		const totalExpSum = expScores.reduce((sum, val) => sum + val, 0);
+
+		// Step 4: Normalize to get probabilities that sum to 1
+		return {
+			core: expScores[0] / totalExpSum,
+			foliage: expScores[1] / totalExpSum,
+			fruit: expScores[2] / totalExpSum
+		};
+	}
+	
 	CreateBody() {
 	
+		/*
+		things that we could visually represent:
+			- core mass
+			- foliage mass
+			- health
+			- light_pref
+			- heat_pref
+			- light_tolr
+			- heat_tolr
+			- foliage food value
+		
+		with features:
+			- fill color H S L
+			- border color H S L
+			- linewidth
+			- dashes
+			- points / polygon
+		*/
+		
+		// linewidth represents foliage. 
+		// lines are drawn at the boundary with center of line on circle perimeter. 
+		// we need to calculate as follows:
+		// total circle = mass (core + foliage)
+		// foliage area = total area * (foliage / mass)
+		// 
+		const linewidth = Math.sqrt( 2 * this.foliage / Math.PI ) * Plant.GROWTH_RADIUS_SCALE;
 		this.geo = {
 			type:'circle',
-			fill: 'transparent',
-			stroke: 'lime',
-			linewidth: 4,
-			r: Math.sqrt( 2 * this.mass / Math.PI ) * PLANT_GROWTH_RADIUS_SCALE,
+			fill: 'transparent', // this.traits.fill, //'#81625499',
+			stroke: this.traits.stroke, // '#4f8d47BB'
+			linewidth: linewidth,
+			r: Math.sqrt( 2 * this.mass / Math.PI ) * Plant.GROWTH_RADIUS_SCALE,
 			rotation: utils.RandomFloat( 0, Math.PI * 2 ),
 		};
 		return; // TEMPORARY

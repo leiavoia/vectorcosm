@@ -7,6 +7,7 @@ export function UpdateBasicGeoProps( target, props ) {
 	if ( 'a' in props ) { target.rotation = props.a; }
 	if ( 's' in props ) { target.scale = props.s; }
 	if ( 'r' in props ) { target.radius = props.r; }
+	if ( 'lw' in props ) { target.linewidth = props.lw; }
 	if ( 'opacity' in props ) { target.opacity = props.opacity; }
 }
 					
