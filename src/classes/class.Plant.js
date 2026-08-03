@@ -108,6 +108,8 @@ export default class Plant {
 			heat_pref: 0.65, // 0..1
 			heat_tolr: 0.5, // 0..1
 			risk_tolerance: 0.5, // 0..1 - 0=conservative ("sweet potato"), 1=reckless ("surface weed"). rehydrated by DNA.
+			food_complexity: 3,
+			food_flavor: 0.5,
 			fruit_num: 1,
 			fruit_size: 100,
 			fruit_lifespan: 6,
@@ -603,6 +605,8 @@ export default class Plant {
 		const fruit_complexity_gene = 0x08000000 | this.dna.genesFor('fruit_complexity',1,true);
 		this.traits.fruit_complexity = 2 + Math.ceil( this.dna.shapedInt( fruit_complexity_gene, 0, 599, 150, 1.5 ) / 100 );
 		this.traits.fruit_flavor = this.dna.mix( this.dna.genesFor('fruit flavor',2,1), 0, 1, 0.5, 2 ); // create slight rarity
+		this.traits.food_complexity = 3 + this.dna.shapedInt( this.dna.genesFor('food_complexity',2,1), 0, 4, 1, 2 );
+		this.traits.food_flavor = this.dna.mix( this.dna.genesFor('food flavor',2,1), 0, 1, 0.5, 4 ); // create more rarity
 		this.traits.life_credits = this.dna.shapedInt( this.dna.genesFor('life_credits',3,1), 1000, 10000, 3000, 2.2 );
 		this.traits.light_pref = this.dna.shapedNumber( this.dna.genesFor('light_pref',2,1), 0, 1 );
 		this.traits.light_tolr = this.dna.shapedNumber( this.dna.genesFor('light_tolr',2,1), 0, 1 );
@@ -779,12 +783,15 @@ export default class Plant {
 		// 
 		const linewidth = Math.sqrt( 2 * this.foliage / Math.PI ) * Plant.GROWTH_RADIUS_SCALE;
 		this.geo = {
-			type:'circle',
+			// type:'circle',
+			type:'polygon',
+			n: this.traits.food_complexity,
 			fill: 'transparent', // this.traits.fill, //'#81625499',
 			stroke: this.traits.stroke, // '#4f8d47BB'
 			linewidth: linewidth,
 			r: Math.sqrt( 2 * this.mass / Math.PI ) * Plant.GROWTH_RADIUS_SCALE,
 			rotation: utils.RandomFloat( 0, Math.PI * 2 ),
+			// dashes: [2,3]
 		};
 		return; // TEMPORARY
 		
