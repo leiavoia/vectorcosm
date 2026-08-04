@@ -108,8 +108,8 @@ export default class Plant {
 			heat_pref: 0.65, // 0..1
 			heat_tolr: 0.5, // 0..1
 			risk_tolerance: 0.5, // 0..1 - 0=conservative ("sweet potato"), 1=reckless ("surface weed"). rehydrated by DNA.
-			food_complexity: 3,
-			food_flavor: 0.5,
+			food_complexity: 3, // foliage food complexity; 3..7; (0..2 reserved for decaying matter)
+			food_flavor: 0.5, // foliage food flavour; 0..1
 			fruit_num: 1,
 			fruit_size: 100,
 			fruit_lifespan: 6,
@@ -191,18 +191,6 @@ export default class Plant {
 		}
 		
 		//====================================================
-		// DEBUG: random periodic grazing knocks down foliage
-		//====================================================
-				
-		// if ( Math.random() < 0.05 ) { 
-		// 	const lost = Math.min( this.foliage, Math.random() * 0.4 * this.foliage );
-		// 	this.foliage -= lost;
-		// 	cell.matter += lost;
-		// 	// console.log(`Grazing: ${lost.toFixed(1)}`);
-		// }
-		
-		
-		//====================================================
 		// Growth phase setup / Environmental performance
 		//====================================================		
 		
@@ -218,6 +206,18 @@ export default class Plant {
 		// heat tolerance affects metabolic efficiency. 0..1, higher is better
 		const heatTolerance  = this.HeatTolerance(cell.heat, this.traits.heat_pref); 
 
+		
+		//====================================================
+		// DEBUG: random periodic grazing knocks down foliage
+		//====================================================
+				
+		// if ( Math.random() < 0.05 ) { 
+		// 	const lost = Math.min( this.foliage, Math.random() * 0.4 * this.foliage );
+		// 	this.foliage -= lost;
+		// 	cell.matter += lost;
+		// 	// console.log(`Grazing: ${lost.toFixed(1)}`);
+		// }
+		
 
 		//====================================================
 		// Plant capacities
@@ -333,8 +333,8 @@ export default class Plant {
 		const priorities = this.CalcGrowthPriorities();
 		const idealCore = this.core * priorities.core;
 		const idealFoliage = Math.min(this.foliage * priorities.foliage, max_foliage);
-		priorities.foliage = idealFoliage / ( idealFoliage + this.foliage );
-		priorities.core = idealCore / ( idealCore + this.core );
+		priorities.foliage = idealFoliage / ( idealFoliage + this.foliage + 0.01 );
+		priorities.core = idealCore / ( idealCore + this.core + 0.01 );
 		
 		// normalize to 1.0
 		const total = priorities.core + priorities.foliage + priorities.fruit;
@@ -367,7 +367,6 @@ export default class Plant {
 		//====================================================
 
 		this.RecalcMassAndSize();
-
 
 		// debug
 		// const life_pct = Math.max( 0, Math.min( 1, this.life_credits / this.traits.life_credits ) );
@@ -413,6 +412,20 @@ export default class Plant {
 		return as_JSON ? JSON.stringify(output) : output;
 	}
 	
+	// returns the amount eaten
+	Eat( amount ) { 
+		if ( this.dead || this.foliage <= 0 ) { return 0; }
+		const eaten = Math.min( this.foliage, amount );
+		this.foliage -= eaten;
+		this.RecalcMassAndSize();
+		return eaten;
+	}
+	
+	// returns TRUE if the food is edible by the boid
+	IsEdibleBy( boid ) {
+		return (1 << (this.traits.food_complexity-1)) & boid.traits.food_mask;
+	}	
+		
 	GeoData() {
 		return this.geo;
 	}

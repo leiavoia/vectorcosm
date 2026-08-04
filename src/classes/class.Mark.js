@@ -143,6 +143,12 @@ export default class Mark {
 				] 
 			};				
 		}
+		// Audio / bite:
+		else if ( this.type=='bite' ) { 
+			geo.linewidth = 8;
+			geo.dashes = [2,16];
+			geo.stroke = '#FFF';
+		}
 		// Audio:
 		else if ( this.strongest_sense >= 12) { 
 			geo.linewidth = 80;

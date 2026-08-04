@@ -330,6 +330,22 @@ export class Boid extends PhysicsObject {
 		this.sensor_outputs = new Array(this._total_sensor_outputs).fill(0);
 	}
 
+	// determine nutritional value of food based on food color and boid preference
+	CalculateFoodQuality( food_color ) {
+		// this provides 1.0 when distance is small in flavor-space,
+		// falling off sharply as distance increases to maximum (0.5).
+		// You may want this to go ABOVE 1.0 to reward better food sources.
+		// desmos Super-Gaussian falloff with wide center, sharp edges:
+		// exp(-((min(abs(c - p), 1 - abs(c - p)) / w)^s))
+		const foodEdibleRangeWidth = 0.5; // could be a genetic trait
+		const foodEdibilityEdgeSharpness = 5.0; // could be a genetic trait
+		const rawFlavorDifference = Math.abs(food_color - this.traits.food_pref);
+		const circularFlavorDistance = Math.min( rawFlavorDifference, 1 - rawFlavorDifference );
+		const normalizedDistance = circularFlavorDistance / foodEdibleRangeWidth;
+		const food_quality = Math.exp( -Math.pow(normalizedDistance, foodEdibilityEdgeSharpness) );
+		return food_quality;
+	}
+	
 	Update( delta ) {
 	
 		if ( !delta || this.dead ) { return; }
@@ -397,18 +413,8 @@ export class Boid extends PhysicsObject {
 				let growth_mass = morsel * growth_split * MAGIC_ENERGY_MULTIPLIER; // /!\ HACK 2 WIN
 				let energy_portion = morsel * ( 1 - growth_split ); 
 					
-				// determine nutritional value of food being digested.
-				// this provides 1.0 when distance is small in flavor-space,
-				// falling off sharply as distance increases to maximum (0.5).
-				// You may want this to go ABOVE 1.0 to reward better food sources.
-				// desmos Super-Gaussian falloff with wide center, sharp edges:
-				// exp(-((min(abs(c - p), 1 - abs(c - p)) / w)^s))
-				const foodEdibleRangeWidth = 0.5; // could be a genetic trait
-				const foodEdibilityEdgeSharpness = 5.0; // could be a genetic trait
-				const rawFlavorDifference = Math.abs(this.metab.stomach_color - this.traits.food_pref);
-				const circularFlavorDistance = Math.min( rawFlavorDifference, 1 - rawFlavorDifference );
-				const normalizedDistance = circularFlavorDistance / foodEdibleRangeWidth;
-				const food_quality = Math.exp( -Math.pow(normalizedDistance, foodEdibilityEdgeSharpness) );
+				// nutritional value of food depends on food's color
+				const food_quality = this.CalculateFoodQuality();
 
 				// gain or lose energy from metabolism
 				let energy_gain = energy_portion * food_quality * MAGIC_ENERGY_MULTIPLIER;
@@ -1668,23 +1674,39 @@ export class Boid extends PhysicsObject {
 				// hungry?
 				if ( !globalThis.vc.simulation.settings?.ignore_lifecycle &&
 					boid.metab.stomach_total / boid.metab.stomach_size >= 0.95 ) { return 0; }
-				// anything to eat?
+				// anything to eat? - look for foods in range
 				const grace = 4;
 				let r = boid.collision.radius + grace;
-				// look for foods in range
-				let test = o => o.otype === 2 && o.IsEdibleBy(boid) && !( boid.ignore_list && boid.ignore_list.has(o) );
+				let test = o => 
+					( o.otype === 2 || ( o.otype === 4 && o.foliage > 0 ) ) && // food or plants with foliage
+					o.IsEdibleBy(boid) && // of the type i can eat
+					!( boid.ignore_list && boid.ignore_list.has(o) ); // not in training data
 				const foods = globalThis.vc.tank.grid.GetObjectsByBox( boid.x - r, boid.y - r, boid.x + r, boid.y + r, test );
+				// there may be multiple targets. i want the juiciest one!
+				let best_target = null;
+				let best_score = 0;
 				for ( let food of foods ) {
 					const dx = Math.abs(food.x - boid.x);
 					const dy = Math.abs(food.y - boid.y);
 					const d = Math.sqrt(dx*dx + dy*dy);
+					// target in range, now judge quality
 					if ( d <= boid.collision.radius + food.r ) {
-						// save the target for the Do() function
-						this.target = food;
-						return 1;
+						// TODO: these calculations are kinda spendy and a cheap linear approx would work fine
+						const score = food.otype===2 
+							? ( food.value * boid.CalculateFoodQuality( food.flavor ) ) 
+							: ( food.foliage * boid.CalculateFoodQuality( food.traits.food_flavor ) );
+						if ( score > best_score ) {
+							best_score = score;
+							best_target = food;
+						}
 					}
 				}
-				// look for victims to attack!
+				// save the target for the Do() function
+				if ( best_target ) {
+					this.target = best_target;
+					return 1;
+				}
+				// there was no easy food - look for victims to attack!
 				// TODO: can attack?
 				if ( !globalThis.vc.simulation.settings?.no_combat ) {
 					r = boid.collision.radius; // no grace here - be precise!		
@@ -1712,11 +1734,18 @@ export class Boid extends PhysicsObject {
 			Do: function ( boid, amount, delta ) {
 				if ( !this.target ) { return false; }
 				// if ( this.t !== 0 ) { return; } // bite fires once at stroke start
-				if ( this.target.otype === 2 ) {
+				// food or plant
+				if ( this.target.otype === 2 || this.target.otype === 4 ) {
 					const space_left = boid.metab.stomach_size - boid.metab.stomach_total;
 					const bitesize = Math.min( space_left, boid.metab.bite_size );
 					const morsel = this.target.Eat( bitesize );
-					boid.metab.stomach_color = utils.modularWeightedAverage( boid.metab.stomach_color, boid.metab.stomach_total, this.target.flavor, morsel );
+					const target_flavor = this.target.otype === 2 ? this.target.flavor : this.target.traits.food_flavor; 
+					boid.metab.stomach_color = utils.modularWeightedAverage( 
+						boid.metab.stomach_color, 
+						boid.metab.stomach_total, 
+						target_flavor, 
+						morsel 
+					);
 					boid.metab.stomach_total += morsel;
 					boid.stats.food.bites++;
 					boid.RecordStat('bites', 1);
@@ -1727,8 +1756,19 @@ export class Boid extends PhysicsObject {
 						if ( !boid.ignore_list ) { boid.ignore_list = new WeakSet; }
 						boid.ignore_list.add(this.target);
 					}
-					boid.Experience( 1.0 );
+					const exp = this.target.otype === 2 ? 1.0 : 0.5;
+					boid.Experience( exp );
+					// audio mark
+					globalThis.vc.tank.marks.push( new Mark({
+						x: boid.x,
+						y: boid.y,
+						r: Math.sqrt( 7 * morsel * Math.PI ),
+						sense: [0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,1,0.2], // chewing audio: a_cos=0, a_sin=1, a_amp=0.2
+						lifespan: ( 1 + morsel / ( morsel + 25 ) ), // really short; ~3s tops
+						type: 'bite' // triggers cosmetic changes from normal audio
+					}) );					
 				}
+				// boid
 				else if ( this.target.otype === 1 ) {
 					console.log("Attack!");
 					const attack_pow = 1; // TODO: need attack value
