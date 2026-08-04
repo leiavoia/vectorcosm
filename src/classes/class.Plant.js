@@ -284,10 +284,13 @@ export default class Plant {
 		//====================================================
 
 		if ( this.reserve < 0 ) {
-			// TODO: how plants prioritize sacrifice can be genetic.
-			// for now, hardcoded priorities.
 			// NOTE: intentionally ignoring fruit for now
-			const demand = Math.abs(this.reserve);
+			let demand = Math.abs(this.reserve);
+			// NOTE: when plants are completely stripped, its a tough spot.
+			// Plants should have the ability to get a hail mary and overdrive demand.
+			// We already have risk_tolerance, so this is a fine place to use it.
+			demand *= ( 1 + this.traits.risk_tolerance ) * ( 1 + this.traits.risk_tolerance );
+			// TODO: how plants prioritize sacrifice can be genetic. for now, hardcoded priorities.
 			const foliage_priority = 0.7;
 			const core_priority = 0.3;
 			const foliage_loss = Math.min(this.foliage, demand * foliage_priority + Math.max(0, demand * core_priority - this.core));
@@ -615,10 +618,11 @@ export default class Plant {
 		this.traits.fruit_lifespan = Math.round( this.traits.fruit_lifespan * (total_fruit_mass / 100) ); // more fruit lasts longer
 		this.traits.fruit_buoy_start = this.dna.mix( this.dna.genesFor('fruit_buoy_start',2), -100, 100 );
 		this.traits.fruit_buoy_end = this.dna.mix( this.dna.genesFor('fruit_buoy_end',2), -100, 100 );
-		const fruit_complexity_gene = 0x08000000 | this.dna.genesFor('fruit_complexity',1,true);
+		const fruit_complexity_gene = 0x08000000 | this.dna.genesFor('fruit_complexity',2,1);
 		this.traits.fruit_complexity = 2 + Math.ceil( this.dna.shapedInt( fruit_complexity_gene, 0, 599, 150, 1.5 ) / 100 );
 		this.traits.fruit_flavor = this.dna.mix( this.dna.genesFor('fruit flavor',2,1), 0, 1, 0.5, 2 ); // create slight rarity
-		this.traits.food_complexity = 3 + this.dna.shapedInt( this.dna.genesFor('food_complexity',2,1), 0, 4, 1, 2 );
+		const food_complexity_gene = 0x08000000 | this.dna.genesFor('food_complexity',2,1);
+		this.traits.food_complexity = 2 + Math.ceil( this.dna.shapedInt( food_complexity_gene, 0, 399, 175, 2 ) / 100 );
 		this.traits.food_flavor = this.dna.mix( this.dna.genesFor('food flavor',2,1), 0, 1, 0.5, 4 ); // create more rarity
 		this.traits.life_credits = this.dna.shapedInt( this.dna.genesFor('life_credits',3,1), 1000, 10000, 3000, 2.2 );
 		this.traits.light_pref = this.dna.shapedNumber( this.dna.genesFor('light_pref',2,1), 0, 1 );
