@@ -570,31 +570,6 @@ export default class Plant {
 	// this mines the DNA for data
 	RehydrateFromDNA() {
 		
-		// create a color palette
-		this.traits.colors = [];
-		const num_colors = 5;
-		for ( let i=0; i < num_colors; i++ ) {
-			const genes = this.dna.genesFor(`plant color ${i} g`, 12);
-			const hue = ( this.dna.mix( genes.slice(0,1), 0.15, 0.55 ) + this.dna.mix( genes.slice(2,3), 0.15, 0.55 ) ) / 2;
-			const saturation = this.dna.mix( genes.slice(3,6), 0.20, 0.50 );			
-			const lightness = this.dna.mix( genes.slice(6,9), 0.20, 0.55 );			
-			const transp = this.dna.mix( genes.slice(9,12), 0.5, 1.0 );
-			let arr = utils.hsl2rgb(hue, saturation, lightness);
-			arr.push(transp);
-			arr = arr.map( c => Math.trunc(c * 255) );
-			const color = utils.RGBArrayToHexColor( arr );
-			this.traits.colors.push( color );
-		}
-		
-		// fill and stroke colors
-		this.traits.fill = this.MakeGeneticColor( 'fill', this.traits.colors );
-		this.traits.stroke = this.MakeGeneticColor( 'stroke', this.traits.colors );
-		// sane default if we got double transparent
-		if ( this.traits.fill == this.traits.stroke ) {
-			this.traits.fill = this.traits.colors[0];
-			this.traits.stroke = this.traits.colors[1];
-		}
-				
 		// growth weights:
 		// there are a number of environmental factors that influence growth of core, foliage, and fruit. 
 		// Foreach growth priority, create a set of weights for each env factor, range -1..1.
@@ -660,12 +635,6 @@ export default class Plant {
 		// we may wish to handle these differently
 		const is_linear = this.traits.points_per_shape == 2;
 		
-		// linear segments may not be transparent - entire plant would disappear
-		if ( is_linear && this.traits.stroke === 'transparent' ) {
-			this.traits.stroke = this.traits.fill;
-			this.traits.fill = 'transparent';
-		} 
-		
 		// if the shape is composed of line segments, turn off curves (which just look like giant ovals)
 		// TODO: we can keep curves if we want to fiddle with bezier handles later.
 		if ( this.traits.linewidth && is_linear ) { 
@@ -673,12 +642,72 @@ export default class Plant {
 			this.traits.linewidth *= multiplier;
 		}
 		
+				
+		// COLORS ----------------------\/----------------------------
+
+		// create a color palette
+		this.traits.colors = [];
+		
+		// the primary hue is based on the food value of the foliage, mapped to pleasant plant-like color range.
+		// heat and light preferences affect the saturation, lightness, transparency.
+		const primary_h = utils.MapToRange( this.traits.food_flavor, 0, 1, 0.1, 0.68 );
+		const primary_s = utils.MapToRange( this.traits.heat_pref, 0, 1, 0.15, 0.55 );
+		const primary_l = utils.MapToRange( this.traits.heat_tolr, 0, 1, 0.15, 0.55 );
+		const primary_t = utils.MapToRange( this.traits.light_pref, 0, 1, 0.5, 1.0 );
+		let primary_arr = utils.hsl2rgb(primary_h, primary_s, primary_l);
+		primary_arr.push(primary_t);
+		primary_arr = primary_arr.map( c => Math.trunc(c * 255) );
+		const primary_color = utils.RGBArrayToHexColor( primary_arr );
+		this.traits.colors.push( primary_color );
+		
+		// the secondary color is mixed from a variety of more subtle traits
+		const secondary_h = utils.MapToRange( this.traits.fruit_flavor, 0, 1, 0.1, 0.68 );
+		const secondary_s = utils.MapToRange( this.traits.fruit_complexity, 3, 6, 0.15, 0.55 );
+		const secondary_l = utils.MapToRange( this.traits.risk_tolerance, 0, 1, 0.15, 0.55 );
+		const secondary_t = utils.MapToRange( Math.min(this.traits.fruit_size, 500), 0, 500, 0.5, 1.0 );
+		let secondary_arr = utils.hsl2rgb(secondary_h, secondary_s, secondary_l);
+		secondary_arr.push(secondary_t);
+		secondary_arr = secondary_arr.map( c => Math.trunc(c * 255) );
+		const secondary_color = utils.RGBArrayToHexColor( secondary_arr );
+		this.traits.colors.push( secondary_color );
+							
+		// genetic colors just for fun
+		const num_colors = 3;
+		for ( let i=0; i < num_colors; i++ ) {
+			const genes = this.dna.genesFor(`plant color ${i} g`, 12);
+			const hue = ( this.dna.mix( genes.slice(0,1), 0.15, 0.55 ) + this.dna.mix( genes.slice(2,3), 0.15, 0.55 ) ) / 2;
+			const saturation = this.dna.mix( genes.slice(3,6), 0.20, 0.50 );			
+			const lightness = this.dna.mix( genes.slice(6,9), 0.20, 0.55 );			
+			const transp = this.dna.mix( genes.slice(9,12), 0.5, 1.0 );
+			let arr = utils.hsl2rgb(hue, saturation, lightness);
+			arr.push(transp);
+			arr = arr.map( c => Math.trunc(c * 255) );
+			const color = utils.RGBArrayToHexColor( arr );
+			this.traits.colors.push( color );
+		}
+		
+		// fill and stroke colors
+		this.traits.fill = this.MakeGeneticColor( 'fill', this.traits.colors );
+		this.traits.stroke = this.MakeGeneticColor( 'stroke', this.traits.colors );
+		// sane default if we got double transparent
+		if ( this.traits.fill == this.traits.stroke ) {
+			this.traits.fill = this.traits.colors[0];
+			this.traits.stroke = this.traits.colors[1];
+		}
+				
+		// linear segments may not be transparent - entire plant would disappear
+		if ( is_linear && this.traits.stroke === 'transparent' ) {
+			this.traits.stroke = this.traits.fill;
+			this.traits.fill = 'transparent';
+		} 				
+				
+						
 		// SENSORY INFO ---------------------\/-------------------------
 
 		// visual color
-		let primary_color = this.traits.colors.find( c => c !== 'transparent' ) || '#FFFFFF';
-		primary_color = utils.HexColorToRGBArray( primary_color );
-		const _hsl = utils.rgb2hsl( primary_color[0], primary_color[1], primary_color[2] );
+		let visual_color = this.traits.colors.find( c => c !== 'transparent' ) || '#FFFFFF';
+		visual_color = utils.HexColorToRGBArray( visual_color );
+		const _hsl = utils.rgb2hsl( visual_color[0], visual_color[1], visual_color[2] );
 		const _hue_angle = _hsl[0] * Math.PI * 2;
 		const _v_amp = Math.max( 0.05, _hsl[2] );
 		this.sense[0] = Math.cos( _hue_angle ); // v1 cos
@@ -702,6 +731,7 @@ export default class Plant {
 		this.sense[9]  = Math.cos( _s2_angle ); // s2 cos
 		this.sense[10] = Math.sin( _s2_angle ); // s2 sin
 		this.sense[11] = _s2_amp; // s2 amplitude
+				
 	}		
 	
 	// Returns object with named percentages: { core: 0.5, foliage: 0.3, fruit: 0.2 }
