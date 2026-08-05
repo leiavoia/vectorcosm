@@ -700,7 +700,7 @@ export class Boid extends PhysicsObject {
 			if ( globalThis.vc.tank.foods.length < 300 && this.traits.poop_complexity ) {
 				const f = new Food( this.x, this.y, { 
 					value: this.metab.bowel_total,
-					lifespan: Math.min( 15, this.metab.bowel_total/3 ),
+					lifespan: Math.max( 7, Math.min( 20, this.metab.bowel_total/3 ) ),
 					buoy_start: ( this.traits.poop_buoy + ( this.traits.poop_buoy 
 						- (this.traits.poop_buoy * 2 * Math.random()) ) ),
 					buoy_end: ( (this.traits.poop_buoy + this.traits.poop_buoy) 
