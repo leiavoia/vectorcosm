@@ -107,16 +107,7 @@ export default class Sensor {
 				}
 			}
 		}
-		
-		// legacy vision sensor
-		else if ( this.type === 'locater' ) {
-			// /!\ KLUNKY - specific order matters
-			let look_for = ['food_cos', 'food_sine', 'food_angle', 'food_dist', 'food_density'];
-			for ( let x of look_for ) {
-				if ( this.detect.includes(x) ) { this.labels.push(x); }
-			}
-		}
-		
+				
 		// proprioception - label each motor
 		else if ( this.detect == 'proprio' ) {
 			for ( let i=0; i < this.owner.motors.length; i++ ) {
@@ -208,12 +199,6 @@ export default class Sensor {
 				this.senseFunction = this._senseSimple;
 				this._type_code = 1;
 			}
-		}
-		
-		// if this is an old-style vision sensor, it return multiple values and is handled differently
-		else if (  this.type === 'locater' ) {
-			this.senseFunction = this.senseLegacyVision;
-			this._type_code = 2;
 		}
 		
 		// small special purpose sensors
@@ -312,7 +297,6 @@ export default class Sensor {
 		switch ( this._type_code ) {
 			case 0:  this.outputs = this._senseSegmented( nearby ); return this.outputs;
 			case 1:  this.outputs = this._senseSimple( nearby ); return this.outputs;
-			case 2:  this.outputs = this.senseLegacyVision( nearby ); return this.outputs;
 			case 3:  this.outputs = this.senseWhiskers( nearby ); return this.outputs;
 			case 4:  this.outputs = this.senseLight( nearby ); return this.outputs;
 			case 5:  this.outputs = this.senseHeat( nearby ); return this.outputs;
@@ -337,60 +321,6 @@ export default class Sensor {
 		}
     }
 	
-	senseLegacyVision( nearby ) {
-		let outputs = [];
-		let sinAngle = Math.sin(this.owner.angle);
-		let cosAngle = Math.cos(this.owner.angle);				
-		// calc sensor x/y coords in world space
-		let sx = this.owner.x + ((this.x * cosAngle) - (this.y * sinAngle));
-		let sy = this.owner.y + ((this.x * sinAngle) + (this.y * cosAngle));
-		// filter pre-fetched nearby objects for edible food
-		const objs = nearby
-			? nearby.filter( o => o && o.otype === 2 && o.IsEdibleBy(this.owner) && !( this.owner.ignore_list && this.owner.ignore_list.has(o) ) )
-			: [];
-		let nearest_dist = Infinity;
-		let nearest_angle = 0;
-		let num_edible_foods=0;
-		for ( let obj of objs ) { 
-			const dx = Math.abs(obj.x - sx);
-			const dy = Math.abs(obj.y - sy);
-			const d = Math.sqrt(dx*dx + dy*dy);
-			if ( d < nearest_dist ) {
-				let proximity = utils.clamp( 1 - (d / (this.r + obj.r)), 0, 1 );
-				if ( proximity ) {
-					// distance to boid is not the same as distance to center of sensor
-					const dx = obj.x - this.owner.x;
-					const dy = obj.y - this.owner.y;
-					nearest_dist = Math.sqrt(dx*dx + dy*dy);							
-					nearest_angle = utils.mod( Math.atan2(dy, dx) + this.owner.angle, 2 * Math.PI );
-					num_edible_foods++;
-				}
-			}
-		}
-		// normalize outputs for neural network consumption
-		nearest_dist = Number.isFinite(nearest_dist) ? (1-utils.Clamp( nearest_dist / this.r, 0, 1)) : 0;
-		const density = Math.min( 1, num_edible_foods / 7 ); // [!]MAGICNUMBER
-		if ( this.detect.contains('food_cos') ) {
-			outputs.push( (nearest_angle?((Math.cos(nearest_angle)+1)/2):0) );
-		}
-		if ( this.detect.contains('food_sine') ) {
-			outputs.push( (nearest_angle?((Math.sin(nearest_angle)+1)/2):0) );
-		}
-		if ( this.detect.contains('food_angle') ) {
-			outputs.push( (nearest_angle?(nearest_angle/(2*Math.PI)):0) );
-		}
-		if ( this.detect.contains('food_dist') ) {
-			outputs.push( nearest_dist );
-		}
-		if ( this.detect.contains('food_density') ) {
-			outputs.push( density );
-		}
-		if ( outputs.length != this.detect.length ) {
-			console.warn('legacy vision sensor expected more outputs than it produced:', this, outputs);
-		}
-		return outputs;
-	}
-
 	senseWhiskers( nearby ) {
 		let outputs = [];
 		const whiskers = this.whiskers;

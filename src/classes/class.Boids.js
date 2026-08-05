@@ -1863,31 +1863,6 @@ export class Boid extends PhysicsObject {
 			const cost = whiskers.reduce( (a,c) => a + c.l, 0 );
 			this.traits.boxfit.push([ cost * 0.3, cost, `sensors.whiskers`]);
 		}
-				
-		// experimental: food-locator
-		const has_food_locator = this.dna.shapedNumber(this.dna.genesFor('has food locator',1,true)) > 0.86;
-		if ( has_food_locator ) {
-			const radius = this.dna.shapedNumber(this.dna.genesFor('food locator radius',3,2), 150, 600, 300, 1.5 );
-			const xoff = this.dna.shapedNumber(this.dna.genesFor('food locator xoff',3,2), -radius*0.5, radius, radius*0.5, 1.5 );
-			const detect = ['food_dist'];
-			// include density 
-			if ( this.dna.shapedNumber(this.dna.genesFor('food locator density',1,true)) > 0.6 ) { detect.push('food_density'); }
-			// use single angle number
-			if ( this.dna.shapedNumber(this.dna.genesFor('food locator angle',1,true)) > 0.7 ) { detect.push('food_angle'); }
-			// otherwise use more advanced sine/cosine pair
-			else { detect.push('food_sine','food_cos'); }
-			this.sensors.push( new Sensor({ 
-				name: 'locate',
-				type: 'locater',
-				detect: detect, 
-				x: xoff,
-				y: 0, 
-				r: radius,
-				color: '#1444DDFF'
-				},
-			this ) );
-			this.traits.boxfit.push([ radius * 0.01, radius * 0.01, `sensors.food_locator`]);
-		}
 		
 		// color vision
 		const has_vision = this.dna.shapedNumber(this.dna.genesFor('has vision',1,true)) > 0.35;
