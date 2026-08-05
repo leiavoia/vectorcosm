@@ -414,7 +414,7 @@ export class Boid extends PhysicsObject {
 				let energy_portion = morsel * ( 1 - growth_split ); 
 					
 				// nutritional value of food depends on food's color
-				const food_quality = this.CalculateFoodQuality();
+				const food_quality = this.CalculateFoodQuality( this.metab.stomach_color );
 
 				// gain or lose energy from metabolism
 				let energy_gain = energy_portion * food_quality * MAGIC_ENERGY_MULTIPLIER;
@@ -449,6 +449,7 @@ export class Boid extends PhysicsObject {
 		
 		// you ded?
 		if ( this.metab.energy <= 0 && !globalThis.vc.simulation.settings?.ignore_lifecycle ) {
+		debugger;
 			this.Kill('energy');
 			return;
 		}
@@ -1691,6 +1692,11 @@ export class Boid extends PhysicsObject {
 					const d = Math.sqrt(dx*dx + dy*dy);
 					// target in range, now judge quality
 					if ( d <= boid.collision.radius + food.r ) {
+						// skip this step if only one object
+						if ( foods.length === 1 ) {
+							best_target = food;
+							break;
+						}
 						// TODO: these calculations are kinda spendy and a cheap linear approx would work fine
 						const score = food.otype===2 
 							? ( food.value * boid.CalculateFoodQuality( food.flavor ) ) 
