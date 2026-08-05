@@ -234,7 +234,7 @@ commands.register( { name: 'update', description: 'Advance simulation and return
 	}));
 	renderObjects.push( ... globalThis.vc.tank.plants.map( o => {
 		// linewidth indicates foliage remaining
-		const linewidth = Math.max( 2, Math.sqrt( 2 * o.foliage / Math.PI ) * Plant.GROWTH_RADIUS_SCALE );
+		const linewidth = Math.max( 2, Math.sqrt( 2 * o.foliage / Math.PI ) * o.density );
 		let return_obj = {
 			oid: o.oid,
 			type:'plant',

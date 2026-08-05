@@ -73,7 +73,6 @@ const PLANT_MIN_HEALTH_CREDIT = 0.25; // minimum amount of life credit to use if
 export default class Plant {
 	
 	static STIFFNESS = 20;
-	static GROWTH_RADIUS_SCALE = 5; // scale factor for visual radius based on mass
 	
 	constructor(params) {
 		// defaults
@@ -87,6 +86,7 @@ export default class Plant {
 		this.dead = false;
 		this.age = 0;
 		this.life_credits = 3000; // counts down from
+		this.density = 5; // spacial scaler; higher increases plant radius
 		this.reserve = 1; // matter stored in core. currency for growth.
 		this.mass = 2; // total mass (core + foliage) - mostly for UI, could be factored out?
 		this.core = 1; // core mass (roots, branches, trunk, etc)
@@ -424,7 +424,7 @@ export default class Plant {
 	// updates combined mass and the collision radius.
 	RecalcMassAndSize() {
 		this.mass = this.core + this.foliage;
-		this.r = Math.sqrt( 2 * this.mass / Math.PI ) * Plant.GROWTH_RADIUS_SCALE;
+		this.r = Math.sqrt( 2 * this.mass / Math.PI ) * this.density;
 		this.collision.radius = this.r;			
 	}
 	
@@ -641,6 +641,7 @@ export default class Plant {
 		this.traits.light_tolr = this.dna.shapedNumber( this.dna.genesFor('light_tolr',2,1), 0, 1 );
 		this.traits.heat_pref = this.dna.shapedNumber( this.dna.genesFor('heat_pref',2,1), 0, 1 );
 		this.traits.heat_tolr = this.dna.shapedNumber( this.dna.genesFor('heat_tolr',2,1), 0, 1 );
+		this.traits.density = this.dna.shapedNumber( this.dna.genesFor('density',2,1), 2, 20, 4, 4 ); // distribution could be improved
 		this.traits.risk_tolerance = this.dna.shapedNumber( this.dna.genesFor('risk_tolerance',2,1), 0, 1 );
 		this.traits.linewidth = this.dna.shapedInt( this.dna.genesFor('linewidth',2,1), 0, 10 );
 		this.traits.radius = this.dna.shapedInt( this.dna.genesFor('radius',2,1), 100, 350 );
@@ -865,7 +866,7 @@ export default class Plant {
 		// total circle = mass (core + foliage)
 		// foliage area = total area * (foliage / mass)
 		// 
-		const linewidth = Math.sqrt( 2 * this.foliage / Math.PI ) * Plant.GROWTH_RADIUS_SCALE;
+		const linewidth = Math.sqrt( 2 * this.foliage / Math.PI ) * this.density;
 		this.geo = {
 			// type:'circle',
 			type:'polygon',
@@ -873,7 +874,7 @@ export default class Plant {
 			fill: 'transparent', // this.traits.fill, //'#81625499',
 			stroke: this.traits.stroke, // '#4f8d47BB'
 			linewidth: linewidth,
-			r: Math.sqrt( 2 * this.mass / Math.PI ) * Plant.GROWTH_RADIUS_SCALE,
+			r: Math.sqrt( 2 * this.mass / Math.PI ) * this.density,
 			rotation: utils.RandomFloat( 0, Math.PI * 2 ),
 			// dashes: [2,3]
 		};
