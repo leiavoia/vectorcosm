@@ -461,23 +461,34 @@ export default class Plant {
 	}
 
 	MakeFruit() {
-		// poor health reduces output and threshold for output
-		const fruit_size = this.traits.fruit_size * this.health;
-		let threshold = this.traits.fruit_num * fruit_size;
+		// fruit grows to a certain threshold size. 
+		// Beyond the threshold, there is an increasing chance of fruiting.
+		// Threshold is elastic based on plant core mass.
+		// In real life, larger plants produce more fruit. In the simulation,
+		// too many fruit objects becomes a performance problem. 
+		// The consolation prize is bigger fruit.
+		const fruit_size = this.traits.fruit_size;
+		const core_fruit_ratio = Math.min( 1.0, this.core / this.traits.fruit_size );
+		const base_threshold = this.traits.fruit_num * fruit_size; // base threshold
+		const threshold = base_threshold * Math.sqrt(core_fruit_ratio); // small increases as core mass grows
 		if ( this.fruit_credits > threshold ) {
 			// chance of fruiting goes up the further past the threshold we are
-			const overage = ( this.fruit_credits - threshold ) / threshold;
-			const roll = Math.random() * this.health; // weak plants dont ripen well
-			if ( overage >= roll ) {
+			const overage_pct = ( this.fruit_credits - threshold ) / threshold;
+			const roll = Math.random() * this.traits.risk_tolerance; // intrepid plants will hold out for more
+			if ( overage_pct >= roll ) {
 				// create the fruit
+				const food_value = this.fruit_credits / this.traits.fruit_num;
+				const wiggle = 0.2 * Math.sqrt( this.core );
 				if ( globalThis.vc.tank.foods.length < globalThis.vc.max_foods ) {
-					const size = fruit_size * ( 1 + overage );
 					for ( let n=0; n < this.traits.fruit_num; n++ ) {
-						const f = new Food( 
-							this.x + (Math.random() * 20 - 10), 
-							this.y + (Math.random() * 20 - 10), 
+						const f = new Food(
+							// fruit around the edges to prevent violent expulsion.
+							// (unless we want that as a feature?)
+							// Square shape over circular plant creates variability.
+							this.x + (Math.random() < 0.5 ? -1 : 1) * wiggle,
+							this.y + (Math.random() < 0.5 ? -1 : 1) * wiggle,
 							{ 
-							value: size, 
+							value: food_value, 
 							lifespan: ( this.traits.fruit_lifespan * ( 1 - (Math.random() * 0.2 ) ) ),
 							buoy_start: this.traits.fruit_buoy_start + ( 100 - (200 * Math.random()) ),
 							buoy_end: this.traits.fruit_buoy_end + ( 100 - (200 * Math.random()) ),
@@ -506,7 +517,6 @@ export default class Plant {
 				this.life_credits -= this.fruit_credits * 0.1;
 				// reset fruiting cycle
 				this.fruit_credits = 0; 
-				// console.log('fruit!');
 			}
 		}
 	}
@@ -614,7 +624,7 @@ export default class Plant {
 			this.dna.shapedInt( this.dna.genesFor('total_fruit_mass_1',2), 5, 1000, 50, 6 ) +
 			this.dna.shapedInt( this.dna.genesFor('total_fruit_mass_2',2), 5, 200, 50, 2 )
 		) );
-		this.traits.fruit_num = this.dna.shapedInt( this.dna.genesFor('fruit_num',1), 1, 10, 1, 4 );
+		this.traits.fruit_num = this.dna.shapedInt( this.dna.genesFor('fruit_num',1), 1, 4, 1, 4 );
 		this.traits.fruit_size = Math.round( total_fruit_mass / this.traits.fruit_num );
 		this.traits.fruit_lifespan = this.dna.mix( this.dna.genesFor('fruit_lifespan',2), 20, 100 );
 		this.traits.fruit_lifespan = Math.round( this.traits.fruit_lifespan * (total_fruit_mass / 100) ); // more fruit lasts longer
