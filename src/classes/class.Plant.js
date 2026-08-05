@@ -87,10 +87,10 @@ export default class Plant {
 		this.dead = false;
 		this.age = 0;
 		this.life_credits = 3000; // counts down from
-		this.reserve = 10; // matter stored in core. currency for growth.
-		this.mass = 10; // total mass (core + foliage) - mostly for UI, could be factored out?
-		this.core = 5; // core mass (roots, branches, trunk, etc)
-		this.foliage = 5; // foliage mass. edible. not counted as core mass.
+		this.reserve = 1; // matter stored in core. currency for growth.
+		this.mass = 2; // total mass (core + foliage) - mostly for UI, could be factored out?
+		this.core = 1; // core mass (roots, branches, trunk, etc)
+		this.foliage = 1; // foliage mass. edible. not counted as core mass.
 		this.fruit_credits = 0; // counts up from zero
 		this.health = 1;
 		this.light_health = 0; // 0..1 - zero is a signal it needs to be computed
@@ -98,6 +98,13 @@ export default class Plant {
 		this.sense = new Array(15).fill(0);
 		if ( typeof params === 'object' ) {
 			Object.assign(this,params);
+		}
+		// if `mass` was supplied as a parameter, split the mass semi-random between foliage and core.
+		// this can come as a hint from rotting fruit to help propagation.
+		if ( params?.mass ) {
+			const rand_factor = Math.random() * 0.4 + 0.3; // random factor between 0.3 and 0.7
+			this.core = this.mass * rand_factor;
+			this.foliage = this.mass * ( 1 - rand_factor );
 		}
 		// basic genetic traits - individual plant types can add more
 		this.traits = {

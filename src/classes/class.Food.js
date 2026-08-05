@@ -205,40 +205,54 @@ export default class Food extends PhysicsObject {
  		this.Constrain(bounce);
 		
 		// plant a seed
-		if ( this.seed && this.age > 5 && Math.random() > 0.9992 && 
-			globalThis.vc.tank.plants.length < globalThis.vc.simulation.settings.num_plants ) {
-			// check for local light and heat to be in reasonable range
-			const cell = globalThis.vc.tank.datagrid.CellAt( this.x, this.y );
-			const light_ok = Math.abs( cell.light - this.light_pref ) <= 0.5; // magic - you could make 0.5 a setting
-			const heat_ok = Math.abs( cell.heat - this.heat_pref ) <= 0.5; 
-			// only plant the seed under the right conditions
-			let plant_the_seed = light_ok && heat_ok;
-			// check if there are not too many other plants in the local area
-			if ( plant_the_seed ) {
-				// plants are not in the collision detection space, so we need to check all of them for now ;-(
-				const csqrd = 200*200; // TODO: replace when we have circles later
-				for ( let p of globalThis.vc.tank.plants ) {
-					const xdiff = p.x - this.x;
-					const ydiff = p.y - this.y;
-					const absqrd = xdiff * xdiff + ydiff * ydiff; // dont need to sqrt here
-					// inside another plant circle, cant germinate here
-					if ( absqrd < csqrd ) {
-						plant_the_seed = false;
-						break;
-					}
-				}				
-			}
-			if ( plant_the_seed ) {
-				const plant = new Plant( {dna:this.seed} );
-				plant.x = this.x;
-				plant.y = this.y;
-				plant.age = 0; // shim
-				globalThis.vc.tank.plants.push(plant);
-				globalThis.vc.tank.AddMatterAt( this.x, this.y, this.value ); // rot
-				this.Kill();
-			}
-		}
+		this.AttemptPlantSeed();
 	}
+	
+	AttemptPlantSeed() {
+		if ( !this.seed ) { return false; }
+		// check basic prereqs
+		const too_many_plants = globalThis.vc.tank.plants.length < globalThis.vc.simulation.settings.num_plants;
+		const min_germ_age = 5;
+		if ( !this.next_germ_check ) { this.next_germ_check = min_germ_age; }
+		if ( this.age > this.next_germ_check && !too_many_plants ) { return false; }
+		// this is a kind of incremental backoff approach
+		this.next_germ_check += Math.pow( this.next_germ_check, 0.5 );
+		// check for local light and heat to be in reasonable range
+		const cell = globalThis.vc.tank.datagrid.CellAt( this.x, this.y );
+		const light_ok = Math.abs( cell.light - this.light_pref ) <= 0.5; // magic - you could make 0.5 a setting
+		const heat_ok = Math.abs( cell.heat - this.heat_pref ) <= 0.5; 
+		// only plant the seed under the right conditions
+		if ( !light_ok || !heat_ok ) { return false; }
+		// check if there are not too many other plants in the local area.
+		// we never germinate under another plant's shadow or in extended exclusion zone.
+		// NOTE: entirely for aesthetic reasons, we paint an exclusion zone around each plant
+		// to avoid them growing in dense clumps which only get worse as plants grow up.
+		// TODO: There's room for chemical warfare here.
+		const plants = globalThis.vc.tank.grid.GetObjectsByCoords( this.x, this.y ).filter(o => o.otype === 4);
+		for ( let p of plants ) {
+			const xdiff = p.x - this.x;
+			const ydiff = p.y - this.y;
+			const ab_sq = xdiff * xdiff + ydiff * ydiff; // dont need to sqrt here
+			const exclusion_zone = Math.max(150, p.r * 0.25);
+			const plant_manhatten = ( p.r + exclusion_zone ) * ( p.r + exclusion_zone );
+			// inside another plant circle, cant germinate here
+			if ( ab_sq < plant_manhatten ) { return false; }
+		}
+		// prereqs cleared. you must now defeat the final boss: RNG
+		if ( Math.random() < 0.5 ) { return false; }
+		// all clear - make the plant!
+		const mass_assist_portion = 0.1;
+		const mass_assist = this.value * mass_assist_portion;
+		const mass_rot = this.value - mass_assist;
+		const plant = new Plant( {dna:this.seed, mass:mass_assist} );
+		plant.x = this.x;
+		plant.y = this.y;
+		globalThis.vc.tank.plants.push(plant);
+		globalThis.vc.tank.AddMatterAt( this.x, this.y, mass_rot ); // rot
+		this.Kill(); // mission complete
+		return true;
+	}
+		
 	// returns the amount eaten
 	Eat(amount) { 
 		if ( this.dead || !this.value ) { return 0; }
