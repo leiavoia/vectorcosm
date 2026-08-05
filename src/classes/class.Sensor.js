@@ -811,10 +811,10 @@ export default class Sensor {
         const sy = owner.y + ((this.x * sinAngle) + (this.y * cosAngle));
         const r = this.r;
         const ignore_list = owner.ignore_list;
-        // iterate nearby objects inline — no intermediate .filter() allocation
+        // find plants and food particles nearby
         for ( let i = 0, len = nearby.length; i < len; i++ ) {
             const obj = nearby[i];
-            if ( obj.otype !== 2 ) { continue; } // 2 = Food
+            if ( obj.otype !== 2 && obj.otype !== 4 ) { continue; } // 2 = Food, 4 = Plant
             if ( !obj.IsEdibleBy(owner) ) { continue; }
             if ( ignore_list && ignore_list.has(obj) ) { continue; }
             const dx = Math.abs(obj.x - sx);
