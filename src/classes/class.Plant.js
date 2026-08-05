@@ -284,6 +284,12 @@ export default class Plant {
 		//====================================================
 
 		if ( this.reserve < 0 ) {
+			// TODO: it would be interesting if plants could hibernate instead of being
+			// continually harassed by herbivores or suffering temporarily harsh conditions.
+			// could be accomplished using hormone system or hooking into growth_speed trait.
+			// TODO: continual reserve deficiency should have escalating health penalties
+			// that spend life points / hasten death instead of shrinking to nothing. 
+			
 			// NOTE: intentionally ignoring fruit for now
 			let demand = Math.abs(this.reserve);
 			// NOTE: when plants are completely stripped, its a tough spot.
@@ -293,8 +299,19 @@ export default class Plant {
 			// TODO: how plants prioritize sacrifice can be genetic. for now, hardcoded priorities.
 			const foliage_priority = 0.7;
 			const core_priority = 0.3;
-			const foliage_loss = Math.min(this.foliage, demand * foliage_priority + Math.max(0, demand * core_priority - this.core));
-			const core_loss = Math.min(this.core, demand * core_priority + Math.max(0, demand * foliage_priority - this.foliage));
+			
+			// First pass: take priority amounts
+			let foliage_loss = Math.min(this.foliage, demand * foliage_priority);
+			let core_loss = Math.min(this.core, demand * core_priority);
+			
+			// Second pass: use any remaining tissue to cover shortfalls
+			const foliage_shortfall = Math.max(0, demand * foliage_priority - foliage_loss);
+			const core_shortfall = Math.max(0, demand * core_priority - core_loss);
+			
+			// core_shortfall is always 0 whenever core has capacity left to give, so it never actually contributes here
+			core_loss += Math.min(this.core - core_loss, foliage_shortfall);
+			foliage_loss += Math.min(this.foliage - foliage_loss, core_shortfall);
+			
 			this.foliage -= foliage_loss;
 			this.core -= core_loss;
 			this.reserve += foliage_loss + core_loss;
@@ -335,7 +352,10 @@ export default class Plant {
 		// Allocation growth priorities - blend of genetic factors, environment, and situational necessity
 		const priorities = this.CalcGrowthPriorities();
 		const idealCore = this.core * priorities.core;
-		const idealFoliage = Math.min(this.foliage * priorities.foliage, max_foliage);
+		// minIdealFoliage prevents a permanent zero-lock when foliage=0, otherwise
+		// it would be mathematically impossible to ever regrow foliage from zero.
+		const minIdealFoliage = 0.01;
+		const idealFoliage = Math.max(minIdealFoliage, Math.min((this.foliage + 0.01) * priorities.foliage, max_foliage));
 		priorities.foliage = idealFoliage / ( idealFoliage + this.foliage + 0.01 );
 		priorities.core = idealCore / ( idealCore + this.core + 0.01 );
 		
