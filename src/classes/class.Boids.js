@@ -1765,11 +1765,14 @@ export class Boid extends PhysicsObject {
 					const exp = this.target.otype === 2 ? 1.0 : 0.5;
 					boid.Experience( exp );
 					// audio mark
+					const audio_cos = Math.cos(target_flavor);
+					const audio_sin = Math.sin(target_flavor);
+					const amplitude = Math.max( 1.0, morsel / morsel + 100 ); // arbitrary
 					globalThis.vc.tank.marks.push( new Mark({
 						x: boid.x,
 						y: boid.y,
 						r: Math.sqrt( 7 * morsel * Math.PI ),
-						sense: [0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,1,0.2], // chewing audio: a_cos=0, a_sin=1, a_amp=0.2
+						sense: [0,0,0, 0,0,0, 0,0,0, 0,0,0, audio_cos,audio_sin,amplitude], // annoying chewing sounds
 						lifespan: ( 1 + morsel / ( morsel + 25 ) ), // really short; ~3s tops
 						type: 'bite' // triggers cosmetic changes from normal audio
 					}) );					
