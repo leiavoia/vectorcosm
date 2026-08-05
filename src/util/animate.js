@@ -11,6 +11,7 @@
  * </AI> */
 
 import Two from 'two.js';
+import Mark from '../classes/class.Mark.js'; // needed for enum
 
 // resize, fade in/out a food object based on its animation state
 export function AnimateFood( o, camera ) {
@@ -85,7 +86,7 @@ export function AnimateMark( o ) {
 	const fade_in = 0.65;
 	const fade_out = 2;
 	// smells linger
-	if ( o.anim.sense_type >= 3 && o.anim.sense_type < 12 ) {
+	if ( o.anim.sense_type == Mark.types.SMELL ) {
 		if ( o.anim.age < fade_in ) {
 			o.geo.opacity = max_opacity * ( o.anim.age / fade_in );
 		}

@@ -449,7 +449,6 @@ export class Boid extends PhysicsObject {
 		
 		// you ded?
 		if ( this.metab.energy <= 0 && !globalThis.vc.simulation.settings?.ignore_lifecycle ) {
-		debugger;
 			this.Kill('energy');
 			return;
 		}
@@ -934,7 +933,7 @@ export class Boid extends PhysicsObject {
 			r: Math.sqrt( attack_force * 10 * (killed?2:1) ),
 			sense: [0,0,0, 0,0,0, 0,0,0, 0,0,0, 1,0,1], // attack audio: a_cos=1, a_sin=0, a_amp=1
 			lifespan: 2 + 2 * (attack_force / 600),
-			type: 'attack'
+			type: Mark.types.ATTACK
 		}) );
 		
 		this.Experience( 0.5 ); // reward for successful attack
@@ -942,12 +941,13 @@ export class Boid extends PhysicsObject {
 		return true;
 	}
 	
-	CreateMark( sense, radius, lifespan ) {
+	CreateMark( type, sense, radius, lifespan ) {
 		if ( !globalThis.vc?.simulation?.settings?.no_marks ) {
 			globalThis.vc.tank.marks.push( new Mark({
 				x: this.x,
 				y: this.y,
 				r: radius,
+				type: type,
 				sense: sense,
 				lifespan: lifespan
 			}) );
@@ -1535,6 +1535,7 @@ export class Boid extends PhysicsObject {
 				name: `scent1-${(100*theta1/(Math.PI*2)).toFixed()}-${(100*theta2/(Math.PI*2)).toFixed()}`,
 				min_age: this.larval_age * 2,
 				lifespan,
+				marktype: Mark.types.SMELL,
 				r: radius,
 				skip_sensor_check:true,
 				hormone_factors,
@@ -1582,6 +1583,7 @@ export class Boid extends PhysicsObject {
 				name: `scent2-${(100*theta1/(Math.PI*2)).toFixed()}-${(100*theta2/(Math.PI*2)).toFixed()}`,
 				min_age: this.larval_age * 2,
 				lifespan,
+				marktype: Mark.types.SMELL,
 				r: radius,
 				skip_sensor_check:true,
 				hormone_factors,
@@ -1616,6 +1618,7 @@ export class Boid extends PhysicsObject {
 				name: `call-${(100*theta1/(Math.PI*2)).toFixed()}`,
 				min_age: this.larval_age * 2,
 				lifespan,
+				marktype: Mark.types.AUDIO,
 				r: radius,
 				skip_sensor_check:true,
 				neuro:true,
@@ -1653,6 +1656,7 @@ export class Boid extends PhysicsObject {
 				name: `signal-${(100*theta1/(Math.PI*2)).toFixed()}-${(100*theta2/(Math.PI*2)).toFixed()}`,
 				min_age: this.larval_age * 2,
 				lifespan,
+				marktype: Mark.types.VISUAL,
 				r: radius,
 				skip_sensor_check:true,
 				neuro:true,
@@ -1774,7 +1778,7 @@ export class Boid extends PhysicsObject {
 						r: Math.sqrt( 7 * morsel * Math.PI ),
 						sense: [0,0,0, 0,0,0, 0,0,0, 0,0,0, audio_cos,audio_sin,amplitude], // annoying chewing sounds
 						lifespan: ( 1 + morsel / ( morsel + 25 ) ), // really short; ~3s tops
-						type: 'bite' // triggers cosmetic changes from normal audio
+						type: Mark.types.BITE // triggers cosmetic changes from normal audio
 					}) );					
 				}
 				// boid
@@ -2313,7 +2317,6 @@ export class Boid extends PhysicsObject {
 		
 		// reset energy level to max if this is a new organism
 		if ( !this.metab.energy ) { this.metab.energy = this.metab.max_energy; }
-		if ( isNaN(this.metab.energy) ) { console.error('nan energy'); debugger; }
 	}
 
 	// analyzes species-defining features to create a hash for quick comparisons
@@ -2523,7 +2526,7 @@ function StandardMarkMotorDo( boid, amount, delta ) {
 	if ( this.t == 0 ) { // first frame ONLY
 		const radius = (this.r || 100) * this.strokepow;
 		const lifespan = ( this.lifespan || ( Math.random() * 10 ) );
-		boid.CreateMark( this.sense, radius, lifespan );
+		boid.CreateMark( this.marktype || Mark.types.GENERIC, this.sense, radius, lifespan );
 	}
 }
 

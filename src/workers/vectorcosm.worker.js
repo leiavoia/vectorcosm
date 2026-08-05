@@ -289,7 +289,7 @@ commands.register( { name: 'update', description: 'Advance simulation and return
 			return_obj.anim = {
 				age: o.age,
 				lifespan: o.lifespan,
-				sense_type: o.strongest_sense,
+				sense_type: o.type,
 			}
 		}
 		return return_obj;

@@ -1,11 +1,10 @@
 /* <AI>
-Mark — ephemeral spatial pheromone marker deposited by boids.
+Mark — ephemeral spatial sensory marker. 
+Can be created from a number situations and carries visual, smell, and audio cues.
 
 OVERVIEW
 - Short-lived circle with a `sense[]` (16 channels) encoding the signal type and intensity.
-- `strongest_sense` — index of the dominant channel; determines the visual color.
 - `collision` — registered as a circle with radius `r` for sensor queries.
-- If all sense values are zero at construction, the mark immediately kills itself.
 
 CHANNELS
 - [0..2]: visual (RGB)
@@ -25,6 +24,16 @@ USAGE
 import { createCircleCollider } from './collision.js';
 
 export default class Mark {
+
+	static types = {
+		GENERIC: 0,
+		VISUAL: 1,
+		SMELL: 2,
+		AUDIO: 3,
+		BITE: 4,
+		ATTACK: 5
+	};
+	
 	constructor(params) {
 		this.oid = ++globalThis.vc.next_object_id;
 		// defaults
@@ -34,24 +43,10 @@ export default class Mark {
 		this.age = 0;
 		this.lifespan = 10;
 		this.sense = new Array(15).fill(0);
-		this.type = 'generic';
+		this.type = Mark.types.GENERIC;
 		this.dead = false;		
 		Object.assign( this, params );
 		this.collision = createCircleCollider( this.r );
-		// find the sense with the highest value and just show the corresponding color
-		let highest = 0;
-		this.strongest_sense = 0;
-		for ( let i=0; i<this.sense.length; i++ ) {
-			if ( this.sense[i] > highest ) {
-				highest = this.sense[i];
-				this.strongest_sense = i;
-			}
-		}
-		// if the highest sense we got was zero, somebody didn't read the documentation
-		if ( !highest ) {
-			this.Kill(); 
-			return;
-		}
 	}
 	Export( as_JSON=false ) {
 		let output = {};
@@ -75,46 +70,89 @@ export default class Mark {
 	}
 	GeoData() {
 		
-		// colors hardcoded mostly for aesthetics. you could change them.
-		let colors = [
-			// colors		
-			'#C42452',
-			'#5DD94D',
-			'#1F4BE3',
-			'#C42452',
-			'#EB9223',
-			'#EBE313',
-			'#5DD94D',
-			'#2CAED4',
-			'#1F4BE3',
-			'#991FE3',
-			'#FF70E5',
-			'#FFFFFF',
-			'#666666',
-			'#6565ce',
-			'#18b691',
-			'#D5B000',
-			'#FFB1BE',
-		];
-		
+		// basic white circle if there is no type info
 		let geo = { 
 			type:'circle', 
 			r: this.r,
 			fill: 'transparent',
-			stroke: colors[this.strongest_sense],
+			stroke: '#ffffff',
 			opacity: 0.5,
 		};
 		
-		// Attack:
-		if ( this.type=='attack' ) {
-			// geo = { 
-			// 	type:'circle', 
-			// 	r: this.r,
-			// 	fill: 'transparent',
-			// 	stroke: '#D11',
-			// 	opacity: 0.5,
-			// 	linewidth: 10,
-			// };	
+		// Smell:
+		if ( this.type==Mark.types.SMELL ) {
+			// smell has two channels over 6 sense slots: 6,7,8,9,10,11
+			// extract a representative color by converting the average 
+			// of the color positions from two channels, adjusting
+			// with amplitude data from each channel
+			const primary_hue_cos = this.sense[6];
+			const primary_hue_sin = this.sense[7];
+			const primary_amp = Math.max( 0.4, Math.tanh( 0.5 * this.sense[8] ) ); // these can go over 1.0
+			const secondary_hue_cos = this.sense[9];
+			const secondary_hue_sin = this.sense[10];
+			const secondary_amp = Math.max( 0.4, Math.tanh( 0.75 * this.sense[11] ) ); // these can go over 1.0
+			// map the cos/sin to a value on the color wheel
+			const primary_hue = Math.atan2(primary_hue_sin, primary_hue_cos);
+			const secondary_hue = Math.atan2(secondary_hue_sin, secondary_hue_cos);
+			// average together using modular arithmetic
+			const avg_hue = Math.atan2(
+				Math.sin(primary_hue) * primary_amp + Math.sin(secondary_hue) * secondary_amp,
+				Math.cos(primary_hue) * primary_amp + Math.cos(secondary_hue) * secondary_amp
+			);
+			// create an HSL color from hue and amplitude
+			geo.stroke = `hsl(${(avg_hue * 180 / Math.PI + 360) % 360}, ${secondary_amp * 100}%, ${primary_amp * 70}%)`;
+			geo.linewidth = 6;
+			geo.dashes = [6,24];
+		}
+		// Visual:
+		else if ( this.type==Mark.types.VISUAL ) {
+			// visual has two channels over 6 sense slots: 0,1,2,3,4,5
+			// conceptually this represents color (0,1,2) and texture (3,4,5)
+			// extract a representative color by converting the average 
+			// of the color positions from two channels, adjusting
+			// with amplitude data from each channel
+			const primary_hue_cos = this.sense[0];
+			const primary_hue_sin = this.sense[1];
+			const primary_amp = Math.max( 0.4, Math.tanh( 0.5 * this.sense[2] ) ); // these can go over 1.0
+			const secondary_hue_cos = this.sense[3];
+			const secondary_hue_sin = this.sense[4];
+			const secondary_amp = Math.max( 0.4, Math.tanh( 0.75 * this.sense[5] ) ); // these can go over 1.0
+			// map the cos/sin to a value on the color wheel
+			const primary_hue = Math.atan2(primary_hue_sin, primary_hue_cos);
+			const secondary_hue = Math.atan2(secondary_hue_sin, secondary_hue_cos);
+			// average together using modular arithmetic
+			const avg_hue = Math.atan2(
+				Math.sin(primary_hue) * primary_amp + Math.sin(secondary_hue) * secondary_amp,
+				Math.cos(primary_hue) * primary_amp + Math.cos(secondary_hue) * secondary_amp
+			);
+			// create an HSL color from hue and amplitude
+			geo.stroke = `hsl(${(avg_hue * 180 / Math.PI + 360) % 360}, ${secondary_amp * 100}%, ${primary_amp * 70}%)`;		
+			geo.linewidth = 10;
+			geo.dashes = [40,10];
+		}
+		// Audio:
+		else if ( this.type==Mark.types.AUDIO ) {
+			// audio has one channel over sense slots 12,13,14
+			// extract a representative color by by finding color wheel position.
+			const primary_hue_cos = this.sense[12];
+			const primary_hue_sin = this.sense[13];
+			const primary_amp = Math.max( 0.4, Math.tanh( 0.5 * this.sense[14] ) ); // these can go over 1.0
+			// map the cos/sin to a value on the color wheel
+			const primary_hue = Math.atan2(primary_hue_sin, primary_hue_cos);
+			// create an HSL color from hue and amplitude
+			geo.stroke = `hsl(${(primary_hue * 180 / Math.PI + 360) % 360}, 100%, ${primary_amp * 70}%)`;
+			geo.linewidth = 80;
+			geo.dashes = [8,48];
+		}
+		// Bite (audio): - we dont care about the color too much.
+		// bright white pop sends the right signal to viewers.
+		else if ( this.type==Mark.types.BITE ) { 
+			geo.linewidth = 8;
+			geo.dashes = [2,16];
+			geo.stroke = '#FFF';
+		}
+		// Attack (multi-sensory, "X" pattern):
+		else if ( this.type==Mark.types.ATTACK ) {
 			geo = { 
 				type:'group',
 				children: [
@@ -143,28 +181,7 @@ export default class Mark {
 				] 
 			};				
 		}
-		// Audio / bite:
-		else if ( this.type=='bite' ) { 
-			geo.linewidth = 8;
-			geo.dashes = [2,16];
-			geo.stroke = '#FFF';
-		}
-		// Audio:
-		else if ( this.strongest_sense >= 12) { 
-			geo.linewidth = 80;
-			geo.dashes = [8,48];
-		}
-		// Smell:
-		else if ( this.strongest_sense >= 3 ) { 
-			geo.linewidth = 6;
-			geo.dashes = [6,24];
-		}
-		// Visual:
-		else { 
-			geo.linewidth = 10;
-			geo.dashes = [40,10];
-		}
-		
+				
 		return geo;
 	}
 	Kill() {
