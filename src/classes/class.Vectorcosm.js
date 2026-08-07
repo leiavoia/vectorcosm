@@ -62,7 +62,7 @@ export default class Vectorcosm {
 		this.lock_dimensions = false; // prevents volume-based resize when exact dimensions are requested.
 		this.min_time_delta = 1/30;
 		this.max_foods = 400;
-		this.plant_update_freq = 10;
+		this.plant_update_freq = 1;
 		this.plant_update_next = 0;
 		this.free_plant_growth = false;
 		// carry-over settings applied to every simulation.settings when LoadNextSim() runs

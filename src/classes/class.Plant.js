@@ -106,6 +106,8 @@ export default class Plant {
 			this.core = this.mass * rand_factor;
 			this.foliage = this.mass * ( 1 - rand_factor );
 		}
+		// assign the next update based on age.
+		this.next_update = this.age + 1;
 		// basic genetic traits - individual plant types can add more
 		this.traits = {
 			life_credits: 3000,
@@ -125,6 +127,7 @@ export default class Plant {
 			fruit_complexity: 3,
 			fruit_flavor: 0.0, // 0..1
 			growth_weights: [], // rehydrated by DNA. controls growth focus based on env factors
+			update_freq: 10,
 		};
 		// begin rehydration from DNA
 		this.dna = new DNA( this.dna ); // will either be number of chars, or full string if rehydrating
@@ -182,11 +185,21 @@ export default class Plant {
 	
 		if ( this.dead ) { return; }
 		
+		// each plant has its own independent update schedule.
+		// it would be more efficient to have a global update cycle, but 
+		// this has jarring aesthetic qualities we want to avoid.
+		// Genetic update frequencies also allow for more interesting niche exploits.
+		// CONSIDER: we can directly alter the next_update to "hibernate" or "hurry".
+		this.age += delta;
+		if ( this.age < this.next_update ) { return; }
+		this.next_update = this.age + this.traits.update_freq;
+		// from here forward, the "delta" is actually the update_freq clock
+		delta = this.traits.update_freq;
+		
 		//====================================================
 		// Aging and death
 		//====================================================
-			
-		this.age += delta;
+	
 		this.CalcHealth();
 		// deplete life credits / end of life
 		const health_factor = PLANT_MIN_HEALTH_CREDIT + Math.pow( PLANT_HEALTH_PENALTY_COEF * ( 1 - this.health ), PLANT_HEALTH_PENALTY_EXP );
@@ -544,6 +557,7 @@ export default class Plant {
 	RandomizeAge() {
 		// reset to newborn state before fast-forwarding
 		this.age = utils.RandomFloat( 0, this.traits.life_credits );
+		this.next_update = this.age + this.traits.update_freq;
 		this.life_credits = this.age;
 		this.core = utils.RandomFloat( 10, 300 );
 		this.foliage = this.core * utils.RandomFloat( 0.5, 1.5 );
@@ -636,6 +650,7 @@ export default class Plant {
 		const food_complexity_gene = 0x08000000 | this.dna.genesFor('food_complexity',2,1);
 		this.traits.food_complexity = 2 + Math.ceil( this.dna.shapedInt( food_complexity_gene, 0, 399, 175, 2 ) / 100 );
 		this.traits.food_flavor = this.dna.mix( this.dna.genesFor('food flavor',2,1), 0, 1, 0.5, 4 ); // create more rarity
+		this.traits.update_freq = this.dna.shapedInt( this.dna.genesFor('update_freq',2,1), 3, 120, 4, 4 );
 		this.traits.life_credits = this.dna.shapedInt( this.dna.genesFor('life_credits',3,1), 1000, 10000, 3000, 2.2 );
 		this.traits.light_pref = this.dna.shapedNumber( this.dna.genesFor('light_pref',2,1), 0, 1 );
 		this.traits.light_tolr = this.dna.shapedNumber( this.dna.genesFor('light_tolr',2,1), 0, 1 );
