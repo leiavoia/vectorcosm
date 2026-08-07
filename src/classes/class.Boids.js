@@ -388,6 +388,9 @@ export class Boid extends PhysicsObject {
 			// digest food
 			if ( this.metab.stomach_total > 0 ) {
 			
+				// make sure everything is normalized
+				this.metab.stomach_total = Math.min( this.metab.stomach_total, this.metab.stomach_size );
+				
 				// if we have enough energy to grow, let's grow
 				let growth_split = 0;
 				if ( this.mass < this.body.mass ) {
@@ -693,7 +696,7 @@ export class Boid extends PhysicsObject {
 	}
 
 	Poop() {
-		if ( !this.metab.bowel_total ) { return; }
+		if ( this.metab.bowel_total <= 0 ) { return; }
 		if ( globalThis.vc.simulation.settings?.poop!==false ) {
 			// create a food particle if there is room
 			if ( globalThis.vc.tank.foods.length < 300 && this.traits.poop_complexity ) {
@@ -959,6 +962,9 @@ export class Boid extends PhysicsObject {
 		const speciation_rate = utils.Clamp( globalThis.vc?.simulation?.settings?.speciation_rate || 0, 0, 1 );
 		const tank_max_boids = ( 1 + Boid.TANK_MAX_OCCUPANCY_BUFFER ) * ( globalThis.vc?.simulation?.settings?.num_boids || 300 );
 		let num_produced = 0; // needed because tank size can limit how many get produced
+		// we need to split stomach contents up too because we are about to lose mass
+		const stomach_portion = this.metab.stomach_total / ( num_offspring + 1 );
+		this.metab.stomach_total = stomach_portion;
 		for ( let n=0; n < num_offspring; n++ ) { 
 			if ( globalThis.vc.tank.boids.length >= tank_max_boids ) { break; }
 			let offspring = this.Copy(true, mutation_rate, mutation_rate, speciation_rate); // reset state and mutate organism
@@ -972,6 +978,8 @@ export class Boid extends PhysicsObject {
 			// which doesnt make a lot of sense. If they don't have enough
 			// energy, they don't stand a chance of surviving.
 			offspring.metab.energy = this.traits.offspring_investment * offspring.metab.max_energy;
+			offspring.metab.stomach_total = stomach_portion;
+			offspring.metab.stomach_color = this.metab.stomach_color;
 			globalThis.vc.tank.boids.push(offspring);
 			num_produced++;
 		}
@@ -986,6 +994,8 @@ export class Boid extends PhysicsObject {
 		if ( globalThis.vc.tank.boids.length >= tank_max_boids ) { return; }
 		const mutation_rate = utils.Clamp( globalThis.vc?.simulation?.settings?.max_mutation, 0, 1 );
 		const speciation_rate = utils.Clamp( globalThis.vc?.simulation?.settings?.speciation_rate || 0, 0, 1 );
+		const stomach_portion = this.metab.stomach_total / 2;
+		this.metab.stomach_total = stomach_portion;
 		let offspring = this.Copy(true, mutation_rate, mutation_rate, speciation_rate); // reset state and mutate organism
 		offspring.x = this.x;
 		offspring.y = this.y;
@@ -993,6 +1003,8 @@ export class Boid extends PhysicsObject {
 		offspring.mass = this.mass * this.traits.offspring_investment * 0.5; 
 		offspring.ScaleBoidByMass();
 		offspring.metab.energy = offspring.metab.max_energy;
+		offspring.metab.stomach_total = stomach_portion;
+		offspring.metab.stomach_color = this.metab.stomach_color;
 		globalThis.vc.tank.boids.push(offspring);
 		globalThis.vc.simulation.RecordStat('births',1);	
 	}
