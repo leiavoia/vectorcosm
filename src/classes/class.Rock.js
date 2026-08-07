@@ -30,6 +30,8 @@ import { createPolygonCollider, pointInPolygon } from './collision.js';
 
 export default class Rock {
 
+	static ROT_SPEED_MULTIPLIER = 0.5; // 1.0 = 1 mass per second
+	
 	static color_schemes = {
 		'Grey Marble': 			['#7d8488','#6f737a'],
 		'Old Marble': 			['#a4bdb7'],
@@ -50,6 +52,7 @@ export default class Rock {
 		'Pyrite': ['#c0ba68', '#c0b34e', '#d8d084', '#96903b'],
 		'Serpentine': ['#a7c957', '#6a994e', '#386641', '#b7e4c7'],
 		'Hematite': ['#200f0f', '#473232', '#412e2e', '#807171', '#968888', '#2b1d1d', '#ac8686'],
+		'Wood': ['#b8b3b1', '#d6d2ca', '#90a38c', '#98a898', '#889792', '#849790', '#9fb6a7'],
 	};
 		
 	// x, y (position)
@@ -57,7 +60,7 @@ export default class Rock {
 	// complexity = INT num points in visual geometry
 	// hull = list of [x,y] points to create hull in LOCAL SPACE
 	// points = explicit list of points in LOCAL SPACE (useful for save/load)
-	// force_corners = BOOL default true
+	// force_corners = BOOL default false
 	// new_points_respect_hull = BOOL default true. if false, new points can be outside hull
 	constructor( params ) {
 		this.oid = ++globalThis.vc.next_object_id;
@@ -97,9 +100,12 @@ export default class Rock {
 			this.x = params.x;
 			this.y = params.y;
 			// setup internal list of points
+			let explicit_points_provided = false;
 			this.pts = [];
-			if ( 'points' in params ) { this.pts = params.points; }
-			else if ( 'pts' in params ) { this.pts = params.pts; } // alias
+			if ( 'points' in params || 'pts' in params ) { // alias
+				this.pts = params.points || params.pts; 
+				explicit_points_provided = true; 
+			}
 			// box drawing model
 			if ( 'h' in params && 'w' in params ) {
 				// bounding volume - normalize the values to start at zero
@@ -115,7 +121,7 @@ export default class Rock {
 					this.pts.push([this.x1,this.y2]);
 				}
 				// at least one point must touch each side.
-				else {
+				else if ( !explicit_points_provided ) {
 					this.pts.push([ utils.RandomInt(0,this.x2), 0 ]); // top
 					this.pts.push([ utils.RandomInt(0,this.x2), this.y2 ]); // bottom
 					this.pts.push([ 0, utils.RandomInt(0,this.y2) ]); // left
@@ -147,7 +153,7 @@ export default class Rock {
 			for ( let p of this.pts )  {
 				if ( p[0] + this.x < 0 ) { p[0] = -this.x; }
 				else if ( p[0] + this.x > globalThis.vc.tank.width ) { p[0] = globalThis.vc.tank.width - this.x; }
-				if ( p[1] + this.x < 0 ) { p[1] = -this.x; }
+				if ( p[1] + this.y < 0 ) { p[1] = -this.y; }
 				else if ( p[1] + this.y > globalThis.vc.tank.height ) { p[1] = globalThis.vc.tank.height - this.y; }
 			}
 			// recalculate bounds in case adjustments were made
@@ -224,6 +230,10 @@ export default class Rock {
 				]);
 			}
 		}
+		// some obstacles can rot away
+		if ( 'life_credits' in params && params.life_credits > 0 ) {
+			this.life_credits = params.life_credits;
+		}
 		// pre-compute sensory size for sensor hot path (polygon → avg AABB dimension)
 		const aabb = this.collision.aabb;
 		this.senseSize = ( Math.abs(aabb.x2 - aabb.x1) + Math.abs(aabb.y2 - aabb.y1) ) * 0.5;
@@ -234,6 +244,17 @@ export default class Rock {
 		// this.geo.remove();
 		this.dead = true;
 	}
+	// rocks generally do nothing, and if they do, very infrequently.
+	// global calls to Update are NOT every frame, but set by Vectorcosm class static settings.
+	// Some obstacles act as stumps which can rot away over time.
+	Update( delta ) {
+		if ( this.life_credits > 0 ) {
+			this.life_credits -= delta * Rock.ROT_SPEED_MULTIPLIER;
+			if ( this.life_credits <= 0 ) {
+				this.Kill();
+			}
+		}
+	}
 	PointInHull( x, y, hull ) {
 		// hull is in local space — create a temp collider at origin for point test
 		const poly = createPolygonCollider( 0, 0, hull );
@@ -241,7 +262,7 @@ export default class Rock {
 	}
 	Export( as_JSON=false ) {
 		let output = {};
-		let datakeys = ['x','y','hull','triangles','pts'];		
+		let datakeys = ['x','y','hull','triangles','pts','life_credits'];		
 		for ( let k of datakeys ) { output[k] = this[k]; }
 		// include dimensional data needed for reconstruction
 		if ( this.x1 !== undefined ) { output.x1 = this.x1; }

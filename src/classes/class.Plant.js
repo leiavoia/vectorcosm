@@ -62,6 +62,7 @@ VISUAL
 
 import * as utils from '../util/utils.js'
 import Food from '../classes/class.Food.js'
+import Rock from '../classes/class.Rock.js'
 import DNA from '../classes/class.DNA.js'
 import { createCircleCollider, createResult } from './collision.js';
 
@@ -73,6 +74,7 @@ const PLANT_MIN_HEALTH_CREDIT = 0.25; // minimum amount of life credit to use if
 export default class Plant {
 	
 	static STIFFNESS = 20;
+	static MIN_STUMP_MASS = 300;
 	
 	constructor(params) {
 		// defaults
@@ -205,7 +207,7 @@ export default class Plant {
 		const health_factor = PLANT_MIN_HEALTH_CREDIT + Math.pow( PLANT_HEALTH_PENALTY_COEF * ( 1 - this.health ), PLANT_HEALTH_PENALTY_EXP );
 		this.life_credits -= delta * health_factor * PLANT_DECAY_SPEED;
 		if ( this.life_credits <= 0 ) {
-			// console.log('life credits expired');
+			this.MakeStump(); // only natural death leaves a stump - not included in Kill()
 			this.Kill(); // returns remaining biomass to the grid - single choke point for all death paths
 			return false;
 		}
@@ -438,15 +440,13 @@ export default class Plant {
 	RecalcMassAndSize() {
 		this.mass = this.core + this.foliage;
 		this.r = Math.sqrt( 2 * this.mass / Math.PI ) * this.density;
-		this.collision.radius = this.r;			
+		this.collision.radius = this.r;
 	}
 	
 	Export( as_JSON=false ) {
 		let output = { classname: 'Plant' };
 		let datakeys = ['x','y','fruit_credits','age','life_credits',
 			'mass','health','dna','generation','foliage', 'core', 'reserve'];
-		// legacy plants also save `traits` because they have no DNA to restore from
-		if ( !this.dna ) { datakeys.push('traits'); }			
 		for ( let k of datakeys ) { 
 			if ( this.hasOwnProperty(k) ) { 
 				output[k] = this[k];
@@ -532,6 +532,37 @@ export default class Plant {
 				this.fruit_credits = 0; 
 			}
 		}
+	}
+	
+	MakeStump() {
+		// must have enough core mass remaining to make it worth rendering
+		if ( this.core <= Plant.MIN_STUMP_MASS ) { return; }
+		// TODO: should stump lock up matter?
+		const r = Math.sqrt( 2 * this.core / Math.PI ) * this.density * 0.88;
+		// we want points around the perimeter of the core and one in the exact center.
+		// the default "rock" structure is chunky and asymmetric. we can do better.
+		// points for rocks are defined in local coordinate space.
+		const num_points = 3 + Math.floor(Math.random() * 5);
+		const points = [];
+		for ( let i=0; i < num_points; i++ ) {
+			const angle = Math.random() * 2 * Math.PI;
+			const px = r + r * Math.cos(angle);
+			const py = r + r * Math.sin(angle);
+			points.push([px, py]);
+		}
+		// add the center point
+		points.push([r, r]);
+		let rock = new Rock( {
+			x: this.x - r,
+			y: this.y - r,
+			w: r * 2,
+			h: r * 2,
+			points,
+			color_scheme: 'Wood',
+			complexity: 0,
+			life_credits: this.core
+		})
+		globalThis.vc.tank.obstacles.push(rock);
 	}
 	
 	// health calculation is currently out of date with actual plant growth mechanisms. 

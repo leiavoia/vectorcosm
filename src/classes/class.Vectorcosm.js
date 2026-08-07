@@ -64,6 +64,8 @@ export default class Vectorcosm {
 		this.max_foods = 400;
 		this.plant_update_freq = 1;
 		this.plant_update_next = 0;
+		this.obstacle_update_freq = 60;
+		this.obstacle_update_next = 0;
 		this.free_plant_growth = false;
 		// carry-over settings applied to every simulation.settings when LoadNextSim() runs
 		this.sim_meta_params = {
@@ -242,6 +244,10 @@ export default class Vectorcosm {
 		
 		// update plants
 		// plants don't do much frame to frame, so we can optimize by updating plants infrequently
+		// NOTE: if simulation resets, we have a timestamp problem. detect and correct.
+		if ( this.plant_update_next <= this.simulation.stats.round_time - this.plant_update_freq * 2 ) {
+			this.plant_update_next = this.simulation.stats.round_time + this.plant_update_freq;
+		}
 		if ( this.plant_update_next <= this.simulation.stats.round_time || !this.simulation.stats.round_time ) {
 			// schedule the next update
 			this.plant_update_next = this.simulation.stats.round_time + this.plant_update_freq;
@@ -254,6 +260,25 @@ export default class Vectorcosm {
 				plant.Update(this.plant_update_freq); // NOTE: not the normal delta!
 				if ( plant.dead ) {
 					this.tank.plants.splice(i,1);
+				}
+			}
+		}
+		
+		// update rocks / obstacles
+		// NOTE: rocks generally dont need updates, but some are actually rotting stumps
+		// NOTE: if simulation resets, we have a timestamp problem. detect and correct.
+		if ( this.obstacle_update_next <= this.simulation.stats.round_time - this.obstacle_update_freq * 2 ) {
+			this.obstacle_update_next = this.simulation.stats.round_time + this.obstacle_update_freq;
+		}		
+		if ( this.obstacle_update_next <= this.simulation.stats.round_time || !this.simulation.stats.round_time ) {
+			// schedule the next update
+			this.obstacle_update_next = this.simulation.stats.round_time + this.obstacle_update_freq;
+			// update all obstacles
+			for ( let i = this.tank.obstacles.length-1; i >= 0; i-- ) {
+				const obstacle = this.tank.obstacles[i];
+				obstacle.Update(this.obstacle_update_freq); // NOTE: not the normal delta!
+				if ( obstacle.dead ) {
+					this.tank.obstacles.splice(i,1);
 				}
 			}
 		}
