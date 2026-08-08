@@ -66,15 +66,11 @@ import Rock from '../classes/class.Rock.js'
 import DNA from '../classes/class.DNA.js'
 import { createCircleCollider, createResult } from './collision.js';
 
-const PLANT_DECAY_SPEED = 1; // death clock. higher number shortens all lifespans
-const PLANT_HEALTH_PENALTY_EXP = 3; // high number makes bad health drastically more bad.
-const PLANT_HEALTH_PENALTY_COEF = 2; // high number makes bad health drastically more bad.
-const PLANT_MIN_HEALTH_CREDIT = 0.25; // minimum amount of life credit to use if plant in perfect health.
-
 export default class Plant {
 	
 	static STIFFNESS = 20;
 	static MIN_STUMP_MASS = 300;
+	static PLANT_DECAY_SPEED = 0.08; // lower number = longer lifespan
 	
 	constructor(params) {
 		// defaults
@@ -175,7 +171,13 @@ export default class Plant {
 	SoilAbsorptionCurve( matter, constant=100 ) {
 		return matter / ( matter + constant );
 	}
-		
+
+	// reduces life credit, including all known modifier effects
+	SpendLifeCredits( x ) {
+		const health_factor = 1 + ( 1 - this.health );		
+		this.life_credits -= x * Plant.PLANT_DECAY_SPEED * health_factor;
+	}
+				
 	/*
 	This growth model generally works and gives good-enough results. 
 	TODO: Major areas of improvement include adding genetic levers for various specializations.
@@ -203,14 +205,16 @@ export default class Plant {
 		//====================================================
 	
 		this.CalcHealth();
-		// deplete life credits / end of life
-		const health_factor = PLANT_MIN_HEALTH_CREDIT + Math.pow( PLANT_HEALTH_PENALTY_COEF * ( 1 - this.health ), PLANT_HEALTH_PENALTY_EXP );
-		this.life_credits -= delta * health_factor * PLANT_DECAY_SPEED;
+		
+		// time itself is a burden
+		this.SpendLifeCredits( delta );
+		
 		if ( this.life_credits <= 0 ) {
 			this.MakeStump(); // only natural death leaves a stump - not included in Kill()
 			this.Kill(); // returns remaining biomass to the grid - single choke point for all death paths
 			return false;
 		}
+		
 		
 		//====================================================
 		// Growth phase setup / Environmental performance
@@ -300,7 +304,10 @@ export default class Plant {
 		this.reserve -= maintenance; // this can go negative! make up shortfall afterwards
 		cell.matter += maintenance;
 
+		// maintenance cost is the primary reducer of life_credits
+		this.SpendLifeCredits( maintenance );
 
+		
 		//====================================================
 		// Tissue starvation - reserve is negative; make up deficit via cannibalization
 		//====================================================
@@ -394,13 +401,18 @@ export default class Plant {
 		this.core     += growCore;
 		this.foliage  += growLeaves;
 		this.fruit_credits += growFruit;
-		this.reserve -= growCore + growLeaves + growFruit;
+		const total_growth = growCore + growLeaves + growFruit;
+		this.reserve -= total_growth;
 		
+		// the cost of life is death
+		this.SpendLifeCredits( total_growth ) ;
+				
 		// reserve cannot end over capacity
 		if ( this.reserve > max_reserve ) {
 			const extra = this.reserve - max_reserve;
 			this.reserve -= extra;
 			cell.matter += extra; // return excess to the environment
+			// overdraft does not count against life credits
 		}
 		
 		// make the fruit with credits we stores up
@@ -526,8 +538,6 @@ export default class Plant {
 				else {
 					globalThis.vc.tank.AddMatterAt( this.x, this.y, this.fruit_credits );
 				}
-				// fruiting expends life credits - plants are only good for so long
-				this.life_credits -= this.fruit_credits * 0.1;
 				// reset fruiting cycle
 				this.fruit_credits = 0; 
 			}
