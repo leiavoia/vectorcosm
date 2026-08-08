@@ -37,7 +37,12 @@ import PubSub from 'pubsub-js'
 
 export default class Tank {
 
-	static WASTE_DECAY_BASE_RATE = 0.005;
+	// controls waste->matter conversion speed.
+	// waste is converted faster in cells with more waste ("half life" style).
+	// cell heat can adjust the base rate: higher heat increases the conversion speed.
+	// higher number = faster rate. values between 0.005 and 0.03 work well.
+	static WASTE_DECAY_BASE_RATE = 0.015; // +/- heat * mod
+	static WASTE_DECAY_HEAT_MOD = 0.25; // amount of base rate that heat can affect; 0..1; 0.25 works well (base +/- 25%)
 	
 	static backdrop_themes = [
 		// reserved for special rendering styles
@@ -297,7 +302,7 @@ export default class Tank {
 			}
 		}
 		// diffuse temperatures
-		this.DiffuseStat('heat', 3, 0.25);
+		this.DiffuseStat('heat', 3, 0.5);
 		// normalize temperatures - this isnt necessary but makes for a guaranteed varied landscape
 		let highest_temp = 0;
 		let lowest_temp = 1;
@@ -431,13 +436,28 @@ export default class Tank {
 				if ( cell === null ) { continue; }
 				// calculate the waste->matter conversion
 				if ( cell.waste <= 0 ) { continue; }
-				const decay_rate = Tank.WASTE_DECAY_BASE_RATE * ( 1 - Math.exp( -cell.waste ) );
-				const recycled = Math.min(cell.waste, cell.waste * decay_rate * delta);
-				cell.waste -= recycled;						
-				// option 1: put it back where it came from
+				let recycled = 0;
+				// if less than 10, just flush out the whole cell. we dont need to split hairs.
+				if ( cell.waste <= 10 ) {
+					recycled = cell.waste;
+					cell.waste = 0;
+				}
+				// calculate decay based on exponential curve
+				else {
+					// heat directly affects the waste to matter conversion rate.
+					// the amount of influence that heat has on the process is configurable with WASTE_DECAY_HEAT_MOD.
+					const heat_adjustment = 1 + Tank.WASTE_DECAY_HEAT_MOD * (cell.heat - 1);
+					const base_rate = Tank.WASTE_DECAY_BASE_RATE * heat_adjustment;
+					// rate constant k saturates toward base_rate as waste grows (diminishing returns, no runaway feedback)
+					const k = base_rate * ( 1 - Math.exp( -cell.waste ) );
+					// exact exponential integration over delta (delta is ~30s between calls, too large for a linear/Euler step)
+					const remaining = cell.waste * Math.exp( -k * delta );
+					recycled = cell.waste - remaining;
+					cell.waste = remaining;
+				}
+				// option 1: put it back where it came from (boring!)
 				// cell.matter += recycled;
-				// option 2: share the wealth with 3x3 neighbors.
-				// account for edges and corners.
+				// option 2: share the wealth with 3x3 neighbors. (account for edges and corners)
 				const leftmost = x == 0 ? x : x - 1;	
 				const rightmost = x == (this.datagrid.cells_x-1) ? (this.datagrid.cells_x-1) : x+1;	
 				const topmost = y == 0 ? y : y - 1;	
@@ -446,7 +466,6 @@ export default class Tank {
 				const h_range = rightmost - leftmost + 1;
 				const num_contributors = v_range * h_range;
 				const deposit = recycled / num_contributors;
-				// console.log(`Recycling ${recycled} waste: ${num_contributors} neighbors @ ${deposit}`);
 				// loop over all neighbors and spread the wealth
 				for ( let ny=topmost; ny <= bottommost; ny++ ) {
 					for ( let nx=leftmost; nx <= rightmost; nx++ ) {
