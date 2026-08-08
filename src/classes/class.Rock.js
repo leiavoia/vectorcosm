@@ -30,7 +30,7 @@ import { createPolygonCollider, pointInPolygon } from './collision.js';
 
 export default class Rock {
 
-	static ROT_SPEED_MULTIPLIER = 0.7; // 1.0 = 1 mass per second
+	static ROT_SPEED_MULTIPLIER = 0.8; // 1.0 = 1 mass per second
 	
 	static color_schemes = {
 		'Grey Marble': 			['#7d8488','#6f737a'],
