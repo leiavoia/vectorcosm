@@ -36,6 +36,8 @@ import { createPolygonCollider, testPolygonPolygon, testCirclePolygon, translate
 
 export default class Tank {
 
+	static WASTE_DECAY_BASE_RATE = 0.005;
+	
 	static backdrop_themes = [
 		// reserved for special rendering styles
 		{ name: 'White', class: 'bg-theme-white', omitFromRandom:true },
@@ -405,9 +407,53 @@ export default class Tank {
 			cell.matter += m;
 		}
 	}
+	
+	AddWasteAt( x, y, m ) {
+		const cell = this.datagrid.CellAt(x,y);
+		if ( cell !== null ) {
+			cell.waste += m;
+		}
+	}
 	 
 	CalculateLightIntensity( depth, brightness=1.0, murkiness=0.0002 ) {
 		return brightness * Math.exp( -murkiness * depth );
+	}
+	
+	// cycles waste values back into normal matter.
+	// uses an exponential decay rate: more matter per cell increases decay rate.
+	// biologically plausible formula: remaining_mass = initial_mass * e ^ -kt
+	CycleWaste( delta ) {
+		for ( let y=0; y < this.datagrid.cells_y; y++ ) { // by rows first
+			for ( let x=0; x < this.datagrid.cells_x; x++ ) { // then by columns
+				const cell = this.datagrid.CellFromXY( x, y );
+				if ( cell === null ) { continue; }
+				// calculate the waste->matter conversion
+				if ( cell.waste <= 0 ) { continue; }
+				const decay_rate = Tank.WASTE_DECAY_BASE_RATE * ( 1 - Math.exp( -cell.waste ) );
+				const recycled = Math.min(cell.waste, cell.waste * decay_rate * delta);
+				cell.waste -= recycled;						
+				// option 1: put it back where it came from
+				// cell.matter += recycled;
+				// option 2: share the wealth with 3x3 neighbors.
+				// account for edges and corners.
+				const leftmost = x == 0 ? x : x - 1;	
+				const rightmost = x == (this.datagrid.cells_x-1) ? (this.datagrid.cells_x-1) : x+1;	
+				const topmost = y == 0 ? y : y - 1;	
+				const bottommost = y == (this.datagrid.cells_y-1) ? (this.datagrid.cells_y-1) : y+1;
+				const v_range = bottommost - topmost + 1;
+				const h_range = rightmost - leftmost + 1;
+				const num_contributors = v_range * h_range;
+				const deposit = recycled / num_contributors;
+				// console.log(`Recycling ${recycled} waste: ${num_contributors} neighbors @ ${deposit}`);
+				// loop over all neighbors and spread the wealth
+				for ( let ny=topmost; ny <= bottommost; ny++ ) {
+					for ( let nx=leftmost; nx <= rightmost; nx++ ) {
+						const neighbor_index = this.datagrid.CellIndexFromXY(nx,ny);
+						this.datagrid.cells[neighbor_index].matter += deposit;
+					}
+				}
+			}
+		}
 	}
 	
 	Resize(w,h) {

@@ -147,7 +147,7 @@ export default class Plant {
 		// (life credit expiry, core<=0.1, external/predation kills, tank resets).
 		const leftover_mass = this.core + this.foliage + this.fruit_credits;
 		if ( leftover_mass > 0 ) {
-			globalThis.vc.tank.AddMatterAt( this.x, this.y, leftover_mass );
+			globalThis.vc.tank.AddWasteAt( this.x, this.y, leftover_mass );
 		}
 		this.dead = true;
 	}	
@@ -316,7 +316,7 @@ export default class Plant {
 
 		// Respiration and decay returns matter to environment
 		this.reserve -= maintenance; // this can go negative! make up shortfall afterwards
-		cell.matter += maintenance;
+		cell.waste += maintenance;
 
 		// maintenance cost is the primary reducer of life_credits
 		this.SpendLifeCredits( maintenance );
@@ -359,7 +359,7 @@ export default class Plant {
 			this.foliage -= foliage_loss;
 			this.core -= core_loss;
 			this.reserve += foliage_loss + core_loss;
-			cell.matter += foliage_loss + core_loss;
+			cell.waste += foliage_loss + core_loss;
 			// shrank to nothing - you died
 			if ( this.core <= 0.1 ) {
 				this.Kill();
@@ -427,7 +427,7 @@ export default class Plant {
 			if ( this.reserve > max_reserve ) {
 				const extra = this.reserve - max_reserve;
 				this.reserve -= extra;
-				cell.matter += extra; // return excess to the environment
+				cell.matter += extra; // return excess to the environment as matter not drawn instead of waste
 				// overdraft does not count against life credits
 			}
 			
@@ -554,7 +554,7 @@ export default class Plant {
 				}
 				// if we cancel the food, return accumulated matter to the tank
 				else {
-					globalThis.vc.tank.AddMatterAt( this.x, this.y, this.fruit_credits );
+					globalThis.vc.tank.AddWasteAt( this.x, this.y, this.fruit_credits );
 				}
 				// reset fruiting cycle
 				this.fruit_credits = 0; 

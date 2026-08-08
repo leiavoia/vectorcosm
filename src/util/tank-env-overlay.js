@@ -148,26 +148,49 @@ export function renderTankMatterMap( data, two ) {
 				const center_y = y * data.grid.cellsize + (data.grid.cellsize * 0.5);
 				const cell_index = x + ( y * data.grid.cells_x );
 				const cell = data.grid.cells[cell_index];
+				const rect_w = data.grid.cellsize / 3;
+				const rect_h = data.grid.cellsize / 3;
 
-				const logval = Math.log( Math.min(cell.matter, maxval) );
-				const ratio = Math.max( 0, logval - logshift ) / ( maxlog - logshift );
-				const color = `hsl(300, 50%, ${ratio*80}%)`;
+				// matter color
+				const matter_logval = Math.log( Math.min(cell.matter, maxval) );
+				const matter_ratio = Math.max( 0, matter_logval - logshift ) / ( maxlog - logshift );
+				const matter_color = `hsl(300, 50%, ${matter_ratio*80}%)`;
 
-				// geometry
-				const rect_w = data.grid.cellsize / 4;
-				const rect = two.makeRectangle(center_x, center_y, rect_w, rect_w);
+				// waste color
+				const waste_logval = Math.log( Math.min(cell.waste, maxval) );
+				const waste_ratio = Math.max( 0, waste_logval - logshift ) / ( maxlog - logshift );
+				const waste_color = `hsl(50, 50%, ${waste_ratio*80}%)`;
+
+				// waste geometry
+				const rect2 = two.makeRectangle(center_x, center_y/*  + 0.5 * rect_h */, rect_w * 1.5, rect_h * 1.5);
+				rect2.linewidth = 2;
+				rect2.rotation = Math.PI / 4; // diamonds are kool
+				rect2.stroke = "#AAA";
+				rect2.fill = waste_color;
+				group.add( rect2 );
+				
+				// matter geometry
+				const rect = two.makeRectangle(center_x, center_y/*  - 0.5 * rect_h */, rect_w, rect_h);
 				rect.linewidth = 2;
 				rect.rotation = Math.PI / 4; // diamonds are kool
-				rect.stroke = "#AAA";
-				rect.fill = color;
+				rect.fill = matter_color;
 				group.add( rect );
 
-				const txt = two.makeText( cell.matter.toFixed(), center_x, center_y );
+				// matter label
+				const txt = two.makeText( cell.matter.toFixed(), center_x, center_y - 0.14 * rect_h );
 				txt.linewidth = 0;
 				txt.stroke = "transparent";
 				txt.fill = '#FFF';
 				txt.size = 24;
 				group.add( txt );
+
+				// waste label
+				const txt2 = two.makeText( cell.waste.toFixed(), center_x, center_y + 0.14 * rect_h );
+				txt2.linewidth = 0;
+				txt2.stroke = "transparent";
+				txt2.fill = '#FC0';
+				txt2.size = 24;
+				group.add( txt2 );
 			}
 		}
 	}

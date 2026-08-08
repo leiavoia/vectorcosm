@@ -282,6 +282,18 @@ export default class Simulation {
 				this.next_diffusion = next + freq;
 			}
 		}
+		// waste cycle
+		const waste_cycle_freq = this.settings?.waste_cycle_freq;
+		if ( waste_cycle_freq ) {
+			let next = this.next_waste_cycle ?? waste_cycle_freq;
+			const t = Math.floor( this.stats.round_time );
+			if ( next > t + waste_cycle_freq ) { next = waste_cycle_freq; } // automatically handle sim resets
+			if ( t > next ) {
+				const delta = t - next + waste_cycle_freq;
+				globalThis.vc.tank.CycleWaste( delta );
+				this.next_waste_cycle = next + waste_cycle_freq;
+			}
+		}
 	}
 	
 	Update( delta ) {
