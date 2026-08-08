@@ -71,6 +71,8 @@ export default class Plant {
 	static STIFFNESS = 20;
 	static MIN_STUMP_MASS = 300;
 	static PLANT_DECAY_SPEED = 0.08; // lower number = longer lifespan
+	static SHORTFALL_DMG_MOD = 7; // damage multiplier for reserve shortfall
+	static GRAZING_DMG_MOD = 3; // damage multiplier for grazing loss
 	
 	constructor(params) {
 		// defaults
@@ -91,6 +93,7 @@ export default class Plant {
 		this.foliage = 1; // foliage mass. edible. not counted as core mass.
 		this.fruit_credits = 0; // counts up from zero
 		this.health = 1;
+		this.dmg = 0; // accumulated damage, affects health
 		this.light_health = 0; // 0..1 - zero is a signal it needs to be computed
 		this.heat_health = 0; // 0..1
 		this.sense = new Array(15).fill(0);
@@ -204,8 +207,6 @@ export default class Plant {
 		// Aging and death
 		//====================================================
 	
-		this.CalcHealth();
-		
 		// time itself is a burden
 		this.SpendLifeCredits( delta );
 		
@@ -220,9 +221,6 @@ export default class Plant {
 		// Growth phase setup / Environmental performance
 		//====================================================		
 		
-		// record keeping
-		const starting_reserve = this.reserve;
-		
 		// Environmental Grid Data access
 		const cell = globalThis.vc.tank.datagrid.CellAt( this.x, this.y );
 
@@ -232,7 +230,27 @@ export default class Plant {
 		// heat tolerance affects metabolic efficiency. 0..1, higher is better
 		const heatTolerance  = this.HeatTolerance(cell.heat, this.traits.heat_pref); 
 
+		// soil absorption: increasingly difficult for roots to find matter.
+		// NOTE: using a constant for tuning here, but we could make 
+		// poor-soil absorption a genetic trait with fun tradeoffs.
+		const soilFactor = this.SoilAbsorptionCurve(cell.matter, 100);
 		
+
+		//====================================================
+		// Health Calculation
+		//====================================================		
+		
+		// environmental difficulties only result in small deviations from baseline health.
+		let env_factor = 0.1 * ( lightEfficiency + heatTolerance + soilFactor ); // = 30%
+		// "stress" is caused by damage taken from grazing and nutrient deficiencies.
+		const total_mass_now = this.core + this.foliage; // ignore fruit
+		const dmg_ratio = Math.min( 1.0, this.dmg / ( total_mass_now + 0.01 ) );
+		const stress_factor = ( 1 - dmg_ratio ) * 0.7; // remaining 70%
+		const health = env_factor + stress_factor;
+		this.health = ( this.health + health ) / 2; // blended result
+		this.dmg = 0; // reset
+		
+
 		//====================================================
 		// DEBUG: random periodic grazing knocks down foliage
 		//====================================================
@@ -241,6 +259,7 @@ export default class Plant {
 		// 	const lost = Math.min( this.foliage, Math.random() * 0.4 * this.foliage );
 		// 	this.foliage -= lost;
 		// 	cell.matter += lost;
+		// 	this.dmg += lost * Plant.GRAZING_DMG_MOD;
 		// 	// console.log(`Grazing: ${lost.toFixed(1)}`);
 		// }
 		
@@ -253,11 +272,6 @@ export default class Plant {
 		// light intensity has diminishing returns on photosynthesis.
 		// eventually, maintenance outpaces ability to photosynthesize, even with kleiber's discount.
 		const photosyntheticCapacity = Math.pow( this.foliage, 0.5 ) * lightEfficiency;
-
-		// soil absorption: increasingly difficult for roots to find matter.
-		// NOTE: using a constant for tuning here, but we could make 
-		// poor-soil absorption a genetic trait with fun tradeoffs.
-		const soilFactor = this.SoilAbsorptionCurve(cell.matter, 100);
 		
 		// Roots/trunk acquire environmental matter.
 		const uptakeCapacity = this.core * soilFactor * heatTolerance;
@@ -319,15 +333,16 @@ export default class Plant {
 			// TODO: continual reserve deficiency should have escalating health penalties
 			// that spend life points / hasten death instead of shrinking to nothing. 
 			
+			// TODO: how plants prioritize sacrifice can be genetic. for now, hardcoded priorities.
 			// NOTE: intentionally ignoring fruit for now
-			let demand = Math.abs(this.reserve);
+			const foliage_priority = 0.7;
+			const core_priority = 0.3;
+			
+			let shortfall = Math.abs(this.reserve);
 			// NOTE: when plants are completely stripped, its a tough spot.
 			// Plants should have the ability to get a hail mary and overdrive demand.
 			// We already have risk_tolerance, so this is a fine place to use it.
-			demand *= ( 1 + this.traits.risk_tolerance ) * ( 1 + this.traits.risk_tolerance );
-			// TODO: how plants prioritize sacrifice can be genetic. for now, hardcoded priorities.
-			const foliage_priority = 0.7;
-			const core_priority = 0.3;
+			const demand = shortfall * ( 1 + this.traits.risk_tolerance ) * ( 1 + this.traits.risk_tolerance );
 			
 			// First pass: take priority amounts
 			let foliage_loss = Math.min(this.foliage, demand * foliage_priority);
@@ -350,74 +365,75 @@ export default class Plant {
 				this.Kill();
 				return;
 			}
-			// update geometry and bail out early. there will be no growth.
-			this.RecalcMassAndSize();
-			return;		
+			
+			// the original shortfall counts as damage to the plant indicates "stress"
+			this.dmg += shortfall * Plant.SHORTFALL_DMG_MOD;
 		}
 
 		//====================================================
 		// Growth investment
 		//====================================================
 
-		// figure out growth budget based on risk tolerance and reserve savings
-		// const min_invest_pct = 0.05; // even a fully conservative plant still grows a little
-		// const max_invest_pct = 0.95; // even a fully reckless plant keeps a sliver in reserve
-		// const invest_pct = min_invest_pct + ( max_invest_pct - min_invest_pct ) * this.traits.risk_tolerance;
-		// const growthBudget = this.reserve * invest_pct;
+		else {
+			// figure out growth budget based on risk tolerance and reserve savings
+			// const min_invest_pct = 0.05; // even a fully conservative plant still grows a little
+			// const max_invest_pct = 0.95; // even a fully reckless plant keeps a sliver in reserve
+			// const invest_pct = min_invest_pct + ( max_invest_pct - min_invest_pct ) * this.traits.risk_tolerance;
+			// const growthBudget = this.reserve * invest_pct;
 
-		// use this alternative saturating formula if above linear formula is too simplistic
-		const saving_target = 100;
-		const saving_buffer = 0.05;
-		const saving_mod = saving_target * ( saving_buffer + (1 - saving_buffer) * this.traits.risk_tolerance );
-		const saving_pct = saving_mod / ( saving_mod + this.reserve );
-		const growthBudget = this.reserve * saving_pct;
-		
-		// maximum foliage we can support is based on core.
-		// it take proportionally more core to support more foliage.
-		// TODO: could be genetic trait for higher maintenance tradeoff.
-		const max_foliage_scaler = 1.0;
-		const max_foliage = max_foliage_scaler * Math.pow( this.core, 0.75 );
-		
-		// Allocation growth priorities - blend of genetic factors, environment, and situational necessity
-		const priorities = this.CalcGrowthPriorities();
-		const idealCore = this.core * priorities.core;
-		// minIdealFoliage prevents a permanent zero-lock when foliage=0, otherwise
-		// it would be mathematically impossible to ever regrow foliage from zero.
-		const minIdealFoliage = 0.01;
-		const idealFoliage = Math.max(minIdealFoliage, Math.min((this.foliage + 0.01) * priorities.foliage, max_foliage));
-		priorities.foliage = idealFoliage / ( idealFoliage + this.foliage + 0.01 );
-		priorities.core = idealCore / ( idealCore + this.core + 0.01 );
-		
-		// normalize to 1.0
-		const total = priorities.core + priorities.foliage + priorities.fruit;
-		priorities.core /= total;
-		priorities.foliage /= total;
-		priorities.fruit /= total;
+			// use this alternative saturating formula if above linear formula is too simplistic
+			const saving_target = 100;
+			const saving_buffer = 0.05;
+			const saving_mod = saving_target * ( saving_buffer + (1 - saving_buffer) * this.traits.risk_tolerance );
+			const saving_pct = saving_mod / ( saving_mod + this.reserve );
+			const growthBudget = this.reserve * saving_pct;
+			
+			// maximum foliage we can support is based on core.
+			// it take proportionally more core to support more foliage.
+			// TODO: could be genetic trait for higher maintenance tradeoff.
+			const max_foliage_scaler = 1.0;
+			const max_foliage = max_foliage_scaler * Math.pow( this.core, 0.75 );
+			
+			// Allocation growth priorities - blend of genetic factors, environment, and situational necessity
+			const priorities = this.CalcGrowthPriorities();
+			const idealCore = this.core * priorities.core;
+			// minIdealFoliage prevents a permanent zero-lock when foliage=0, otherwise
+			// it would be mathematically impossible to ever regrow foliage from zero.
+			const minIdealFoliage = 0.01;
+			const idealFoliage = Math.max(minIdealFoliage, Math.min((this.foliage + 0.01) * priorities.foliage, max_foliage));
+			priorities.foliage = idealFoliage / ( idealFoliage + this.foliage + 0.01 );
+			priorities.core = idealCore / ( idealCore + this.core + 0.01 );
+			
+			// normalize to 1.0
+			const total = priorities.core + priorities.foliage + priorities.fruit;
+			priorities.core /= total;
+			priorities.foliage /= total;
+			priorities.fruit /= total;
+						
+			// commit growth to all categories
+			const growCore = growthBudget * priorities.core;
+			const growLeaves = growthBudget * priorities.foliage;
+			const growFruit = growthBudget * priorities.fruit;
+			this.core     += growCore;
+			this.foliage  += growLeaves;
+			this.fruit_credits += growFruit;
+			const total_growth = growCore + growLeaves + growFruit;
+			this.reserve -= total_growth;
+			
+			// the cost of life is death
+			this.SpendLifeCredits( total_growth ) ;
 					
-		// commit growth to all categories
-		const growCore = growthBudget * priorities.core;
-		const growLeaves = growthBudget * priorities.foliage;
-		const growFruit = growthBudget * priorities.fruit;
-		this.core     += growCore;
-		this.foliage  += growLeaves;
-		this.fruit_credits += growFruit;
-		const total_growth = growCore + growLeaves + growFruit;
-		this.reserve -= total_growth;
-		
-		// the cost of life is death
-		this.SpendLifeCredits( total_growth ) ;
-				
-		// reserve cannot end over capacity
-		if ( this.reserve > max_reserve ) {
-			const extra = this.reserve - max_reserve;
-			this.reserve -= extra;
-			cell.matter += extra; // return excess to the environment
-			// overdraft does not count against life credits
+			// reserve cannot end over capacity
+			if ( this.reserve > max_reserve ) {
+				const extra = this.reserve - max_reserve;
+				this.reserve -= extra;
+				cell.matter += extra; // return excess to the environment
+				// overdraft does not count against life credits
+			}
+			
+			// make the fruit with credits we stores up
+			this.MakeFruit();
 		}
-		
-		// make the fruit with credits we stores up
-		this.MakeFruit();
-
 
 		//====================================================
 		// Geometry update
@@ -457,6 +473,7 @@ export default class Plant {
 	
 	Export( as_JSON=false ) {
 		let output = { classname: 'Plant' };
+		// note: next_update and dmg are considered temporal and get ignored. 
 		let datakeys = ['x','y','fruit_credits','age','life_credits',
 			'mass','health','dna','generation','foliage', 'core', 'reserve'];
 		for ( let k of datakeys ) { 
@@ -472,6 +489,7 @@ export default class Plant {
 		if ( this.dead || this.foliage <= 0 ) { return 0; }
 		const eaten = Math.min( this.foliage, amount );
 		this.foliage -= eaten;
+		this.dmg += eaten * Plant.GRAZING_DMG_MOD;
 		this.RecalcMassAndSize();
 		return eaten;
 	}
@@ -573,24 +591,6 @@ export default class Plant {
 			life_credits: this.core
 		})
 		globalThis.vc.tank.obstacles.push(rock);
-	}
-	
-	// health calculation is currently out of date with actual plant growth mechanisms. 
-	// works but major room for improvement.
-	// TODO: sync with new growth model. focus on nutrition and starvation. plants
-	// can still be healthy in less than ideal situations.
-	CalcHealth() {
-		// these things never change (yet), so can be precomputed
-		if ( !this.light_health ) {
-			const cell = globalThis.vc.tank.datagrid.CellAt( this.x, this.y );
-			const light_diff = Math.abs( cell.light - this.traits.light_pref );
-			this.light_health = 1 - utils.Clamp( light_diff / this.traits.light_tolr, 0, 1 );
-			const heat_diff = Math.abs( cell.heat - this.traits.heat_pref );
-			this.heat_health = 1 - utils.Clamp( heat_diff / this.traits.heat_tolr, 0, 1 );
-		}
-		let health = ( this.light_health + this.heat_health ) / 2;
-		// average health over time to avoid wild swings
-		this.health = ( this.health + this.health + health ) / 3;
 	}
 	
 	// stages a plant at a future point in its lifespan. 
