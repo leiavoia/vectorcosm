@@ -184,8 +184,6 @@ export default class Plant {
 	/*
 	This growth model generally works and gives good-enough results. 
 	TODO: Major areas of improvement include adding genetic levers for various specializations.
-	TODO: waste cycle to avoid discarded matter from immediately being picked up again.
-	TODO: health calculation currently makes no sense and plays no role. reintegrate.
 	TODO: light efficiency curve is not really what we want. not sure if cell.light should be in growth calc.
 	*/		
 	Update( delta ) {
@@ -247,7 +245,7 @@ export default class Plant {
 		const dmg_ratio = Math.min( 1.0, this.dmg / ( total_mass_now + 0.01 ) );
 		const stress_factor = ( 1 - dmg_ratio ) * 0.7; // remaining 70%
 		const health = env_factor + stress_factor;
-		this.health = ( this.health + health ) / 2; // blended result
+		this.health = ( this.health + this.health + health ) / 3; // blended result
 		this.dmg = 0; // reset
 		
 
