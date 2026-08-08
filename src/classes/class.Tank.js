@@ -33,6 +33,7 @@ import SpaceGrid from '../classes/class.SpaceGrid.js';
 import DataGrid from '../classes/class.DataGrid.js';
 import Rock from '../classes/class.Rock.js';
 import { createPolygonCollider, testPolygonPolygon, testCirclePolygon, translateCollider, createResult } from './collision.js';
+import PubSub from 'pubsub-js'
 
 export default class Tank {
 
@@ -186,6 +187,7 @@ export default class Tank {
 		
 		// update the actual data grid
 		this.UpdateCurrentVectors();
+		PubSub.publishSync('tank.env.changed', { what: 'current' } );
 	}
 		
 	CreateDataGrid(w,h) {

@@ -235,6 +235,7 @@ Events use dot.notation for namespacing.
 | `records_push` | Stat tracking | Simulation stat records updated |
 | `boid_records_push` | Stat tracking | Per-boid stat records updated. Payload includes `oid`, `layer`, and `data`. |
 | `save_tank` | Autosave | Tank autosaved |
+| `tank_env_changed` | Tank environment | Datagrid mutated in bulk (matter diffusion, waste cycling, whirlpool currents). Payload is `{ what: 'matter'\|'current' }` only — no grid data. Call `get_tank_env_data` to fetch a fresh copy if displaying an overlay. |
 
 ---
 

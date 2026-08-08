@@ -40,6 +40,8 @@ AUTONOMOUS LOOP
 PUBSUB EVENTS (forwarded as type:'event')
   sim_complete, sim_round, sim_new, records_push, boid_records_push, autosave
   autonomous.stats — periodic stats during autonomous run
+  tank_env_changed — datagrid mutated in bulk (matter diffusion, waste cycling, whirlpool
+    currents). Payload is just { what: 'matter'|'current' }, no grid data included.
 
 STORAGE
 - BoidLibrary and TankLibrary use pluggable adapters (StorageAdapter interface).
@@ -978,6 +980,16 @@ let onBoidRecordsPushSubscription = PubSub.subscribe('boid.records.push', (msg,d
 	globalThis.postMessage( {
 		type: 'event',
 		name: 'boid_records_push',
+		data: data
+	} );
+});
+
+// datagrid values were mutated in bulk (matter diffusion, waste cycling, whirlpool currents).
+// no data is sent here - front-end must call get_tank_env_data if it needs a fresh copy.
+let onTankEnvChangedSubscription = PubSub.subscribe('tank.env.changed', (msg,data) => {
+	globalThis.postMessage( {
+		type: 'event',
+		name: 'tank_env_changed',
 		data: data
 	} );
 });

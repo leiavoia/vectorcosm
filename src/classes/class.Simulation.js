@@ -263,6 +263,7 @@ export default class Simulation {
 				// big shakeup of resources
 				if ( !this.waving && this.settings?.matter_diffusion_freq ) {
 					globalThis.vc.tank.DiffuseStat('matter', 2, 0.5 );
+					PubSub.publishSync('tank.env.changed', { what: 'matter' } );
 				}
 				this.waving = true;
 			}
@@ -279,6 +280,7 @@ export default class Simulation {
 			if ( t > next ) {
 				const strength = this.settings?.matter_diffusion_strength || 0.25;
 				globalThis.vc.tank.DiffuseStat('matter', 1, strength );
+				PubSub.publishSync('tank.env.changed', { what: 'matter' } );
 				this.next_diffusion = next + freq;
 			}
 		}
@@ -291,6 +293,7 @@ export default class Simulation {
 			if ( t > next ) {
 				const delta = t - next + waste_cycle_freq;
 				globalThis.vc.tank.CycleWaste( delta );
+				PubSub.publishSync('tank.env.changed', { what: 'matter' } );
 				this.next_waste_cycle = next + waste_cycle_freq;
 			}
 		}

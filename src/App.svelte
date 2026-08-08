@@ -651,12 +651,21 @@
 		if ( tankEnvGeo && tankEnvOverlayMode == request ) {
 			tankEnvGeo.remove();
 			tankEnvGeo = null;
+			tankEnvOverlayMode = null;
 		}
 		else {
 			tankEnvOverlayMode = request;
 			api.call('get_tank_env_data', {request:request}).then(onGetTankEnvDataResponse);
 		}
 	}
+
+	// backend mutated the datagrid in bulk (diffusion, waste cycling, whirlpool currents).
+	// only bother refreshing if the affected overlay is actually being displayed.
+	api.on( 'tank_env_changed', data => {
+		if ( !tankEnvOverlayMode ) { return; }
+		if ( data?.what && data.what !== tankEnvOverlayMode ) { return; }
+		api.call('get_tank_env_data', {request:tankEnvOverlayMode}).then(onGetTankEnvDataResponse);
+	} );
 			
 	// gameloop starts when drawing context is fully mounted (see component)
 	function onDrawingReady() {
