@@ -356,8 +356,8 @@ export default class Plant {
 			
 			this.foliage -= foliage_loss;
 			this.core -= core_loss;
+			// tissue mass converts directly into usable reserve
 			this.reserve += foliage_loss + core_loss;
-			cell.waste += foliage_loss + core_loss;
 			// shrank to nothing - you died
 			if ( this.core <= 0.1 ) {
 				this.Kill();
