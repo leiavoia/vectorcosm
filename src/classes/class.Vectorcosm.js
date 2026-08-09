@@ -61,7 +61,8 @@ export default class Vectorcosm {
 		this.boid_snn_every_frame = false;
 		this.lock_dimensions = false; // prevents volume-based resize when exact dimensions are requested.
 		this.min_time_delta = 1/30;
-		this.max_foods = 400;
+		this.max_foods = 500;
+		this.absolute_max_plants = 1000;
 		this.plant_update_freq = 1;
 		this.plant_update_next = 0;
 		this.obstacle_update_freq = 60;

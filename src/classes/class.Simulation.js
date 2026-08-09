@@ -534,7 +534,7 @@ export default class Simulation {
 	}
 	
 	SetNumPlants(x) {
-		this.settings.num_plants = parseInt(x).clamp(0,200);
+		this.settings.num_plants = parseInt(x).clamp(0, globalThis.vc.absolute_max_plants);
 		globalThis.vc.tank.plants.forEach( x => x.Kill() );
 		globalThis.vc.tank.plants.length = 0;
 		for ( let n=0; n < this.settings.num_plants; n++ ) {
