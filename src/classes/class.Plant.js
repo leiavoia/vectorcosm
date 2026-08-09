@@ -612,12 +612,7 @@ export default class Plant {
 	}	
 	
 	MakeGeneticColor( whatfor, colors ) {
-		let num_colors = Math.round( this.dna.mix( this.dna.genesFor(`plant ${whatfor} num colors gene 2`,2,1), 0, colors.length ) );
-		
-		// transparent
-		if ( num_colors===0 ) {
-			return 'transparent';
-		}
+		let num_colors = Math.round( this.dna.mix( this.dna.genesFor(`plant ${whatfor} num colors gene 2`,2,1), 1, colors.length ) );
 		
 		// single color
 		if ( num_colors===1 ) {
@@ -781,17 +776,11 @@ export default class Plant {
 		// fill and stroke colors
 		this.traits.fill = this.MakeGeneticColor( 'fill', this.traits.colors );
 		this.traits.stroke = this.MakeGeneticColor( 'stroke', this.traits.colors );
-		// sane default if we got double transparent
+		// don't paint fill and stroke the same color
 		if ( this.traits.fill == this.traits.stroke ) {
 			this.traits.fill = this.traits.colors[0];
 			this.traits.stroke = this.traits.colors[1];
 		}
-				
-		// linear segments may not be transparent - entire plant would disappear
-		if ( is_linear && this.traits.stroke === 'transparent' ) {
-			this.traits.stroke = this.traits.fill;
-			this.traits.fill = 'transparent';
-		} 				
 				
 						
 		// SENSORY INFO ---------------------\/-------------------------
