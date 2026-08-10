@@ -73,6 +73,9 @@ export default class Plant {
 	static PLANT_DECAY_SPEED = 0.08; // lower number = longer lifespan
 	static SHORTFALL_DMG_MOD = 7; // damage multiplier for reserve shortfall
 	static GRAZING_DMG_MOD = 3; // damage multiplier for grazing loss
+	static BASE_SVG_RADIUS = 300;
+	static COSMETIC_FOLIAGE_BUFF = 2.5; // increase visual radius of foliage for better aesthetics even if math is wrong
+	static DRAW_FLOWERS = true; // toggle flower rendering. Non-flowers are simple geometric shapes.
 	
 	constructor(params) {
 		// defaults
@@ -96,6 +99,8 @@ export default class Plant {
 		this.dmg = 0; // accumulated damage, affects health
 		this.light_health = 0; // 0..1 - zero is a signal it needs to be computed
 		this.heat_health = 0; // 0..1
+		this.svg_scale = 1.0;
+		this.svg_linewidth = 2;		
 		this.sense = new Array(15).fill(0);
 		if ( typeof params === 'object' ) {
 			Object.assign(this,params);
@@ -464,9 +469,17 @@ export default class Plant {
 	
 	// updates combined mass and the collision radius.
 	RecalcMassAndSize() {
+		// collision physics
 		this.mass = this.core + this.foliage;
 		this.r = Math.sqrt( 2 * this.mass / Math.PI ) * this.density;
 		this.collision.radius = this.r;
+		// cosmetic / display
+		const core_radius = Math.sqrt( 2 * this.core / Math.PI ) * this.density;
+		const foliage_radius = this.r - core_radius;
+		const scale = this.r / Plant.BASE_SVG_RADIUS;
+		const foliage_radius_scaled = foliage_radius * scale;
+		this.svg_scale = scale;
+		this.svg_linewidth = foliage_radius_scaled * Plant.COSMETIC_FOLIAGE_BUFF;
 	}
 	
 	Export( as_JSON=false ) {
@@ -692,43 +705,22 @@ export default class Plant {
 		this.traits.heat_tolr = this.dna.shapedNumber( this.dna.genesFor('heat_tolr',2,1), 0, 1 );
 		this.traits.density = this.dna.shapedNumber( this.dna.genesFor('density',2,1), 2, 20, 4, 4 ); // distribution could be improved
 		this.traits.risk_tolerance = this.dna.shapedNumber( this.dna.genesFor('risk_tolerance',2,1), 0, 1 );
-		this.traits.linewidth = this.dna.shapedInt( this.dna.genesFor('linewidth',2,1), 0, 10 );
-		this.traits.radius = this.dna.shapedInt( this.dna.genesFor('radius',2,1), 100, 350 );
-		this.traits.num_points = this.dna.shapedInt( this.dna.genesFor('num_points',2,1), 5, 12 );
-		this.traits.curved = this.dna.shapedNumber( this.dna.genesFor('curved',2,1) ) > 0.75;
-		this.traits.discreet = this.dna.shapedNumber( this.dna.genesFor('discreet',2,1) ) > 0.35;
-		this.traits.centered = this.dna.shapedNumber( this.dna.genesFor('centered',2,1) ) > 0.2;
-		this.traits.globular = this.dna.shapedNumber( this.dna.genesFor('globular',2,1) ) > 0.5;
-		this.traits.points_slur = this.dna.shapedNumber( this.dna.genesFor('points_slur',2,1) ) > 0.3;
-		this.traits.points_per_shape = this.dna.shapedInt( this.dna.genesFor('points_per_shape',2,1), 2, Math.min(4,this.traits.num_points) );
-		this.traits.point_increment = this.dna.shapedInt( this.dna.genesFor('point_increment',2,1), 1, (this.traits.points_per_shape - ( (this.traits.centered?1:0) + 1)) || 1 );
+		this.traits.point_jitter = this.dna.shapedNumber( this.dna.genesFor('point_jitter',1,1), 0.0, 0.5, 0.05, 2 );
+		this.traits.handle_offset_x = this.dna.shapedNumber( this.dna.genesFor('handle_offset_x',1,1), -1, 1, 0.0, 1 );
+		this.traits.handle_offset_y = this.dna.shapedNumber( this.dna.genesFor('handle_offset_y',1,1), -1, 1, 0.0, 1 );
 		this.traits.cap = this.dna.shapedNumber( this.dna.genesFor('cap',2,1) ) > 0.6 ? 'round' : '';
-		this.traits.dash1 = this.dna.shapedInt( this.dna.genesFor('dash1',1), 0, 10, 3, 2 );
-		this.traits.dash2 = this.dna.shapedInt( this.dna.genesFor('dash2',1), 0, 10, 3, 2 );
-		this.traits.dashes = [ this.traits.dash1, this.traits.dash2 ];
-		if ( this.dna.shapedNumber( this.dna.genesFor('has dashes',2,1), 0, 1 ) > 0.65 ) {
-			this.traits.dashes = null;
-			this.traits.dash1 = null;
-			this.traits.dash2 = null;
+		// dashes work based on a genetic ramp: higher gene value provides more comb
+		const dash_max = Plant.BASE_SVG_RADIUS * 0.1;
+		let dash1 = Math.min( 2, Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('dash1',1,1), -dash_max, dash_max, 0, 2 ) ) );
+		let dash2 = Math.min( 2, Math.max( 0, this.dna.shapedNumber( this.dna.genesFor('dash2',1,1), -dash_max, dash_max, 0, 2 ) ) );
+		if ( dash1 || dash2 ) {
+			// minimum to make the partner appear
+			dash1 = Math.max( 1, dash1 );
+			dash2 = Math.max( 1, dash2 );
+			this.traits.dashes = [ dash1, dash2 ];
 		}
-		this.traits.smeth = this.dna.shapedNumber( this.dna.genesFor('smeth',2,1) );
-		if ( this.traits.smeth < 0.25 ) { this.traits.smeth = 'x'; }
-		else if ( this.traits.smeth < 0.5 ) { this.traits.smeth = 'y'; }
-		else if ( this.traits.smeth < 0.90 ) { this.traits.smeth = 'a'; }
-		else { this.traits.smeth = ''; }
 		this.traits.animation_method = (this.traits.centered && this.traits.discreet) ? 'sway' : 'skew';
-		
-		// when points_per_shape == 2, individual shapes are composed of single lines.
-		// we may wish to handle these differently
-		const is_linear = this.traits.points_per_shape == 2;
-		
-		// if the shape is composed of line segments, turn off curves (which just look like giant ovals)
-		// TODO: we can keep curves if we want to fiddle with bezier handles later.
-		if ( this.traits.linewidth && is_linear ) { 
-			const multiplier = Math.round( this.dna.mix( this.dna.genesFor('LWM'), 2, 6 ) );
-			this.traits.linewidth *= multiplier;
-		}
-		
+
 				
 		// COLORS ----------------------\/----------------------------
 
@@ -884,138 +876,131 @@ export default class Plant {
 	
 	CreateBody() {
 	
-		/*
-		things that we could visually represent:
-			- core mass
-			- foliage mass
-			- health
-			- light_pref
-			- heat_pref
-			- light_tolr
-			- heat_tolr
-			- foliage food value
-		
-		with features:
-			- fill color H S L
-			- border color H S L
-			- linewidth
-			- dashes
-			- points / polygon
-		*/
-		
-		// linewidth represents foliage. 
-		// lines are drawn at the boundary with center of line on circle perimeter. 
-		// we need to calculate as follows:
-		// total circle = mass (core + foliage)
-		// foliage area = total area * (foliage / mass)
-		// 
-		const linewidth = Math.sqrt( 2 * this.foliage / Math.PI ) * this.density;
-		this.geo = {
-			// type:'circle',
-			type:'polygon',
-			n: this.traits.food_complexity,
-			fill: 'transparent', // this.traits.fill, //'#81625499',
-			stroke: this.traits.stroke, // '#4f8d47BB'
-			linewidth: linewidth,
-			r: Math.sqrt( 2 * this.mass / Math.PI ) * this.density,
-			rotation: utils.RandomFloat( 0, Math.PI * 2 ),
-			// dashes: [2,3]
-		};
-		return; // TEMPORARY
-		
-		// TODO: REPLACE CODE BELOW WITH NEW FLOWERS
-		
 		const t = this.traits; // alias for cleanliness
 		
-		// if ( this.geo ) { this.geo.remove( this.geo.children ); }
-		
-		if ( !this.shapes?.length ) { 
-				
-			this.points = [];
-			this.shapes = [];
+		if ( !Plant.DRAW_FLOWERS ) {
 			
-			// points are truly random, not derived from DNA
-			for ( let i=0; i < t.num_points; i++ ) {
-				this.points.push( [
-					utils.RandomInt( -t.radius, t.radius ),
-					utils.RandomInt( -t.radius, t.radius )
-				]);
-			}	
+			/*
+			things that we could visually represent:
+				- core mass
+				- foliage mass
+				- health
+				- light_pref
+				- heat_pref
+				- light_tolr
+				- heat_tolr
+				- foliage food value
 			
-			// point sorting
-			if ( t.smeth == 'x' ) { this.points.sort( this.SortByX ); }
-			else if ( t.smeth == 'y' ) { this.points.sort( this.SortByX ); }
-			else if ( t.smeth == 'a' ) { this.points.sort( this.SortByAngle ); }
-					
-			// if the shape is "centered", it threads all points back through the center
-			// when creating individual sub-shapes (petals), creating an aster-like pattern.
+			with features:
+				- fill color H S L
+				- border color H S L
+				- linewidth
+				- dashes
+				- points / polygon
+			*/
 			
-			// slur the points around.
-			// TODO: there are lots of fun ways we could do this in the future.
-			// For now, "slur" just means shift all points upwards to make an upright plant.
-			if ( t.points_slur ) {
-				this.points = this.points.map( p => [ p[0], p[1] - t.radius * 2 ] );
-			}
-			
-			// label all of the points with an ID number - we can use this to animate growth later
-			for ( let i=0; i < this.points.length; i++ ) { this.points[i][2] = i+1; }
-			
-			// if the shape is NOT centered, use the center point as a starting point
-			if ( !t.centered ) { this.points.unshift([0,0,0]); }
-			
-			// if the shape is "centered", we automatically insert the center point
-			// to begin each shape. Center points are in addition to existing points,
-			// so we need to conditionally subtract one from many of the following calculations.
-			const subtract_one = t.centered ? 1 : 0;
-			
-			// points per shape only applies if we are going to create individual shapes
-			
-			// point increments determines how many indexes to skip when iterating through the point array.
-			// skipping fewer points creates overlapping shapes. Skipping more creates separate, discontinuous shapes.
-			
-			// create discreet shapes
-			if ( t.discreet ) {
-				for ( let i=0; i < this.points.length - (t.points_per_shape-subtract_one); i += t.point_increment ) {
-					const slice = this.points.slice( i, i + ( t.points_per_shape - subtract_one ) );
-					slice.sort( this.SortByAngle ); // not required but usually aesthetically better
-					if ( t.centered ) { slice.unshift([0,0,0]); } // start from zero on every shape
-					this.shapes.push(slice);
-				}
-			}
-			
-			// create a single continuous shape
-			else {
-				this.shapes[0] = [];
-				const points_per_shape = t.globular ? this.points.length : t.points_per_shape ;
-				const point_increment = t.globular ? this.points.length : t.point_increment ;
-				for ( let i=0; i < this.points.length - (points_per_shape-(1+subtract_one)); i += point_increment ) {
-					const slice = this.points.slice( i, i + ( points_per_shape - subtract_one ) );
-					if ( t.centered ) { slice.unshift([0,0,0]); } // start from zero on every loop
-					this.shapes[0].push(...slice);
-				}
-			}
-		
+			// linewidth represents foliage. 
+			// lines are drawn at the boundary with center of line on circle perimeter. 
+			// we need to calculate as follows:
+			// total circle = mass (core + foliage)
+			// foliage area = total area * (foliage / mass)
+			this.geo = {
+				type:'polygon',
+				n: this.traits.food_complexity,
+				fill: 'transparent',
+				stroke: this.traits.stroke,
+				linewidth: this.svg_linewidth,
+				r: Plant.BASE_SVG_RADIUS,
+				rotation: utils.RandomFloat( 0, Math.PI * 2 ),
+			};
+			if ( t.dashes ) this.geo.dashes = t.dashes;		
+			if ( t.cap ) this.geo.cap = t.cap;	
+			return; 
 		}
+		
+		else {
+			// base shape stats
+			const radius = Plant.BASE_SVG_RADIUS;
+			// const rotations = Math.ceil( t.food_flavor * 8 );
+			// let num_points = rotations + 2 + t.food_complexity;
+			const rotations = 1;
+			let num_points = t.food_complexity;
+			if ( num_points % rotations === 0 ) { num_points++; } // cosmetic
+			const radians = Math.PI * 2 * ( rotations / num_points );
 			
-		// create the final shape
-		this.geo = { type:'group', children: [], animation_method:this.traits.animation_method };
-		for ( let points of this.shapes ) {
+			// calculate points
+			const jitter = radius * t.point_jitter;
+			const points = [];
+			for ( let p=0; p < num_points; p++ ) {
+				const angle = p * radians;
+				points.push([
+					Math.cos(angle) * radius + (Math.random() * jitter - jitter/2),
+					Math.sin(angle) * radius + (Math.random() * jitter - jitter/2)
+				]);
+			}
+					
+			// create anchors for each point that twist in fun ways.
+			// we apply the same handle adjustment to every point, radially.
+			const anchors = [];
+			const handle_x = radius * t.handle_offset_x;
+			const handle_y = radius * t.handle_offset_y;
+			for ( let i=0; i < points.length; i++ ) {
+				
+				// Get the angle of the point based on its x and y
+				const angle = Math.atan2( points[i][1], points[i][0] );
+				const cos = Math.cos(angle);
+				const sin = Math.sin(angle);
+				
+				// Set base handles relative to anchor
+				const h1_start_x = handle_x;
+				const h1_start_y = handle_y;
+				// second handle mirrors the first - no asymmetry
+				const h2_start_x = handle_x;
+				const h2_start_y = -handle_y;
+				
+				// Rotate handle 1 (using original start variables)
+				const handle1_x = h1_start_x * cos - h1_start_y * sin;
+				const handle1_y = h1_start_x * sin + h1_start_y * cos;
+				
+				// Rotate handle 2 (using original start variables)
+				const handle2_x = h2_start_x * cos - h2_start_y * sin;
+				const handle2_y = h2_start_x * sin + h2_start_y * cos;
+				
+				anchors.push( [
+					points[i][0], 
+					points[i][1], 
+					handle1_x,
+					handle1_y,
+					handle2_x,
+					handle2_y
+				] );
+				
+			}		
+				
+			// create final shape definition
+			const linewidth = Math.sqrt( 2 * this.foliage / Math.PI ) * this.density;
+			// const radius = Math.sqrt( 2 * this.mass / Math.PI ) * this.density;		
 			let shape = { 
 				type: 'path',
-				points:points,
-				fill: t.fill,
-				linewidth: t.linewidth,
-				stroke: t.stroke,
-				curved: t.curved,
+				anchors: anchors, // use explicit anchors
+				fill: this.traits.fill, // t.fill,
+				linewidth: linewidth, // t.linewidth,
+				stroke: this.traits.stroke, // t.stroke,
+				rotation: utils.RandomFloat( 0, Math.PI * 2 ),
 			};
 			if ( t.dashes ) shape.dashes = t.dashes;		
-			if ( t.cap ) shape.cap = t.cap;		
-			this.geo.children.push(shape);
+			if ( t.cap ) shape.cap = t.cap;	
+				
+			this.geo = shape;			
 		}
 	}
+	
 	SortByY(a,b) { return b[1] - a[1]; }
+	
 	SortByX(a,b) { return b[0] - a[0]; }
+	
 	SortByAngle(a,b) { return Math.atan2(b[1],b[0]) - Math.atan2(a[1],a[0]); }
+	
 }
 
 // buffer that holds plants for random remixing to create samey-looking plantscapes

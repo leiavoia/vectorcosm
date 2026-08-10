@@ -243,7 +243,8 @@ commands.register( { name: 'update', description: 'Advance simulation and return
 			geodata: AutoIncludeGeoData(o),
 			// if radius changed from growth, update the object even if animation is disabled
 			r: o.r,
-			lw: linewidth,
+			lw: o.svg_linewidth,
+			s: o.svg_scale,
 			opacity: Math.max(0.25, o.health),
 		};
 		// plants don't move - that's kinda their whole thing

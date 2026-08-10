@@ -41,9 +41,23 @@ export function RehydrateGeoData( data ) {
 			break;
 		}
 		case 'path': {
-			let pts = data?.pts || data?.points || data?.path || [];
-			let anchors = pts.map( p => new Two.Anchor( p[0], p[1] ) );
-			geo = globalThis.two.makePath(anchors);
+			// use explicit anchors
+			if ( data?.anchors && data.anchors.length ) {
+				let anchors = [];
+				for ( let i=0; i < data.anchors.length; i++ ) {
+					const command = i ? Two.Commands.curve : Two.Commands.move;
+					const a = data.anchors[i];
+					anchors.push( new Two.Anchor( a[0], a[1], a[2], a[3], a[4], a[5], command ) );
+				}
+				geo = new Two.Path( anchors, true, true ); // closed, curved
+				geo.automatic = false; // we make our own now
+			}
+			// make anchors from points
+			else {
+				let pts = data?.pts || data?.points || data?.path || [];
+				let anchors = pts.map( p => new Two.Anchor( p[0], p[1] ) );
+				geo = globalThis.two.makePath(anchors);
+			}
 			break;
 		}
 		case 'line': {
