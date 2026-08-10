@@ -632,7 +632,22 @@ export class Boid extends PhysicsObject {
 				const x_sq = dist_x * dist_x;
 				const y_sq = dist_y * dist_y;
 				const dist_sq = x_sq + y_sq;
-				// we are inside the plant
+				// hard collision with the plant core (impenetrable, unlike foliage)
+				// POSTERITY: The original concept was to have the core be a hard object
+				// which later turns into a smaller stump. Simulation feels better with
+				// just the soft-push from foliage.
+				// const core_radius_sum = o.core_r + my_radius;
+				// if ( dist_sq < core_radius_sum * core_radius_sum ) {
+				// 	const dist = Math.sqrt( dist_sq ) || 0.0001; // avoid div by zero if centers coincide
+				// 	const overlap = core_radius_sum - dist;
+				// 	const overlap_x = dist_x / dist;
+				// 	const overlap_y = dist_y / dist;
+				// 	this.x += overlap * overlap_x;
+				// 	this.y += overlap * overlap_y;
+				// 	this.Slide( overlap_x, overlap_y, Boid.wall_slide_friction );
+				// 	this.collision.contact_obstacle = true;
+				// }
+				// we are inside the outer plant radius
 				// response: plants use a "soft push" from center to simulate foliage density.
 				// this applies a force to the object instead of hard relocation.
 				if ( dist_sq < o.r * o.r ) {
@@ -1699,34 +1714,36 @@ export class Boid extends PhysicsObject {
 					o.IsEdibleBy(boid) && // of the type i can eat
 					!( boid.ignore_list && boid.ignore_list.has(o) ); // not in training data
 				const foods = globalThis.vc.tank.grid.GetObjectsByBox( boid.x - r, boid.y - r, boid.x + r, boid.y + r, test );
-				// there may be multiple targets. i want the juiciest one!
-				let best_target = null;
-				let best_score = 0;
-				for ( let food of foods ) {
-					const dx = Math.abs(food.x - boid.x);
-					const dy = Math.abs(food.y - boid.y);
-					const d = Math.sqrt(dx*dx + dy*dy);
-					// target in range, now judge quality
-					if ( d <= boid.collision.radius + food.r ) {
-						// skip this step if only one object
-						if ( foods.length === 1 ) {
-							best_target = food;
-							break;
-						}
-						// TODO: these calculations are kinda spendy and a cheap linear approx would work fine
-						const score = food.otype===2 
-							? ( food.value * boid.CalculateFoodQuality( food.flavor ) ) 
-							: ( food.foliage * boid.CalculateFoodQuality( food.traits.food_flavor ) );
-						if ( score > best_score ) {
-							best_score = score;
-							best_target = food;
+				if ( foods.length ) { 
+					// there may be multiple targets. i want the juiciest one!
+					let best_target = null;
+					let best_score = 0;
+					for ( let food of foods ) {
+						const dx = Math.abs(food.x - boid.x);
+						const dy = Math.abs(food.y - boid.y);
+						const d = Math.sqrt(dx*dx + dy*dy);
+						// target in range, now judge quality
+						if ( d <= boid.collision.radius + food.r ) {
+							// skip this step if only one object
+							if ( foods.length === 1 ) {
+								best_target = food;
+								break;
+							}
+							// TODO: these calculations are kinda spendy and a cheap linear approx would work fine
+							const score = food.otype===2 
+								? ( food.value * boid.CalculateFoodQuality( food.flavor ) ) 
+								: ( food.foliage * boid.CalculateFoodQuality( food.traits.food_flavor ) );
+							if ( score > best_score ) {
+								best_score = score;
+								best_target = food;
+							}
 						}
 					}
-				}
-				// save the target for the Do() function
-				if ( best_target ) {
-					this.target = best_target;
-					return 1;
+					// save the target for the Do() function
+					if ( best_target ) {
+						this.target = best_target;
+						return 1;
+					}
 				}
 				// there was no easy food - look for victims to attack!
 				// TODO: can attack?
@@ -1791,7 +1808,7 @@ export class Boid extends PhysicsObject {
 						sense: [0,0,0, 0,0,0, 0,0,0, 0,0,0, audio_cos,audio_sin,amplitude], // annoying chewing sounds
 						lifespan: ( 1 + morsel / ( morsel + 25 ) ), // really short; ~3s tops
 						type: Mark.types.BITE // triggers cosmetic changes from normal audio
-					}) );					
+					}) );
 				}
 				// boid
 				else if ( this.target.otype === 1 ) {
