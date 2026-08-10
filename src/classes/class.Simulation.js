@@ -111,6 +111,8 @@ export default class Simulation {
 				'plants',
 				'boid_mass',
 				'food_mass',
+				'plant_core',
+				'foliage',
 				'species',
 				'avg_age',
 				'births',
@@ -168,6 +170,8 @@ export default class Simulation {
 		this.RecordStat( 'plants', globalThis.vc.tank.plants.length );
 		this.RecordStat( 'boid_mass', globalThis.vc.tank.boids.reduce( (a,c) => a + c.mass, 0 ) );
 		this.RecordStat( 'food_mass', globalThis.vc.tank.foods.reduce( (a,c) => a + c.value, 0 ) );
+		this.RecordStat( 'plant_core', globalThis.vc.tank.plants.reduce( (a,c) => a + c.core, 0 ) );
+		this.RecordStat( 'foliage', globalThis.vc.tank.plants.reduce( (a,c) => a + c.foliage, 0 ) );
 		this.RecordStat( 'avg_age', globalThis.vc.tank.boids.reduce( (a,c) => a + c.age, 0 ) );
 		let species = new Set();
 		for ( let b of globalThis.vc.tank.boids ) {

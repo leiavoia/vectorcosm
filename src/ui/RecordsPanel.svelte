@@ -97,6 +97,8 @@
 			'plants':		'#00C955',
 			'boid_mass':	'#4AB9F7',
 			'food_mass':	'#DEDD41',
+			'plant_core':	'#0B650F',
+			'foliage':		'#8BC34A',
 			'species':		'#CD5FD0',
 			'births':		'#EEEEEE',
 			'deaths':		'#787878',

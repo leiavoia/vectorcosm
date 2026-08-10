@@ -348,6 +348,8 @@ commands.register( { name: 'update', description: 'Advance simulation and return
 		marks: globalThis.vc.tank.marks.length,
 		boid_mass: Math.floor( globalThis.vc.tank.boids.reduce( (a,b) => a+b.mass, 0 ) ),
 		food_mass: Math.floor( globalThis.vc.tank.foods.reduce( (a,b) => a+b.value, 0 ) ),
+		plant_core: Math.floor( globalThis.vc.tank.plants.reduce( (a,b) => a+b.core, 0 ) ),
+		foliage: Math.floor( globalThis.vc.tank.plants.reduce( (a,b) => a+b.foliage, 0 ) ),
 	};
 		
 	globalThis.postMessage( {
@@ -869,6 +871,8 @@ commands.register( { name: 'get_stats', description: 'Get a full simulation + ta
 			marks: tank.marks.length,
 			boid_mass: Math.floor( tank.boids.reduce( (a,b) => a+b.mass, 0 ) ),
 			food_mass: Math.floor( tank.foods.reduce( (a,b) => a+b.value, 0 ) ),
+			plant_core: Math.floor( tank.plants.reduce( (a,b) => a+b.core, 0 ) ),
+			foliage: Math.floor( tank.plants.reduce( (a,b) => a+b.foliage, 0 ) ),
 		},
 	};
 } });

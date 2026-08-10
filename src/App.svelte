@@ -145,6 +145,8 @@
 		'plants',
 		'boid_mass',
 		'food_mass',
+		'plant_core',
+		'foliage',
 		'species',
 		'avg_age',
 		'births',
