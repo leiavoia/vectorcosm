@@ -923,8 +923,9 @@ export default class Plant {
 				r: Plant.BASE_SVG_RADIUS,
 				rotation: utils.RandomFloat( 0, Math.PI * 2 ),
 			};
-			if ( t.dashes ) this.geo.dashes = t.dashes;		
-			if ( t.cap ) this.geo.cap = t.cap;	
+			// [!]TECHNICAL: stroke dashes and cap cause serious performance issues			
+			// if ( t.dashes ) this.geo.dashes = t.dashes;		
+			// if ( t.cap ) this.geo.cap = t.cap;	
 			return; 
 		}
 		
@@ -998,8 +999,9 @@ export default class Plant {
 				stroke: this.traits.stroke, // t.stroke,
 				rotation: utils.RandomFloat( 0, Math.PI * 2 ),
 			};
-			if ( t.dashes ) shape.dashes = t.dashes;		
-			if ( t.cap ) shape.cap = t.cap;	
+			// [!]TECHNICAL: stroke dashes and cap cause serious performance issues	
+			// if ( t.dashes ) shape.dashes = t.dashes;		
+			// if ( t.cap ) shape.cap = t.cap;	
 				
 			this.geo = shape;			
 		}
