@@ -78,6 +78,7 @@ export default class Plant {
 	static BASE_SVG_RADIUS = 300;
 	static COSMETIC_FOLIAGE_BUFF = 2.5; // increase visual radius of foliage for better aesthetics even if math is wrong
 	static DRAW_FLOWERS = true; // toggle flower rendering. Non-flowers are simple geometric shapes.
+	static NEIGHBOR_SHADE_DIV_CONSTANT = 10; // higher num = less impact from neighbors crowding out light
 	
 	constructor(params) {
 		// defaults
@@ -229,9 +230,15 @@ export default class Plant {
 		
 		// Environmental Grid Data access
 		const cell = globalThis.vc.tank.datagrid.CellAt( this.x, this.y );
-
+		
+		// neighbor shade - approximate by simply getting number of plants in my root cell.
+		// we're not going down the rabbit hole of calculating overlapping circles.
+		const neighbors = globalThis.vc.tank.grid.GetObjectsByCoords( this.x, this.y, o => o.otype===4 && o !== this ).length;
+		const neighbor_shade = neighbors / ( neighbors + Plant.NEIGHBOR_SHADE_DIV_CONSTANT );
+		const effective_light = cell.light * ( 1 - neighbor_shade );
+		
 		// light response curve - typically a saturating function approaching. 0..1, higher is better
-		const lightEfficiency = this.LightEfficiency(cell.light, this.traits.light_pref);
+		const lightEfficiency = this.LightEfficiency(effective_light, this.traits.light_pref);
 		
 		// heat tolerance affects metabolic efficiency. 0..1, higher is better
 		const heatTolerance  = this.HeatTolerance(cell.heat, this.traits.heat_pref); 
