@@ -45,7 +45,7 @@ KEY METHODS
 - `RehydrateFromDNA()` — derives all genetic traits, colors, and the `sense` vector (visual/smell
   signature read by boid senses) from `this.dna`.
 - `MakeGeneticColor()` — builds a solid color or radial gradient from the DNA color palette.
-- `Kill()` — single choke point for death; returns remaining core+foliage+fruit mass to the tank.
+- `Kill()` — single choke point for death; returns remaining core+foliage+fruit+reserve mass to the tank.
 - `CreateBody()` / `GeoData()` — render geometry (currently a simple stroke-width-as-foliage circle;
   the shape-generation code below the early `return;` is dead/unused).
 
@@ -152,7 +152,8 @@ export default class Plant {
 		// return any remaining structural biomass to the environment instead of letting
 		// it silently vanish - this is the single choke point every death path funnels through
 		// (life credit expiry, core<=0.1, external/predation kills, tank resets).
-		const leftover_mass = this.core + this.foliage + this.fruit_credits;
+		// reserve can be a hair negative on some death paths - never turn that into negative waste.
+		const leftover_mass = this.core + this.foliage + this.fruit_credits + Math.max( 0, this.reserve );
 		if ( leftover_mass > 0 ) {
 			globalThis.vc.tank.AddWasteAt( this.x, this.y, leftover_mass );
 		}
