@@ -8,6 +8,8 @@ OVERVIEW
 - `CellIndexAt / CellIndexFromXY` — return the flat array index instead of the cell object.
 - `InterpolatedGridValue(x, y, attr)` — inverse-distance weighted value from the 3×3 neighborhood.
   Use this for smooth sensor readings; avoids discontinuities at cell edges.
+- `CellsInRadius(x, y, r)` — cells touched by a circle; home cell weight=1, others weighted 0..1
+  by reach depth. Used by Plant root uptake to draw matter from multiple cells.
 
 ENVIRONMENT CHANNELS
 - `current_x / current_y` — fluid flow vector; applied to boid physics each frame.
@@ -115,5 +117,35 @@ export default class DataGrid {
 		}
 		return denominator ? numerator / denominator : 0.5;
 	}		
+	
+	// returns [{ cell, weight }] for every cell touched by a circle at (x,y) with radius r.
+	// the cell containing (x,y) always gets weight 1 (full access); other touched cells are
+	// weighted 0..1 by how deep the circle reaches into them (nearest-point distance vs r).
+	CellsInRadius( x, y, r ) {
+		const cs = this.cellsize;
+		const home_index = this.CellIndexAt( x, y );
+		const minx = Math.max( 0, Math.floor( (x-r) / cs ) );
+		const maxx = Math.min( this.cells_x-1, Math.floor( (x+r) / cs ) );
+		const miny = Math.max( 0, Math.floor( (y-r) / cs ) );
+		const maxy = Math.min( this.cells_y-1, Math.floor( (y+r) / cs ) );
+		const out = [];
+		for ( let cy = miny; cy <= maxy; cy++ ) {
+			for ( let cx = minx; cx <= maxx; cx++ ) {
+				const i = cx + ( cy * this.cells_x );
+				const cell = this.cells[i];
+				if ( !cell ) continue;
+				if ( i === home_index ) {
+					out.push({ cell, weight: 1 });
+					continue;
+				}
+				const nearestX = Math.min( cx*cs + cs, Math.max( cx*cs, x ) );
+				const nearestY = Math.min( cy*cs + cs, Math.max( cy*cs, y ) );
+				const dist = Math.sqrt( (nearestX-x)**2 + (nearestY-y)**2 );
+				if ( dist >= r ) continue; // outside root reach
+				out.push({ cell, weight: 1 - dist / r });
+			}
+		}
+		return out;
+	}
 	
 }

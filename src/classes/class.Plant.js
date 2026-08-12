@@ -18,8 +18,10 @@ UPDATE LOOP (`Update(delta)`)
 3. CAPACITY: `photosyntheticCapacity = sqrt(foliage) * lightEfficiency` (diminishing returns on
    foliage income). `uptakeCapacity = core * soilFactor * heatTolerance`, where `soilFactor`
    (`SoilAbsorptionCurve`) saturates toward 1 as local `cell.matter` grows.
-4. ASSIMILATION: `matterAssimilated = min(cell.matter, delta*uptakeCapacity, delta*photosyntheticCapacity)`
-   (Liebig's law - light and matter both bottleneck growth) moves from `cell.matter` into `reserve`.
+4. ASSIMILATION: roots reach every grid cell touched by `this.r` (`datagrid.CellsInRadius()`);
+   the home cell is fully accessible, others weighted 0..1 by reach depth. Each cell's supply is
+   `min(cell.matter, delta*weight*core*soilFactor*heatTolerance)`, summed then capped by
+   `delta*photosyntheticCapacity` (Liebig's law), scaling every cell's draw down proportionally.
 5. MAINTENANCE: `(coreMaint + foliageMaint)^0.75 * cell.heat * delta` (Kleiber's law - upkeep scales
    sublinearly with size) is spent from `reserve` and returned to `cell.matter`.
 6. STARVATION: if `reserve < 0`, the shortfall is made up by cannibalizing `foliage` (70% priority)
@@ -275,12 +277,7 @@ export default class Plant {
 		// light intensity has diminishing returns on photosynthesis.
 		// eventually, maintenance outpaces ability to photosynthesize, even with kleiber's discount.
 		const photosyntheticCapacity = Math.pow( this.foliage, 0.5 ) * lightEfficiency;
-		
-		// Roots/trunk acquire environmental matter.
-		const uptakeCapacity = this.core * soilFactor * heatTolerance;
 
-		// Available matter nearby.
-		const availableMatter = cell.matter;
 
 		// core size limits our storage capacity; this may change with genetic traits.
 		const max_reserve = this.core;
@@ -290,15 +287,27 @@ export default class Plant {
 		// Matter assimilation
 		//====================================================
 
-		// draw and store matter from the environment.
-		// NOTE: we can ignore max capacity here because we handle 
-		// income and expenses as a combined step before capping later.
-		const matterAssimilated = Math.min( 
-			availableMatter, // do NOT apply delta to raw stock
-			delta * uptakeCapacity, 
-			delta * photosyntheticCapacity,
-		);
-		cell.matter -= matterAssimilated;
+		// Roots reach every grid cell touched by the plant's radius. The home cell (where the
+		// plant is centered) is always fully accessible; other touched cells are weighted by
+		// how deep the roots reach into them (see DataGrid.CellsInRadius).
+		const cellShares = globalThis.vc.tank.datagrid.CellsInRadius( this.x, this.y, this.r );
+
+		// Pass 1: each cell's unconstrained supply, gated by its own soil quality and matter stock.
+		let rawMatterSupply = 0;
+		for ( const share of cellShares ) {
+			const cellSoilFactor = this.SoilAbsorptionCurve( share.cell.matter, 100 );
+			const cellCapacity = share.weight * this.core * cellSoilFactor * heatTolerance;
+			share.supply = Math.min( share.cell.matter, delta * cellCapacity );
+			rawMatterSupply += share.supply;
+		}
+
+		// Pass 2: apply the whole-plant photosynthetic ceiling (Liebig's law), scaling every
+		// cell's contribution down proportionally so no single cell gets drained unfairly.
+		const matterAssimilated = Math.min( rawMatterSupply, delta * photosyntheticCapacity );
+		const supplyScale = rawMatterSupply > 0 ? ( matterAssimilated / rawMatterSupply ) : 0;
+		for ( const share of cellShares ) {
+			share.cell.matter -= share.supply * supplyScale;
+		}
 		this.reserve += matterAssimilated;
 
 
@@ -434,7 +443,7 @@ export default class Plant {
 				// overdraft does not count against life credits
 			}
 			
-			// make the fruit with credits we stores up
+			// make the fruit with credits we store up
 			this.MakeFruit();
 		}
 
