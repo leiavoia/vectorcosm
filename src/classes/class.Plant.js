@@ -79,6 +79,7 @@ export default class Plant {
 	static COSMETIC_FOLIAGE_BUFF = 2.5; // increase visual radius of foliage for better aesthetics even if math is wrong
 	static DRAW_FLOWERS = true; // toggle flower rendering. Non-flowers are simple geometric shapes.
 	static NEIGHBOR_SHADE_DIV_CONSTANT = 10; // higher num = less impact from neighbors crowding out light
+	static DENSITY_CHANGE_PER_SECOND = 0.01;
 	
 	constructor(params) {
 		// defaults
@@ -248,6 +249,15 @@ export default class Plant {
 		// poor-soil absorption a genetic trait with fun tradeoffs.
 		const soilFactor = this.SoilAbsorptionCurve(cell.matter, 100);
 		
+		// plants grow less dense if they are not getting enough light.
+		// this alters effective collision size and needs to mutate slowly over time.
+		// max density change is 50% of genetic base.
+		// NOTE: density is a radius multiplier, so lower numbers = more compact circle.
+		// radius will increase as light decreases.
+		const target_density = this.traits.density + ( this.traits.density * 0.5 ) * ( 1 - lightEfficiency );
+		const density_change_factor = 1 - Math.exp( -Plant.DENSITY_CHANGE_PER_SECOND * delta );
+		this.density += ( target_density - this.density ) * density_change_factor;
+
 
 		//====================================================
 		// Health Calculation
@@ -262,20 +272,7 @@ export default class Plant {
 		const health = env_factor + stress_factor;
 		this.health = ( this.health + this.health + health ) / 3; // blended result
 		this.dmg = 0; // reset
-		
-
-		//====================================================
-		// DEBUG: random periodic grazing knocks down foliage
-		//====================================================
 				
-		// if ( Math.random() < 0.05 ) { 
-		// 	const lost = Math.min( this.foliage, Math.random() * 0.4 * this.foliage );
-		// 	this.foliage -= lost;
-		// 	cell.matter += lost;
-		// 	this.dmg += lost * Plant.GRAZING_DMG_MOD;
-		// 	// console.log(`Grazing: ${lost.toFixed(1)}`);
-		// }
-		
 
 		//====================================================
 		// Plant capacities
@@ -285,7 +282,6 @@ export default class Plant {
 		// light intensity has diminishing returns on photosynthesis.
 		// eventually, maintenance outpaces ability to photosynthesize, even with kleiber's discount.
 		const photosyntheticCapacity = Math.pow( this.foliage, 0.5 ) * lightEfficiency;
-
 
 		// core size limits our storage capacity; this may change with genetic traits.
 		const max_reserve = this.core;
@@ -720,7 +716,8 @@ export default class Plant {
 		this.traits.light_tolr = this.dna.shapedNumber( this.dna.genesFor('light_tolr',2,1), 0, 1 );
 		this.traits.heat_pref = this.dna.shapedNumber( this.dna.genesFor('heat_pref',2,1), 0, 1 );
 		this.traits.heat_tolr = this.dna.shapedNumber( this.dna.genesFor('heat_tolr',2,1), 0, 1 );
-		this.traits.density = this.dna.shapedNumber( this.dna.genesFor('density',2,1), 2, 20, 4, 4 ); // distribution could be improved
+		this.traits.density = this.dna.shapedNumber( this.dna.genesFor('density',2,1), 2, 9, 4, 4 );
+		this.density = this.traits.density; // this moves over time with environmental changes
 		this.traits.risk_tolerance = this.dna.shapedNumber( this.dna.genesFor('risk_tolerance',2,1), 0, 1 );
 		this.traits.point_jitter = this.dna.shapedNumber( this.dna.genesFor('point_jitter',1,1), 0.0, 0.5, 0.05, 2 );
 		this.traits.handle_offset_x = this.dna.shapedNumber( this.dna.genesFor('handle_offset_x',1,1), -1, 1, 0.0, 1 );
