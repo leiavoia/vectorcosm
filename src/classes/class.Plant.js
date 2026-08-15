@@ -959,17 +959,12 @@ export default class Plant {
 		else {
 			// base shape stats
 			const radius = Plant.BASE_SVG_RADIUS;
-			// const rotations = Math.ceil( t.food_flavor * 8 );
-			// let num_points = rotations + 2 + t.food_complexity;
-			const rotations = 1;
-			let num_points = t.food_complexity;
-			if ( num_points % rotations === 0 ) { num_points++; } // cosmetic
-			const radians = Math.PI * 2 * ( rotations / num_points );
-			
+			const radians = Math.PI * 2 / t.food_complexity;
+						
 			// calculate points
 			const jitter = radius * t.point_jitter;
 			const points = [];
-			for ( let p=0; p < num_points; p++ ) {
+			for ( let p=0; p < t.food_complexity; p++ ) {
 				const angle = p * radians;
 				points.push([
 					Math.cos(angle) * radius + (Math.random() * jitter - jitter/2),
