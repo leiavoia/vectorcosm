@@ -76,10 +76,10 @@ export default class Plant {
 	static SHORTFALL_DMG_MOD = 7; // damage multiplier for reserve shortfall
 	static GRAZING_DMG_MOD = 3; // damage multiplier for grazing loss
 	static BASE_SVG_RADIUS = 300;
-	static COSMETIC_FOLIAGE_BUFF = 2.5; // increase visual radius of foliage for better aesthetics even if math is wrong
+	static GLOBAL_PLANT_SCALE = 60; // multiplies the area of all plants before determining final radius
+	static COSMETIC_FOLIAGE_BUFF = 2.0; // increase visual radius of foliage for better aesthetics even if math is wrong
 	static DRAW_FLOWERS = true; // toggle flower rendering. Non-flowers are simple geometric shapes.
 	static NEIGHBOR_SHADE_DIV_CONSTANT = 10; // higher num = less impact from neighbors crowding out light
-	static DENSITY_CHANGE_PER_SECOND = 0.01;
 	
 	constructor(params) {
 		// defaults
@@ -236,7 +236,10 @@ export default class Plant {
 		// we're not going down the rabbit hole of calculating overlapping circles.
 		const neighbors = globalThis.vc.tank.grid.GetObjectsByCoords( this.x, this.y, o => o.otype===4 && o !== this ).length;
 		const neighbor_shade = neighbors / ( neighbors + Plant.NEIGHBOR_SHADE_DIV_CONSTANT );
-		const effective_light = cell.light * ( 1 - neighbor_shade );
+		
+		// plant density adjusts amount of light we can collect - the punishment for being big
+		// NOTE: density is a size multiplier, so we need to divide here
+		const effective_light = ( cell.light / this.density ) * ( 1 - neighbor_shade );
 		
 		// light response curve - typically a saturating function approaching. 0..1, higher is better
 		const lightEfficiency = this.LightEfficiency(effective_light, this.traits.light_pref);
@@ -252,12 +255,12 @@ export default class Plant {
 		// plants grow less dense if they are not getting enough light.
 		// this alters effective collision size and needs to mutate slowly over time.
 		// max density change is 50% of genetic base.
-		// NOTE: density is a radius multiplier, so lower numbers = more compact circle.
-		// radius will increase as light decreases.
+		// NOTE: density is a mass multiplier, so lower numbers = more compact circle.
+		// radius will INCREASE as light DECREASES.
 		const target_density = this.traits.density + ( this.traits.density * 0.5 ) * ( 1 - lightEfficiency );
-		const density_change_factor = 1 - Math.exp( -Plant.DENSITY_CHANGE_PER_SECOND * delta );
-		this.density += ( target_density - this.density ) * density_change_factor;
+		this.density = ( ( this.density * 5 ) + target_density ) / 6; // hacky
 
+		// console.log(this.density);
 
 		//====================================================
 		// Health Calculation
@@ -322,13 +325,15 @@ export default class Plant {
 		// Living tissue continually consumes stored reserve.
 		// Larger plants cost more.
 		// Hotter environments increase metabolism, regardless of heat preference. (use env heat stat)
-
 		const CoreMaintenanceRate = 0.02;
 		const FoliageMaintenanceRate = 0.05;
 		const coreMaint = CoreMaintenanceRate * this.core;
 		const foliageMaint = FoliageMaintenanceRate * this.foliage;
-		const maint_exponent = 0.75; // kleiber's law - maintenance gets cheaper as plant gets larger
-		let maintenance = Math.pow( coreMaint + foliageMaint, maint_exponent ) * cell.heat * delta;
+		let maint_exponent = 0.75; // kleiber's law - maintenance gets cheaper as plant gets larger
+		// heat stress flattens Kleiber's advantage: exponent approaches 1.0 in high heat.
+		// this makes larger plants disproportionately more expensive in warm climates.
+		maint_exponent = maint_exponent + (cell.heat * 0.15);
+		let maintenance = Math.pow( coreMaint + foliageMaint, maint_exponent ) * delta;
 
 		// Respiration and decay returns matter to environment
 		this.reserve -= maintenance; // this can go negative! make up shortfall afterwards
@@ -484,10 +489,10 @@ export default class Plant {
 	RecalcMassAndSize() {
 		// collision physics
 		this.mass = this.core + this.foliage;
-		this.r = Math.sqrt( 2 * this.mass / Math.PI ) * this.density;
+		this.r = Math.sqrt( this.density * Plant.GLOBAL_PLANT_SCALE * 2 * this.mass / Math.PI );
 		this.collision.radius = this.r;
 		// cosmetic / display
-		const core_radius = Math.sqrt( 2 * this.core / Math.PI ) * this.density;
+		const core_radius = Math.sqrt( this.density * Plant.GLOBAL_PLANT_SCALE * 2 * this.core / Math.PI );
 		const foliage_radius = this.r - core_radius;
 		const scale = this.r / Plant.BASE_SVG_RADIUS;
 		const foliage_radius_scaled = foliage_radius * scale;
@@ -499,7 +504,7 @@ export default class Plant {
 		let output = { classname: 'Plant' };
 		// note: next_update and dmg are considered temporal and get ignored. 
 		let datakeys = ['x','y','fruit_credits','age','life_credits',
-			'mass','health','dna','generation','foliage', 'core', 'reserve'];
+			'mass','health','dna','generation','foliage', 'core', 'reserve', 'density'];
 		for ( let k of datakeys ) { 
 			if ( this.hasOwnProperty(k) ) { 
 				output[k] = this[k];
@@ -590,7 +595,7 @@ export default class Plant {
 		// must have enough core mass remaining to make it worth rendering
 		if ( this.core <= Plant.MIN_STUMP_MASS ) { return; }
 		// TODO: should stump lock up matter?
-		const r = Math.sqrt( 2 * this.core / Math.PI ) * this.density * 0.88;
+		const r = Math.sqrt( this.density * Plant.GLOBAL_PLANT_SCALE * 2 * this.core / Math.PI ) * 0.88;
 		// we want points around the perimeter of the core and one in the exact center.
 		// the default "rock" structure is chunky and asymmetric. we can do better.
 		// points for rocks are defined in local coordinate space.
@@ -716,7 +721,7 @@ export default class Plant {
 		this.traits.light_tolr = this.dna.shapedNumber( this.dna.genesFor('light_tolr',2,1), 0, 1 );
 		this.traits.heat_pref = this.dna.shapedNumber( this.dna.genesFor('heat_pref',2,1), 0, 1 );
 		this.traits.heat_tolr = this.dna.shapedNumber( this.dna.genesFor('heat_tolr',2,1), 0, 1 );
-		this.traits.density = this.dna.shapedNumber( this.dna.genesFor('density',2,1), 2, 9, 4, 4 );
+		this.traits.density = this.dna.shapedNumber( this.dna.genesFor('density',2,1), 0.4, 2.0, 0.7, 2.5 );
 		this.density = this.traits.density; // this moves over time with environmental changes
 		this.traits.risk_tolerance = this.dna.shapedNumber( this.dna.genesFor('risk_tolerance',2,1), 0, 1 );
 		this.traits.point_jitter = this.dna.shapedNumber( this.dna.genesFor('point_jitter',1,1), 0.0, 0.5, 0.05, 2 );
