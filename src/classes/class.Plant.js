@@ -14,7 +14,12 @@ UPDATE LOOP (`Update(delta)`)
    `PLANT_HEALTH_PENALTY_COEF`/`_EXP`). `life_credits <= 0` -> `Kill()`.
 2. ENVIRONMENT: reads `datagrid.CellAt(x,y)` for `light`/`heat`/`matter`. `LightEfficiency()` and
    `HeatTolerance()` turn these into 0..1 performance multipliers against the plant's genetic
-   preferences (`light_pref/tolr`, `heat_pref/tolr`).
+   preferences (`light_pref/tolr`, `heat_pref/tolr`). Both are asymmetric gaussians peaking at
+   their `_pref` (harsher falloff above = photoinhibition/heat stress, gentler below = light-
+   limited/cold-tolerant); their peak/width are cached genetic terms (`light_peak/width`,
+   `heat_peak/width`, set in `RehydrateFromDNA`) that conserve each gaussian's area, so narrow
+   niches (specialists) run taller and wide niches (generalists) run shorter - real tradeoff,
+   not a free lunch.
 3. CAPACITY: `photosyntheticCapacity = sqrt(foliage) * lightEfficiency` (diminishing returns on
    foliage income). `uptakeCapacity = core * soilFactor * heatTolerance`, where `soilFactor`
    (`SoilAbsorptionCurve`) saturates toward 1 as local `cell.matter` grows.
@@ -76,10 +81,16 @@ export default class Plant {
 	static SHORTFALL_DMG_MOD = 7; // damage multiplier for reserve shortfall
 	static GRAZING_DMG_MOD = 3; // damage multiplier for grazing loss
 	static BASE_SVG_RADIUS = 300;
-	static GLOBAL_PLANT_SCALE = 60; // multiplies the area of all plants before determining final radius
-	static COSMETIC_FOLIAGE_BUFF = 2.0; // increase visual radius of foliage for better aesthetics even if math is wrong
+	static GLOBAL_PLANT_SCALE = 15; // multiplies the area of all plants before determining final radius
+	static COSMETIC_FOLIAGE_BUFF = 1.65; // increase visual radius of foliage for better aesthetics even if math is wrong
 	static DRAW_FLOWERS = true; // toggle flower rendering. Non-flowers are simple geometric shapes.
 	static NEIGHBOR_SHADE_DIV_CONSTANT = 10; // higher num = less impact from neighbors crowding out light
+	static MIN_LIGHT_WIDTH = 0.08; // narrowest possible light niche (full specialist)
+	static MAX_LIGHT_WIDTH = 0.65; // widest possible light niche (full generalist)
+	static LIGHT_NICHE_AREA = 0.60; // conserved gaussian area - adjust if specialists and generalists are not balanced
+	static MIN_HEAT_WIDTH = 0.08; // narrowest possible heat niche (full specialist)
+	static MAX_HEAT_WIDTH = 0.65; // widest possible heat niche (full generalist)
+	static HEAT_NICHE_AREA = 0.60; // conserved gaussian area - adjust if specialists and generalists are not balanced
 	
 	constructor(params) {
 		// defaults
@@ -162,22 +173,25 @@ export default class Plant {
 		this.dead = true;
 	}	
 	
-	// light response is a saturating function that approaches 1.0 when near preferred light conditions.
+	// light response peaks at `pref` and falls off on both sides (photoinhibition above is harsher
+	// than light-limitation below). `light_peak`/`light_width` are cached genetic terms (see
+	// RehydrateFromDNA) that conserve the gaussian's area: narrow niches get a taller peak, wide
+	// niches get a shorter one, so specialization is a real tradeoff instead of a free lunch.
 	LightEfficiency( light, pref ) {
-		const k = pref * 0.5; // half-saturation point
-		const peak = 1.0; // TODO: peak performance; genetic tradeoffs
-		return ( peak * light ) / ( light + k );
+		const width = ( light > pref ) ? ( 0.5 * this.traits.light_width ) : this.traits.light_width;
+		return this.traits.light_peak * Math.exp( -Math.pow( light - pref, 2 ) / ( 2 * Math.pow( width, 2 ) ) );
 	}
 	
 	// returns 0..1
 	// heat tolerance is a bell curve that crashes when beyond the plant's preferred temperature.
-	// plants can shift their preferred temperature and tolerance.
+	// `heat_peak`/`heat_width` are cached genetic terms (see RehydrateFromDNA) that conserve the
+	// gaussian's area, same tradeoff mechanism as LightEfficiency: narrow niches (specialists) run
+	// taller, wide niches (generalists) run shorter.
+	// biology note: plant performance degrades rapidly when ABOVE preferred temperature.
+	// the real life curve is asymmetric. use this piecewise hack for cheap compute.
 	HeatTolerance( heat, pref ) {
-		const peak = 1.0 // TODO: peak performance; genetic tradeoffs
-		// biology note: plant performance degrades rapidly when ABOVE preferred temperature.
-		// the real life curve is asymetric. use this piecewise hack for cheap compute.
-		let tolerance = (heat > pref) ? ( 0.5 * this.traits.heat_tolr ) : this.traits.heat_tolr;
-		return peak * Math.exp( -Math.pow( heat - pref, 2 ) / ( 2 * Math.pow( tolerance, 2 ) ) );
+		const width = (heat > pref) ? ( 0.5 * this.traits.heat_width ) : this.traits.heat_width;
+		return this.traits.heat_peak * Math.exp( -Math.pow( heat - pref, 2 ) / ( 2 * Math.pow( width, 2 ) ) );
 	}
 	
 	// returns 0..1
@@ -325,8 +339,8 @@ export default class Plant {
 		// Living tissue continually consumes stored reserve.
 		// Larger plants cost more.
 		// Hotter environments increase metabolism, regardless of heat preference. (use env heat stat)
-		const CoreMaintenanceRate = 0.02;
-		const FoliageMaintenanceRate = 0.05;
+		const CoreMaintenanceRate = 0.004;
+		const FoliageMaintenanceRate = 0.01;
 		const coreMaint = CoreMaintenanceRate * this.core;
 		const foliageMaint = FoliageMaintenanceRate * this.foliage;
 		let maint_exponent = 0.75; // kleiber's law - maintenance gets cheaper as plant gets larger
@@ -719,8 +733,12 @@ export default class Plant {
 		this.traits.life_credits = this.dna.shapedInt( this.dna.genesFor('life_credits',3,1), 1000, 10000, 3000, 2.2 );
 		this.traits.light_pref = this.dna.shapedNumber( this.dna.genesFor('light_pref',2,1), 0, 1 );
 		this.traits.light_tolr = this.dna.shapedNumber( this.dna.genesFor('light_tolr',2,1), 0, 1 );
+		this.traits.light_width = utils.MapToRange( this.traits.light_tolr, 0, 1, Plant.MIN_LIGHT_WIDTH, Plant.MAX_LIGHT_WIDTH );
+		this.traits.light_peak = Math.min( 1.0, Plant.LIGHT_NICHE_AREA / ( this.traits.light_width * Math.sqrt( 2 * Math.PI ) ) );
 		this.traits.heat_pref = this.dna.shapedNumber( this.dna.genesFor('heat_pref',2,1), 0, 1 );
 		this.traits.heat_tolr = this.dna.shapedNumber( this.dna.genesFor('heat_tolr',2,1), 0, 1 );
+		this.traits.heat_width = utils.MapToRange( this.traits.heat_tolr, 0, 1, Plant.MIN_HEAT_WIDTH, Plant.MAX_HEAT_WIDTH );
+		this.traits.heat_peak = Math.min( 1.0, Plant.HEAT_NICHE_AREA / ( this.traits.heat_width * Math.sqrt( 2 * Math.PI ) ) );
 		this.traits.density = this.dna.shapedNumber( this.dna.genesFor('density',2,1), 0.4, 2.0, 0.7, 2.5 );
 		this.density = this.traits.density; // this moves over time with environmental changes
 		this.traits.risk_tolerance = this.dna.shapedNumber( this.dna.genesFor('risk_tolerance',2,1), 0, 1 );
