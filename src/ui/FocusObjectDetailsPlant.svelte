@@ -54,21 +54,23 @@
 	<p style="text-align:center;">
 		GEN: <output>{plant.generation}</output>&nbsp;&nbsp;
 		MASS: <output>{plant.mass.toFixed(0)}</output>&nbsp;&nbsp;
-		RADIUS: <output>{plant.r.toFixed(0)}</output>
+		AGE: <output>{plant.age.toFixed(0)}</output>
 	</p>
 
 	<div style="width:100%; margin-top:0.5em;">
 		<div class="meter">
+			{const lifecycle = (1-((plant.life_credits / plant.traits.life_credits)||0))*100}
 			<output>Life</output>
-			<div style="background-color:#1F60AC; height:100%; width:{((plant.life_credits / plant.traits.life_credits)||0)*100}%"></div>
+			<div style="background-color:#1F60AC; height:100%; width:{lifecycle}%"></div>
 		</div>
 		<div class="meter">
 			<output>Health</output>
 			<div style="background-color:#1F60AC; height:100%; width:{((plant.health)||0)*100}%"></div>
 		</div>
 		<div class="meter">
-			<output>Age</output>
-			<div style="background-color:#1F60AC; height:100%; width:{(Math.min(1,(plant.age / plant.traits.life_credits)||0))*100}%"></div>
+			{const fruit_pct = (plant.metrics.fruit_threshold > 0 ? Math.min(1,(plant.fruit_credits / plant.metrics.fruit_threshold)||0) : 0)*100}
+			<output>Fruit</output>
+			<div style="background-color:#1F60AC; height:100%; width:{fruit_pct}%"></div>
 		</div>
 	</div>
 
@@ -90,33 +92,49 @@
 	<details open>
 		<summary><h4 style="display:inline;">Vitals</h4></summary>
 		<div>
-			Age <output>{plant.age.toFixed(0)} / {plant.traits.life_credits.toFixed(0)}</output>
-			<progress value={Math.min(1, plant.age / plant.traits.life_credits)}></progress>
-
-			Health <output>{((plant.health||0)*100).toFixed()}%</output>
-			<progress value={plant.health||0}></progress>
-
-			Mass <output>{plant.mass.toFixed(1)}</output>
-				(core <output>{plant.core.toFixed(1)}</output>,
-				foliage <output>{plant.foliage.toFixed(1)}</output>)
-
-			Reserve <output>{plant.reserve.toFixed(1)}</output>
-			Density <output>{plant.density.toFixed(2)}</output>
+			<p>Mass: <output>{plant.mass.toFixed(1)}</output></p>
+			<p>Core: <output>{plant.core.toFixed(1)}</output></p>
+			<p>Foliage: <output>{plant.foliage.toFixed(1)}</output></p>
+			<p>Reserve: <output>{plant.reserve.toFixed(1)}</output></p>
+			<p>Fruit Credits: <output>{plant.fruit_credits.toFixed(1)}</output></p>
+			<p>Density: <output>{plant.density.toFixed(2)}</output></p>
+			<p>Radius: <output>{plant.r.toFixed(0)}</output></p><!-- WARNING: non standard - may break -->
 		</div>
 	</details>
 
 	<details>
 		<summary><h4 style="display:inline;">Traits</h4></summary>
 		<div>
-			<p>Risk Tolerance <output>{(plant.traits.risk_tolerance||0).toFixed(2)}</output></p>
-			<p>Light Pref / Tolr
-				<output>{(plant.traits.light_pref||0).toFixed(2)}</output> /
-				<output>{(plant.traits.light_tolr||0).toFixed(2)}</output></p>
-			<p>Heat Pref / Tolr
-				<output>{(plant.traits.heat_pref||0).toFixed(2)}</output> /
-				<output>{(plant.traits.heat_tolr||0).toFixed(2)}</output></p>
 			<p>Food Complexity <output>{plant.traits.food_complexity}</output></p>
 			<p>Fruit <output>{plant.traits.fruit_num}</output> x <output>{plant.traits.fruit_size}</output></p>
+			<p>Risk Tolerance <output>{(plant.traits.risk_tolerance||0).toFixed(2)}</output></p>
+			<p>
+				Light: 
+				<output>{(plant.traits.light_tolr||0).toFixed(2)}</output> @
+				<output>{(plant.traits.light_pref||0).toFixed(2)}</output>
+				<i> - 
+					{plant.traits.light_pref > 0.67 ? 'Bright' : ( plant.traits.light_pref < 0.33 ? 'Shade' : 'Neutral' )}
+					{plant.traits.light_tolr > 0.67 ? 'Generalist' : ( plant.traits.light_tolr < 0.33 ? 'Specialist' : 'Average' )}
+				</i>
+			</p>
+			<p>
+				Heat:
+				<output>{(plant.traits.heat_tolr||0).toFixed(2)}</output> @
+				<output>{(plant.traits.heat_pref||0).toFixed(2)}</output>
+				<i> - 
+					{plant.traits.heat_pref > 0.67 ? 'Hot' : ( plant.traits.heat_pref < 0.33 ? 'Cold' : 'Neutral' )}
+					{plant.traits.heat_tolr > 0.67 ? 'Generalist' : ( plant.traits.heat_tolr < 0.33 ? 'Specialist' : 'Average' )}
+				</i>
+			</p>
+		</div>
+	</details>
+
+	<details>
+		<summary><h4 style="display:inline;">Metrics</h4></summary>
+		<div>
+			{#each Object.keys(plant.metrics) as key}
+				<p>{key}: <output>{plant.metrics[key].toFixed(2)}</output></p>
+			{/each}
 		</div>
 	</details>
 

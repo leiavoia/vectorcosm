@@ -86,10 +86,10 @@ export default class Plant {
 	static DRAW_FLOWERS = true; // toggle flower rendering. Non-flowers are simple geometric shapes.
 	static NEIGHBOR_SHADE_DIV_CONSTANT = 10; // higher num = less impact from neighbors crowding out light
 	static MIN_LIGHT_WIDTH = 0.08; // narrowest possible light niche (full specialist)
-	static MAX_LIGHT_WIDTH = 0.65; // widest possible light niche (full generalist)
+	static MAX_LIGHT_WIDTH = 0.80; // widest possible light niche (full generalist)
 	static LIGHT_NICHE_AREA = 0.60; // conserved gaussian area - adjust if specialists and generalists are not balanced
 	static MIN_HEAT_WIDTH = 0.08; // narrowest possible heat niche (full specialist)
-	static MAX_HEAT_WIDTH = 0.65; // widest possible heat niche (full generalist)
+	static MAX_HEAT_WIDTH = 0.80; // widest possible heat niche (full generalist)
 	static HEAT_NICHE_AREA = 0.60; // conserved gaussian area - adjust if specialists and generalists are not balanced
 	
 	constructor(params) {
@@ -148,6 +148,28 @@ export default class Plant {
 			growth_weights: [], // rehydrated by DNA. controls growth focus based on env factors
 			update_freq: 10,
 		};
+		// metrics - used in calculation, but not recorded as fundamental stats. mostly for UI.
+		this.metrics = {
+			total_growth: 0,
+			maintenance: 0,
+			priorities_core: 0,
+			priorities_foliage: 0,
+			priorities_fruit: 0,
+			lightEfficiency: 0,
+			heatTolerance: 0,
+			soilFactor: 0,
+			photosyntheticCapacity: 0,
+			matterAssimilated: 0,
+			neighbor_shade: 0,
+			effective_light: 0,
+			health_target: 0,
+			shortfall: 0,
+			eaten: 0,
+			damage: 0,
+			life_credits_spent: 0,
+			excess_returned: 0,
+			fruit_threshold: 0,
+		};
 		// begin rehydration from DNA
 		this.dna = new DNA( this.dna ); // will either be number of chars, or full string if rehydrating
 		this.RehydrateFromDNA();
@@ -202,13 +224,14 @@ export default class Plant {
 	// reduces life credit, including all known modifier effects
 	SpendLifeCredits( x ) {
 		const health_factor = 1 + ( 1 - this.health );		
-		this.life_credits -= x * Plant.PLANT_DECAY_SPEED * health_factor;
+		const credits = x * Plant.PLANT_DECAY_SPEED * health_factor;
+		this.life_credits -= credits;
+		this.metrics.life_credits_spent += credits;
 	}
 				
 	/*
 	This growth model generally works and gives good-enough results. 
 	TODO: Major areas of improvement include adding genetic levers for various specializations.
-	TODO: light efficiency curve is not really what we want. not sure if cell.light should be in growth calc.
 	*/		
 	Update( delta ) {
 	
@@ -224,6 +247,13 @@ export default class Plant {
 		this.next_update = this.age + this.traits.update_freq + ( Math.random() - 0.5 ); // statistically insignificant randomness to avoid visual sync;
 		// from here forward, the "delta" is actually the update_freq clock
 		delta = this.traits.update_freq;
+		
+		// reset stats
+		for ( const key in this.metrics ) {
+			// special exception for damage which accumulates
+			if ( key === "damage" ) { continue; }
+			this.metrics[key] = 0;
+		}
 		
 		//====================================================
 		// Aging and death
@@ -250,21 +280,26 @@ export default class Plant {
 		// we're not going down the rabbit hole of calculating overlapping circles.
 		const neighbors = globalThis.vc.tank.grid.GetObjectsByCoords( this.x, this.y, o => o.otype===4 && o !== this ).length;
 		const neighbor_shade = neighbors / ( neighbors + Plant.NEIGHBOR_SHADE_DIV_CONSTANT );
+		this.metrics.neighbor_shade = neighbor_shade;
 		
-		// plant density adjusts amount of light we can collect - the punishment for being big
+		// plant density adjusts amount of light we can collect - the punishment for being spread out
 		// NOTE: density is a size multiplier, so we need to divide here
 		const effective_light = ( cell.light / this.density ) * ( 1 - neighbor_shade );
+		this.metrics.effective_light = effective_light;
 		
 		// light response curve - typically a saturating function approaching. 0..1, higher is better
 		const lightEfficiency = this.LightEfficiency(effective_light, this.traits.light_pref);
+		this.metrics.lightEfficiency = lightEfficiency;
 		
 		// heat tolerance affects metabolic efficiency. 0..1, higher is better
 		const heatTolerance  = this.HeatTolerance(cell.heat, this.traits.heat_pref); 
-
+		this.metrics.heatTolerance = heatTolerance;
+		
 		// soil absorption: increasingly difficult for roots to find matter.
 		// NOTE: using a constant for tuning here, but we could make 
 		// poor-soil absorption a genetic trait with fun tradeoffs.
 		const soilFactor = this.SoilAbsorptionCurve(cell.matter, 100);
+		this.metrics.soilFactor = soilFactor;
 		
 		// plants grow less dense if they are not getting enough light.
 		// this alters effective collision size and needs to mutate slowly over time.
@@ -274,7 +309,6 @@ export default class Plant {
 		const target_density = this.traits.density + ( this.traits.density * 0.5 ) * ( 1 - lightEfficiency );
 		this.density = ( ( this.density * 5 ) + target_density ) / 6; // hacky
 
-		// console.log(this.density);
 
 		//====================================================
 		// Health Calculation
@@ -287,9 +321,11 @@ export default class Plant {
 		const dmg_ratio = Math.min( 1.0, this.dmg / ( total_mass_now + 0.01 ) );
 		const stress_factor = ( 1 - dmg_ratio ) * 0.7; // remaining 70%
 		const health = env_factor + stress_factor;
+		this.metrics.health_target = health;
 		this.health = ( this.health + this.health + health ) / 3; // blended result
-		this.dmg = 0; // reset
-				
+		this.dmg = 0; // reset - we accumulate damage over the course of time
+		this.metrics.damage = 0; // special exception
+		
 
 		//====================================================
 		// Plant capacities
@@ -299,7 +335,8 @@ export default class Plant {
 		// light intensity has diminishing returns on photosynthesis.
 		// eventually, maintenance outpaces ability to photosynthesize, even with kleiber's discount.
 		const photosyntheticCapacity = Math.pow( this.foliage, 0.5 ) * lightEfficiency;
-
+		this.metrics.photosyntheticCapacity = photosyntheticCapacity;
+		
 		// core size limits our storage capacity; this may change with genetic traits.
 		const max_reserve = this.core;
 		
@@ -330,7 +367,8 @@ export default class Plant {
 			share.cell.matter -= share.supply * supplyScale;
 		}
 		this.reserve += matterAssimilated;
-
+		this.metrics.matterAssimilated = matterAssimilated;
+		
 
 		//====================================================
 		// Maintenance costs
@@ -348,7 +386,8 @@ export default class Plant {
 		// this makes larger plants disproportionately more expensive in warm climates.
 		maint_exponent = maint_exponent + (cell.heat * 0.15);
 		let maintenance = Math.pow( coreMaint + foliageMaint, maint_exponent ) * delta;
-
+		this.metrics.maintenance = maintenance;
+		
 		// Respiration and decay returns matter to environment
 		this.reserve -= maintenance; // this can go negative! make up shortfall afterwards
 		cell.waste += maintenance;
@@ -374,6 +413,7 @@ export default class Plant {
 			const core_priority = 0.3;
 			
 			let shortfall = Math.abs(this.reserve);
+			this.metrics.total_growth = -shortfall; // note dual purpose stat
 			// NOTE: when plants are completely stripped, its a tough spot.
 			// Plants should have the ability to get a hail mary and overdrive demand.
 			// We already have risk_tolerance, so this is a fine place to use it.
@@ -403,6 +443,7 @@ export default class Plant {
 			
 			// the original shortfall counts as damage to the plant indicates "stress"
 			this.dmg += shortfall * Plant.SHORTFALL_DMG_MOD;
+			this.metrics.damage = this.dmg;
 		}
 
 		//====================================================
@@ -410,21 +451,16 @@ export default class Plant {
 		//====================================================
 
 		else {
-			// figure out growth budget based on risk tolerance and reserve savings
-			// const min_invest_pct = 0.05; // even a fully conservative plant still grows a little
-			// const max_invest_pct = 0.95; // even a fully reckless plant keeps a sliver in reserve
-			// const invest_pct = min_invest_pct + ( max_invest_pct - min_invest_pct ) * this.traits.risk_tolerance;
-			// const growthBudget = this.reserve * invest_pct;
-
-			// use this alternative saturating formula if above linear formula is too simplistic
+			// figure out total growth budget based on risk tolerance and reserve savings
 			const saving_target = 100;
 			const saving_buffer = 0.05;
 			const saving_mod = saving_target * ( saving_buffer + (1 - saving_buffer) * this.traits.risk_tolerance );
 			const saving_pct = saving_mod / ( saving_mod + this.reserve );
 			const growthBudget = this.reserve * saving_pct;
+			this.metrics.growthBudget = growthBudget;
 			
 			// maximum foliage we can support is based on core.
-			// it take proportionally more core to support more foliage.
+			// it takes proportionally more core to support more foliage.
 			// TODO: could be genetic trait for higher maintenance tradeoff.
 			const max_foliage_scaler = 1.0;
 			const max_foliage = max_foliage_scaler * Math.pow( this.core, 0.75 );
@@ -444,6 +480,9 @@ export default class Plant {
 			priorities.core /= total;
 			priorities.foliage /= total;
 			priorities.fruit /= total;
+			this.metrics.priorities_core = priorities.core;
+			this.metrics.priorities_foliage = priorities.foliage;
+			this.metrics.priorities_fruit = priorities.fruit;
 						
 			// commit growth to all categories
 			const growCore = growthBudget * priorities.core;
@@ -454,6 +493,7 @@ export default class Plant {
 			this.fruit_credits += growFruit;
 			const total_growth = growCore + growLeaves + growFruit;
 			this.reserve -= total_growth;
+			this.metrics.total_growth = total_growth;
 			
 			// the cost of life is death
 			this.SpendLifeCredits( total_growth ) ;
@@ -463,6 +503,7 @@ export default class Plant {
 				const extra = this.reserve - max_reserve;
 				this.reserve -= extra;
 				cell.matter += extra; // return excess to the environment as matter not drawn instead of waste
+				this.metrics.excess_returned = extra;
 				// overdraft does not count against life credits
 			}
 			
@@ -475,27 +516,6 @@ export default class Plant {
 		//====================================================
 
 		this.RecalcMassAndSize();
-
-		// debug
-		// const life_pct = Math.max( 0, Math.min( 1, this.life_credits / this.traits.life_credits ) );
-		// console.log(
-		// 	`life=${life_pct.toFixed(2)}, ` +
-		// 	// `health=${this.health.toFixed(2)}, ` +
-		// 	`Rsv=${starting_reserve.toFixed(1)}→${this.reserve.toFixed(1)}, ` +
-		// 	`mass=${this.mass.toFixed(1)}, ` +
-		// 	`coreM=${this.core.toFixed(1)}, ` +
-		// 	`foliageM=${this.foliage.toFixed(1)}, ` +
-		// 	`fruitM=${this.fruit_credits.toFixed(1)}, ` +
-		// 	`pUptake=${uptakeCapacity.toFixed(1)}, ` +
-		// 	`photoCap=${photosyntheticCapacity.toFixed(1)}, ` +
-		// 	`Mtr=${matterAssimilated.toFixed(1)}, ` +
-		// 	`Cost=${maintenance.toFixed(1)}, ` +
-		// 	`gB=${growthBudget.toFixed(2)}, ` + 
-		// 	`savePct=${saving_pct.toFixed(2)}, ` +
-		// 	`heatTol=${heatTolerance.toFixed(2)}, ` +
-		// 	`lightEf=${lightEfficiency.toFixed(2)}, ` +
-		// 	`soil=${soilFactor.toFixed(2)}`
-		// );
 		
 	}
 	
@@ -532,8 +552,11 @@ export default class Plant {
 		if ( this.dead || this.foliage <= 0 ) { return 0; }
 		const eaten = Math.min( this.foliage, amount );
 		this.foliage -= eaten;
-		this.dmg += eaten * Plant.GRAZING_DMG_MOD;
+		const dmg = eaten * Plant.GRAZING_DMG_MOD;
+		this.dmg += dmg;
 		this.RecalcMassAndSize();
+		this.metrics.eaten += eaten;
+		this.metrics.damage += dmg;
 		return eaten;
 	}
 	
@@ -557,6 +580,7 @@ export default class Plant {
 		const core_fruit_ratio = Math.min( 1.0, this.core / this.traits.fruit_size );
 		const base_threshold = this.traits.fruit_num * fruit_size; // base threshold
 		const threshold = base_threshold * Math.sqrt(core_fruit_ratio); // small increases as core mass grows
+		this.metrics.fruit_threshold = threshold;
 		if ( this.fruit_credits > threshold ) {
 			// chance of fruiting goes up the further past the threshold we are
 			const overage_pct = ( this.fruit_credits - threshold ) / threshold;

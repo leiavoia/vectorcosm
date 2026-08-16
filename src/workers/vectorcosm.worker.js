@@ -1181,6 +1181,7 @@ function DescribePlant( o ) {
 		generation: o.generation,
 		age: o.age,
 		life_credits: o.life_credits,
+		fruit_credits: o.fruit_credits,
 		health: o.health,
 		mass: o.mass,
 		core: o.core,
@@ -1189,5 +1190,6 @@ function DescribePlant( o ) {
 		r: o.r,
 		density: o.density,
 		traits: o.traits,
+		metrics: o.metrics
 	};
 }

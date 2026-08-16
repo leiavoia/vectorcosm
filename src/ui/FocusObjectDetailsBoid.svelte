@@ -232,7 +232,7 @@
 						<output>
 							Life
 						</output>
-						<div style="background-color:#1F60AC; height: 100%; width:{((boid.life_credits / boid.traits.life_credits)||0)*100}%"></div>
+						<div style="background-color:#1F60AC; height: 100%; width:{(1-((boid.life_credits / boid.traits.life_credits)||0))*100}%"></div>
 					</div>
 					<div class="meter" >
 						<output>
