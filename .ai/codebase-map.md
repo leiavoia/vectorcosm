@@ -73,7 +73,9 @@ Quick reference for every significant file. Grouped by role.
 | `VectorcosmDrawingContext.svelte` | Two.js canvas init; render layer setup; theme switching |
 | `SimulatorControlsPanel.svelte` | Runtime sim controls/settings panel; uses a local drag-safe settings draft synced from App-owned sim settings |
 | `SimulationLauncherPanel.svelte` | Select and launch simulation type with configurable settings |
-| `FocusObjectDetails.svelte` | Detailed stats for the tracked boid; consumes App-owned focus data/records cache and exposes save actions |
+| `FocusObjectDetails.svelte` | Thin shell that dispatches to a subtype panel based on `focusObject.type` ('boid'\|'plant') |
+| `FocusObjectDetailsBoid.svelte` | Detailed stats for the tracked boid; consumes App-owned focus data/records cache and exposes save actions |
+| `FocusObjectDetailsPlant.svelte` | Stats panel for the tracked plant (no chart/records yet) |
 | `BrainGraph.svelte` | Neural network topology visualization (weights, activation patterns) |
 | `FocusObjectChart.svelte` | Time-series graphs for per-boid stat records owned and cached by App |
 | `TankStatsPanel.svelte` | Per-frame tank stats (boid count, food, plants, species diversity) |

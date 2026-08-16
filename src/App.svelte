@@ -895,6 +895,10 @@
 				inc_sensor_geo:true, // get boid sensor visualization on first request only
 				inc_brain:true,
 				inc_records:true,
+				// clicking again while something is focused should cycle to a different nearby
+				// object instead of re-selecting the same one; if nothing else is nearby the
+				// pick comes back empty and the focus clears (see onPendingPickObjectResponse).
+				exclude_oid: camera.focus_obj_id > 0 ? camera.focus_obj_id : 0,
 			};
 			RequestFocusObjectAtPoint(params);
 		}
@@ -1091,7 +1095,7 @@
 	
 	<div class="focus_object_panel">
 		<FocusObjectDetails 
-			boid={focusObjectBoidData}
+			focusObject={focusObjectBoidData}
 			records={focusObjectRecords}
 
 			forceShowBrainGraph={focusObjectBrainGraphForce}

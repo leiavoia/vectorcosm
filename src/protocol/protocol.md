@@ -173,7 +173,7 @@ Commands are registered in `CommandRegistry` and discoverable via `help` / `desc
 |---|---|
 | `init` | Initialize simulation. Params: sim, sim_queue, width, height, num_boids, etc. |
 | `update` | Advance simulation, return frame data. Self-post (frame type). |
-| `pick_object` | Select boid by ID or proximity. Returns boid description. Optional flags: `inc_sensor_geo`, `inc_brain`, `inc_records`. |
+| `pick_object` | Select an object by ID or proximity. Returns a description tagged with `type` ('boid'\|'plant'). Optional flags (boid only): `inc_sensor_geo`, `inc_brain`, `inc_records`. `exclude_oid` (proximity search only) skips a given oid so repeated clicks near a focused object cycle to a different one instead of re-picking it. |
 | `get_tank_env_data` | Return environment grid and whirl data. |
 | `end_sim` | End current simulation immediately. |
 | `save_tank` | Save tank state to storage. |

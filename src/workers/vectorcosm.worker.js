@@ -377,23 +377,34 @@ let auto_tps_window_start = 0;     // ms when the current tps window started
 let auto_last_natural_ms = 0;      // previous tick time, for real-time delta
 const AUTO_FIXED_DELTA = 1/30;     // fixed timestep used in full and throttled modes
 
+// dispatch table: which otypes are pickable via click/oid, and how to describe them.
+// to add a new pickable type (rocks, food), add its otype here and a Describe* function below.
+const PICKABLE_OTYPES = [1, 4]; // 1=Boid, 4=Plant
+
+function DescribeObject( obj, params ) {
+	if ( obj.otype === 4 ) { return DescribePlant( obj ); }
+	return DescribeBoid(
+		obj,
+		params?.inc_sensor_geo,
+		params?.inc_brain,
+		(params?.inc_records || params?.inc_brain)
+	);
+}
+
 let last_focus_object_id = null;
-commands.register( { name: 'pick_object', description: 'Select a boid by ID or by proximity to coordinates', handler: params => {
+commands.register( { name: 'pick_object', description: 'Select an object by ID or by proximity to coordinates', handler: params => {
 	let result = null;
 	let obj_id = params?.oid || 0;
 	let obj = null;
 	
-	// if they want a specific object by ID, just get that
+	// if they want a specific object by ID, check each pickable collection.
+	// NOTE: we don't have a global library of all objects. You might
+	// think of this as a shortcoming or a brilliant optimization. You decide.
 	if ( obj_id ) {
-		// NOTE: we only check boids right now
-		obj = globalThis.vc.tank.boids.find( o => o.oid == obj_id );
+		obj = globalThis.vc.tank.boids.find( o => o.oid == obj_id )
+			|| globalThis.vc.tank.plants.find( o => o.oid == obj_id );
 		if ( obj ) {
-			result = DescribeBoid(
-				obj, 
-				params?.inc_sensor_geo, 
-				params?.inc_brain, 
-				(params?.inc_records || params?.inc_brain)
-			); 
+			result = DescribeObject( obj, params );
 		}
 	}
 	
@@ -402,15 +413,18 @@ commands.register( { name: 'pick_object', description: 'Select a boid by ID or b
 		const x = params?.x ?? 0;
 		const y = params?.y ?? 0;
 		const r = params?.radius ?? 30;
-		let objs = vc.tank.grid.GetObjectsByBox( x-r, y-r, x+r, y+y, o => o.otype === 1 );
+		const exclude_oid = params?.exclude_oid || 0; // skip the currently-focused object so repeated clicks cycle to a different one
+		let objs = vc.tank.grid.GetObjectsByBox( x-r, y-r, x+r, y+r, o => PICKABLE_OTYPES.includes(o.otype) );
 		// optimization hint: if we are ignoring other boids, they are not in the collision detection grid.
 		if ( vc.simulation.settings?.ignore_other_boids === true ) {
-			objs = vc.tank.boids; // do them all brute force instead
+			const plants_in_box = vc.tank.grid.GetObjectsByBox( x-r, y-r, x+r, y+r, o => o.otype === 4 );
+			objs = [ ...vc.tank.boids, ...plants_in_box ]; // brute force boids, grid-query plants
 		}
 		// find the closest object
 		const min_dist = r*r*2 + r*r*2;
 		let closest_dist = 9999999999;
 		for ( let o of objs ) {
+			if ( o.oid === exclude_oid ) { continue; }
 			const d = (o.x - x) * (o.x - x) + (o.y - y) * (o.y - y);
 			if ( d <= min_dist && d < closest_dist ) { 
 				closest_dist = d;
@@ -420,16 +434,12 @@ commands.register( { name: 'pick_object', description: 'Select a boid by ID or b
 		// assemble a report based on object type
 		if ( obj ) {
 			obj_id = obj.oid;
-			result = DescribeBoid(
-				obj, 
-				params?.inc_sensor_geo, 
-				params?.inc_brain,
-				(params?.inc_records || params?.inc_brain),
-			);
+			result = DescribeObject( obj, params );
 		}
 	}
 	
-	// if we are doing stat tracking and switched object IDs, we need to do some cleanup
+	// if we are doing stat tracking and switched object IDs, we need to do some cleanup.
+	// per-instance record tracking currently only exists on boids.
 	if ( globalThis.vc.simulation.settings?.boid_tally_freq ) {
 		if ( obj_id != last_focus_object_id ) {
 			// remove stat update event subscription on old object
@@ -438,7 +448,7 @@ commands.register( { name: 'pick_object', description: 'Select a boid by ID or b
 				old.records.onInsert = null;
 			}
 			// install new callback
-			if ( obj ) {
+			if ( obj && obj.otype === 1 ) {
 				obj.records.onInsert = ( data, layer ) => {
 					PubSub.publishSync('boid.records.push', { oid: obj.oid, data, layer } );
 				};
@@ -1150,4 +1160,23 @@ function DescribeBoid( o, inc_sensor_geo=false,  inc_brain=false, inc_stats=0 ) 
 	}
 				
 	return data;
+}
+
+// Describes plant for the focus panel display.
+function DescribePlant( o ) {
+	return {
+		type: 'plant',
+		oid: o.oid,
+		generation: o.generation,
+		age: o.age,
+		life_credits: o.life_credits,
+		health: o.health,
+		mass: o.mass,
+		core: o.core,
+		foliage: o.foliage,
+		reserve: o.reserve,
+		r: o.r,
+		density: o.density,
+		traits: o.traits,
+	};
 }

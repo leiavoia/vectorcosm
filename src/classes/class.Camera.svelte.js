@@ -8,12 +8,14 @@ OVERVIEW
 - `renderObjects` — live game object data for focus/cinema interaction.
 
 KEY FEATURES
-- Focus mode: `Focus(oid)` → centers on a boid, shows indicator ring + sensor overlay + info panel.
+- Focus mode: `TrackObject(oid)` → centers on/tracks any focusable object (boid or plant; see
+  `PICKABLE_OTYPES` in the worker's `pick_object`), shows indicator ring + sensor overlay + info panel.
 - Cinema mode: auto-cycles focus across interesting boids at `focus_time` intervals.
 - Smooth transitions: TWEEN.js animations on pan/zoom.
 - `ApplyRenderData(data)` — called each frame with packed geometry from the worker; updates Two.js transforms.
 - `ZoomIn/Out()`, `ZoomTo()`, `PanTo(x, y)` for UI-driven navigation.
-- Focus ring drawn into the 'ui' layer; removed with `HiliteOff()`.
+- Focus ring drawn into the 'ui' layer; removed with `HiliteOff()`. `Hilite(x,y,a,radius)` sizes the ring
+  to the focused object's world radius (renderObject.r, e.g. plants) instead of a fixed boid-sized circle.
 - Soft-box tracking: `tracking_mode` ($state) = 'none'|'soft'|'hard'. 'soft' uses a dead zone (no movement inside)
   + lerp zone + hard snap outer boundary. Constants: soft_box_size (default 0.35), hard_box_ratio (0.75), soft_tracking_lerp (0.05).
   See `SoftTrackObject(obj)` for implementation. Cinema mode bypasses tracking naturally (focus_obj_id=0 during tweens).
@@ -98,7 +100,7 @@ export default class Camera {
 		this.soft_tracking_lerp = 0.08; // lerp factor applied per frame when object is in the smooth follow zone
 	}
 
-	Hilite( x, y, a=0 ) {
+	Hilite( x, y, a=0, radius=90 ) {
 		if ( !this.show_boid_indicator_on_focus ) {
 			this.HiliteOff();
 			return;
@@ -106,30 +108,20 @@ export default class Camera {
 		// create the focus ring if it doesnt already exist
 		if ( !this.focus_geo ) {
 			this.focus_geo = globalThis.two.makeGroup();
-			let circle = globalThis.two.makeCircle( 0, 0, 90 );
+			let circle = globalThis.two.makeCircle( 0, 0, radius );
 			circle.fill = 'transparent';
 			circle.stroke = '#9D9';
 			circle.linewidth = 5;
 			this.focus_geo.add(circle);
-			// uncomment this if you want a little indicator triangle
-			// let triangle = globalThis.two.makePath([
-			// 	new Two.Anchor( 130, 0 ),
-			// 	new Two.Anchor( 120, -15 ),
-			// 	new Two.Anchor( 120, 15 ),
-			// ]);
-			// triangle.stroke = 'transparent';
-			// triangle.fill = '#AEA';
-			// triangle.linewidth = 0;
-			// this.focus_geo.add(triangle);
-			// this.focus_geo.opacity = 0.68;
 			this.renderLayers['ui'].add(this.focus_geo);
 		}	
 		// turn on update position
 		if ( !this.focus_geo.visible ) { this.focus_geo.visible = true; }
 		this.focus_geo.position.x = x;
 		this.focus_geo.position.y = y;
-		// uncomment to rotate indicator triangle
-		// this.focus_geo.rotation = a;		
+		// object size varies wildly (plants especially) - keep the ring sized to whatever is focused
+		const ring = this.focus_geo.children[0];
+		if ( ring && ring.radius !== radius ) { ring.radius = radius; }
 	}
 	
 	HiliteOff() {
@@ -161,9 +153,12 @@ export default class Camera {
 					this.SoftTrackObject( obj );
 				}
 				
-				// turn the focus ring on and move into position
-				this.Hilite( obj.x, obj.y, obj.a );
-				
+				// turn the focus ring on and move into position.
+				// use any available size info with minimum for visibility.
+				// note that we only have limited front-end rendering data.
+				const ring_radius = obj.r ? Math.max( 90, obj.r * 1.25 ) : 90;
+				this.Hilite( obj.x, obj.y, obj.a, ring_radius );
+								
 				// render data overlay like sensors
 				if ( this.show_boid_sensors_on_focus ) {
 					// create if doesnt exist

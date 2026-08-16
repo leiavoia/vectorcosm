@@ -63,9 +63,11 @@ App.svelte [root]
 └── UI Panels (one visible at a time, toggled via setPanelMode):
     ├── SimulatorControlsPanel
     ├── SimulationLauncherPanel
-    ├── FocusObjectDetails
-    │   ├── BrainGraph
-    │   └── FocusObjectChart
+    ├── FocusObjectDetails       — dispatches on focusObject.type
+    │   ├── FocusObjectDetailsBoid
+    │   │   ├── BrainGraph
+    │   │   └── FocusObjectChart
+    │   └── FocusObjectDetailsPlant
     ├── TankStatsPanel
     ├── SimStatsPanel
     ├── PerfStatsPanel
