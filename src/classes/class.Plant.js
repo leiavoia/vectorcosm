@@ -100,7 +100,7 @@ export default class Plant {
 		this.y = 0;
 		this.r = 1;
 		this.dna = 128; // random chars
-		this.generation = 1;
+		// this.generation = 1; // cant track through seed DNA unless we append extra data to seeds ;-(
 		this.dead = false;
 		this.age = 0;
 		this.life_credits = 3000; // counts down from
@@ -538,7 +538,7 @@ export default class Plant {
 		let output = { classname: 'Plant' };
 		// note: next_update and dmg are considered temporal and get ignored. 
 		let datakeys = ['x','y','fruit_credits','age','life_credits',
-			'mass','health','dna','generation','foliage', 'core', 'reserve', 'density'];
+			'mass','health','dna',/* 'generation', */'foliage', 'core', 'reserve', 'density'];
 		for ( let k of datakeys ) { 
 			if ( this.hasOwnProperty(k) ) { 
 				output[k] = this[k];

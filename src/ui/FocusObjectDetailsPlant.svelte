@@ -52,9 +52,10 @@
 	</header>
 
 	<p style="text-align:center;">
-		GEN: <output>{plant.generation}</output>&nbsp;&nbsp;
+		<!-- GEN: <output>{plant.generation}</output>&nbsp;&nbsp; -->
 		MASS: <output>{plant.mass.toFixed(0)}</output>&nbsp;&nbsp;
-		AGE: <output>{plant.age.toFixed(0)}</output>
+		AGE: <output>{plant.age.toFixed(0)}</output>&nbsp;&nbsp;
+		RADIUS: <output>{plant.r.toFixed(0)}</output>
 	</p>
 
 	<div style="width:100%; margin-top:0.5em;">
