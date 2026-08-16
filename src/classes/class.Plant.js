@@ -82,7 +82,7 @@ export default class Plant {
 	static GRAZING_DMG_MOD = 3; // damage multiplier for grazing loss
 	static BASE_SVG_RADIUS = 300;
 	static GLOBAL_PLANT_SCALE = 15; // multiplies the area of all plants before determining final radius
-	static COSMETIC_FOLIAGE_BUFF = 1.65; // increase visual radius of foliage for better aesthetics even if math is wrong
+	static COSMETIC_FOLIAGE_BUFF = 1.3; // increase visual radius of foliage for better aesthetics even if math is wrong
 	static DRAW_FLOWERS = true; // toggle flower rendering. Non-flowers are simple geometric shapes.
 	static NEIGHBOR_SHADE_DIV_CONSTANT = 10; // higher num = less impact from neighbors crowding out light
 	static MIN_LIGHT_WIDTH = 0.08; // narrowest possible light niche (full specialist)
@@ -509,7 +509,7 @@ export default class Plant {
 		const core_radius = Math.sqrt( this.density * Plant.GLOBAL_PLANT_SCALE * 2 * this.core / Math.PI );
 		const foliage_radius = this.r - core_radius;
 		const scale = this.r / Plant.BASE_SVG_RADIUS;
-		const foliage_radius_scaled = foliage_radius * scale;
+		const foliage_radius_scaled = foliage_radius / scale;
 		this.svg_scale = scale;
 		this.svg_linewidth = foliage_radius_scaled * Plant.COSMETIC_FOLIAGE_BUFF;
 	}
