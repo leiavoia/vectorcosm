@@ -52,10 +52,15 @@
 	</header>
 
 	<p style="text-align:center;">
-		<!-- GEN: <output>{plant.generation}</output>&nbsp;&nbsp; -->
+		<!-- growth indicator -->
+		{#if plant.metrics.total_growth > 0}
+			<span style="color:#00ff1c; font-size:120%;">▲</span>
+		{:else}
+			<span style="color:#d50004; font-size:120%;">▼</span>
+		{/if}
 		MASS: <output>{plant.mass.toFixed(0)}</output>&nbsp;&nbsp;
 		AGE: <output>{plant.age.toFixed(0)}</output>&nbsp;&nbsp;
-		RADIUS: <output>{plant.r.toFixed(0)}</output>
+		RADIUS: <output>{plant.r.toFixed(0)}</output>	
 	</p>
 
 	<div style="width:100%; margin-top:0.5em;">
@@ -90,7 +95,7 @@
 		</div>
 	</div>
 
-	<details open>
+	<details open style="margin-top:0.5em;">
 		<summary><h4 style="display:inline;">Vitals</h4></summary>
 		<div>
 			<p>Mass: <output>{plant.mass.toFixed(1)}</output></p>
