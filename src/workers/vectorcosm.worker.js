@@ -420,14 +420,25 @@ commands.register( { name: 'pick_object', description: 'Select an object by ID o
 			const plants_in_box = vc.tank.grid.GetObjectsByBox( x-r, y-r, x+r, y+r, o => o.otype === 4 );
 			objs = [ ...vc.tank.boids, ...plants_in_box ]; // brute force boids, grid-query plants
 		}
-		// find the closest object
-		const min_dist = r*r*2 + r*r*2;
+		// find the "closest" object (subjective):
+		// Qualification: distance to edge within click radius
+		// Scoring: size-normalized distance to center
 		let closest_dist = 9999999999;
 		for ( let o of objs ) {
 			if ( o.oid === exclude_oid ) { continue; }
-			const d = (o.x - x) * (o.x - x) + (o.y - y) * (o.y - y);
-			if ( d <= min_dist && d < closest_dist ) { 
-				closest_dist = d;
+			const d_sq = (o.x - x) * (o.x - x) + (o.y - y) * (o.y - y);
+			const collision_r = o.collision?.radius ?? 0;
+			
+			// Qualify: distance to center must be within (click_radius + object_radius)
+			const qualify_dist_sq = (r + collision_r) * (r + collision_r);
+			if ( d_sq > qualify_dist_sq ) { continue; }
+			
+			// Score: size-normalized distance to center
+			const d = Math.sqrt(d_sq);
+			let normalized_dist = collision_r > 0 ? d / collision_r : d;
+			if ( o.otype === 1 ) { normalized_dist *= 0.5; } // prefer boids
+			if ( normalized_dist < closest_dist ) {
+				closest_dist = normalized_dist;
 				obj = o;
 			}
 		}
