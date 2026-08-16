@@ -127,8 +127,6 @@ export default class Plant {
 			this.core = this.mass * rand_factor;
 			this.foliage = this.mass * ( 1 - rand_factor );
 		}
-		// assign the next update based on age.
-		this.next_update = this.age + 1;
 		// basic genetic traits - individual plant types can add more
 		this.traits = {
 			life_credits: 3000,
@@ -159,6 +157,8 @@ export default class Plant {
 		// collision detection geometry
 		this.collision = createCircleCollider( this.r );
 		this.RecalcMassAndSize();
+		// assign the next update based on age.
+		this.next_update = this.age + Math.random() * 5;
 	}
 	
 	Kill() {
@@ -221,7 +221,7 @@ export default class Plant {
 		// CONSIDER: we can directly alter the next_update to "hibernate" or "hurry".
 		this.age += delta;
 		if ( this.age < this.next_update ) { return; }
-		this.next_update = this.age + this.traits.update_freq;
+		this.next_update = this.age + this.traits.update_freq + ( Math.random() - 0.5 ); // statistically insignificant randomness to avoid visual sync;
 		// from here forward, the "delta" is actually the update_freq clock
 		delta = this.traits.update_freq;
 		

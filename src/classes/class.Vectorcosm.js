@@ -63,8 +63,8 @@ export default class Vectorcosm {
 		this.min_time_delta = 1/30;
 		this.max_foods = 500;
 		this.absolute_max_plants = 1000;
-		this.plant_update_freq = 1;
-		this.plant_update_next = 0;
+		this.plant_update_freq = 1; // needed to get "age" stats to tick up per second, but not technically required
+		this.plant_update_next = this.plant_update_freq;
 		this.obstacle_update_freq = 60;
 		this.obstacle_update_next = 0;
 		this.free_plant_growth = false;
