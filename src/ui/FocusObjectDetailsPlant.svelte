@@ -65,7 +65,7 @@
 
 	<div style="width:100%; margin-top:0.5em;">
 		<div class="meter">
-			{const lifecycle = (1-((plant.life_credits / plant.traits.life_credits)||0))*100}
+			{const lifecycle = $derived( (1-((plant.life_credits / plant.traits.life_credits)||0))*100 )}
 			<output>Life</output>
 			<div style="background-color:#1F60AC; height:100%; width:{lifecycle}%"></div>
 		</div>
@@ -74,7 +74,7 @@
 			<div style="background-color:#1F60AC; height:100%; width:{((plant.health)||0)*100}%"></div>
 		</div>
 		<div class="meter">
-			{const fruit_pct = (plant.metrics.fruit_threshold > 0 ? Math.min(1,(plant.fruit_credits / plant.metrics.fruit_threshold)||0) : 0)*100}
+			{const fruit_pct = $derived( (plant.metrics.fruit_threshold > 0 ? Math.min(1,(plant.fruit_credits / plant.metrics.fruit_threshold)||0) : 0)*100 )}
 			<output>Fruit</output>
 			<div style="background-color:#1F60AC; height:100%; width:{fruit_pct}%"></div>
 		</div>
@@ -111,9 +111,16 @@
 	<details>
 		<summary><h4 style="display:inline;">Traits</h4></summary>
 		<div>
-			<p>Food Complexity <output>{plant.traits.food_complexity}</output></p>
-			<p>Fruit <output>{plant.traits.fruit_num}</output> x <output>{plant.traits.fruit_size}</output></p>
-			<p>Risk Tolerance <output>{(plant.traits.risk_tolerance||0).toFixed(2)}</output></p>
+			<p>Life Credits: <output>{plant.traits.life_credits}</output></p>
+			<p>Fruit Cycle Credit Cost: 
+				<output>
+					{plant.traits.fruit_cycle_credit_cost.toFixed(0)} 
+					({((plant.traits.fruit_cycle_credit_cost / plant.traits.life_credits)*100).toFixed(2)}%)
+				</output>
+			</p>
+			<p>Food Complexity: <output>{plant.traits.food_complexity}</output></p>
+			<p>Fruit: <output>{plant.traits.fruit_num}</output> x <output>{plant.traits.fruit_size}</output></p>
+			<p>Risk Tolerance: <output>{(plant.traits.risk_tolerance||0).toFixed(2)}</output></p>
 			<p>
 				Light: 
 				<output>{(plant.traits.light_tolr||0).toFixed(2)}</output> @

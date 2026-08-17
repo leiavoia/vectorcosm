@@ -456,27 +456,8 @@ export default class Plant {
 			const growthBudget = this.reserve * saving_pct;
 			this.metrics.growthBudget = growthBudget;
 			
-			// maximum foliage we can support is based on core.
-			// it takes proportionally more core to support more foliage.
-			// TODO: could be genetic trait for higher maintenance tradeoff.
-			const max_foliage_scaler = 1.0;
-			const max_foliage = max_foliage_scaler * Math.pow( this.core, 0.75 );
-			
 			// Allocation growth priorities - blend of genetic factors, environment, and situational necessity
 			const priorities = this.CalcGrowthPriorities();
-			const idealCore = this.core * priorities.core;
-			// minIdealFoliage prevents a permanent zero-lock when foliage=0, otherwise
-			// it would be mathematically impossible to ever regrow foliage from zero.
-			const minIdealFoliage = 0.01;
-			const idealFoliage = Math.max(minIdealFoliage, Math.min((this.foliage + 0.01) * priorities.foliage, max_foliage));
-			priorities.foliage = idealFoliage / ( idealFoliage + this.foliage + 0.01 );
-			priorities.core = idealCore / ( idealCore + this.core + 0.01 );
-			
-			// normalize to 1.0
-			const total = priorities.core + priorities.foliage + priorities.fruit;
-			priorities.core /= total;
-			priorities.foliage /= total;
-			priorities.fruit /= total;
 			this.metrics.priorities_core = priorities.core;
 			this.metrics.priorities_foliage = priorities.foliage;
 			this.metrics.priorities_fruit = priorities.fruit;
@@ -620,8 +601,10 @@ export default class Plant {
 				else {
 					globalThis.vc.tank.AddWasteAt( this.x, this.y, this.fruit_credits );
 				}
+				// live fast, die young
+				this.SpendLifeCredits( this.traits.fruit_cycle_credit_cost );
 				// reset fruiting cycle
-				this.fruit_credits = 0; 
+				this.fruit_credits = 0;
 			}
 		}
 	}
@@ -750,6 +733,8 @@ export default class Plant {
 		this.traits.food_flavor = this.dna.mix( this.dna.genesFor('food flavor',2,1), 0, 1, 0.5, 4 ); // create more rarity
 		this.traits.update_freq = this.dna.shapedInt( this.dna.genesFor('update_freq',2,1), 3, 120, 4, 4 );
 		this.traits.life_credits = this.dna.shapedInt( this.dna.genesFor('life_credits',3,1), 1000, 10000, 3000, 2.2 );
+		const fruit_cycles = this.dna.shapedInt( this.dna.genesFor('fruit_cycles',1,1), 1, 100, 50, 6 );
+		this.traits.fruit_cycle_credit_cost = this.traits.life_credits / fruit_cycles;
 		this.traits.light_pref = this.dna.shapedNumber( this.dna.genesFor('light_pref',2,1), 0, 1 );
 		this.traits.light_tolr = this.dna.shapedNumber( this.dna.genesFor('light_tolr',2,1), 0, 1 );
 		this.traits.light_width = utils.MapToRange( this.traits.light_tolr, 0, 1, Plant.MIN_LIGHT_WIDTH, Plant.MAX_LIGHT_WIDTH );
@@ -865,30 +850,22 @@ export default class Plant {
 	
 	// Returns object with named percentages: { core: 0.5, foliage: 0.3, fruit: 0.2 }
 	CalcGrowthPriorities() {
-		// ENVIRONMENTAL DATA COLLECTION ----------------\/-------------------
+		
+		//  DATA COLLECTION ----------------\/-------------------
+		
 		const cell = globalThis.vc.tank.datagrid.CellAt( this.x, this.y );
 		
 		// Heat: how close are we to preference? 1=near, 0=far
-		const heat = 1 - Math.abs( cell.heat - this.traits.heat_pref );
-		
+		const heat = this.metrics.heatTolerance;
+					
 		// Light: how close are we to preference? 1=near, 0=far
-		const light = 1 - Math.abs( cell.light - this.traits.light_pref );
+		const light = this.metrics.lightEfficiency;
 		
-		// current foliage to core ratio
+		// current foliage to core ratio - can go negative
 		const foliage_ratio = 1 - this.foliage / this.core;
 		
 		// current life credits - use cosine to put 1 in the middle
 		const life_credits = 0.5 + 0.5 * Math.cos( ( this.life_credits / this.traits.life_credits ) * Math.PI * 2 + Math.PI );
-		
-		// age: we dont have a max age, so use a saturating function based on spitball number
-		const age = 1 - ( this.age * 0.001 ) / ( this.age * 0.001 + 1 );
-		
-		// friends: nearby plants competing for the same light/matter (crowding pressure).
-		// no hard upper limit, so curve to 1.
-		let friends = globalThis.vc.tank.grid.GetObjectsByCoords(this.x, this.y)
-			.filter(x => x.otype === 4 && x !== this)
-			.length;
-		friends = ( friends * 0.25 ) / ( ( friends * 0.25 ) + 1 );
 		
 		// enemies: nearby boids that may graze on foliage/fruit (predation pressure).
 		// no hard upper limit, so curve to 1.
@@ -900,9 +877,14 @@ export default class Plant {
 		// core development: how big are we?
 		const core_dev = 1 - ( this.core * 0.02 ) / ( this.core * 0.02 + 1 );
 		
+		// recent damage?
+		const recent_damage = this.metrics.damage > 0 ? 1 : 0;
+
+		
 		// CALCULATE WEIGHTS AND SOFTMAX ----------------\/-------------------
+		
 		const weights = this.traits.growth_weights;
-		const inputs = [ heat, light, foliage_ratio, life_credits, age, friends, enemies, core_dev ];
+		const inputs = [ heat, light, foliage_ratio, life_credits, recent_damage, this.metrics.neighbor_shade, enemies, core_dev ];
 		const rawScores = [0, 0, 0];
 
 		// Step 1: Accumulate raw scores
@@ -913,6 +895,12 @@ export default class Plant {
 			rawScores[2] += signal * weights[i*3+2]; // Fruit
 		}
 	
+		// Step 1.1: Emergency override when no foliage
+		if ( this.foliage <= 0 ) {
+			rawScores[1] = Math.abs(rawScores[1]) + 1;
+			rawScores[1] = rawScores[1] * rawScores[1];
+		}
+		
 		// Step 2: Numerical Stability Trick
 		// Find the maximum raw score and subtract it from all scores.
 		// This prevents JavaScript from hitting "Infinity" if raw scores get large.
