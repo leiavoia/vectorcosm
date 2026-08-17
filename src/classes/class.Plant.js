@@ -41,8 +41,7 @@ UPDATE LOOP (`Update(delta)`)
 9. `RecalcMassAndSize()` updates `mass`/`r`/collision radius from `core + foliage`.
 
 KEY METHODS
-- `CalcHealth()` — averages `light_health`/`heat_health` (each computed once from datagrid
-  distance-to-preference, then cached) into a smoothed `health` value.
+- `CalcHealth()` — computes the health value based on environment and status info.
 - `CalcGrowthPriorities()` — softmax over 8 signals (heat/light closeness, foliage:core ratio,
   life-credit phase, age, plant crowding, boid predation pressure, core development) weighted by
   DNA-derived `growth_weights`; returns `{core, foliage, fruit}` percentages.
@@ -110,10 +109,8 @@ export default class Plant {
 		this.core = 1; // core mass (roots, branches, trunk, etc)
 		this.foliage = 1; // foliage mass. edible. not counted as core mass.
 		this.fruit_credits = 0; // counts up from zero
-		this.health = 1;
 		this.dmg = 0; // accumulated damage, affects health
-		this.light_health = 0; // 0..1 - zero is a signal it needs to be computed
-		this.heat_health = 0; // 0..1
+		this.health = 1.0; // 0..1
 		this.svg_scale = 1.0;
 		this.svg_linewidth = 2;		
 		this.sense = new Array(15).fill(0);
@@ -671,8 +668,6 @@ export default class Plant {
 		this.foliage = this.core * utils.RandomFloat( 0.5, 1.5 );
 		this.reserve = utils.RandomFloat( 0, this.core );
 		this.health = 1;
-		this.light_health = 0;
-		this.heat_health = 0;
 		// head start on fruit cycle
 		const fruit_size = this.traits.fruit_size * this.health;
 		const fruit_threshold = this.traits.fruit_num * fruit_size;
