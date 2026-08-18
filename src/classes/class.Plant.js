@@ -776,8 +776,18 @@ export default class Plant {
 		this.density = this.traits.density; // this moves over time with environmental changes
 		this.traits.risk_tolerance = this.dna.shapedNumber( this.dna.genesFor('risk_tolerance',2,1), 0, 1 );
 		this.traits.point_jitter = this.dna.shapedNumber( this.dna.genesFor('point_jitter',1,1), 0.0, 0.5, 0.05, 2 );
-		this.traits.handle_offset_x = this.dna.shapedNumber( this.dna.genesFor('handle_offset_x',1,1), -1, 1, 0.0, 1 );
-		this.traits.handle_offset_y = this.dna.shapedNumber( this.dna.genesFor('handle_offset_y',1,1), -1, 1, 0.0, 1 );
+		this.traits.handle1_offset_x = this.dna.shapedNumber( this.dna.genesFor('handle1_offset_x',1,1), -1, 1, 0.0, 1 );
+		this.traits.handle1_offset_y = this.dna.shapedNumber( this.dna.genesFor('handle1_offset_y',1,1), -1, 1, 0.0, 1 );
+		// decide if we are symmetrical
+		const symmetrical = this.dna.shapedNumber( this.dna.genesFor('symmetrical',1,2), 0, 1 ) > 0.22;
+		if ( symmetrical ) { 
+			this.traits.handle2_offset_x = this.traits.handle1_offset_x;
+			this.traits.handle2_offset_y = -this.traits.handle1_offset_y;
+		}
+		else {
+			this.traits.handle2_offset_x = this.dna.shapedNumber( this.dna.genesFor('handle2_offset_x',1,1), -1, 1, 0.0, 1 );
+			this.traits.handle2_offset_y = this.dna.shapedNumber( this.dna.genesFor('handle2_offset_y',1,1), -1, 1, 0.0, 1 );
+		}
 		this.traits.cap = this.dna.shapedNumber( this.dna.genesFor('cap',2,1) ) > 0.6 ? 'round' : '';
 		// dashes work based on a genetic ramp: higher gene value provides more comb
 		const dash_max = Plant.BASE_SVG_RADIUS * 0.1;
@@ -1011,8 +1021,10 @@ export default class Plant {
 			// create anchors for each point that twist in fun ways.
 			// we apply the same handle adjustment to every point, radially.
 			const anchors = [];
-			const handle_x = radius * t.handle_offset_x;
-			const handle_y = radius * t.handle_offset_y;
+			const h1_start_x = radius * t.handle1_offset_x;
+			const h1_start_y = radius * t.handle1_offset_y;
+			const h2_start_x = radius * t.handle2_offset_x;
+			const h2_start_y = radius * t.handle2_offset_y;
 			for ( let i=0; i < points.length; i++ ) {
 				
 				// Get the angle of the point based on its x and y
@@ -1020,18 +1032,9 @@ export default class Plant {
 				const cos = Math.cos(angle);
 				const sin = Math.sin(angle);
 				
-				// Set base handles relative to anchor
-				const h1_start_x = handle_x;
-				const h1_start_y = handle_y;
-				// second handle mirrors the first - no asymmetry
-				const h2_start_x = handle_x;
-				const h2_start_y = -handle_y;
-				
-				// Rotate handle 1 (using original start variables)
+				// Rotate handles
 				const handle1_x = h1_start_x * cos - h1_start_y * sin;
 				const handle1_y = h1_start_x * sin + h1_start_y * cos;
-				
-				// Rotate handle 2 (using original start variables)
 				const handle2_x = h2_start_x * cos - h2_start_y * sin;
 				const handle2_y = h2_start_x * sin + h2_start_y * cos;
 				
