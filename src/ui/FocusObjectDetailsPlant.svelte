@@ -90,8 +90,9 @@
 			<div style="background-color:#3A8A3A; height:100%; width:{((plant.foliage / (plant.mass||1))||0)*100}%"></div>
 		</div>
 		<div class="meter">
-			<output>Reserve</output>
-			<div style="background-color:#B08A2A; height:100%; width:{(Math.min(1, plant.reserve / (plant.core||1)))*100}%"></div>
+			{const reserve_pct = $derived( (plant.reserve / (plant.mass||1))*100 ) }
+			<output>Reserve{#if reserve_pct > 100}+{/if}</output>
+			<div style="background-color:#B08A2A; height:100%; width:{reserve_pct}%"></div>
 		</div>
 	</div>
 

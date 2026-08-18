@@ -41,7 +41,7 @@ export default class Tank {
 	// waste is converted faster in cells with more waste ("half life" style).
 	// cell heat can adjust the base rate: higher heat increases the conversion speed.
 	// higher number = faster rate. values between 0.005 and 0.03 work well.
-	static WASTE_DECAY_BASE_RATE = 0.015; // +/- heat * mod
+	static WASTE_DECAY_BASE_RATE = 0.012; // +/- heat * mod
 	static WASTE_DECAY_HEAT_MOD = 0.25; // amount of base rate that heat can affect; 0..1; 0.25 works well (base +/- 25%)
 	
 	static backdrop_themes = [

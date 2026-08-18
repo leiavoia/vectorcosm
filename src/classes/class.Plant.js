@@ -89,6 +89,11 @@ export default class Plant {
 	static MIN_HEAT_WIDTH = 0.08; // narrowest possible heat niche (full specialist)
 	static MAX_HEAT_WIDTH = 0.80; // widest possible heat niche (full generalist)
 	static HEAT_NICHE_AREA = 0.60; // conserved gaussian area - adjust if specialists and generalists are not balanced
+	static CORE_PHOTOSYNTHESIS_COEF = 0.05; // minor green-stem photosynthesis so leafless plants aren't stuck at zero capacity
+	static FRUIT_MAINTENANCE_RATE = 0.0015; // per-tick upkeep tax on banked fruit_credits (rot/spoilage)
+	static CORE_MAINTENANCE_RATE = 0.0040;
+	static FOLIAGE_MAINTENANCE_RATE = 0.0100;
+	static RESERVE_OVERFLOW_TAX_RATE = 0.002; // quadratic carrying cost on reserve banked above max_reserve (tuber-style storage)
 	
 	constructor(params) {
 		// defaults
@@ -246,6 +251,7 @@ export default class Plant {
 		
 		// reset stats
 		for ( const key in this.metrics ) {
+			if ( key === 'damage' ) { continue; } // calculated in the rears
 			this.metrics[key] = 0;
 		}
 		
@@ -328,7 +334,13 @@ export default class Plant {
 		// Leaves collect energy. Represents a max cap on matter we can uptake.
 		// light intensity has diminishing returns on photosynthesis.
 		// eventually, maintenance outpaces ability to photosynthesize, even with kleiber's discount.
-		const photosyntheticCapacity = Math.pow( this.foliage, 0.5 ) * lightEfficiency;
+		// core also contributes a small trickle (green stem tissue) so leafless seedlings/stumps
+		// are never stuck at zero capacity while they're waiting to grow foliage.
+		const photosyntheticCapacity = lightEfficiency * ( 
+			Math.pow( this.foliage, 0.5 ) 
+			+ Plant.CORE_PHOTOSYNTHESIS_COEF 
+			* Math.pow( this.core, 0.5 ) 
+			);
 		this.metrics.photosyntheticCapacity = photosyntheticCapacity;
 		
 		// core size limits our storage capacity; this may change with genetic traits.
@@ -367,19 +379,20 @@ export default class Plant {
 		//====================================================
 		// Maintenance costs
 		//====================================================
+		
+		// Fruit maintenance: banked fruit_credits carry their own costs
+		const fruitMaint = this.fruit_credits <= 0 ? 0 : 
+			Math.min( this.fruit_credits, Plant.FRUIT_MAINTENANCE_RATE * this.fruit_credits * delta );
 
 		// Living tissue continually consumes stored reserve.
 		// Larger plants cost more.
-		// Hotter environments increase metabolism, regardless of heat preference. (use env heat stat)
-		const CoreMaintenanceRate = 0.004;
-		const FoliageMaintenanceRate = 0.01;
-		const coreMaint = CoreMaintenanceRate * this.core;
-		const foliageMaint = FoliageMaintenanceRate * this.foliage;
+		const coreMaint = Plant.CORE_MAINTENANCE_RATE * this.core;
+		const foliageMaint = Plant.FOLIAGE_MAINTENANCE_RATE * this.foliage;
 		let maint_exponent = 0.75; // kleiber's law - maintenance gets cheaper as plant gets larger
 		// heat stress flattens Kleiber's advantage: exponent approaches 1.0 in high heat.
 		// this makes larger plants disproportionately more expensive in warm climates.
 		maint_exponent = maint_exponent + (cell.heat * 0.15);
-		let maintenance = Math.pow( coreMaint + foliageMaint, maint_exponent ) * delta;
+		let maintenance = Math.pow( coreMaint + foliageMaint + fruitMaint, maint_exponent ) * delta;
 		this.metrics.maintenance = maintenance;
 		
 		// Respiration and decay returns matter to environment
@@ -389,7 +402,7 @@ export default class Plant {
 		// maintenance cost is the primary reducer of life_credits
 		this.SpendLifeCredits( maintenance );
 
-		
+
 		//====================================================
 		// Tissue starvation - reserve is negative; make up deficit via cannibalization
 		//====================================================
@@ -402,7 +415,6 @@ export default class Plant {
 			// that spend life points / hasten death instead of shrinking to nothing. 
 			
 			// TODO: how plants prioritize sacrifice can be genetic. for now, hardcoded priorities.
-			// NOTE: intentionally ignoring fruit for now
 			const foliage_priority = 0.7;
 			const core_priority = 0.3;
 			
@@ -412,6 +424,24 @@ export default class Plant {
 			// Plants should have the ability to get a hail mary and overdrive demand.
 			// We already have risk_tolerance, so this is a fine place to use it.
 			const demand = shortfall * ( 1 + this.traits.risk_tolerance ) * ( 1 + this.traits.risk_tolerance );
+			
+			// Fruit: abort fruit in very bad cases. all or nothing decision is made based on
+			// severity against risk tolerance. Fruit is dumped into waste.
+			if ( this.fruit_credits > 0 ) {
+				// severity is scaled against living tissue, not fruit_credits itself - otherwise a
+				// big fruit stash would mask its own crisis.
+				const severity = shortfall / ( this.mass + 0.01 );
+				// fruit close to its ripening threshold is sunk-cost protected: harder to abort
+				// the closer it is to paying off (mirrors the threshold math in MakeFruit()).
+				const fruit_threshold = this.traits.fruit_num * this.traits.fruit_size *
+					Math.sqrt( Math.min( 1.0, this.core / this.traits.fruit_size ) );
+				const progress = Math.min( 1, this.fruit_credits / fruit_threshold );
+				const threshold = ( 0.3 + 0.7 * this.traits.risk_tolerance ) * ( 0.5 + 0.5 * progress );
+				if ( severity > threshold ) {
+					globalThis.vc.tank?.AddWasteAt(this.x, this.y, this.fruit_credits);
+					this.fruit_credits = 0;
+				}
+			}
 			
 			// First pass: take priority amounts
 			let foliage_loss = Math.min(this.foliage, demand * foliage_priority);
@@ -430,7 +460,7 @@ export default class Plant {
 			// tissue mass converts directly into usable reserve
 			this.reserve += foliage_loss + core_loss;
 			// shrank to nothing - you died
-			if ( this.core <= 0.1 ) {
+			if ( this.core <= 0.5 ) {
 				this.Kill();
 				return;
 			}
@@ -473,12 +503,17 @@ export default class Plant {
 			// the cost of life is death
 			this.SpendLifeCredits( total_growth ) ;
 					
-			// reserve cannot end over capacity
+			// reserve above capacity isn't clipped outright - core acts as a comfortable baseline,
+			// but the plant can bank extra reserve like a tuber. Overflow leaks back to the soil at
+			// a quadratically-increasing rate the further past capacity it goes: mild carrying cost
+			// near the cap (slack storage), punishing once reserve balloons far beyond it.
 			if ( this.reserve > max_reserve ) {
-				const extra = this.reserve - max_reserve;
-				this.reserve -= extra;
-				cell.matter += extra; // return excess to the environment as matter not drawn instead of waste
-				this.metrics.excess_returned = extra;
+				const overflow = this.reserve - max_reserve;
+				const overflow_ratio = overflow / max_reserve;
+				const tax = Math.min( overflow, Plant.RESERVE_OVERFLOW_TAX_RATE * overflow * overflow_ratio * delta );
+				this.reserve -= tax;
+				cell.matter += tax; // return excess to the environment as matter not drawn instead of waste
+				this.metrics.excess_returned = tax;
 				// overdraft does not count against life credits
 			}
 			
