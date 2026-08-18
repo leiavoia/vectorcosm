@@ -74,12 +74,11 @@ import { createCircleCollider, createResult } from './collision.js';
 
 export default class Plant {
 	
-	static STIFFNESS = 20;
-	static MIN_STUMP_MASS = 300;
+	static STIFFNESS = 20; // collision circle outward force multiplier. higher number = stronger repulsion
+	static MIN_STUMP_MASS = 300; // only makes stumps if core + foliage greater than this
 	static PLANT_DECAY_SPEED = 0.08; // lower number = longer lifespan
-	static SHORTFALL_DMG_MOD = 7; // damage multiplier for reserve shortfall
-	static GRAZING_DMG_MOD = 3; // damage multiplier for grazing loss
-	static BASE_SVG_RADIUS = 300;
+	static SHORTFALL_DMG_MOD = 15; // damage multiplier for reserve shortfall
+	static BASE_SVG_RADIUS = 300; // defines the base SVG dimensions to scale the plant using svg.scale attribute
 	static GLOBAL_PLANT_SCALE = 15; // multiplies the area of all plants before determining final radius
 	static COSMETIC_FOLIAGE_BUFF = 1.3; // increase visual radius of foliage for better aesthetics even if math is wrong
 	static DRAW_FLOWERS = true; // toggle flower rendering. Non-flowers are simple geometric shapes.
@@ -247,8 +246,6 @@ export default class Plant {
 		
 		// reset stats
 		for ( const key in this.metrics ) {
-			// special exception for damage which accumulates
-			if ( key === "damage" ) { continue; }
 			this.metrics[key] = 0;
 		}
 		
@@ -438,7 +435,7 @@ export default class Plant {
 				return;
 			}
 			
-			// the original shortfall counts as damage to the plant indicates "stress"
+			// the original shortfall counts as damage to the plant indicating "stress"
 			this.dmg += shortfall * Plant.SHORTFALL_DMG_MOD;
 			this.metrics.damage = this.dmg;
 		}
@@ -530,11 +527,8 @@ export default class Plant {
 		if ( this.dead || this.foliage <= 0 ) { return 0; }
 		const eaten = Math.min( this.foliage, amount );
 		this.foliage -= eaten;
-		const dmg = eaten * Plant.GRAZING_DMG_MOD;
-		this.dmg += dmg;
 		this.RecalcMassAndSize();
 		this.metrics.eaten += eaten;
-		this.metrics.damage += dmg;
 		return eaten;
 	}
 	
