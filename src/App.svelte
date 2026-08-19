@@ -17,7 +17,7 @@
 	import Camera from './classes/class.Camera.svelte.js'
 	import Two from "two.js";
 	import * as SVGUtils from './util/svg.js'
-	import { parseSimParams } from './util/url-params.js'
+	import { parseSimParams, resolveInitialTankDimensions } from './util/url-params.js'
 	import { LoadUIState, SaveUIState } from './util/ui-state.js'
 	import { setContext } from 'svelte';
 	import {StatTracker, CompoundStatTracker} from './classes/class.StatTracker.js'
@@ -683,10 +683,17 @@
 		
 		// initialize the sim
 		const url_params = parseSimParams( new URLSearchParams(window.location.search) );
+		const viewportWidth = window.innerWidth || document.documentElement.clientWidth || globalThis.two?.width || 1920;
+		const viewportHeight = window.innerHeight || document.documentElement.clientHeight || globalThis.two?.height || 1080;
+		const fallbackWidth = (globalThis.two?.width || viewportWidth) * 2;
+		const fallbackHeight = (globalThis.two?.height || viewportHeight) * 2;
+		const initialTankSize = resolveInitialTankDimensions( url_params, viewportWidth, viewportHeight, fallbackWidth, fallbackHeight );
+		const hasExplicitSizingOverride = url_params.width !== undefined || url_params.height !== undefined || url_params.volume !== undefined;
 		const params = {
-			width:  url_params.width  ?? globalThis.two.width  * 2,
-			height: url_params.height ?? globalThis.two.height * 2,
-			...url_params
+			...url_params,
+			width: initialTankSize.width,
+			height: initialTankSize.height,
+			...(hasExplicitSizingOverride ? { lock_dimensions: true } : {}),
 		};
 		api.send('init',params);
 		gameloop.Start();		

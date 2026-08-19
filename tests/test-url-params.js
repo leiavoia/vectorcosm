@@ -2,7 +2,7 @@
 // test-url-params.js — Unit test for src/util/url-params.js
 // Run: node test-url-params.js
 
-import { parseSimParams, PARAM_SCHEMA, META_PARAM_TYPES } from '../src/util/url-params.js';
+import { parseSimParams, PARAM_SCHEMA, META_PARAM_TYPES, resolveInitialTankDimensions } from '../src/util/url-params.js';
 
 let passed = 0;
 let failed = 0;
@@ -68,6 +68,13 @@ console.log('\n--- parseSimParams: sim_queue comma list ---');
 	assert( 'sim_queue length = 3',  cfg.sim_queue.length, 3 );
 	assert( 'sim_queue[0]',          cfg.sim_queue[0], 'natural_tank' );
 	assert( 'sim_queue[2]',          cfg.sim_queue[2], 'combat' );
+}
+
+console.log('\n--- resolveInitialTankDimensions: volume override ---');
+{
+	const dims = resolveInitialTankDimensions({ volume: 4000000 }, 1600, 900, 3200, 1800);
+	assert( 'volume derives width/height from viewport aspect', dims.width, 2667 );
+	assert( 'volume derives matching height', dims.height, 1500 );
 }
 
 console.log('\n--- parseSimParams: speed string ---');

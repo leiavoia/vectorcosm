@@ -86,12 +86,13 @@ export default class Vectorcosm {
 				
 		// SET UP TANK -----------------\/-----------------
 		
-		const w = params?.width || 1920;
-		const h = params?.height || 1080;
+		const has_explicit_dimensions = params?.width !== undefined || params?.height !== undefined;
+		const w = params?.width ?? 1920;
+		const h = params?.height ?? 1080;
 		this.tank = new Tank( w, h );
 		this.tank.MakeBackground();
-		// if explicit pixel dimensions were given, prevent simulations from overriding them via volume-based resize
-		this.lock_dimensions = !!params?.lock_dimensions;
+		// if the caller explicitly requested a size override, prevent simulations from overriding it via volume-based resize
+		this.lock_dimensions = has_explicit_dimensions || !!params?.lock_dimensions;
 
 		// DETECT SIMULATION SETTINGS & PARAMS ------------------\/-----------------
 		

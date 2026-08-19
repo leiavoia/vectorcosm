@@ -22,6 +22,7 @@ export const PARAM_SCHEMA = {
 	// Tank dimensions (pixels)
 	width:        { type: 'int',          default: null,  desc: 'Tank width in pixels' },
 	height:       { type: 'int',          default: null,  desc: 'Tank height in pixels' },
+	volume:       { type: 'int',          default: null,  desc: 'Tank area in square pixels; used to derive width/height.' },
 	// Simulation preset
 	sim:          { type: 'string',       default: null,  desc: 'Simulation preset name (e.g. peaceful_tank, natural_tank)' },
 	// Queue of sim names run in sequence (comma-separated)
@@ -120,4 +121,42 @@ export function parseSimParams( searchParams ) {
 	}
 
 	return result;
+}
+
+export function resolveInitialTankDimensions( 
+	searchParams, viewportWidth, viewportHeight, fallbackWidth, fallbackHeight ) {
+	// defaults: 
+	if ( viewportWidth === undefined || viewportWidth === null ) { 
+		viewportWidth = (typeof window !== 'undefined') ? window?.innerWidth || 1920 : 1920;
+	}
+	if ( viewportHeight === undefined || viewportHeight === null ) {
+		viewportHeight = (typeof window !== 'undefined') ? window?.innerHeight || 1080 : 1080; 
+	}
+	if ( fallbackWidth === undefined || fallbackWidth === null ) { fallbackWidth = viewportWidth * 2; }
+	if ( fallbackHeight === undefined || fallbackHeight === null ) { fallbackHeight = viewportHeight * 2; }
+		
+	const params = searchParams instanceof URLSearchParams
+		? parseSimParams(searchParams)
+		: searchParams ?? {};
+
+	const resolvedViewportWidth = Number.isFinite(viewportWidth) && viewportWidth > 0 ? viewportWidth : 1920;
+	const resolvedViewportHeight = Number.isFinite(viewportHeight) && viewportHeight > 0 ? viewportHeight : 1080;
+	const baseAspect = (params?.width && params?.height)
+		? (params.width / params.height)
+		: (resolvedViewportWidth / resolvedViewportHeight);
+
+	const hasVolume = params?.volume !== undefined && params?.volume !== null;
+	if ( hasVolume ) {
+		const volume = Number(params.volume);
+		if ( Number.isFinite(volume) && volume > 0 ) {
+			const targetWidth = Math.max(1, Math.round(Math.sqrt(volume * baseAspect)));
+			const targetHeight = Math.max(1, Math.round(targetWidth / baseAspect));
+			return { width: targetWidth, height: targetHeight };
+		}
+	}
+
+	return {
+		width: params?.width ?? fallbackWidth,
+		height: params?.height ?? fallbackHeight,
+	};
 }
