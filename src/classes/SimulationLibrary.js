@@ -439,7 +439,7 @@ export default {
 		invasives: 5,
 		invasives_freq: 500,
 		matter_diffusion_freq: 80,
-		matter_diffusion_strength: 0.5,
+		matter_diffusion_strength: 0.25,
 		waste_cycle_freq: 30,
 		speciation_rate: 1/30,
 		autosave: 3600
@@ -468,7 +468,7 @@ export default {
 		invasives: 5,
 		invasives_freq: 500,
 		matter_diffusion_freq: 80,
-		matter_diffusion_strength: 0.5,
+		matter_diffusion_strength: 0.25,
 		waste_cycle_freq: 30,
 		speciation_rate: 1/30,
 		autosave: 3600
@@ -497,7 +497,7 @@ export default {
 		ignore_other_boids:false,
 		randomize_age:false,
 		matter_diffusion_freq: 80,
-		matter_diffusion_strength: 0.5,
+		matter_diffusion_strength: 0.25,
 		waste_cycle_freq: 30,
 	},
 			

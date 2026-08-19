@@ -41,7 +41,7 @@ export default class Tank {
 	// waste is converted faster in cells with more waste ("half life" style).
 	// cell heat can adjust the base rate: higher heat increases the conversion speed.
 	// higher number = faster rate. values between 0.005 and 0.03 work well.
-	static WASTE_DECAY_BASE_RATE = 0.012; // +/- heat * mod
+	static WASTE_DECAY_BASE_RATE = 0.010; // +/- heat * mod
 	static WASTE_DECAY_HEAT_MOD = 0.25; // amount of base rate that heat can affect; 0..1; 0.25 works well (base +/- 25%)
 	
 	static backdrop_themes = [
@@ -302,7 +302,7 @@ export default class Tank {
 			}
 		}
 		// diffuse temperatures
-		this.DiffuseStat('heat', 3, 0.5);
+		this.DiffuseStat('heat', 3, 0.5, 0.15); // somewhat subject to current flow
 		// normalize temperatures - this isnt necessary but makes for a guaranteed varied landscape
 		let highest_temp = 0;
 		let lowest_temp = 1;
@@ -329,7 +329,24 @@ export default class Tank {
 		this.DiffuseStat('matter', 1, 0.5);
 	}
 	
-	DiffuseStat( stat, reps=1, mixing_strength=1 ) {
+	// 8 compass neighbor offsets [dx,dy,ux,uy] - (dx,dy) = grid offset, (ux,uy) = unit direction (diagonals normalized)
+	static NEIGHBOR_DIRS = (() => {
+		const DIAG = Math.SQRT1_2;
+		return [
+			[-1,-1,-DIAG,-DIAG], [0,-1,0,-1], [1,-1,DIAG,-DIAG],
+			[-1, 0,-1,   0    ],               [1, 0, 1,   0  ],
+			[-1, 1,-DIAG, DIAG], [0, 1,0, 1 ], [1, 1,DIAG, DIAG],
+		];
+	})();
+
+	// internal sharpness multiplier mapping the public flow_bias (0..1) onto the softmax exponent.
+	// see DiffuseStat's flow_bias doc below for the math this feeds into.
+	static FLOW_BIAS_SCALE = 4;
+
+	// flow_bias: (0..1) Controls contribution of the current, 
+	// 0 = no bias / equal share, 1 = maximum bias.
+	// bias is scaled internally by FLOW_BIAS_SCALE (4) and not actual simulation current value
+	DiffuseStat( stat, reps=1, mixing_strength=1, flow_bias=0 ) {
 		if ( mixing_strength > 1 ) { mixing_strength = 1; }
 		else if ( mixing_strength <= 0 ) { mixing_strength = 0.01; }
 		for ( let rep=0; rep < reps; rep++ ) {
@@ -338,31 +355,42 @@ export default class Tank {
 			for ( let y=0; y < this.datagrid.cells_y; y++ ) { // by rows first
 				for ( let x=0; x < this.datagrid.cells_x; x++ ) {
 					const cell_index = this.datagrid.CellIndexFromXY( x, y );
-					if ( cell_index !== null ) {
-						const cell = this.datagrid.cells[cell_index];
-						const value = cell[stat];
-						const amount = value * mixing_strength;
-						const share = amount / 8;
-						const remain = value - amount;
-						new_vals[cell_index] += remain;
-						// loop over all neighbors
-						const leftmost = x == 0 ? x : x - 1;	
-						const rightmost = x == (this.datagrid.cells_x-1) ? (this.datagrid.cells_x-1) : x+1;	
-						const topmost = y == 0 ? y : y - 1;	
-						const bottommost = y == (this.datagrid.cells_y-1) ? (this.datagrid.cells_y-1) : y+1;
-						let num_contributors = 0;
-						for ( let ny=topmost; ny <= bottommost; ny++ ) {
-							for ( let nx=leftmost; nx <= rightmost; nx++ ) {
-								// no selfies
-								const neighbor_index = this.datagrid.CellIndexFromXY(nx,ny);
-								if ( neighbor_index === cell_index ) { continue; }
-								num_contributors++;
-								// mix
-								new_vals[neighbor_index] += share;
+					if ( cell_index === null ) { continue; }
+					const cell = this.datagrid.cells[cell_index];
+					const value = cell[stat];
+					const amount = value * mixing_strength;
+					const remain = value - amount;
+					new_vals[cell_index] += remain;
+					// compute per-direction weights (uniform unless flow_bias biases them toward the current)
+					let weights = null;
+					let weight_sum = 8;
+					if ( flow_bias ) {
+						const mag = Math.sqrt( cell.current_x * cell.current_x + cell.current_y * cell.current_y );
+						if ( mag > 0 ) {
+							const ux = cell.current_x / mag;
+							const uy = cell.current_y / mag;
+							const k = flow_bias * Tank.FLOW_BIAS_SCALE * mag;
+							weights = new Array(8);
+							weight_sum = 0;
+							for ( let d=0; d < 8; d++ ) {
+								const alignment = ux * Tank.NEIGHBOR_DIRS[d][2] + uy * Tank.NEIGHBOR_DIRS[d][3]; // -1..1, cosine of angle to current
+								const w = Math.exp( k * alignment );
+								weights[d] = w;
+								weight_sum += w;
 							}
 						}
-						// any non-shared value goes back to the origin
-						new_vals[cell_index] += share * ( 8 - num_contributors );
+					}
+					// distribute `amount` across the 8 potential neighbors;
+					// a share aimed off-grid (edges/corners) falls back to this cell, preserving the total
+					for ( let d=0; d < 8; d++ ) {
+						const share = amount * ( ( weights ? weights[d] : 1 ) / weight_sum );
+						const nx = x + Tank.NEIGHBOR_DIRS[d][0];
+						const ny = y + Tank.NEIGHBOR_DIRS[d][1];
+						if ( nx < 0 || ny < 0 || nx >= this.datagrid.cells_x || ny >= this.datagrid.cells_y ) {
+							new_vals[cell_index] += share;
+							continue;
+						}
+						new_vals[ this.datagrid.CellIndexFromXY(nx,ny) ] += share;
 					}
 				}
 			}
