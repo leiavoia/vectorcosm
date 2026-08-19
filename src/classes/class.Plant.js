@@ -626,8 +626,17 @@ export default class Plant {
 						if ( globalThis.vc.tank.plants.length < globalThis.vc.simulation.settings.num_plants ) {
 							// viability depends on health
 							if ( Math.random() < this.health ) {
+								// mutation scales by simulator setting and health.
+								// bad health (stress) causes increased mutation from genetic instability.
+								let mutagen = globalThis.vc.simulation.settings?.max_mutation || 0.1;
+								const stress_factor = ( 1 - this.health );
+								mutagen *= 1 + stress_factor; // increase mutation if health is low
+								// roll a number to see how many mutations we want
+								const max_mutations = mutagen * 10; // [!]arbitrary
+								const num_mutations = Math.floor(Math.random() * max_mutations);
+								const critical_chance = stress_factor * 0.1;
 								let seed = new DNA(	this.dna.str );
-								seed.mutate( 2, false );
+								seed.mutate( num_mutations, critical_chance );
 								f.seed = seed.str;
 								f.light_pref = this.traits.light_pref;
 								f.heat_pref = this.traits.heat_pref;

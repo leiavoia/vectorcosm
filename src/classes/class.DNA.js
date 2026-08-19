@@ -213,13 +213,15 @@ export default class DNA {
 	}
 	
 	mutate( num_mutations=1, protect_read_only_zone=true ) {
+		if ( num_mutations < 1 ) { return; }
 		// if protect_read_only_zone is true|false, stick with that.
 		// if it is a number between 0..1, interpret as a chance to flip from false->true.
+		// higher number means higher chance to flip.
 		if ( protect_read_only_zone !== true && protect_read_only_zone !== false ) {
 			let readonly_chance = Number.parseFloat(protect_read_only_zone);
 			if ( readonly_chance ) {
 				readonly_chance = utils.Clamp( readonly_chance, 0, 1 );
-				protect_read_only_zone = Math.random() < readonly_chance;
+				protect_read_only_zone = Math.random() > readonly_chance;
 			}
 		}
 		for ( let n = 0; n < num_mutations; n++ ) {

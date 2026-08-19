@@ -2361,7 +2361,7 @@ export class Boid extends PhysicsObject {
 			const max_dna_muts = 20;
 			b.dna.mutate( 
 				utils.RandomInt( 1, Math.ceil( max_dna_muts * dna_mutation ) ),
-				(1-speciation_chance)
+				speciation_chance
 			); 
 		}
 		// create the boid in full
