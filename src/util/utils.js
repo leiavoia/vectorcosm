@@ -63,22 +63,32 @@ export function hsl2rgb(h,s,l) {
 	return [f(0),f(8),f(4)];
 }
 
-// input: r,g,b in [0,1] -> output: hsl [0..1]
+// input: r,g,b in [0,255] or [0,1] -> output: hsl [0..1]
 export function rgb2hsl(r, g, b) {
-	const l = Math.max(r, g, b);
-	const s = l - Math.min(r, g, b);
-	const h = s
-		? l === r
-			? (g - b) / s
-			: l === g
-				? 2 + (b - r) / s
-				: 4 + (r - g) / s
-		: 0;
-	return [
-		(60 * h < 0 ? 60 * h + 360 : 60 * h)/360,
-		(s ? (l <= 0.5 ? s / (2 * l - s) : s / (2 - (2 * l - s))) : 0),
-		(2 * l - s) / 2,
-	];
+	const [nr, ng, nb] = [r, g, b].map( value => value > 1 ? value / 255 : value );
+	const max = Math.max(nr, ng, nb);
+	const min = Math.min(nr, ng, nb);
+	const l = (max + min) / 2;
+	let s = 0;
+	let h = 0;
+	if ( max !== min ) {
+		const delta = max - min;
+		s = delta / ( 1 - Math.abs( 2 * l - 1 ) );
+		switch ( max ) {
+			case nr:
+				h = ( ( ng - nb ) / delta ) / 6;
+				break;
+			case ng:
+				h = ( 2 + ( nb - nr ) / delta ) / 6;
+				break;
+			default:
+				h = ( 4 + ( nr - ng ) / delta ) / 6;
+				break;
+		}
+		if ( h < 0 ) { h += 1; }
+		if ( h > 1 ) { h -= 1; }
+	}
+	return [ h, s, l ];
 };
 
 	
