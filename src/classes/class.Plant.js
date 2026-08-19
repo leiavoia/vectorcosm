@@ -94,7 +94,9 @@ export default class Plant {
 	static CORE_MAINTENANCE_RATE = 0.0040;
 	static FOLIAGE_MAINTENANCE_RATE = 0.0100;
 	static RESERVE_OVERFLOW_TAX_RATE = 0.002; // quadratic carrying cost on reserve banked above max_reserve (tuber-style storage)
-	
+	static SENSE_SCALE_COEF = 0.20;
+	static SENSE_SCALE_EXP = 0.35; // produces reasonable numbers up to mass=10000 (very large plants)
+
 	constructor(params) {
 		// defaults
 		this.otype = 4; // numeric type tag for fast checks (1=Boid, 2=Food, 3=Rock, 4=Plant)
@@ -542,6 +544,14 @@ export default class Plant {
 		const foliage_radius_scaled = foliage_radius / scale;
 		this.svg_scale = scale;
 		this.svg_linewidth = foliage_radius_scaled * Plant.COSMETIC_FOLIAGE_BUFF;
+		// sensory data is greater for larger plants but with diminishing returns.
+		// sensory data is mostly based on FOLIAGE! denuded plants will not register high values.
+		const sense_mass = this.foliage + this.core * 0.1;
+		const sense_scale = Math.pow( sense_mass * Plant.SENSE_SCALE_COEF, Plant.SENSE_SCALE_EXP );
+		this.sense[2] = this.traits.base_sense_amplitudes[0] * sense_scale;
+		this.sense[5] = this.traits.base_sense_amplitudes[1] * sense_scale;
+		this.sense[8] = this.traits.base_sense_amplitudes[2] * sense_scale;
+		this.sense[11] = this.traits.base_sense_amplitudes[3] * sense_scale;
 	}
 	
 	Export( as_JSON=false ) {
@@ -858,14 +868,17 @@ export default class Plant {
 		// SENSORY INFO ---------------------\/-------------------------
 
 		// visual color
+		// NOTE: compressing the full range of colors into "plant space" means the visual color
+		// will almost always be in the general key of "green". This is not helpful for boids,
+		// even if it looks nice on the screen. Fortunately vision has a second dimension (texture).
 		let visual_color = this.traits.colors.find( c => c !== 'transparent' ) || '#FFFFFF';
 		visual_color = utils.HexColorToRGBArray( visual_color );
 		const _hsl = utils.rgb2hsl( visual_color[0], visual_color[1], visual_color[2] );
 		const _hue_angle = _hsl[0] * Math.PI * 2;
-		const _v_amp = Math.max( 0.05, _hsl[2] );
+		const _v1_amp = Math.max( 0.05, _hsl[2] );
 		this.sense[0] = Math.cos( _hue_angle ); // v1 cos
 		this.sense[1] = Math.sin( _hue_angle ); // v1 sin
-		this.sense[2] = 0.5 * _v_amp; // v1 amplitude
+		this.sense[2] = _v1_amp; // v1 amplitude
 		// visual texture
 		const _hue_angle2 = this.dna.shapedNumber( this.dna.genesFor('plant texture',2,1), 0, Math.PI*2, Math.PI, 1);
 		const _v2_amp   = this.dna.shapedNumber( this.dna.genesFor('plant texture amp',2,1), 0, 1, 0.5, 2 );
@@ -885,6 +898,8 @@ export default class Plant {
 		this.sense[10] = Math.sin( _s2_angle ); // s2 sin
 		this.sense[11] = _s2_amp; // s2 amplitude
 				
+		// because sense needs to scale with size, we need to save the base amplitudes separately
+		this.traits.base_sense_amplitudes = [ _v1_amp, _v2_amp, _s1_amp, _s2_amp ];				
 	}		
 	
 	// Returns object with named percentages: { core: 0.5, foliage: 0.3, fruit: 0.2 }

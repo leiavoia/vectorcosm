@@ -95,7 +95,7 @@
 			<div style="background-color:#B08A2A; height:100%; width:{reserve_pct}%"></div>
 		</div>
 	</div>
-
+	
 	<details open style="margin-top:0.5em;">
 		<summary><h4 style="display:inline;">Vitals</h4></summary>
 		<div>
@@ -139,6 +139,13 @@
 					{plant.traits.heat_pref > 0.67 ? 'Hot' : ( plant.traits.heat_pref < 0.33 ? 'Cold' : 'Neutral' )}
 					{plant.traits.heat_tolr > 0.67 ? 'Generalist' : ( plant.traits.heat_tolr < 0.33 ? 'Specialist' : 'Average' )}
 				</i>
+			</p>
+			<!-- 4 equal spaced boxes using dynamic hsl color backgrounds to represent sense -->
+			<p style="display:flex; gap:0.25em; margin-top: 0.25em;">
+				<span style="flex:1; height:1.5em; margin:0; display:flex; align-items:center; justify-content:center; background-color:hsl({plant.sense[0]*360}, 58%, {10 + plant.sense[1]*50}%);" title="{(plant.sense[0]*100).toFixed(0)}">Color</span>
+				<span style="flex:1; height:1.5em; margin:0; display:flex; align-items:center; justify-content:center; background-color:hsl({plant.sense[2]*360}, 58%, {10 + plant.sense[3]*50}%);" title="{(plant.sense[2]*100).toFixed(0)}">Texture</span>
+				<span style="flex:1; height:1.5em; margin:0; display:flex; align-items:center; justify-content:center; background-color:hsl({plant.sense[4]*360}, 58%, {10 + plant.sense[5]*50}%);" title="{(plant.sense[4]*100).toFixed(0)}">Smell</span>
+				<span style="flex:1; height:1.5em; margin:0; display:flex; align-items:center; justify-content:center; background-color:hsl({plant.sense[6]*360}, 58%, {10 + plant.sense[7]*50}%);" title="{(plant.sense[6]*100).toFixed(0)}">Hint</span>
 			</p>
 		</div>
 	</details>

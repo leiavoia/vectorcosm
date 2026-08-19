@@ -1190,6 +1190,18 @@ function DescribePlant( o ) {
 		r: o.r,
 		density: o.density,
 		traits: o.traits,
-		metrics: o.metrics
+		metrics: o.metrics,
+		// sense data: need to translate from native cos/sin combo to a single 0..1 value
+		// final result is 8 values instead of 16 (audio already excluded)
+		sense: [
+			( Math.atan2(o.sense[0], o.sense[1]) + Math.PI) / (2 * Math.PI),
+			( o.sense[2] / ( o.sense[2] + 3 ) ), // saturated amplitude
+			( Math.atan2(o.sense[3], o.sense[4]) + Math.PI) / (2 * Math.PI),
+			( o.sense[5] / ( o.sense[5] + 3 ) ), // saturated amplitude
+			( Math.atan2(o.sense[6], o.sense[7]) + Math.PI) / (2 * Math.PI),
+			( o.sense[8] / ( o.sense[8] + 3 ) ), // saturated amplitude
+			( Math.atan2(o.sense[9], o.sense[10]) + Math.PI) / (2 * Math.PI),
+			( o.sense[11] / ( o.sense[11] + 3 ) ) // saturated amplitude
+		]
 	};
 }
