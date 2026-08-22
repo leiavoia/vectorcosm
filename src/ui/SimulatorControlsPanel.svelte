@@ -2,7 +2,9 @@
 	import { LoadUIState, SaveUIState } from '../util/ui-state.js';
 
 	let { settings: settings_raw, onSettingsChanged, open=true } = $props();
-	open = LoadUIState('panel.simulator_controls.open', open, value => typeof value == 'boolean' ? value : open);
+	// LoadUIState is synchronous, so seed isOpen directly (open is only used as a fallback default, snapshotted once).
+	// svelte-ignore state_referenced_locally
+	let isOpen = $state(LoadUIState('panel.simulator_controls.open', open, value => typeof value == 'boolean' ? value : open));
 	
 	// get access to the app's innards so buttons can do something useful
 	import { getContext } from 'svelte';
@@ -33,7 +35,7 @@
 	});
 
 	$effect(() => {
-		SaveUIState('panel.simulator_controls.open', open);
+		SaveUIState('panel.simulator_controls.open', isOpen);
 	});
 
 	// let server know about our settings changes
@@ -95,18 +97,18 @@
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 	<header 
-		onclick={()=>open=!open}
+		onclick={()=>isOpen=!isOpen}
 		onkeydown={(event) => {
 			if ( event.key == 'Enter' || event.key == ' ' ) {
 				event.preventDefault();
-				open = !open;
+				isOpen = !isOpen;
 			}
 		}}
 		tabindex="0"
 	>
 		<h3>
 			Settings
-			{#if !open}
+			{#if !isOpen}
 				<small class="dim"> 
 					| B:{settings.num_boids}, 
 					Mut:{(settings.max_mutation*100).toFixed()}, 
@@ -116,7 +118,7 @@
 		</h3>
 	</header>
 	
-	{#if open}
+	{#if isOpen}
 		<div class="slider_block">
 			<label for="volume_slider">Tank Size:</label>
 			<input bind:value={settings.volume} onpointerdown={()=>dragging=true} onpointerup={()=>dragging=false} onchange={()=>CommitSettingChange('volume')} type="range" min="1000000" max="100000000" step="500000" id="volume_slider" />

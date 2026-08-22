@@ -2,10 +2,12 @@
 	import { LoadUIState, SaveUIState } from '../util/ui-state.js';
 
 	let {stats, open=true} = $props();
-	open = LoadUIState('panel.tank_stats.open', open, value => typeof value == 'boolean' ? value : open);
+	// LoadUIState is synchronous, so seed isOpen directly (open is only used as a fallback default, snapshotted once).
+	// svelte-ignore state_referenced_locally
+	let isOpen = $state(LoadUIState('panel.tank_stats.open', open, value => typeof value == 'boolean' ? value : open));
 
 	$effect(() => {
-		SaveUIState('panel.tank_stats.open', open);
+		SaveUIState('panel.tank_stats.open', isOpen);
 	});
 	 
 	function uppercaseFirstLetter ( str ) {
@@ -23,22 +25,22 @@
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 	<header 
-		onclick={()=>open=!open}
+		onclick={()=>isOpen=!isOpen}
 		onkeydown={(event) => {
 			if ( event.key == 'Enter' || event.key == ' ' ) {
 				event.preventDefault();
-				open = !open;
+				isOpen = !isOpen;
 			}
 		}}
 		tabindex="0"
 	>
 		<h3>Tank
-			{#if !open} 
+			{#if !isOpen}
 				<small class="dim"> | B:{stats.boids}, Sp:{stats.species}, Fd:{stats.foods}</small>
 			{/if}
 		</h3>
 	</header>
-	{#if open}
+	{#if isOpen}
 		<p>
 			{#each Object.entries(stats) as [k, v]}
 				{uppercaseFirstLetter(k)}: <output>{v.toLocaleString()}</output><br/>

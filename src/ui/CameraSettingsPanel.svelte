@@ -18,6 +18,9 @@
 	
 	// Layer descriptors: geo reference + local UI state (visible/opacity) mirror Two.js group props,
 	// which are not reactive. Local state is the source of truth for UI; we push to geo imperatively.
+	// $state deliberately snapshots camera.renderLayers once — this is a one-time seed, not a live view,
+	// so the state_referenced_locally warning below is a false positive.
+	// svelte-ignore state_referenced_locally
 	let layers = $state([
 		{name: 'bg', label: 'Background', geo:camera.renderLayers['bg'], visible:camera.renderLayers['bg'].visible, opacity: camera.renderLayers['bg'].opacity },
 		{name: 'boids', label: 'Boids', geo:camera.renderLayers['boids'], visible:camera.renderLayers['boids'].visible, opacity: camera.renderLayers['boids'].opacity },

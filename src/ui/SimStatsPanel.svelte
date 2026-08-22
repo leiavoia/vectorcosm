@@ -5,7 +5,9 @@
 	import { LoadUIState, SaveUIState } from '../util/ui-state.js';
 
 	let { stats, chartdata, open=true, roundCompleteToken=0 } = $props();
-	open = LoadUIState('panel.sim_stats.open', open, value => typeof value == 'boolean' ? value : open);
+	// LoadUIState is synchronous, so seed isOpen directly (open is only used as a fallback default, snapshotted once).
+	// svelte-ignore state_referenced_locally
+	let isOpen = $state(LoadUIState('panel.sim_stats.open', open, value => typeof value == 'boolean' ? value : open));
 	
 	let chartcanvas;
     let simulatorChart;
@@ -24,7 +26,7 @@
 	$effect(() => {
 		roundCompleteToken;
 		if ( simulatorChart ) { simulatorChart.update(); }
-		SaveUIState('panel.sim_stats.open', open);
+		SaveUIState('panel.sim_stats.open', isOpen);
 	});
 		
 	function MakeSimulatorChart( element, averages, highscores, labels=[] ) {
@@ -90,17 +92,17 @@
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 	<header 
-		onclick={()=>open=!open}
+		onclick={()=>isOpen=!isOpen}
 		onkeydown={(event) => {
 			if ( event.key == 'Enter' || event.key == ' ' ) {
 				event.preventDefault();
-				open = !open;
+				isOpen = !isOpen;
 			}
 		}}
 		tabindex="0"
 	>
 		<h3>Simulation
-			{#if !open} 
+			{#if !isOpen} 
 				<small class="dim">
 					{#if stats.settings.timeout}
 						| {stats.round_num}/{stats.settings.rounds||'∞'}
@@ -113,7 +115,7 @@
 		</h3>
 	</header>
 	<!-- note: we can't remove this from the dom because the chart needs to remain available for updates even when hidden -->
-	<div style="display: {open ? 'block' : 'none'}">
+	<div style="display: {isOpen ? 'block' : 'none'}">
 		<p><output>{stats.name}</output></p>
 		
 		Time: <output id="sim_time_output">{stats.round_time.toFixed(1)}</output>

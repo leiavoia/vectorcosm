@@ -5,7 +5,9 @@
 	
 	const api = getContext('api');
 	let { open=true, refreshToken=0 } = $props();
-	open = LoadUIState('panel.boid_library.open', open, value => typeof value == 'boolean' ? value : open);
+	// LoadUIState is synchronous, so seed isOpen directly (open is only used as a fallback default, snapshotted once).
+	// svelte-ignore state_referenced_locally
+	let isOpen = $state(LoadUIState('panel.boid_library.open', open, value => typeof value == 'boolean' ? value : open));
 
 	let rows = $state([]);
 	let order_by = 'date';
@@ -142,7 +144,7 @@
 	});
 
 	$effect(() => {
-		SaveUIState('panel.boid_library.open', open);
+		SaveUIState('panel.boid_library.open', isOpen);
 	});
 
 	$effect(() => {
@@ -183,11 +185,11 @@
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 	<header 
-		onclick={()=>open=!open}
+		onclick={()=>isOpen=!isOpen}
 		onkeydown={(event) => {
 			if ( event.key == 'Enter' || event.key == ' ' ) {
 				event.preventDefault();
-				open = !open;
+				isOpen = !isOpen;
 			}
 		}}
 		tabindex="0"
@@ -198,7 +200,7 @@
 			<!-- {/if} -->
 		</h3>
 	</header>
-	{#if open}
+	{#if isOpen}
 		<div class="button_rack">
 			<button class={{ghost: !num_selected}} onclick={AddSelectedRowsToTank}>Add To Tank</button>
 			<button class={{ghost: !num_selected}} onclick={ToggleFavoriteSelectedRows}>Favorite</button>

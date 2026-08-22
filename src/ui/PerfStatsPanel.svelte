@@ -5,7 +5,9 @@
 	
 	// expect a compound stat tracker as a property of the element
 	let {tracker, open=true} = $props();
-	open = LoadUIState('panel.perf_stats.open', open, value => typeof value == 'boolean' ? value : open);
+	// LoadUIState is synchronous, so seed isOpen directly (open is only used as a fallback default, snapshotted once).
+	// svelte-ignore state_referenced_locally
+	let isOpen = $state(LoadUIState('panel.perf_stats.open', open, value => typeof value == 'boolean' ? value : open));
 	
 	// pick up stats from the tracker and plug them into a dedicated list of display data
 	let stats = $state({});
@@ -25,7 +27,7 @@
 	})	
 
 	$effect(() => {
-		SaveUIState('panel.perf_stats.open', open);
+		SaveUIState('panel.perf_stats.open', isOpen);
 	});
 	 
 	function uppercaseFirstLetter ( str ) {
@@ -43,17 +45,17 @@
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 	<header 
-		onclick={()=>open=!open}
+		onclick={()=>isOpen=!isOpen}
 		onkeydown={(event) => {
 			if ( event.key == 'Enter' || event.key == ' ' ) {
 				event.preventDefault();
-				open = !open;
+				isOpen = !isOpen;
 			}
 		}}
 		tabindex="0"
 	>
 		<h3>Performance
-			{#if !open && Object.entries(stats).length} 
+			{#if !isOpen && Object.entries(stats).length} 
 				<small class="dim"> 
 					 | FPS:{stats.fps[1].toFixed()},
 					S:{(stats.simtime[1] * 1000).toFixed()},
@@ -63,7 +65,7 @@
 			{/if}
 		</h3>
 	</header>
-	{#if open && Object.entries(stats).length}
+	{#if isOpen && Object.entries(stats).length}
 		<p>
 			FPS: <output>{stats.fps[1].toFixed()}</output><br/>
 			Delta: <output>{(stats.delta[1] * 1000).toFixed()}</output><br/>

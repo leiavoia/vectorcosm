@@ -5,7 +5,9 @@
 	
 	const api = getContext('api');
 	let { camera, open=true, refreshToken=0 } = $props();
-	open = LoadUIState('panel.tank_library.open', open, value => typeof value == 'boolean' ? value : open);
+	// LoadUIState is synchronous, so seed isOpen directly (open is only used as a fallback default, snapshotted once).
+	// svelte-ignore state_referenced_locally
+	let isOpen = $state(LoadUIState('panel.tank_library.open', open, value => typeof value == 'boolean' ? value : open));
 
 	let rows = $state([]);
 	let order_by = 'date';
@@ -98,7 +100,7 @@
 	});
 
 	$effect(() => {
-		SaveUIState('panel.tank_library.open', open);
+		SaveUIState('panel.tank_library.open', isOpen);
 	});
 	
 </script>
@@ -139,11 +141,11 @@
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 	<header 
-		onclick={()=>open=!open}
+		onclick={()=>isOpen=!isOpen}
 		onkeydown={(event) => {
 			if ( event.key == 'Enter' || event.key == ' ' ) {
 				event.preventDefault();
-				open = !open;
+				isOpen = !isOpen;
 			}
 		}}
 		tabindex="0"
@@ -152,7 +154,7 @@
 			<small class="dim"> | {rows.length}</small>
 		</h3>
 	</header>
-	{#if open}
+	{#if isOpen}
 		<div class="button_rack">
 			<button onclick={SaveTank}>Save</button>
 			<button class={{ghost: !selected_row}} onclick={LoadTank}>Load</button>

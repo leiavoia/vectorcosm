@@ -148,7 +148,12 @@
 	// ── Reactive State ─────────────────────────────────────────────────────────
 
 	// bg_theme initialized from current active theme, not saved state
-	let bg_theme = $state(classToName(themeClass));
+	let bg_theme = $state("Deepwater");
+	
+	// Sync bg_theme when themeClass prop changes
+	$effect(() => {
+		bg_theme = classToName(themeClass);
+	});
 	let bg_theme_rnd = $state(savedValue("bg_theme_rnd", false));
 
 	let fit_screen = $state(savedValue("fit_screen", true));

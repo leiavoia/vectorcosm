@@ -5,7 +5,9 @@
 	import { LoadUIState, SaveUIState } from '../util/ui-state.js';
 	
 	let {records, open=true} = $props();
-	open = LoadUIState('panel.records.open', open, value => typeof value == 'boolean' ? value : open);
+	// LoadUIState is synchronous, so seed isOpen directly (open is only used as a fallback default, snapshotted once).
+	// svelte-ignore state_referenced_locally
+	let isOpen = $state(LoadUIState('panel.records.open', open, value => typeof value == 'boolean' ? value : open));
 	
 	let chartcanvas;
     let simulatorChart;
@@ -56,7 +58,7 @@
 	})	
 
 	$effect(() => {
-		SaveUIState('panel.records.open', open);
+		SaveUIState('panel.records.open', isOpen);
 	});
 
 	$effect(() => {
@@ -303,7 +305,7 @@
 		onkeydown={(event) => {
 			if ( event.key == 'Enter' || event.key == ' ' ) {
 				event.preventDefault();
-				open = !open;
+				isOpen = !isOpen;
 			}
 		}}
 		tabindex="0"
@@ -311,7 +313,7 @@
 		<h3>Records</h3>
 	</header>
 	<!-- note: we can't remove this from the dom because the chart needs to remain available for updates even when hidden -->
-	<div style="display: {open ? 'block' : 'none'}">
+	<div style="display: {isOpen ? 'block' : 'none'}">
 		<div class="button_rack">
 			<button onclick={()=>SwitchLayer(0)} class={{outline:layerOnDisplay!==0}}>Short</button>
 			<button onclick={()=>SwitchLayer(1)} class={{outline:layerOnDisplay!==1}}>Medium</button>
